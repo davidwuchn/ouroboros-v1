@@ -1,0 +1,22 @@
+{:deps {;; Engine (∅) -> substrate: explicit, queryable state machines
+        com.fulcrologic/statecharts                   {:mvn/version "1.2.25"}
+        ;; Query + Graph: EQL interface to everything
+        com.wsscode/pathom3                           {:mvn/version "2025.01.16-alpha"}
+        ;; API: OpenAPI specs -> callable clients
+        com.github.oliyh/martian-babashka-http-client {:mvn/version "0.2.1"}
+        org.babashka/http-client                      {:mvn/version "0.4.23"}}
+
+ :paths ["src"]
+
+ :tasks
+ {:requires ([clojure.string :as str]
+             [babashka.process :refer [shell process]])
+  ;; ==========================================================================
+  ;; Core Tasks
+  ;; ==========================================================================
+  ;; nREPL convention: port 8888 (use 888X for parallel playthroughs)
+
+  boot
+  {:doc "no boot task yet"
+   :task (do (println "New app, there is no Interface."))
+  }}}
