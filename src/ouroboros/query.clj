@@ -8,7 +8,8 @@
    [com.wsscode.pathom3.connect.operation :as pco]
    [com.wsscode.pathom3.connect.indexes :as pci]
    [ouroboros.engine :as engine]
-   [ouroboros.history :as history]))
+   [ouroboros.history :as history]
+   [ouroboros.introspection :as intro]))
 
 ;; ============================================================================
 ;; Resolvers - Exposing Engine state as graph nodes
@@ -42,7 +43,8 @@
            system-status-resolver
            system-healthy
            system-meta]
-          history/resolvers))
+          history/resolvers
+          intro/resolvers))
 
 (defn create-env
   "Create a Pathom environment with all resolvers"
