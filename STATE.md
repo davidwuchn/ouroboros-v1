@@ -11,7 +11,8 @@
 | Query | ✓ Active | Pathom EQL interface exposed |
 | Interface | ✓ Ready | Unified boot/shutdown via `ouroboros.interface` |
 | nREPL | ✓ Port 8888 | Auto-boots system on connect |
-| **History** | **✓ New** | **Git resolvers for commits, status, branches** |
+| History | ✓ Active | Git resolvers for commits, status, branches |
+| **Introspection** | **✓ New** | **Engine queries its own statechart** |
 
 **Verified Working:**
 ```clojure
@@ -24,6 +25,16 @@
 (iface/q [{:git/commits [:git/hash :git/subject]} :git/status])
 => {:git/commits [{:git/hash "...", :git/subject "..."} ...]
     :git/status {:status/branch "main", :status/clean? false}}
+
+;; Introspection queries
+(iface/q [:introspection/configuration :introspection/available-events])
+=> {:introspection/configuration [:ouroboros.engine/running :ouroboros.engine/system]
+    :introspection/available-events ["stop"]}
+
+;; Combined
+(iface/q [:system/healthy? 
+          {:introspection/states [:state/id]}
+          {:git/commits [:git/hash]}])
 ```
 
 ## Current Capabilities
@@ -65,14 +76,14 @@ In REPL:
 ## Git State
 
 - Branch: `main`
-- Ahead of origin: 2 commits
-- Latest: `94947e1` — ⚒ λ Boot system: Engine (∅) + Query (EQL) + Interface
+- Ahead of origin: 9 commits
+- Latest: `406d91b` — ◈ Add Introspection capability - Engine queries itself
 
 ## Known Gaps / Next Steps
 
-1. **History** — Git resolvers for commit history, diffs
-2. **Knowledge** — File system as queryable graph
-3. **Introspection** — Engine queries Engine (meta-statecharts)
+1. ~~**History** — Git resolvers for commit history, diffs~~ ✓ Done
+2. ~~**Introspection** — Engine queries Engine (meta-statecharts)~~ ✓ Done
+3. **Knowledge** — File system as queryable graph
 4. **Memory** — Cross-session persistence
 5. **API** — OpenAPI integration via Martian
 
