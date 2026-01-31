@@ -11,12 +11,19 @@
 | Query | ✓ Active | Pathom EQL interface exposed |
 | Interface | ✓ Ready | Unified boot/shutdown via `ouroboros.interface` |
 | nREPL | ✓ Port 8888 | Auto-boots system on connect |
+| **History** | **✓ New** | **Git resolvers for commits, status, branches** |
 
 **Verified Working:**
 ```clojure
+;; System queries
 (iface/q [:system/status])
 => {:system/status {:state #{:running :system}, :running? true, :ready? true},
     :system/healthy? true}
+
+;; Git queries  
+(iface/q [{:git/commits [:git/hash :git/subject]} :git/status])
+=> {:git/commits [{:git/hash "...", :git/subject "..."} ...]
+    :git/status {:status/branch "main", :status/clean? false}}
 ```
 
 ## Current Capabilities
