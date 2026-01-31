@@ -12,6 +12,13 @@
 | Interface | ✓ Ready | Unified boot/shutdown via `ouroboros.interface` |
 | nREPL | ✓ Port 8888 | Auto-boots system on connect |
 
+**Verified Working:**
+```clojure
+(iface/q [:system/status])
+=> {:system/status {:state #{:running :system}, :running? true, :ready? true},
+    :system/healthy? true}
+```
+
 ## Current Capabilities
 
 ### Engine
