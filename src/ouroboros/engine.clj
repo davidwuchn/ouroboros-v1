@@ -64,14 +64,17 @@
   []
   (when-not @system-instance
     (println "⊢ Creating Engine session...")
-    (let [{:keys [env session] :as inst} (create-session)
+    (let [{:keys [env] :as inst} (create-session)
           processor (::sc/processor env)]
       (reset! system-instance inst)
-      ;; Trigger initialization
-      (sp/process-event! processor env session (new-event ::initialize))
-      (Thread/sleep 50) ;; Allow transition
-      (sp/process-event! processor env session (new-event ::initialized))
-      inst)))
+      ;; Trigger initialization - capture returned session with updated state
+      (let [session-after-init (sp/process-event! processor env (:session inst) (new-event ::initialize))]
+        (Thread/sleep 50) ;; Allow transition
+        (let [session-running (sp/process-event! processor env session-after-init (new-event ::initialized))]
+          ;; Update the instance with final session
+          (swap! system-instance assoc :session session-running)
+          (println "✓ Engine: running")
+          @system-instance)))))
 
 (defn stop!
   "Stop the Engine"
@@ -88,10 +91,8 @@
 (defn current-state
   "Get the current system state from the statechart"
   []
-  (when-let [{:keys [env]} @system-instance]
-    (let [wmem-store (::sc/working-memory-store env)
-          wmem (get @wmem-store ::ouroboros)]
-      (::sc/configuration wmem))))
+  (when-let [{:keys [session]} @system-instance]
+    (::sc/configuration session)))
 
 (defn system-status
   "Human-readable status"
