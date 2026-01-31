@@ -7,7 +7,8 @@
    [com.wsscode.pathom3.interface.eql :as p.eql]
    [com.wsscode.pathom3.connect.operation :as pco]
    [com.wsscode.pathom3.connect.indexes :as pci]
-   [ouroboros.engine :as engine]))
+   [ouroboros.engine :as engine]
+   [ouroboros.history :as history]))
 
 ;; ============================================================================
 ;; Resolvers - Exposing Engine state as graph nodes
@@ -37,10 +38,11 @@
 ;; ============================================================================
 
 (def resolvers
-  [system-state
-   system-status-resolver
-   system-healthy
-   system-meta])
+  (concat [system-state
+           system-status-resolver
+           system-healthy
+           system-meta]
+          history/resolvers))
 
 (defn create-env
   "Create a Pathom environment with all resolvers"
