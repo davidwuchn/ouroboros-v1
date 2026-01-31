@@ -18,5 +18,15 @@
 
   boot
   {:doc "no boot task yet"
-   :task (do (println "New app, there is no Interface."))
-  }}}
+   :task (do (println "New app, there is no Interface."))}
+
+  nrepl
+  {:doc "Start nREPL on port 8888 with system libs pre-loaded"
+   :requires ([babashka.nrepl.server :as nrepl]
+              [com.wsscode.pathom3.interface.eql :as p.eql]
+              [com.fulcrologic.statecharts :as sc])
+   :task (do (println "◈ Starting nREPL on port 8888...")
+             (println "  Pre-loaded: pathom3, statecharts")
+             (nrepl/start-server! {:host "localhost"
+                                   :port 8888})
+             (deref (promise)))}}}
