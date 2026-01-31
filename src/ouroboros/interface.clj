@@ -1,13 +1,15 @@
 (ns ouroboros.interface
-  "Interface - Engine (∅) + Query + Graph
+  "Interface - Engine (∅) + Query + Graph + Memory
    
    The unified system surface. Boot sequence:
    1. Start statechart (Engine)
    2. Initialize Pathom (Query)
-   3. Expose via nREPL"
+   3. Load Memory
+   4. Expose via nREPL"
   (:require
    [ouroboros.engine :as engine]
-   [ouroboros.query :as query]))
+   [ouroboros.query :as query]
+   [ouroboros.memory :as memory]))
 
 ;; ============================================================================
 ;; Lifecycle
@@ -18,19 +20,24 @@
    
    Sequence:
    - Engine: Create statechart session, transition to :running
-   - Query: Initialize Pathom environment with Engine resolvers"
+   - Query: Initialize Pathom environment with all resolvers
+   - Memory: Load persisted memory from disk"
   []
   (println "========================================")
   (println "  Ouroboros System Boot")
   (println "========================================")
 
   ;; Step 1: Engine
-  (println "\n[1/2] Starting Engine (∅)...")
+  (println "\n[1/3] Starting Engine (∅)...")
   (engine/boot!)
 
   ;; Step 2: Query
-  (println "\n[2/2] Initializing Query interface...")
+  (println "\n[2/3] Initializing Query interface...")
   (query/init!)
+
+  ;; Step 3: Memory
+  (println "\n[3/3] Loading Memory...")
+  (memory/init!)
 
   ;; Verification
   (println "\n========================================")
@@ -58,6 +65,27 @@
   "Query the system (after boot)"
   [query]
   (query/q query))
+
+(defn remember
+  "Save a value to memory
+   
+   Usage: (remember :my-key \"my value\")"
+  [key value]
+  (memory/save-value! key value))
+
+(defn recall
+  "Get a value from memory
+   
+   Usage: (recall :my-key)"
+  [key]
+  (memory/get-value key))
+
+(defn forget
+  "Delete a value from memory
+   
+   Usage: (forget :my-key)"
+  [key]
+  (memory/delete-value! key))
 
 (defn status
   "Current system status"

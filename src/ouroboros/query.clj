@@ -9,7 +9,8 @@
    [com.wsscode.pathom3.connect.indexes :as pci]
    [ouroboros.engine :as engine]
    [ouroboros.history :as history]
-   [ouroboros.introspection :as intro]))
+   [ouroboros.introspection :as intro]
+   [ouroboros.memory :as memory]))
 
 ;; ============================================================================
 ;; Resolvers - Exposing Engine state as graph nodes
@@ -38,18 +39,20 @@
 ;; Environment - The queryable interface
 ;; ============================================================================
 
-(def resolvers
+(def all-resolvers
   (concat [system-state
            system-status-resolver
            system-healthy
            system-meta]
           history/resolvers
-          intro/resolvers))
+          intro/resolvers
+          memory/resolvers))
 
 (defn create-env
-  "Create a Pathom environment with all resolvers"
+  "Create a Pathom environment with all resolvers and mutations"
   []
-  (pci/register resolvers))
+  (-> (pci/register all-resolvers)
+      (pci/register memory/mutations)))
 
 (defonce ^:private query-env (atom nil))
 
@@ -68,6 +71,14 @@
   [query]
   (when-let [env @query-env]
     (p.eql/process env query)))
+
+(defn m
+  "Execute a mutation on the system
+   
+   Usage: (m 'memory/save! {:memory/key :foo :memory/value \"bar\"})"
+  [mutation params]
+  (when-let [env @query-env]
+    (p.eql/process env [(list mutation params)])))
 
 ;; ============================================================================
 ;; Convenience Queries
