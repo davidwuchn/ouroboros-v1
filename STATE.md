@@ -12,7 +12,8 @@
 | Interface | ✓ Ready | Unified boot/shutdown via `ouroboros.interface` |
 | nREPL | ✓ Port 8888 | Auto-boots system on connect |
 | History | ✓ Active | Git resolvers for commits, status, branches |
-| **Introspection** | **✓ New** | **Engine queries its own statechart** |
+| Introspection | ✓ Active | Engine queries its own statechart |
+| **Memory** | **✓ New** | **Cross-session persistence via EDN** |
 
 **Verified Working:**
 ```clojure
@@ -31,10 +32,21 @@
 => {:introspection/configuration [:ouroboros.engine/running :ouroboros.engine/system]
     :introspection/available-events ["stop"]}
 
+;; Introspection queries
+(iface/q [:introspection/configuration :introspection/available-events])
+=> {:introspection/configuration [:ouroboros.engine/running :ouroboros.engine/system]
+    :introspection/available-events ["stop"]}
+
+;; Memory queries
+(iface/remember :my-key "my-value")
+(iface/recall :my-key) => "my-value"
+(iface/q [{:memory/all [:memory/key :memory/value]}])
+
 ;; Combined
 (iface/q [:system/healthy? 
           {:introspection/states [:state/id]}
-          {:git/commits [:git/hash]}])
+          {:git/commits [:git/hash]}
+          :memory/keys])
 ```
 
 ## Current Capabilities
@@ -76,15 +88,15 @@ In REPL:
 ## Git State
 
 - Branch: `main`
-- Ahead of origin: 9 commits
-- Latest: `406d91b` — ◈ Add Introspection capability - Engine queries itself
+- Ahead of origin: 10 commits
+- Latest: `571b3f4` — ∿ Add Memory capability - Cross-session persistence
 
 ## Known Gaps / Next Steps
 
 1. ~~**History** — Git resolvers for commit history, diffs~~ ✓ Done
 2. ~~**Introspection** — Engine queries Engine (meta-statecharts)~~ ✓ Done
-3. **Knowledge** — File system as queryable graph
-4. **Memory** — Cross-session persistence
+3. ~~**Memory** — Cross-session persistence~~ ✓ Done
+4. **Knowledge** — File system as queryable graph
 5. **API** — OpenAPI integration via Martian
 
 ## Active Decisions
