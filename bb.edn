@@ -17,16 +17,23 @@
   ;; nREPL convention: port 8888 (use 888X for parallel playthroughs)
 
   boot
-  {:doc "no boot task yet"
-   :task (do (println "New app, there is no Interface."))}
+  {:doc "Boot the Ouroboros system (Engine + Query)"
+   :requires ([ouroboros.interface :as iface])
+   :task (do (println "◈ Booting Ouroboros system...")
+             (iface/boot!)
+             (println "\n✓ System ready")
+             (println "  Query: (iface/q [:system/status])")
+             (println "  Status: (iface/status)"))}
 
   nrepl
-  {:doc "Start nREPL on port 8888 with system libs pre-loaded"
+  {:doc "Start nREPL on port 8888 with system pre-booted"
    :requires ([babashka.nrepl.server :as nrepl]
-              [com.wsscode.pathom3.interface.eql :as p.eql]
-              [com.fulcrologic.statecharts :as sc])
-   :task (do (println "◈ Starting nREPL on port 8888...")
-             (println "  Pre-loaded: pathom3, statecharts")
+              [ouroboros.interface :as iface])
+   :task (do (println "◈ Booting system...")
+             (iface/boot!)
+             (println "◈ Starting nREPL on port 8888...")
+             (println "  Pre-loaded: ouroboros.interface")
+             (println "  Try: (iface/q [:system/status])")
              (nrepl/start-server! {:host "localhost"
                                    :port 8888})
              (deref (promise)))}}}
