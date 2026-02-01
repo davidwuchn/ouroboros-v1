@@ -17,7 +17,9 @@
    - ouroboros.interface.agent - agent-*
    - ouroboros.interface.auth - auth-*
    - ouroboros.interface.dashboard - dashboard-*
-   - ouroboros.interface.config - load-config! get-config config-summary"
+   - ouroboros.interface.config - load-config! get-config config-summary
+   - ouroboros.interface.lane - lane-create! lane-submit! with-session-lane
+   - ouroboros.interface.context-guard - context-check! context-count-tokens"
   (:require
    [ouroboros.interface.lifecycle :as lifecycle]
    [ouroboros.interface.query :as query]
@@ -32,7 +34,9 @@
    [ouroboros.interface.agent :as agent]
    [ouroboros.interface.auth :as auth]
    [ouroboros.interface.dashboard :as dashboard]
-   [ouroboros.interface.config :as config]))
+   [ouroboros.interface.config :as config]
+   [ouroboros.interface.lane :as lane]
+   [ouroboros.interface.context-guard :as context-guard]))
 
 ;; ============================================================================
 ;; Lifecycle
@@ -303,6 +307,66 @@
 (def config-summary
   "Get configuration summary (safe to log)"
   config/config-summary)
+
+;; ============================================================================
+;; Lane-based Execution (P0 — Clawd-inspired)
+;; ============================================================================
+
+(def lane-create!
+  "Create a new lane for serialized execution"
+  lane/lane-create!)
+
+(def lane-submit!
+  "Submit command to a lane"
+  lane/lane-submit!)
+
+(def lane-submit!!
+  "Submit command and block for result"
+  lane/lane-submit!!)
+
+(def lane-destroy!
+  "Destroy a lane"
+  lane/lane-destroy!)
+
+(def lane-status
+  "Get lane status"
+  lane/lane-status)
+
+(def lane-stats
+  "Get lane system statistics"
+  lane/lane-stats)
+
+(def with-session-lane
+  "Execute in session's dedicated lane"
+  lane/with-session-lane)
+
+;; ============================================================================
+;; Context Guard (P0 — Clawd-inspired)
+;; ============================================================================
+
+(def context-check!
+  "Check and compact conversation if needed"
+  context-guard/context-check!)
+
+(def context-force-compact!
+  "Force conversation compaction"
+  context-guard/context-force-compact!)
+
+(def context-count-tokens
+  "Count tokens in conversation"
+  context-guard/context-count-tokens)
+
+(def context-register!
+  "Register conversation for monitoring"
+  context-guard/context-register!)
+
+(def context-update!
+  "Update conversation and check compaction"
+  context-guard/context-update!)
+
+(def context-stats
+  "Get context guard statistics"
+  context-guard/context-stats)
 
 (comment
   ;; Full boot sequence
