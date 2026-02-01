@@ -61,12 +61,14 @@
 
 (defn- memory-get-tool
   [{:keys [key]}]
-  (let [result (q [{[:memory-key key] [:memory/value]}])]
-    {:key key :value (get-in result [[:memory-key key] :memory/value])}))
+  (let [result (q [{[:memory/key key] [:memory/value :memory/exists?]}])]
+    {:key key 
+     :value (get-in result [[:memory/key key] :memory/value])
+     :exists? (get-in result [[:memory/key key] :memory/exists?])}))
 
 (defn- memory-set-tool
   [{:keys [key value]}]
-  (m 'memory/save! {:memory/key key :memory/value value})
+  (m 'ouroboros.memory/memory-save! {:memory/key key :memory/value value})
   {:key key :status :saved})
 
 (defn- http-get-tool
