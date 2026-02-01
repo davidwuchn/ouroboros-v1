@@ -104,9 +104,9 @@
 
 ;; Local/Ollama Provider (placeholder)
 (defmethod generate-response :ollama
-  [_ config messages tools]
-  (let [url (or (:url config) "http://localhost:11434/api/chat")
-        model (or (:model config) "llama3.1")]
+  [_ _config _messages _tools]
+  (let [_url (or (:url _config) "http://localhost:11434/api/chat")
+        _model (or (:model _config) "llama3.1")]
     ;; Ollama implementation would go here
     {:error "Ollama provider not yet implemented"}))
 

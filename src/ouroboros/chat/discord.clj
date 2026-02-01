@@ -135,7 +135,7 @@
 
 (defn- make-listener
   "Create WebSocket listener for Discord Gateway"
-  [handler-atom running-atom heartbeat-interval seq-num-atom ws-atom token]
+  [handler-atom running-atom seq-num-atom ws-atom token]
   (proxy [WebSocket$Listener] []
     (onOpen [ws]
       (println "✓ Discord Gateway connected")

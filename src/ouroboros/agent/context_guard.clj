@@ -9,8 +9,7 @@
    - When > threshold: summarize oldest messages
    - Keep N most recent messages verbatim
    - Never lose critical context (system prompt, tool schemas)"
-  (:require
-   [clojure.string :as str]))
+)
 
 ;; ============================================================================
 ;; Token Estimation
@@ -87,7 +86,7 @@
    For now: Create a placeholder summary"
   [messages]
   (let [user-messages (filter #(= (:role %) :user) messages)
-        assistant-messages (filter #(= (:role %) :assistant) messages)
+        _assistant-messages (filter #(= (:role %) :assistant) messages)
         topic (if (seq user-messages)
                 (subs (:content (first user-messages)) 0 (min 50 (count (:content (first user-messages)))))
                 "conversation")]

@@ -21,7 +21,7 @@
 ;; ============================================================================
 
 (def ^:private max-events 1000)
-(defonce ^:private event-store (atom (clojure.lang.PersistentQueue/EMPTY)))
+(defonce ^:private event-store (atom clojure.lang.PersistentQueue/EMPTY))
 (defonce ^:private event-counter (atom 0))
 
 (defn- enqueue-event! [event]
@@ -46,7 +46,7 @@
 (defn clear-events!
   "Clear all events"
   []
-  (reset! event-store (clojure.lang.PersistentQueue/EMPTY))
+  (reset! event-store clojure.lang.PersistentQueue/EMPTY)
   (reset! event-counter 0)
   {:status :cleared})
 

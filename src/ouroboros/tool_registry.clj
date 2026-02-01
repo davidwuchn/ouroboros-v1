@@ -16,7 +16,6 @@
    (list-tools)
    (call-tool :my/tool {:x \"hello\"} :session-123)  ; With safety context"
   (:require
-   [clojure.string :as str]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.tool-sandbox :as sandbox]
    [ouroboros.tool-allowlist :as allowlist]))
@@ -197,7 +196,7 @@
            :result result
            :status :success})
         (catch Exception e
-          (let [duration (/ (- (System/nanoTime) start) 1e6)]
+          (let [_duration (/ (- (System/nanoTime) start) 1e6)]
             (telemetry/log-tool-error tool-name e)
             {:tool tool-name
              :params params

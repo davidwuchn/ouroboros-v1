@@ -11,7 +11,6 @@
    Tools are registered via ouroboros.tool-defs after query is loaded."
   (:require
    [com.wsscode.pathom3.connect.operation :as pco]
-   [com.wsscode.pathom3.connect.indexes :as pci]
    [ouroboros.tool-registry :as registry]))
 
 ;; ============================================================================

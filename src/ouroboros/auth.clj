@@ -10,10 +10,8 @@
    - API token generation
    - Rate limit tracking per user"
   (:require
-   [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [ouroboros.telemetry :as telemetry]
-   [ouroboros.memory :as memory])
+   [ouroboros.telemetry :as telemetry])
   (:import [java.time Instant]
            [java.security SecureRandom]
            [java.util Base64]))

@@ -23,6 +23,7 @@
        #{:file/read :git/status :system/status})"
   (:require
    [clojure.set :as set]
+   [clojure.string :as str]
    [ouroboros.telemetry :as telemetry]))
 
 ;; ============================================================================

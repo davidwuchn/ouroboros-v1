@@ -4,4 +4,7 @@
  :linters {:unresolved-symbol {:exclude [ouroboros.skill
                                          ouroboros.tool-allowlist
                                          ouroboros.tool-sandbox]}
-           :unused-namespace {:exclude [ouroboros.telemetry]}}}
+           :unused-namespace {:exclude [ouroboros.telemetry]}
+           :private-call {:level :off}
+           :unused-binding {:exclude-destructured-keys-in-fn-args true
+                            :exclude-defmulti-args true}}}
