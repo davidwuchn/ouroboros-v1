@@ -48,7 +48,7 @@ bb test  # Run all system tests
 ┌─────────────────────────────────────────────────────────────┐
 │  🐍 OUROBOROS - Co-Evolution Framework                      │
 ├─────────────────────────────────────────────────────────────┤
-│  Chat Platforms    →  Telegram | Slack                      │
+│  Chat Platforms    →  Telegram | Discord | Slack           │
 │  AI Agent          →  OpenAI | Anthropic | Ollama          │
 │  Tools             →  13 built-in capabilities              │
 │  Query Interface   →  EQL over Pathom                       │
@@ -63,7 +63,7 @@ bb test  # Run all system tests
 | **System** | Statecharts, Introspection, Telemetry |
 | **Data** | Git history, File system, Memory, HTTP |
 | **AI** | LLM providers, Tool selection, Context |
-| **Chat** | Telegram bot, Slack bot, Rate limiting |
+| **Chat** | Telegram, Discord, Slack bots, Rate limiting |
 | **Integration** | MCP server, OpenAPI specs, Dashboard |
 
 ## Usage

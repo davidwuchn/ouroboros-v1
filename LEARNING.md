@@ -162,14 +162,30 @@ Human → Chat → Agent → Tools → Query → Engine
 
 **Problem:** `ouroboros.ai` needed `ouroboros.query`, which needed `ouroboros.ai`.
 
-**Solution:** Use `(resolve 'symbol)` for late binding.
+**Solution 1 (Legacy):** Use `(resolve 'symbol)` for late binding.
 
 ```clojure
 ;; In ai.clj
 :fn (fn [_] ((resolve 'ouroboros.query/q) [:system/status]))
 ```
 
-**Lesson:** Break cycles with dynamic resolution. Document why.
+**Solution 2 (Preferred):** Extract registry to separate namespace.
+
+```clojure
+;; ouroboros.tool-registry - no dependencies, just storage
+(defonce registry-atom (atom {}))
+(defn register-tool! [name spec])
+(defn call-tool [name params])
+
+;; ouroboros.tool-defs - depends on registry and query
+(defn- make-query-tool []
+  {:fn (fn [params] (query/q ...))})
+
+;; Register after both are loaded
+(tool-defs/register-all-tools!)
+```
+
+**Lesson:** Prefer explicit registry namespaces over dynamic resolution. Use `(resolve)` only as fallback for truly circular cases.
 
 ---
 

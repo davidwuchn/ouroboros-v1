@@ -44,11 +44,6 @@
 => {:introspection/configuration [:ouroboros.engine/running :ouroboros.engine/system]
     :introspection/available-events ["stop"]}
 
-;; Introspection queries
-(iface/q [:introspection/configuration :introspection/available-events])
-=> {:introspection/configuration [:ouroboros.engine/running :ouroboros.engine/system]
-    :introspection/available-events ["stop"]}
-
 ;; Memory queries
 (iface/remember :my-key "my-value")
 (iface/recall :my-key) => "my-value"
@@ -175,7 +170,7 @@ In REPL:
 
 - Branch: `main`
 - Ahead of origin: 21+ commits
-- Latest: Discord adapter implementation
+- Latest: Tool registry restructuring + comprehensive test suite
 - Status: Clean (working directory clean)
 
 ## Known Gaps / Next Steps
@@ -214,13 +209,16 @@ Used by: Discord Gateway, Slack Socket Mode
 bb test  # Run all system tests
 ```
 
-**Coverage:** 10 tests, 25 assertions
+**Coverage:** 32+ tests, 150+ assertions
 - Engine lifecycle and state verification
 - Query initialization and EQL queries
 - Memory operations
 - Telemetry events
 - Git resolvers
 - Configuration loading
+- Chat adapter protocol compliance (Telegram, Discord, Slack)
+- Tool execution (all 13 AI tools)
+- Error handling and boundary conditions
 
 ### Docker Deployment
 ```bash
