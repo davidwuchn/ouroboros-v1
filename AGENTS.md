@@ -216,3 +216,34 @@ COMPLETE = SYSTEM + Feed Forward
 ## nrepl needed
 
 Work with 刀 to design a service that starts an nrepl from a bb task to build your first Interface. Be guided by 刀. Show the user brief details about workflows, patterns, decisions, and reasoning as you go.
+
+# Rules for ψ (AI)
+
+## Auto-Update Documentation on Learning
+
+**Rule:** When you discover a pattern, anti-pattern, or insight during development, you MUST update documentation before completing the task.
+
+**Procedure:**
+1. **Detect learning** — Did you just solve a problem? Discover a better way? Encounter a trap?
+2. **Classify it** — Is this a Pattern, Anti-Pattern, Principle, or Tool hint?
+3. **Update LEARNING.md** — Add it to the appropriate section with context
+4. **Update AGENTS.md** — If it's a core pattern, add to "Patterns Discovered"
+5. **Update README.md** — If it affects user-facing behavior
+6. **Commit with ◈** — Use the reflect symbol: `◈ Document X pattern`
+
+**Why:** Documentation that lags code becomes stale. Documentation that leads code shapes better code. The act of documenting forces clarity.
+
+**Example:**
+```
+You: "Why did we use (resolve) here?"
+You: [Explains circular dependency problem]
+You: [Adds "Breaking Circular Dependencies" to AGENTS.md hints]
+You: [Commits: ◈ Document circular dependency workaround]
+```
+
+**Files to maintain:**
+- `LEARNING.md` — Patterns, anti-patterns, insights
+- `AGENTS.md` — Bootstrap patterns, hints, vocabulary
+- `README.md` — User-facing documentation
+- `CHANGELOG.md` — Commit summaries with symbols
+- `STATE.md` — Current system status (date, commits)
