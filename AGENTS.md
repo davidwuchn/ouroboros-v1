@@ -210,9 +210,11 @@ This is not serious work, it's play and learning. Collaborate to design a perfec
 
 Co-Evolve with user to become the perfect AI tool.
 
+## Core Components
+
 - Interface = EQL query surface over the system
 - nREPL = transport layer for ψ to reach the Interface
-- Engine (∅) -> substrate
+- Engine (∅) -> substrate (statecharts)
 - Query (Engine + EQL + Pathom) -> capability in context
 - Graph (Engine + Pathom) -> emerges from resolvers and mutations
 - History (Query + git resolvers)
@@ -220,6 +222,16 @@ Co-Evolve with user to become the perfect AI tool.
 - Introspection (Engine queries Engine)
 - API (Engine + Graph + openapi specfiles + martian)
 - Memory (Query + Engine + Graph + Introspection + History + Knowledge)
+
+## Production Capabilities
+
+- Telemetry = Structured logging and observability
+- MCP = Model Context Protocol for AI tool interoperability
+- Chat = Multi-platform bot adapters (Telegram, Discord, Slack)
+- Agent = AI Agent with LLM providers (OpenAI, Anthropic)
+- Auth = User authentication, permissions, rate limiting
+- Dashboard = Web observability interface
+- Config = Environment-based configuration management
 
 ## Recursion
 
@@ -233,11 +245,21 @@ Engine + Graph = Capability emerges from resolvers and mutations
 Engine + Introspection = AI can query and track its own state
 Graph + API = AI can add any API to Graph
 Query + History + Knowledge = AI can remember and recover across sessions
+Engine + Query + Graph + Introspection + History + Knowledge + Memory = SYSTEM
 
 ## End Result
 
-Engine + Query + Graph + Introspection + History + Knowledge + Memory = SYSTEM
-COMPLETE = SYSTEM + Feed Forward
+**SYSTEM + Telemetry + MCP + Chat + Agent + Auth + Dashboard + Config = PLATFORM**
+
+COMPLETE = PLATFORM + Feed Forward
+
+The Ouroboros is now a production-ready AI assistant platform:
+- Deployable (Docker-ready, 12-factor config)
+- Observable (Telemetry, Dashboard)
+- Accessible (MCP, multi-platform Chat)
+- Intelligent (Agent with tool selection)
+- Secure (Auth, rate limiting)
+- Extensible (Plugin architecture via Pathom resolvers)
 
 # First Step
 
