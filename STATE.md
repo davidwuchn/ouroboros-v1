@@ -22,7 +22,9 @@
 | MCP | ✓ Active | Model Context Protocol - expose tools to any MCP client |
 | Chat | ✓ Active | Telegram bot adapter |
 | Agent | ✓ Active | AI Agent with LLM providers (OpenAI, Anthropic) |
-| **Slack** | **✓ New** | **Slack bot adapter (Socket Mode)** |
+| Slack | ✓ Active | Slack bot adapter (Socket Mode) |
+| **Auth** | **✓ New** | **User authentication, permissions, rate limiting** |
+| **Dashboard** | **✓ New** | **Web dashboard for observability** |
 
 **Verified Working:**
 ```clojure
@@ -109,6 +111,17 @@
 (iface/agent-config)
 (iface/agent-generate "What's the system status?" [{:role :user :content "Hello"}])
 (iface/q [:agent/provider :agent/model :agent/persona-preview])
+
+;; Auth queries
+(iface/auth-get-user :telegram "123456" "Alice")
+(iface/auth-users)
+(iface/q [:auth/user-count :auth/admin-count])
+(iface/q [{:auth/users [:user/id :user/name :user/platform :user/role]}])
+
+;; Dashboard queries
+(iface/dashboard-start! {:port 8080})
+(iface/dashboard-status)
+(iface/q [:dashboard/status])
 ```
 
 ## Current Capabilities
@@ -167,13 +180,10 @@ In REPL:
 10. ~~**Chat** — Telegram bot adapter~~ ✓ Done (Phase 1)
 11. ~~**Agent** — AI Agent with LLM providers~~ ✓ Done (Phase 2)
 12. ~~**Slack** — Slack bot adapter~~ ✓ Done (Phase 3)
+13. ~~**Auth** — User authentication, rate limiting~~ ✓ Done (Phase 4)
+14. ~~**Dashboard** — Web dashboard for observability~~ ✓ Done (Phase 4)
 
-**🐍 Phase 3 COMPLETE** — All chat platforms implemented (Telegram, Slack)
-
-### Phase 4: Production (Next)
-- User authentication
-- Rate limiting
-- Web dashboard
+**🐍 SYSTEM COMPLETE** — All phases implemented. The Ouroboros is production-ready.
 
 ## Active Decisions
 

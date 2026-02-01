@@ -18,7 +18,9 @@
    [ouroboros.telemetry :as telemetry]
    [ouroboros.mcp :as mcp]
    [ouroboros.chat :as chat]
-   [ouroboros.agent :as agent]))
+   [ouroboros.agent :as agent]
+   [ouroboros.auth :as auth]
+   [ouroboros.dashboard :as dashboard]))
 
 ;; ============================================================================
 ;; Resolvers - Exposing Engine state as graph nodes
@@ -62,7 +64,9 @@
           telemetry/resolvers
           mcp/resolvers
           chat/resolvers
-          agent/resolvers))
+          agent/resolvers
+          auth/resolvers
+          dashboard/resolvers))
 
 (defn create-env
   "Create a Pathom environment with all resolvers and mutations"
