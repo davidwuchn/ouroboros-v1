@@ -25,6 +25,7 @@
 | **Config** | **✓ New** | **Environment-based configuration (.env, env vars)** |
 | **Auth** | **✓ New** | **User authentication, permissions, rate limiting** |
 | **Dashboard** | **✓ New** | **Web dashboard for observability** |
+| **CI/CD** | **✓ New** | **GitHub Actions + Docker deployment** |
 
 **Verified Working:**
 ```clojure
@@ -205,6 +206,42 @@ Shared WebSocket functionality for chat adapters:
 - Error handling
 
 Used by: Discord Gateway, Slack Socket Mode
+
+## Testing & Deployment
+
+### Test Suite
+```bash
+bb test  # Run all system tests
+```
+
+**Coverage:** 10 tests, 25 assertions
+- Engine lifecycle and state verification
+- Query initialization and EQL queries
+- Memory operations
+- Telemetry events
+- Git resolvers
+- Configuration loading
+
+### Docker Deployment
+```bash
+# Local development
+docker-compose up -d
+
+# Production build
+docker build -t ouroboros .
+docker run -d --env-file .env -p 3000:3000 -p 8080:8080 ouroboros
+```
+
+**Ports:**
+- 8888 - nREPL (optional, debugging)
+- 3000 - MCP server
+- 8080 - Web dashboard
+
+### CI/CD
+GitHub Actions workflow (`.github/workflows/ci.yml`):
+- Automated testing on push/PR
+- Docker image build verification
+- Linting and security checks
 
 ## Active Decisions
 

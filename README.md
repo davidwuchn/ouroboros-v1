@@ -6,6 +6,8 @@ A co-evolution framework for AI tooling—built with Clojure, powered by Babashk
 
 ## Quick Start
 
+### Local Development
+
 ```bash
 # Clone and enter
 git clone https://github.com/davidwuchn/ouroboros-v1.git
@@ -17,6 +19,27 @@ bb nrepl
 # In REPL:
 (iface/q [:system/status])  ; Check system health
 (iface/status)              ; Quick status
+```
+
+### Docker Deployment
+
+```bash
+# Copy and configure environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# Run with Docker Compose
+docker-compose up -d
+
+# Or build and run manually
+docker build -t ouroboros .
+docker run -d --env-file .env -p 3000:3000 -p 8080:8080 ouroboros
+```
+
+### Running Tests
+
+```bash
+bb test  # Run all system tests
 ```
 
 ## Architecture

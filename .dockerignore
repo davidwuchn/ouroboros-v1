@@ -1,0 +1,41 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (not needed in image)
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment (security - never commit secrets)
+.env
+.env.local
+.env.production
+
+# Build artifacts
+target/
+*.jar
+*.class
+
+# Test artifacts
+.coverage/
+.nrepl-port
+
+# CI (not needed in image)
+.github/
+
+# Misc
+*.log
+tmp/
+temp/
