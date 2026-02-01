@@ -1,5 +1,5 @@
 (ns ouroboros.interface
-  "Interface - Engine (∅) + Query + Graph + Memory
+  "Interface - Engine (∅) + Query + Graph + Memory + Knowledge + API
    
    The unified system surface. Boot sequence:
    1. Start statechart (Engine)
@@ -96,6 +96,64 @@
   "Full system report"
   []
   (query/full-report))
+
+;; ============================================================================
+;; Knowledge Helpers (file system as graph)
+;; ============================================================================
+
+(defn files
+  "List files in a directory
+   
+   Usage: (files \"src\")
+          (files \".\")"
+  [dir-path]
+  (query/q [{[:dir-path dir-path]
+             [{:knowledge/files [:file/path :file/name :file/extension
+                                 :file/size :file/directory?]}]}]))
+
+(defn file
+  "Get info about a specific file
+   
+   Usage: (file \"README.md\")"
+  [file-path]
+  (query/q [{[:file-path file-path]
+             [:file/path :file/name :file/size
+              :file/content-preview :file/last-modified]}]))
+
+(defn search
+  "Search files by pattern
+   
+   Usage: (search \"*.clj\")"
+  [pattern]
+  (query/q [{[:search-pattern pattern]
+             [{:knowledge/search [:file/path :file/name :file/size]}]}]))
+
+(defn project
+  "Get project structure
+   
+   Usage: (project)"
+  []
+  (query/q [:knowledge/project]))
+
+;; ============================================================================
+;; API Helpers (HTTP requests)
+;; ============================================================================
+
+(defn http-get
+  "Make HTTP GET request
+   
+   Usage: (http-get \"https://api.github.com/users/github\")"
+  [url]
+  (query/q [{[:url url]
+             [:api/status :api/body :api/success?]}]))
+
+(defn http-request!
+  "Make HTTP request (mutation)
+   
+   Usage: (http-request! {:method :post :url \"...\" :body \"...\"})"
+  [{:keys [method url headers body]}]
+  (query/m 'ouroboros.api/api-request!
+           {:method method :url url :headers headers :body body}))
 
 (comment
   ;; Full boot sequence

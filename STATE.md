@@ -13,7 +13,9 @@
 | nREPL | ✓ Port 8888 | Auto-boots system on connect |
 | History | ✓ Active | Git resolvers for commits, status, branches |
 | Introspection | ✓ Active | Engine queries its own statechart |
-| **Memory** | **✓ New** | **Cross-session persistence via EDN** |
+| Memory | ✓ Active | Cross-session persistence via EDN |
+| **Knowledge** | **✓ New** | **File system as queryable graph** |
+| **API** | **✓ New** | **HTTP client via Pathom resolvers** |
 
 **Verified Working:**
 ```clojure
@@ -47,6 +49,18 @@
           {:introspection/states [:state/id]}
           {:git/commits [:git/hash]}
           :memory/keys])
+
+;; Knowledge queries
+(iface/files "src")
+(iface/file "bb.edn")
+(iface/search "*.clj")
+(iface/project)
+(iface/q [{[:file-path "README.md"] [:file/content-preview]}])
+
+;; API queries  
+(iface/q [{[:url "https://api.github.com/users/github"]
+           [:api/status :api/body :api/success?]}])
+(iface/http-get "https://api.github.com/users/github")
 ```
 
 ## Current Capabilities
@@ -96,8 +110,9 @@ In REPL:
 1. ~~**History** — Git resolvers for commit history, diffs~~ ✓ Done
 2. ~~**Introspection** — Engine queries Engine (meta-statecharts)~~ ✓ Done
 3. ~~**Memory** — Cross-session persistence~~ ✓ Done
-4. **Knowledge** — File system as queryable graph
-5. **API** — OpenAPI integration via Martian
+4. ~~**Knowledge** — File system as queryable graph~~ ✓ Done
+5. ~~**API** — HTTP client capabilities~~ ✓ Done
+6. **OpenAPI** — OpenAPI specs → callable clients via Martian
 
 ## Active Decisions
 
