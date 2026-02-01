@@ -20,7 +20,7 @@
 | AI | ✓ Active | AI tooling hooks - tool discovery, context, execution |
 | Telemetry | ✓ Active | Structured logging, metrics, observability |
 | MCP | ✓ Active | Model Context Protocol - expose tools to any MCP client |
-| Chat | ✓ Active | Telegram, Discord, Slack bot adapters |
+| Chat | ✓ Active | Telegram, Discord, Slack bot adapters (shared WebSocket) |
 | Agent | ✓ Active | AI Agent with LLM providers (OpenAI, Anthropic) |
 | **Auth** | **✓ New** | **User authentication, permissions, rate limiting** |
 | **Dashboard** | **✓ New** | **Web dashboard for observability** |
@@ -184,6 +184,17 @@ In REPL:
 13. ~~**Dashboard** — Web dashboard for observability~~ ✓ Done
 
 **🐍 SYSTEM COMPLETE** — All phases implemented. The Ouroboros is production-ready.
+
+## Shared Components
+
+### WebSocket Utilities (`ouroboros.chat.websocket`)
+Shared WebSocket functionality for chat adapters:
+- Connection management with auto-reconnect
+- Message handling (text, JSON)
+- Heartbeat/ping support
+- Error handling
+
+Used by: Discord Gateway, Slack Socket Mode
 
 ## Active Decisions
 

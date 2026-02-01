@@ -1,20 +1,23 @@
 (ns ouroboros.chat.slack
-  "Slack - Slack Bolt adapter for Ouroboros Chat
+  "Slack - Slack Socket Mode adapter for Ouroboros Chat
    
-   Implements ChatAdapter protocol for Slack.
-   Uses Socket Mode for real-time messaging.
+   Implements ChatAdapter protocol for Slack using Socket Mode.
+   Uses shared WebSocket utilities from ouroboros.chat.websocket.
    
    Setup:
    1. Create app at https://api.slack.com/apps
    2. Enable Socket Mode
-   3. Get app token (xapp-) and bot token (xoxb-)
-   4. (def bot (make-bot \"xapp-...\" \"xoxb-...\"))
-   5. (register-adapter! :slack bot)"
+   3. Subscribe to events: message.channels, message.groups, message.im
+   4. Get app token (xapp-) and bot token (xoxb-)
+   5. Invite bot to channels
+   6. (def bot (make-bot \"xapp-...\" \"xoxb-...\"))
+   7. (register-adapter! :slack bot)"
   (:require
    [babashka.http-client :as http]
    [cheshire.core :as json]
    [clojure.string :as str]
    [ouroboros.chat :as chat]
+   [ouroboros.chat.websocket :as ws]
    [ouroboros.telemetry :as telemetry])
   (:import [java.time Instant]))
 
@@ -38,7 +41,7 @@
       nil)))
 
 (defn- apps-connect-open
-  "Open Socket Mode connection"
+  "Open Socket Mode connection and get WebSocket URL"
   [app-token]
   (let [result (http/post "https://slack.com/api/apps.connections.open"
                           {:headers {"Authorization" (str "Bearer " app-token)
@@ -53,12 +56,17 @@
             {:channel channel
              :text text}))
 
+(defn- ack-event
+  "Acknowledge an event to Slack"
+  [ws envelope-id]
+  (ws/send-json ws {:envelope_id envelope-id}))
+
 ;; ============================================================================
 ;; Message Parsing
 ;; ============================================================================
 
 (defn- parse-message
-  "Parse Slack event into standard format"
+  "Parse Slack message event into standard format"
   [event]
   (when (= "message" (:type event))
     (let [channel (:channel event)
@@ -74,84 +82,110 @@
                              (str (Instant/ofEpochMilli (long (* 1000 (Double/parseDouble timestamp)))))))))))
 
 ;; ============================================================================
-;; Socket Mode Handler
+;; WebSocket Event Handler
 ;; ============================================================================
 
 (defn- handle-socket-event
-  "Handle incoming socket mode event"
-  [event handler]
-  (let [event-type (:type event)]
-    (cond
-      ;; URL verification (initial handshake)
-      (= "url_verification" event-type)
-      {:challenge (:challenge event)}
+  "Handle incoming Socket Mode event"
+  [data handler-atom ws]
+  (let [event-type (:type data)
+        envelope-id (:envelope_id data)]
+
+    ;; Acknowledge the event first
+    (when envelope-id
+      (ack-event ws envelope-id))
+
+    (case event-type
+      ;; Hello - connection established
+      "hello" (println "✓ Slack Socket Mode connected")
 
       ;; Events API
-      (= "event_callback" event-type)
-      (let [payload (:event event)
-            message (parse-message payload)]
-        (when message
-          (telemetry/emit! {:event :slack/message
-                            :channel (:message/chat-id message)})
-          (try
-            (handler message)
-            (catch Exception e
-              (println "Error handling Slack message:" (.getMessage e)))))
-        {:ok true})
+      "events_api" (let [payload (:payload data)
+                         event (:event payload)
+                         message (parse-message event)]
+                     (when message
+                       (telemetry/emit! {:event :slack/message
+                                         :channel (:message/chat-id message)
+                                         :user (:message/user-name message)})
+                       (try
+                         ((deref handler-atom) message)
+                         (catch Exception e
+                           (println "Error handling Slack message:" (.getMessage e))))))
 
-      :else
-      {:ok true})))
+      ;; Disconnect warning
+      "disconnect" (println "◈ Slack requested disconnect")
+
+      ;; Ping from server
+      "ping" (println "◈ Slack ping received")
+
+      ;; Unknown
+      (println "◈ Slack event:" event-type))))
 
 ;; ============================================================================
-;; WebSocket Client
+;; WebSocket Listener
 ;; ============================================================================
 
-(defn- connect-websocket
-  "Connect to WebSocket and handle messages"
-  [ws-url handler-atom running-atom]
-  (future
-    (loop []
-      (when @running-atom
-        (try
-          ;; For now, log that we would connect
-          ;; Full WebSocket implementation would use java.net.http.WebSocket
-          ;; or an external library
-          (println "◈ Slack Socket Mode: would connect to" ws-url)
+(defn- make-slack-listener
+  "Create WebSocket listener for Slack Socket Mode"
+  [handler-atom running-atom ws-atom]
+  (ws/make-listener
+   {:on-open (fn [ws]
+               (println "✓ Slack WebSocket connected")
+               (reset! ws-atom ws))
 
-          ;; Simulate event loop
-          (Thread/sleep 5000)
+    :on-text (fn [ws text last]
+               (when-let [data (ws/parse-json text)]
+                 (handle-socket-event data handler-atom ws)))
 
-          (catch Exception e
-            (println "Slack WebSocket error:" (.getMessage e))
-            (Thread/sleep 10000)))
-        (recur)))))
+    :on-error (fn [ws error]
+                (println "Slack WebSocket error:" (.getMessage error))
+                (reset! running-atom false))
+
+    :on-close (fn [ws status-code reason]
+                (println (str "Slack WebSocket closed: " status-code " - " reason))
+                (reset! running-atom false))}))
+
+;; ============================================================================
+;; Connection Management
+;; ============================================================================
+
+(defn- connect-socket-mode
+  "Connect to Slack Socket Mode"
+  [app-token handler-atom running-atom ws-atom]
+  (let [connection (apps-connect-open app-token)]
+    (if (:ok connection)
+      (let [ws-url (:url connection)]
+        (println (str "◈ Slack Socket Mode URL: " ws-url))
+        (let [listener (make-slack-listener handler-atom running-atom ws-atom)]
+          (ws/connect ws-url listener ws-atom running-atom)))
+      (do (println "✗ Failed to get Slack Socket Mode URL:" (:error connection))
+          (throw (Exception. "Failed to connect to Slack Socket Mode"))))))
 
 ;; ============================================================================
 ;; Bot State
 ;; ============================================================================
 
-(defrecord SlackBot [app-token bot-token ws-atom running-atom handler-atom]
+(defrecord SlackBot [app-token bot-token ws-atom running-atom handler-atom reconnect-atom]
   chat/ChatAdapter
 
   (start! [this handler]
     (reset! handler-atom handler)
     (reset! running-atom true)
+    (reset! reconnect-atom true)
     (println "◈ Starting Slack bot...")
 
-    ;; Open Socket Mode connection
-    (let [connection (apps-connect-open app-token)]
-      (if (:ok connection)
-        (let [ws-url (:url connection)]
-          (println "✓ Slack Socket Mode connected")
-          (reset! ws-atom ws-url)
-          ;; Start WebSocket listener
-          (connect-websocket ws-url handler-atom running-atom))
-        (println "✗ Failed to connect Slack Socket Mode:" (:error connection))))
+    ;; Start with auto-reconnect
+    (ws/with-reconnect
+      #(connect-socket-mode app-token handler-atom running-atom ws-atom)
+      reconnect-atom
+      5000)
 
     this)
 
   (stop! [this]
+    (reset! reconnect-atom false)
     (reset! running-atom false)
+    (ws/close @ws-atom)
     (reset! ws-atom nil)
     (println "✓ Slack bot stopped")
     this)
@@ -161,7 +195,7 @@
     this)
 
   (send-markdown! [this channel-id text]
-    ;; Slack uses mrkdwn, similar to markdown
+    ;; Slack uses mrkdwn format
     (post-message bot-token channel-id text)
     this))
 
@@ -174,10 +208,19 @@
    
    Usage: (make-bot \"xapp-...\" \"xoxb-...\")
    
-   app-token: From Slack App-Level Tokens (xapp-)
-   bot-token: From OAuth & Permissions (xoxb-)"
+   app-token: From Slack App-Level Tokens (starts with xapp-)
+   bot-token: From OAuth & Permissions (starts with xoxb-)
+   
+   Required OAuth scopes:
+   - chat:write
+   - channels:history (for public channels)
+   - groups:history (for private channels)
+   - im:history (for DMs)
+   
+   Required Socket Mode scopes:
+   - connections:write"
   [app-token bot-token]
-  (->SlackBot app-token bot-token (atom nil) (atom false) (atom nil)))
+  (->SlackBot app-token bot-token (atom nil) (atom false) (atom nil) (atom false)))
 
 (defn test-auth
   "Test bot authentication"
@@ -199,8 +242,11 @@
   (chat/register-adapter! :slack bot)
   (chat/start-all!)
 
-  ;; Send message
+  ;; Send message (channel ID must be a string)
   (chat/send-message! bot "C1234567890" "Hello from Ouroboros!")
 
   ;; Stop
-  (chat/stop-all!))
+  (chat/stop-all!)
+
+  ;; Check active adapters
+  @chat/active-adapters)
