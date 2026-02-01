@@ -11,7 +11,8 @@
    [ouroboros.query :as query]
    [ouroboros.memory :as memory]
    [ouroboros.openapi]
-   [ouroboros.ai :as ai]))
+   [ouroboros.ai :as ai]
+   [ouroboros.telemetry :as telemetry]))
 
 ;; ============================================================================
 ;; Lifecycle
@@ -230,6 +231,38 @@
    Usage: (ai-full)"
   []
   (ai/full-context))
+
+;; ============================================================================
+;; Telemetry Helpers (Structured logging and metrics)
+;; ============================================================================
+
+(defn telemetry-events
+  "Get all telemetry events
+   
+   Usage: (telemetry-events)"
+  []
+  (telemetry/get-events))
+
+(defn telemetry-recent
+  "Get n recent telemetry events
+   
+   Usage: (telemetry-recent 10)"
+  [n]
+  (telemetry/get-recent-events n))
+
+(defn telemetry-stats
+  "Get telemetry statistics
+   
+   Usage: (telemetry-stats)"
+  []
+  (query/q [:telemetry/total-events :telemetry/tool-invocations :telemetry/errors]))
+
+(defn telemetry-clear!
+  "Clear all telemetry events
+   
+   Usage: (telemetry-clear!)"
+  []
+  (query/m 'ouroboros.telemetry/telemetry-clear! {}))
 
 (comment
   ;; Full boot sequence

@@ -17,7 +17,8 @@
 | Knowledge | ✓ Active | File system as queryable graph |
 | API | ✓ Active | HTTP client via Pathom resolvers |
 | OpenAPI | ✓ Active | OpenAPI specs → callable clients via Martian |
-| **AI** | **✓ New** | **AI tooling hooks - tool discovery, context, execution** |
+| AI | ✓ Active | AI tooling hooks - tool discovery, context, execution |
+| **Telemetry** | **✓ New** | **Structured logging, metrics, observability** |
 
 **Verified Working:**
 ```clojure
@@ -76,6 +77,13 @@
 (iface/ai-call! :file/read {:path "README.md" :lines 10})
 (iface/ai-context)
 (iface/ai-full)
+
+;; Telemetry queries
+(iface/telemetry-events)
+(iface/telemetry-recent 10)
+(iface/telemetry-stats)
+(iface/q [{:telemetry/events [:event/id :event/timestamp :event]}])
+(iface/q [:telemetry/total-events :telemetry/tool-invocations])
 ```
 
 ## Current Capabilities
@@ -129,6 +137,7 @@ In REPL:
 5. ~~**API** — HTTP client capabilities~~ ✓ Done
 6. ~~**OpenAPI** — OpenAPI specs → callable clients via Martian~~ ✓ Done
 7. ~~**AI** — AI tooling hooks~~ ✓ Done
+8. ~~**Telemetry** — Structured logging and metrics~~ ✓ Done
 
 **🐍 SYSTEM COMPLETE** — All capabilities implemented. The Ouroboros is whole.
 

@@ -11,7 +11,8 @@
    [com.wsscode.pathom3.connect.operation :as pco]
    [com.wsscode.pathom3.connect.indexes :as pci]
    [ouroboros.query :as query]
-   [ouroboros.interface :as iface]))
+   [ouroboros.telemetry :as telemetry]
+   [ouroboros.openapi :as openapi]))
 
 ;; ============================================================================
 ;; Tool Registry
@@ -23,30 +24,31 @@
    {:system/status
     {:description "Get current system status"
      :parameters {}
-     :fn (fn [_] (iface/status))}
+     :fn (fn [_] ((resolve 'ouroboros.query/q) [:system/status :system/healthy?]))}
 
     :system/report
     {:description "Get full system report"
      :parameters {}
-     :fn (fn [_] (iface/report))}
+     :fn (fn [_] ((resolve 'ouroboros.query/q) [:system/current-state :system/status :system/healthy? :system/meta]))}
 
     :git/commits
     {:description "Get recent git commits"
      :parameters {:n {:type :int :description "Number of commits" :default 5}}
      :fn (fn [{:keys [n] :or {n 5}}]
-           (iface/q [{:git/commits (vec (take n [:git/hash :git/subject :git/author]))}]))}
+           ((resolve 'ouroboros.query/q) [{:git/commits (vec (take n [:git/hash :git/subject :git/author]))}]))}
 
     :git/status
     {:description "Get git repository status"
      :parameters {}
-     :fn (fn [_] (iface/q [:git/status]))}
+     :fn (fn [_] ((resolve 'ouroboros.query/q) [:git/status]))}
 
     :file/read
     {:description "Read file contents"
      :parameters {:path {:type :string :description "File path" :required true}
                   :lines {:type :int :description "Max lines to read" :default 100}}
-     :fn (fn [{:keys [path lines] :or {lines 100}}]
-           (let [result (iface/file path)]
+     :fn (fn [{:keys [path] :or {lines 100}}]
+           (let [result ((resolve 'ouroboros.query/q) [{[:file-path path]
+                                  [:file/content-preview :file/size]}])]
              {:file path
               :content (get-in result [[:file-path path] :file/content-preview])
               :size (get-in result [[:file-path path] :file/size])}))}
@@ -55,40 +57,43 @@
     {:description "Search files by pattern"
      :parameters {:pattern {:type :string :description "Glob pattern" :required true}}
      :fn (fn [{:keys [pattern]}]
-           (iface/search pattern))}
+           ((resolve 'ouroboros.query/q) [{[:search-pattern pattern]
+                      [{:knowledge/search [:file/path :file/name :file/size]}]}]))}
 
     :file/list
     {:description "List files in directory"
      :parameters {:dir {:type :string :description "Directory path" :default "."}}
      :fn (fn [{:keys [dir] :or {dir "."}}]
-           (iface/files dir))}
+           ((resolve 'ouroboros.query/q) [{[:dir-path dir]
+                      [{:knowledge/files [:file/path :file/name]}]}]))}
 
     :memory/get
     {:description "Get value from memory"
      :parameters {:key {:type :keyword :description "Memory key" :required true}}
      :fn (fn [{:keys [key]}]
-           {:key key :value (iface/recall key)})}
+           (let [result ((resolve 'ouroboros.query/q) [{[:memory-key key] [:memory/value]}])]
+             {:key key :value (get-in result [[:memory-key key] :memory/value])}))}
 
     :memory/set
     {:description "Set value in memory"
      :parameters {:key {:type :keyword :description "Memory key" :required true}
                   :value {:type :any :description "Value to store" :required true}}
      :fn (fn [{:keys [key value]}]
-           (iface/remember key value)
+           ((resolve 'ouroboros.query/m) 'memory/save! {:memory/key key :memory/value value})
            {:key key :status :saved})}
 
     :http/get
     {:description "Make HTTP GET request"
      :parameters {:url {:type :string :description "URL to fetch" :required true}}
      :fn (fn [{:keys [url]}]
-           (iface/http-get url))}
+           ((resolve 'ouroboros.query/q) [{[:url url] [:api/status :api/body :api/success?]}]))}
 
     :openapi/bootstrap
     {:description "Bootstrap OpenAPI client from spec"
      :parameters {:name {:type :keyword :description "Client name" :required true}
                   :spec-url {:type :string :description "OpenAPI spec URL" :required true}}
      :fn (fn [{:keys [name spec-url]}]
-           (iface/openapi-bootstrap! name spec-url))}
+           ((resolve 'ouroboros.query/m) 'ouroboros.openapi/openapi-bootstrap! {:name name :spec-url spec-url}))}
 
     :openapi/call
     {:description "Call OpenAPI operation"
@@ -96,13 +101,13 @@
                   :operation {:type :keyword :description "Operation ID" :required true}
                   :params {:type :map :description "Operation parameters" :default {}}}
      :fn (fn [{:keys [client operation params] :or {params {}}}]
-           (iface/openapi-call! client operation params))}
+           ((resolve 'ouroboros.openapi/call-operation) client operation params))}
 
     :query/eql
     {:description "Execute arbitrary EQL query"
      :parameters {:query {:type :vector :description "EQL query" :required true}}
      :fn (fn [{:keys [query]}]
-           (iface/q query))}}))
+           ((resolve 'ouroboros.query/q) query))}}))
 
 (defn register-tool!
   "Register a new tool for AI use"
@@ -134,21 +139,30 @@
 (defn call-tool
   "Execute a tool by name with parameters"
   [tool-name params]
-  (if-let [tool (get-tool tool-name)]
-    (try
-      {:tool tool-name
-       :params params
-       :result ((:fn tool) params)
-       :status :success}
-      (catch Exception e
+  (telemetry/log-tool-invoke tool-name params)
+  (let [start (System/nanoTime)]
+    (if-let [tool (get-tool tool-name)]
+      (try
+        (let [result ((:fn tool) params)
+              duration (/ (- (System/nanoTime) start) 1e6)]
+          (telemetry/log-tool-complete tool-name result duration)
+          {:tool tool-name
+           :params params
+           :result result
+           :status :success})
+        (catch Exception e
+          (let [duration (/ (- (System/nanoTime) start) 1e6)]
+            (telemetry/log-tool-error tool-name e)
+            {:tool tool-name
+             :params params
+             :error (.getMessage e)
+             :status :error})))
+      (do
+        (telemetry/emit! {:event :tool/not-found :tool tool-name})
         {:tool tool-name
-         :params params
-         :error (.getMessage e)
-         :status :error}))
-    {:tool tool-name
-     :error "Tool not found"
-     :available-tools (keys @tool-registry)
-     :status :not-found}))
+         :error "Tool not found"
+         :available-tools (keys @tool-registry)
+         :status :not-found}))))
 
 ;; ============================================================================
 ;; Context Packaging
@@ -157,9 +171,10 @@
 (defn system-context
   "Package system state for AI context"
   []
-  (let [status (iface/status)
-        git (iface/q [:git/status])
-        memory-keys (iface/q [:memory/keys])]
+  (let [q (resolve 'ouroboros.query/q)
+        status (q [:system/status :system/healthy?])
+        git (q [:git/status])
+        memory-keys (q [:memory/keys])]
     {:context/type :system
      :context/timestamp (str (java.time.Instant/now))
      :system/status status
@@ -171,8 +186,9 @@
 (defn project-context
   "Package project state for AI context"
   []
-  (let [project (iface/project)
-        recent-commits (iface/q [{:git/commits [:git/hash :git/subject]}])]
+  (let [q (resolve 'ouroboros.query/q)
+        project (q [:knowledge/project])
+        recent-commits (q [{:git/commits [:git/hash :git/subject]}])]
     {:context/type :project
      :context/timestamp (str (java.time.Instant/now))
      :project/name (get-in project [:knowledge/project :project/name])
