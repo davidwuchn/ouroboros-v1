@@ -4,47 +4,11 @@
 
 ---
 
-## 2026-02-01 — Pre-Commit Hooks
+## Patterns
 
-### Pattern: Automated Testing Gates
+### 1. Iterative Phase-Based Development
 
-**Observation:** The `agent/fallback.clj` bugs (SCI docstring issue, recur-across-try) would have been caught by CI/CD but we're running locally. Pre-commit hooks catch them earlier.
-
-**Implementation:**
-```bash
-# Install hook
-bb git:install-hooks
-
-# Or manually
-cp scripts/git-hooks/pre-commit .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit
-```
-
-**Hook Behavior:**
-- Runs `bb test` before every commit
-- Blocks commit if tests fail
-- Shows clear error messages
-- Bypass with: `git commit --no-verify` (emergencies only)
-
-**Key Configuration:**
-```bash
-# bb.edn task
-{:git:install-hooks
- {:doc "Install git hooks (pre-commit test runner)"
-  :task (do ... copy hook ... set permissions ...)}}
-```
-
-**Lesson:** Version hooks in `scripts/git-hooks/` (not `.git/hooks/` which is local), install via task.
-
-**Babashka Note:** SCI doesn't support docstrings in `defonce` with metadata. Use `;;` comments instead.
-
----
-
-## 2026-02-01 — System Complete
-
-### Pattern: Iterative Phase-Based Development
-
-**Observation:** Building in 4 distinct phases allowed focused development without breaking changes.
+Build in phases: Core → Intelligence → Interface → Production. Each phase standalone usable.
 
 **Phases:**
 1. **Core Platform** — Engine, Query, Interface (foundation)
@@ -56,9 +20,9 @@ chmod +x .git/hooks/pre-commit
 
 ---
 
-### Pattern: Protocol-Based Abstraction
+### 2. Protocol-Based Abstraction
 
-**Observation:** The `ChatAdapter` protocol enabled multi-platform support with one implementation.
+Define interfaces first (`ChatAdapter`), implement platforms second (Telegram, Slack).
 
 ```clojure
 (defprotocol ChatAdapter
@@ -66,18 +30,13 @@ chmod +x .git/hooks/pre-commit
   (send-message! [this chat-id text]))
 ```
 
-**Applied to:**
-- Telegram (HTTP long-polling)
-- Slack (WebSocket Socket Mode)
-- Could extend to: Discord, WhatsApp, etc.
-
-**Lesson:** Define the interface first, implement platforms second.
+**Applied to:** Telegram (HTTP), Slack (WebSocket), extendable to Discord, WhatsApp, etc.
 
 ---
 
-### Pattern: Unified Query Interface
+### 3. Unified Query Interface
 
-**Observation:** EQL/Pathom eliminated the need for multiple APIs.
+One query language (EQL) for everything. System becomes self-documenting.
 
 **Before (scattered):**
 - `(git/commits)` for git
@@ -91,28 +50,24 @@ chmod +x .git/hooks/pre-commit
           {:knowledge/files [:file/name]}])
 ```
 
-**Lesson:** One query language for everything. The system becomes self-documenting.
-
 ---
 
-### Pattern: Observability by Design
+### 4. Observability by Design
 
-**Observation:** Adding telemetry after-the-fact never works. It must be woven in.
+Telemetry woven into every layer. If you can't observe it, you can't operate it.
 
-**Every layer emits events:**
+**Events emitted:**
 - `:tool/invoke` — AI tool execution
 - `:mcp/complete` — MCP operation
 - `:chat/message` — User message
 - `:agent/generate` — LLM call
 - `:auth/user-created` — New user
 
-**Lesson:** If you can't observe it, you can't operate it.
-
 ---
 
-### Pattern: Safety Through Boundaries
+### 5. Safety Through Boundaries
 
-**Observation:** Chat platforms need different safety than nREPL.
+Same system, different safety profiles per interface.
 
 **Boundaries enforced:**
 - **Chat-safe tools:** Only 11 of 13 tools exposed (no `:openapi/call`)
@@ -120,13 +75,11 @@ chmod +x .git/hooks/pre-commit
 - **Role-based access:** `:user` vs `:admin`
 - **API tokens:** For programmatic access
 
-**Lesson:** Same system, different safety profiles per interface.
-
 ---
 
-### Pattern: Functional Composition
+### 6. Functional Composition
 
-**Observation:** Each namespace does one thing. They compose through Interface.
+Small, focused modules. Clear ownership. Interface as unified surface.
 
 ```
 ouroboros.engine    → Statecharts
@@ -136,13 +89,11 @@ ouroboros.auth      → Identity/rate limits
 ouroboros.interface → Unified surface
 ```
 
-**Lesson:** Small, focused modules. Clear ownership. No circular deps (use `resolve` when needed).
-
 ---
 
-### Pattern: Runtime Discoverability
+### 7. Runtime Discoverability
 
-**Observation:** Static documentation rots. The system should document itself.
+System documents itself via queries. No stale documentation.
 
 **Self-querying:**
 - `[:introspection/configuration]` — What states exist?
@@ -150,13 +101,137 @@ ouroboros.interface → Unified surface
 - `[:mcp/tools]` — What do MCP clients see?
 - `[:auth/users]` — Who's registered?
 
-**Lesson:** If you can query it, you can discover it. If you can discover it, you can learn it.
+---
+
+### 8. Extract Shared Infrastructure
+
+When two modules implement similar functionality (WebSocket for Discord/Slack), extract shared utilities. Reduces duplication, ensures consistency, makes third implementation trivial.
 
 ---
 
-### Pattern: Tool-Centric AI
+### 9. Configuration as Layers
 
-**Observation:** LLMs work best when given tools, not just prompts.
+12-factor app configuration: defaults < .env < config.edn < environment variables. Deep merge nested maps. Never commit secrets.
+
+```clojure
+(defn deep-merge [& maps]
+  (if (every? map? maps)
+    (apply merge-with deep-merge maps)
+    (last maps)))
+
+;; Usage: (deep-merge defaults env-config file-config)
+```
+
+**Environment mapping:**
+```clojure
+(def env-mapping
+  {"TELEGRAM_TOKEN" [:chat :telegram :token]
+   "OPENAI_KEY" [:ai :openai :api-key]})
+
+(def config
+  (reduce (fn [acc [env-var ks]]
+            (if-let [val (System/getenv env-var)]
+              (assoc-in acc ks val)
+              acc))
+          {} env-mapping))
+```
+
+---
+
+### 10. Skill-Based Architecture
+
+Group related tools into versioned, documented skills with dependency management.
+
+```clojure
+;; Skill definition
+{:id :file/operations
+ :name "File Operations"
+ :version "1.0.0"
+ :description "Work with files"
+ :dependencies [:core/essentials]
+ :provides [:file/read :file/write]
+ :config {:max-file-size 10485760}
+ :lifecycle {:init init-fn :shutdown shutdown-fn}}
+
+;; Usage
+(skill/register! file-skill)
+(skill/tools :file/operations)  ; => [:file/read :file/write]
+```
+
+**Benefits:** Clear ownership, dependency resolution, hot-reloading, configuration per capability.
+
+---
+
+### 11. Schema Validation Pattern
+
+Define expected shape up front, validate at runtime.
+
+```clojure
+(def schema
+  {:id {:type :keyword :required true}
+   :version {:type :string :pattern #"^\d+\.\d+\.\d+$"}})
+
+(defn validate [data schema]
+  (let [errors (check-required data schema)]
+    (if (seq errors)
+      {:valid? false :errors errors}
+      {:valid? true})))
+```
+
+---
+
+### 12. Pre-Commit Hooks for Quality Gates
+
+Automate testing before commits to prevent broken code from entering history.
+
+```bash
+# Install hook
+bb git:install-hooks
+
+# Hook runs bb test before every commit
+# Bypass with: git commit --no-verify (emergencies only)
+```
+
+**Lesson:** Version hooks in `scripts/git-hooks/`, install via task.
+
+---
+
+### 13. Pathom EQL Attribute Conventions
+
+Pathom resolvers use namespaced keywords (`:memory/key`), not hyphenated (`:memory-key`).
+
+```clojure
+;; Wrong - won't resolve
+(q [{[:memory-key key] [:memory/value]}])
+
+;; Correct - matches resolver input
+(q [{[:memory/key key] [:memory/value :memory/exists?]}])
+```
+
+---
+
+### 14. Pathom Mutation Symbol Qualification
+
+Mutations must be called with fully qualified symbols as registered.
+
+```clojure
+;; Registered as: ouroboros.memory/memory-save!
+(m 'ouroboros.memory/memory-save! {:memory/key k :memory/value v})
+
+;; Wrong - 'memory/save! won't be found
+(m 'memory/save! {...})
+```
+
+**Debug:** Check registered mutations:
+```clojure
+(keys (:com.wsscode.pathom3.connect.indexes/index-mutations @env))
+```
+
+---
+
+### 15. Tool-Centric AI
+
+LLMs work best when given tools, not just prompts.
 
 **Agent workflow:**
 1. User message
@@ -171,13 +246,11 @@ ouroboros.interface → Unified surface
 - `:http/get` — Web fetching
 - `:system/status` — Health check
 
-**Lesson:** Give AI capabilities, not just context.
-
 ---
 
-### Pattern: The Ouroboros Loop
+### 16. The Ouroboros Loop
 
-**The system feeds itself:**
+The system feeds itself:
 
 ```
 Human → Chat → Agent → Tools → Query → Engine
@@ -190,123 +263,40 @@ Human → Chat → Agent → Tools → Query → Engine
 - Updates memory (persistent)
 - Triggers state changes (introspectable)
 
-**Lesson:** The system that observes itself can improve itself.
-
 ---
 
-### Anti-Pattern: Circular Dependencies
+## Anti-Patterns
+
+### Circular Dependencies
 
 **Problem:** `ouroboros.ai` needed `ouroboros.query`, which needed `ouroboros.ai`.
 
 **Solution 1 (Legacy):** Use `(resolve 'symbol)` for late binding.
-
 ```clojure
-;; In ai.clj
 :fn (fn [_] ((resolve 'ouroboros.query/q) [:system/status]))
 ```
 
 **Solution 2 (Preferred):** Extract registry to separate namespace.
-
 ```clojure
 ;; ouroboros.tool-registry - no dependencies, just storage
 (defonce registry-atom (atom {}))
-(defn register-tool! [name spec])
-(defn call-tool [name params])
 
 ;; ouroboros.tool-defs - depends on registry and query
 (defn- make-query-tool []
   {:fn (fn [params] (query/q ...))})
-
-;; Register after both are loaded
-(tool-defs/register-all-tools!)
 ```
-
-**Lesson:** Prefer explicit registry namespaces over dynamic resolution. Use `(resolve)` only as fallback for truly circular cases.
 
 ---
 
-### Anti-Pattern: HTTP Server Dependency
+### HTTP Server Dependency
 
 **Problem:** `babashka.http-server` not available in all Babashka distributions.
-
-**Solution:** Dashboard starts without full HTTP server for now. Use placeholder.
 
 **Lesson:** Don't depend on libraries that aren't universally available.
 
 ---
 
-## Vocabulary (Established)
-
-| Symbol | Meaning | Usage |
-|--------|---------|-------|
-| ⚒ | Build | Code-forward commits |
-| ◈ | Reflect | Meta, documentation |
-| ∿ | Play | Creative, experimental |
-| · | Atom | Single step |
-| ⊘ | Debug | Diagnostic commits |
-| λ | Lambda | Learning committed |
-| 🐍 | Snake | System complete/milestone |
-
----
-
-## Open Questions
-
-1. **Persistence:** Atoms are simple but not durable. Should we add Datomic/Datalevin?
-2. **Scaling:** Single-process now. How to distribute across nodes?
-3. **Security:** API tokens are basic. Need OAuth2/SAML for enterprise?
-4. **Frontend:** Dashboard is HTML strings. Should we add ClojureScript/ Re-frame?
-
----
-
-## 2026-02-01 — Documentation & Code Quality
-
-### Pattern: Unicode Safety in Babashka
-
-**Observation:** Em-dashes (—), smart quotes, and fancy Unicode in docstrings cause cryptic parse errors.
-
-**Error:**
-```
-Invalid number: 1.0.0
-Don't know how to create ISeq from: clojure.lang.Symbol
-```
-
-**Cause:** Babashka's parser interprets certain Unicode sequences as numbers or syntax.
-
-**Fix:**
-```clojure
-;; Bad - contains em-dash
-"Core principle — execution"
-
-;; Good - plain ASCII
-"Core principle - execution"
-```
-
-**Lesson:** Save fancy typography for markdown files. Use ASCII-only in docstrings.
-
----
-
-### Pattern: Schema Validation for Skills
-
-**Observation:** Skills need validation to prevent runtime errors from malformed definitions.
-
-**Schema approach:**
-```clojure
-(def skill-schema
-  {:id {:type :keyword :required true}
-   :version {:type :string :pattern #"^\d+\.\d+\.\d+$"}})
-
-(defn validate-skill [skill]
-  (let [errors (check-required skill schema)]
-    {:valid? (empty? errors) :errors errors}))
-```
-
-**Applied in:** `ouroboros.skill/register-skill!`
-
-**Lesson:** Validate at registration time, not load time. Fail fast with clear errors.
-
----
-
-### Anti-Pattern: Unchecked Tool Parameters
+### Unchecked Tool Parameters
 
 **Problem:** Tools accept any parameters, leading to runtime failures.
 
@@ -322,7 +312,101 @@ Don't know how to create ISeq from: clojure.lang.Symbol
   (slurp path))
 ```
 
-**Lesson:** Add specs or validation to tools. Document expected parameters.
+---
+
+## Babashka / SCI Quirks
+
+### Unicode in Docstrings
+
+Em-dashes (—), smart quotes cause cryptic parse errors.
+
+**Error:**
+```
+Invalid number: 1.0.0
+Don't know how to create ISeq from: clojure.lang.Symbol
+```
+
+**Fix:**
+```clojure
+;; Bad - contains em-dash
+"Core principle — execution"
+
+;; Good - plain ASCII
+"Core principle - execution"
+```
+
+---
+
+### defonce with Metadata and Docstring
+
+SCI doesn't support docstrings in `defonce` with metadata.
+
+```clojure
+;; Broken in SCI
+(defonce ^:private state
+  "Docstring here"  ; Causes parse errors
+  (atom {}))
+
+;; Workaround - use comment
+(defonce ^:private state
+  ;; Docstring here
+  (atom {}))
+```
+
+---
+
+### No Recur Across Try
+
+Cannot use `recur` inside a `try` block - JVM stack frame constraint.
+
+```clojure
+;; Broken - "Cannot recur across try"
+(loop [items xs]
+  (try
+    (process items)
+    (catch Exception e
+      (recur (rest items)))))  ; ERROR
+
+;; Fixed - extract try into helper
+(defn- try-process [item]
+  (try (process item)
+       (catch Exception e {:error e})))
+
+(loop [items xs]
+  (let [result (try-process (first items))]
+    (if (:error result)
+      (recur (rest items))  ; OK - outside try
+      result)))
+```
+
+---
+
+### No Return Statements
+
+Clojure functions return the last expression evaluated. There is no `return` keyword.
+
+```clojure
+;; Anti-pattern (won't work)
+(defn check [x]
+  (when (< x 0)
+    (return {:error "negative"}))  ; ERROR
+  {:value x})
+
+;; Pattern (use if/cond)
+(defn check [x]
+  (if (< x 0)
+    {:error "negative"}
+    {:value x}))
+```
+
+---
+
+## Open Questions
+
+1. **Persistence:** Atoms are simple but not durable. Should we add Datomic/Datalevin?
+2. **Scaling:** Single-process now. How to distribute across nodes?
+3. **Security:** API tokens are basic. Need OAuth2/SAML for enterprise?
+4. **Frontend:** Dashboard is HTML strings. Should we add ClojureScript/Re-frame?
 
 ---
 
