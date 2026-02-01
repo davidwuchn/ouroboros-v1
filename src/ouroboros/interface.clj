@@ -20,7 +20,8 @@
    [ouroboros.chat.discord :as discord]
    [ouroboros.agent :as agent]
    [ouroboros.auth :as auth]
-   [ouroboros.dashboard :as dashboard]))
+   [ouroboros.dashboard :as dashboard]
+   [ouroboros.config :as config]))
 
 ;; ============================================================================
 ;; Lifecycle
@@ -458,6 +459,34 @@
    Usage: (dashboard-status)"
   []
   (dashboard/status))
+
+;; ============================================================================
+;; Config Helpers (Configuration management)
+;; ============================================================================
+
+(defn load-config!
+  "Load configuration from environment
+   
+   Usage: (load-config!)"
+  []
+  (config/load-config!))
+
+(defn get-config
+  "Get configuration value
+   
+   Usage: (get-config :openai/api-key)
+          (get-config [:chat :telegram :token])"
+  ([key]
+   (config/get-config key))
+  ([key default]
+   (config/get-config key default)))
+
+(defn config-summary
+  "Get configuration summary (safe to log)
+   
+   Usage: (config-summary)"
+  []
+  (config/config-summary))
 
 (comment
   ;; Full boot sequence

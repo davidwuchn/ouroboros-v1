@@ -22,6 +22,7 @@
 | MCP | ✓ Active | Model Context Protocol - expose tools to any MCP client |
 | Chat | ✓ Active | Telegram, Discord, Slack bot adapters (shared WebSocket) |
 | Agent | ✓ Active | AI Agent with LLM providers (OpenAI, Anthropic) |
+| **Config** | **✓ New** | **Environment-based configuration (.env, env vars)** |
 | **Auth** | **✓ New** | **User authentication, permissions, rate limiting** |
 | **Dashboard** | **✓ New** | **Web dashboard for observability** |
 
@@ -122,6 +123,15 @@
 (iface/dashboard-start! {:port 8080})
 (iface/dashboard-status)
 (iface/q [:dashboard/status])
+
+;; Config queries
+(iface/load-config!)           ; Load from .env and env vars
+(iface/get-config :openai/api-key)
+(iface/get-config [:chat :telegram :token])
+(iface/config-summary)         ; Safe to log - no secrets
+
+;; Auto-start from config (bb chat)
+;; TELEGRAM_BOT_TOKEN=... OPENAI_API_KEY=... bb chat
 ```
 
 ## Current Capabilities
