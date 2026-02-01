@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-02-01 — Pre-Commit Hooks
+
+### Pattern: Automated Testing Gates
+
+**Observation:** The `agent/fallback.clj` bugs (SCI docstring issue, recur-across-try) would have been caught by CI/CD but we're running locally. Pre-commit hooks catch them earlier.
+
+**Implementation:**
+```bash
+# Install hook
+bb git:install-hooks
+
+# Or manually
+cp scripts/git-hooks/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+**Hook Behavior:**
+- Runs `bb test` before every commit
+- Blocks commit if tests fail
+- Shows clear error messages
+- Bypass with: `git commit --no-verify` (emergencies only)
+
+**Key Configuration:**
+```bash
+# bb.edn task
+{:git:install-hooks
+ {:doc "Install git hooks (pre-commit test runner)"
+  :task (do ... copy hook ... set permissions ...)}}
+```
+
+**Lesson:** Version hooks in `scripts/git-hooks/` (not `.git/hooks/` which is local), install via task.
+
+**Babashka Note:** SCI doesn't support docstrings in `defonce` with metadata. Use `;;` comments instead.
+
+---
+
 ## 2026-02-01 — System Complete
 
 ### Pattern: Iterative Phase-Based Development

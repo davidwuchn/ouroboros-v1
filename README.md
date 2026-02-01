@@ -39,8 +39,11 @@ docker run -d --env-file .env -p 3000:3000 -p 8080:8080 ouroboros
 ### Running Tests
 
 ```bash
-bb test  # Run all system tests
+bb test                 # Run all system tests
+bb git:install-hooks    # Install pre-commit hook (runs tests before commits)
 ```
+
+**Pre-commit Hook:** Automatically runs `bb test` before every commit. Bypass with `git commit --no-verify` if needed.
 
 ## Architecture
 
