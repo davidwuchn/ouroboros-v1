@@ -20,7 +20,8 @@
 | AI | ✓ Active | AI tooling hooks - tool discovery, context, execution |
 | Telemetry | ✓ Active | Structured logging, metrics, observability |
 | MCP | ✓ Active | Model Context Protocol - expose tools to any MCP client |
-| **Chat** | **✓ New** | **Telegram bot adapter (Discord/Slack coming)** |
+| Chat | ✓ Active | Telegram bot adapter (Discord/Slack coming) |
+| **Agent** | **✓ New** | **AI Agent with LLM providers (OpenAI, Anthropic)** |
 
 **Verified Working:**
 ```clojure
@@ -100,6 +101,12 @@
 (iface/chat-sessions)
 (iface/chat-clear-session! chat-id)
 (iface/chat-stop!)
+
+;; Agent queries
+(iface/agent-configure! {:provider :openai :api-key "sk-..." :model "gpt-4o-mini"})
+(iface/agent-config)
+(iface/agent-generate "What's the system status?" [{:role :user :content "Hello"}])
+(iface/q [:agent/provider :agent/model :agent/persona-preview])
 ```
 
 ## Current Capabilities
@@ -156,15 +163,11 @@ In REPL:
 8. ~~**Telemetry** — Structured logging and metrics~~ ✓ Done
 9. ~~**MCP** — Model Context Protocol server~~ ✓ Done
 10. ~~**Chat** — Telegram bot adapter~~ ✓ Done (Phase 1)
+11. ~~**Agent** — AI Agent with LLM providers~~ ✓ Done (Phase 2)
 
-**🐍 Phase 1 COMPLETE** — Chat infrastructure ready. Next: AI Agent Layer
+**🐍 Phase 2 COMPLETE** — AI Agent with OpenAI/Anthropic integration
 
-### Phase 2: AI Agent (Next)
-- LLM provider integration (OpenAI, Anthropic)
-- Tool selection based on user intent
-- Context-aware responses
-
-### Phase 3: More Platforms
+### Phase 3: More Platforms (Next)
 - Discord bot
 - Slack app
 

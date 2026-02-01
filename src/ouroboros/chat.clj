@@ -1,6 +1,6 @@
 (ns ouroboros.chat
   "Chat - Message routing and conversation management
-   
+
    Core infrastructure for chat platform integration:
    - ChatAdapter protocol for platform abstraction
    - Message routing to handlers
@@ -11,7 +11,8 @@
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.ai :as ai]
    [ouroboros.telemetry :as telemetry]
-   [ouroboros.memory :as memory])
+   [ouroboros.memory :as memory]
+   [ouroboros.agent :as agent])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -135,18 +136,28 @@
     (send-message! adapter chat-id (str "Unknown command: " (name cmd)))))
 
 (defn- handle-natural-message
-  "Handle natural language message with AI"
+  "Handle natural language message with AI agent"
   [adapter chat-id user-name text]
   (telemetry/emit! {:event :chat/message :chat-id chat-id :user user-name})
 
   ;; Update session with user message
   (update-session! chat-id :user text)
 
-  ;; Simple response for now (AI integration comes in Phase 2)
-  (let [response (str "Hello " user-name "! You said: " text
-                      "\n\n(I'll have AI capabilities in Phase 2)")]
-    (update-session! chat-id :assistant response)
-    (send-message! adapter chat-id response)))
+  ;; Get conversation history
+  (let [session (get-session chat-id)
+        history (:history session)
+        ;; Generate AI response
+        result (agent/generate-chat-response text history)]
+
+    (if (:error result)
+      ;; Error response
+      (let [error-response (str "⚠️ " (:response result))]
+        (update-session! chat-id :assistant error-response)
+        (send-message! adapter chat-id error-response))
+      ;; Success response
+      (let [response (:response result)]
+        (update-session! chat-id :assistant response)
+        (send-message! adapter chat-id response)))))
 
 (defn make-message-handler
   "Create a handler function for incoming messages"

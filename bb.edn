@@ -39,15 +39,26 @@
              (deref (promise)))}
 
   chat
-  {:doc "Start chat bot (requires TELEGRAM_BOT_TOKEN env var)"
+  {:doc "Start chat bot (requires TELEGRAM_BOT_TOKEN and OPENAI_API_KEY env vars)"
    :requires ([ouroboros.interface :as iface])
-   :task (let [token (System/getenv "TELEGRAM_BOT_TOKEN")]
-           (if (str/blank? token)
+   :task (let [token (System/getenv "TELEGRAM_BOT_TOKEN")
+               api-key (System/getenv "OPENAI_API_KEY")]
+           (cond
+             (str/blank? token)
              (do (println "✗ TELEGRAM_BOT_TOKEN not set")
                  (println "  Get token from @BotFather")
                  (System/exit 1))
+             
+             (str/blank? api-key)
+             (do (println "✗ OPENAI_API_KEY not set")
+                 (println "  Get key from https://platform.openai.com")
+                 (System/exit 1))
+             
+             :else
              (do (println "◈ Booting system...")
                  (iface/boot!)
+                 (println "◈ Configuring AI agent...")
+                 (iface/agent-configure! {:provider :openai :api-key api-key})
                  (println "◈ Registering Telegram bot...")
                  (iface/chat-register-telegram! token)
                  (println "◈ Starting chat adapters...")

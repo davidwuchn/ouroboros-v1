@@ -17,7 +17,8 @@
    [ouroboros.ai :as ai]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.mcp :as mcp]
-   [ouroboros.chat :as chat]))
+   [ouroboros.chat :as chat]
+   [ouroboros.agent :as agent]))
 
 ;; ============================================================================
 ;; Resolvers - Exposing Engine state as graph nodes
@@ -60,7 +61,8 @@
           ai/resolvers
           telemetry/resolvers
           mcp/resolvers
-          chat/resolvers))
+          chat/resolvers
+          agent/resolvers))
 
 (defn create-env
   "Create a Pathom environment with all resolvers and mutations"
@@ -71,7 +73,8 @@
       (pci/register openapi/mutations)
       (pci/register ai/mutations)
       (pci/register telemetry/mutations)
-      (pci/register mcp/mutations)))
+      (pci/register mcp/mutations)
+      (pci/register agent/mutations)))
 
 (defonce ^:private query-env (atom nil))
 

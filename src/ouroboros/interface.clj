@@ -15,7 +15,8 @@
    [ouroboros.telemetry :as telemetry]
    [ouroboros.mcp :as mcp]
    [ouroboros.chat :as chat]
-   [ouroboros.chat.telegram :as telegram]))
+   [ouroboros.chat.telegram :as telegram]
+   [ouroboros.agent :as agent]))
 
 ;; ============================================================================
 ;; Lifecycle
@@ -353,6 +354,31 @@
    Usage: (chat-clear-session! chat-id)"
   [chat-id]
   (chat/clear-session! chat-id))
+
+;; ============================================================================
+;; Agent Helpers (AI Agent)
+;; ============================================================================
+
+(defn agent-configure!
+  "Configure the AI agent
+   
+   Usage: (agent-configure! {:provider :openai :api-key \"sk-...\"})"
+  [config]
+  (agent/configure! config))
+
+(defn agent-config
+  "Get current agent configuration
+   
+   Usage: (agent-config)"
+  []
+  (agent/get-config))
+
+(defn agent-generate
+  "Generate AI response for a message
+   
+   Usage: (agent-generate \"Hello\" [{:role :user :content \"Hi\"}])"
+  [message history]
+  (agent/generate-chat-response message history))
 
 (comment
   ;; Full boot sequence
