@@ -14,8 +14,9 @@
 | History | ✓ Active | Git resolvers for commits, status, branches |
 | Introspection | ✓ Active | Engine queries its own statechart |
 | Memory | ✓ Active | Cross-session persistence via EDN |
-| **Knowledge** | **✓ New** | **File system as queryable graph** |
-| **API** | **✓ New** | **HTTP client via Pathom resolvers** |
+| Knowledge | ✓ Active | File system as queryable graph |
+| API | ✓ Active | HTTP client via Pathom resolvers |
+| **OpenAPI** | **✓ New** | **OpenAPI specs → callable clients via Martian** |
 
 **Verified Working:**
 ```clojure
@@ -61,6 +62,12 @@
 (iface/q [{[:url "https://api.github.com/users/github"]
            [:api/status :api/body :api/success?]}])
 (iface/http-get "https://api.github.com/users/github")
+
+;; OpenAPI queries
+(iface/openapi-bootstrap! :petstore "https://petstore.swagger.io/v2/swagger.json")
+(iface/openapi-clients)
+(iface/openapi-operations :petstore)
+(iface/openapi-call! :petstore :get-inventory {})
 ```
 
 ## Current Capabilities
@@ -112,7 +119,9 @@ In REPL:
 3. ~~**Memory** — Cross-session persistence~~ ✓ Done
 4. ~~**Knowledge** — File system as queryable graph~~ ✓ Done
 5. ~~**API** — HTTP client capabilities~~ ✓ Done
-6. **OpenAPI** — OpenAPI specs → callable clients via Martian
+6. ~~**OpenAPI** — OpenAPI specs → callable clients via Martian~~ ✓ Done
+
+**System COMPLETE** — All core capabilities implemented. Next: Feed Forward (AI tooling hooks).
 
 ## Active Decisions
 
