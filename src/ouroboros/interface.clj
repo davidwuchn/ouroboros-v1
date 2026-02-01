@@ -21,7 +21,9 @@
    - ouroboros.interface.dashboard - dashboard-*
    - ouroboros.interface.config - load-config! get-config config-summary
    - ouroboros.interface.lane - lane-create! lane-submit! with-session-lane
-   - ouroboros.interface.context-guard - context-check! context-count-tokens"
+   - ouroboros.interface.context-guard - context-check! context-count-tokens
+   - ouroboros.interface.sandbox - P0 safety: allowlist-* sandbox-* tool-safe
+   - ouroboros.interface.skill - Skill system: register-* load-* skill-*"
   (:require
    [ouroboros.interface.lifecycle :as lifecycle]
    [ouroboros.interface.query :as query]
@@ -40,7 +42,9 @@
    [ouroboros.interface.lane :as lane]
    [ouroboros.interface.context-guard :as context-guard]
    [ouroboros.interface.memory-jsonl :as memory-jsonl]
-   [ouroboros.interface.memory-search :as memory-search]))
+   [ouroboros.interface.memory-search :as memory-search]
+   [ouroboros.interface.sandbox :as sandbox]
+   [ouroboros.interface.skill :as skill]))
 
 ;; ============================================================================
 ;; Lifecycle
@@ -455,6 +459,118 @@
 (def memory-clear!
   "Clear all memories"
   memory-search/memory-clear!)
+
+;; ============================================================================
+;; P0 Safety & Sandboxing
+;; ============================================================================
+
+(def allowlist-create!
+  "Create allowlist for subject with permission level"
+  sandbox/allowlist-create!)
+
+(def allowlist-custom!
+  "Create custom allowlist with specific tools"
+  sandbox/allowlist-custom!)
+
+(def allowlist-destroy!
+  "Remove allowlist for subject"
+  sandbox/allowlist-destroy!)
+
+(def allowlist-permitted?
+  "Check if subject can use tool"
+  sandbox/allowlist-permitted?)
+
+(def allowlist-tools
+  "Get list of tools permitted for subject"
+  sandbox/allowlist-tools)
+
+(def allowlist-stats
+  "Get allowlist statistics"
+  sandbox/allowlist-stats)
+
+(def sandbox-stats
+  "Get tool sandbox execution statistics"
+  sandbox/sandbox-stats)
+
+(def sandbox-health
+  "Check sandbox health and error rates"
+  sandbox/sandbox-health)
+
+(def tool-safe
+  "Execute tool with full safety (allowlist + sandbox)"
+  sandbox/tool-safe)
+
+(def session-create!
+  "Create safe session for chat platform"
+  sandbox/session-create!)
+
+(def sandbox-exec-shell
+  "Execute shell command in sandboxed environment"
+  sandbox/sandbox-exec-shell)
+
+(def sandbox-exec-python
+  "Execute Python code in sandboxed environment"
+  sandbox/sandbox-exec-python)
+
+(def sandbox-exec-node
+  "Execute Node.js code in sandboxed environment"
+  sandbox/sandbox-exec-node)
+
+(def sandbox-docker?
+  "Check if Docker is available for sandboxing"
+  sandbox/sandbox-docker?)
+
+(def safety-report
+  "Get comprehensive safety report"
+  sandbox/safety-report)
+
+;; ============================================================================
+;; Skill System
+;; ============================================================================
+
+(def skill-register!
+  "Register a skill definition"
+  skill/register!)
+
+(def skill-load!
+  "Load a skill and its dependencies"
+  skill/load!)
+
+(def skill-unload!
+  "Unload a skill"
+  skill/unload!)
+
+(def skill-reload!
+  "Reload a skill"
+  skill/reload!)
+
+(def skill-list
+  "List all registered skills"
+  skill/list)
+
+(def skill-loaded
+  "List all loaded skills"
+  skill/loaded)
+
+(def skill-tools
+  "Get tools provided by a skill"
+  skill/tools)
+
+(def skill-tool->skill
+  "Find which skill provides a tool"
+  skill/tool->skill)
+
+(def skill-search
+  "Search skills by keyword"
+  skill/search)
+
+(def skill-stats
+  "Get skill system statistics"
+  skill/stats)
+
+(def skill-register-built-ins!
+  "Register all built-in skills"
+  skill/register-built-ins!)
 
 (comment
   ;; Full boot sequence

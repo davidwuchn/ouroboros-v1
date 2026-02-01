@@ -26,6 +26,10 @@
 | **Auth** | **✓ New** | **User authentication, permissions, rate limiting** |
 | **Dashboard** | **✓ New** | **Web dashboard for observability** |
 | **CI/CD** | **✓ New** | **GitHub Actions + Docker deployment** |
+| **Tool Sandbox** | **✓ New** | **Timeouts, memory limits, error isolation for tool execution** |
+| **Tool Allowlist** | **✓ New** | **Per-session/per-user tool permissions** |
+| **Sandboxed Execution** | **✓ New** | **Docker/container-based shell/code execution** |
+| **Skill System** | **✓ New** | **Reusable skill definitions with dependency management** |
 
 **Verified Working:**
 ```clojure
@@ -128,6 +132,22 @@
 
 ;; Auto-start from config (bb chat)
 ;; TELEGRAM_BOT_TOKEN=... OPENAI_API_KEY=... bb chat
+
+;; P0 Safety features
+(iface/allowlist-create! :session-123 :chat-safe)
+(iface/allowlist-permitted? :session-123 :file/read)
+(iface/tool-safe :file/read {:path "README.md"} :session-123)
+(iface/session-create! :telegram "123456" "user-789")
+(iface/sandbox-exec-shell "echo 'Hello'" {:profile :restricted})
+(iface/safety-report)
+
+;; Skill system
+(iface/skill-register-built-ins!)           ; Register built-in skills
+(iface/skill-load! :file/operations)        ; Load a skill
+(iface/skill-list)                          ; List all registered skills
+(iface/skill-loaded)                        ; List loaded skills
+(iface/skill-tools :file/operations)        ; Get tools from skill
+(iface/skill-stats)                         ; Get skill statistics
 ```
 
 ## Current Capabilities
@@ -188,8 +208,12 @@ In REPL:
 11. ~~**Agent** — AI Agent with LLM providers~~ ✓ Done
 12. ~~**Auth** — User authentication, rate limiting~~ ✓ Done
 13. ~~**Dashboard** — Web dashboard for observability~~ ✓ Done
+14. ~~**Tool Sandbox** — Timeouts, memory limits for tool execution~~ ✓ Done
+15. ~~**Tool Allowlist** — Per-session/per-user permissions~~ ✓ Done
+16. ~~**Sandboxed Execution** — Docker-based shell/code execution~~ ✓ Done
+17. ~~**Skill System** — Reusable skill definitions with dependency management~~ ✓ Done
 
-**🐍 SYSTEM COMPLETE** — All phases implemented. The Ouroboros is production-ready.
+**🐍 SYSTEM COMPLETE** — All P0 safety features implemented. The Ouroboros is production-ready with comprehensive security controls.
 
 ## Shared Components
 

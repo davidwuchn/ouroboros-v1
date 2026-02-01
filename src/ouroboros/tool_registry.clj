@@ -4,9 +4,9 @@
    Provides a central place to register and discover tools without
    creating circular dependencies between ai and query namespaces.
    
-   Tools are registered with metadata (description, parameters) and
-   an implementation function. The implementation is provided at
-   registration time, allowing flexibility in how tools are defined.
+   SAFETY: All tool execution now goes through:
+   1. Allowlist check - Is the subject permitted to use this tool?
+   2. Sandbox execution - Timeouts, memory limits, error isolation
    
    Usage:
    (register-tool! :my/tool
@@ -14,10 +14,12 @@
                     :parameters {:x {:type :string}}
                     :fn (fn [params] ...)})
    (list-tools)
-   (call-tool :my/tool {:x \"hello\"})"
+   (call-tool :my/tool {:x \"hello\"} :session-123)  ; With safety context"
   (:require
    [clojure.string :as str]
-   [ouroboros.telemetry :as telemetry]))
+   [ouroboros.telemetry :as telemetry]
+   [ouroboros.tool-sandbox :as sandbox]
+   [ouroboros.tool-allowlist :as allowlist]))
 
 ;; ============================================================================
 ;; Registry
@@ -80,11 +82,100 @@
   (contains? @registry-atom (keyword tool-name)))
 
 ;; ============================================================================
-;; Execution
+;; Safe Execution (NEW - with sandbox and allowlist)
+;; ============================================================================
+
+(defn call-tool-safe
+  "Execute a tool with full safety: allowlist + sandbox
+   
+   Args:
+   - tool-name: Keyword name of the tool
+   - params: Parameters for the tool
+   - subject: Subject identifier for allowlist check (e.g., :session-123)
+   - opts: Optional map with:
+     - :check-allowlist? - Check allowlist before execution (default true)
+     - :use-sandbox? - Use sandbox execution (default true)
+     - :sandbox-opts - Override sandbox constraints
+   
+   Returns:
+   {:status :success :result {...}}
+   {:status :forbidden :error \"...\"}  ; Not in allowlist
+   {:status :timeout :error \"...\"}     ; Sandbox timeout
+   {:status :error :error \"...\"}       ; Execution error"
+  ([tool-name params subject]
+   (call-tool-safe tool-name params subject {}))
+  ([tool-name params subject opts]
+   (let [{:keys [check-allowlist? use-sandbox? sandbox-opts]
+          :or {check-allowlist? true use-sandbox? true}} opts
+         tool-kw (keyword tool-name)]
+     
+     ;; Step 1: Check allowlist
+     (if (and check-allowlist? (not (allowlist/permitted? subject tool-kw {:params params})))
+       ;; Forbidden - not in allowlist
+       (do
+         (telemetry/emit! {:event :tool/forbidden
+                           :tool tool-kw
+                           :subject subject})
+         {:status :forbidden
+          :tool tool-kw
+          :error (str "Tool " tool-kw " not permitted for subject " subject)
+          :subject subject})
+       
+       ;; Step 2: Execute with sandbox
+       (if-let [tool (get-tool tool-kw)]
+         (do
+           (telemetry/log-tool-invoke tool-kw params)
+           (if use-sandbox?
+             ;; Use sandbox for safe execution
+             (let [sandbox-result (sandbox/execute! tool-kw (:fn tool) params sandbox-opts)]
+               (case (:status sandbox-result)
+                 :success {:status :success
+                           :tool tool-kw
+                           :params params
+                           :result (:result sandbox-result)
+                           :duration-ms (:duration-ms sandbox-result)}
+                 :timeout {:status :timeout
+                           :tool tool-kw
+                           :error (:error sandbox-result)
+                           :timeout-ms (:timeout-ms sandbox-result)}
+                 :memory-exceeded {:status :error
+                                   :tool tool-kw
+                                   :error (:error sandbox-result)
+                                   :memory-used-mb (:memory-used-mb sandbox-result)}
+                 {:status :error
+                  :tool tool-kw
+                  :error (:error sandbox-result)}))
+             ;; Direct execution (bypass sandbox - use with caution)
+             (try
+               (let [start (System/nanoTime)
+                     result ((:fn tool) params)
+                     duration (/ (- (System/nanoTime) start) 1e6)]
+                 (telemetry/log-tool-complete tool-kw result duration)
+                 {:status :success
+                  :tool tool-kw
+                  :params params
+                  :result result
+                  :duration-ms duration})
+               (catch Exception e
+                 (telemetry/log-tool-error tool-kw e)
+                 {:status :error
+                  :tool tool-kw
+                  :params params
+                  :error (.getMessage e)}))))
+         {:status :not-found
+          :tool tool-kw
+          :error "Tool not found"
+          :available-tools (keys @registry-atom)})))))
+
+;; ============================================================================
+;; Legacy Execution (DEPRECATED - use call-tool-safe instead)
 ;; ============================================================================
 
 (defn call-tool
   "Execute a tool by name with parameters
+   
+   WARNING: This bypasses allowlist and sandbox. For safe execution,
+   use call-tool-safe instead.
    
    Handles:
    - Tool lookup
@@ -92,7 +183,9 @@
    - Telemetry logging
    - Error handling"
   [tool-name params]
-  (telemetry/log-tool-invoke tool-name params)
+  (telemetry/emit! {:event :tool/unsafe-execution
+                    :tool tool-name
+                    :warning "Using deprecated call-tool - no sandbox protection"})
   (let [start (System/nanoTime)]
     (if-let [tool (get-tool tool-name)]
       (try
@@ -146,6 +239,37 @@
   (filter #(chat-safe-tool? (:tool/name %)) (list-tools)))
 
 ;; ============================================================================
+;; Convenience: Quick Allowlist Setup
+;; ============================================================================
+
+(defn setup-chat-allowlist!
+  "Quick setup for chat session with chat-safe tools
+   
+   Usage:
+     (setup-chat-allowlist! :telegram-123-456)"
+  [subject]
+  (allowlist/create! subject :chat-safe))
+
+(defn setup-safe-session!
+  "Setup a fully safe session with all safety features
+   
+   Creates allowlist and returns subject key for use with call-tool-safe."
+  [platform platform-id user-id & {:keys [level] :or {level :chat-safe}}]
+  (let [subject (allowlist/get-chat-session-key platform platform-id user-id)]
+    (allowlist/create! subject level)
+    subject))
+
+;; ============================================================================
+;; Safety Statistics
+;; ============================================================================
+
+(defn safety-stats
+  "Get combined safety statistics from sandbox and allowlist"
+  []
+  {:sandbox (sandbox/get-stats)
+   :allowlist (allowlist/stats)})
+
+;; ============================================================================
 ;; Exports
 ;; ============================================================================
 
@@ -159,8 +283,14 @@
   ;; List tools
   (list-tools)
 
-  ;; Call tool
-  (call-tool :example/tool {:x "World"})
+  ;; Setup safe session
+  (setup-safe-session! :telegram "123" "user-456")
 
-  ;; Clear
+  ;; Call with safety
+  (call-tool-safe :example/tool {:x "World"} :telegram-123-user-456)
+
+  ;; Check safety stats
+  (safety-stats)
+
+  ;; Cleanup
   (clear-registry!))

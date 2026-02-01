@@ -79,6 +79,43 @@ When two modules implement similar functionality (WebSocket for Discord/Slack), 
 ### 9. Configuration as Layers
 12-factor app configuration: defaults < .env < config.edn < environment variables. Deep merge nested maps. Never commit secrets.
 
+### 10. Skill-Based Architecture (OpenClaw-Inspired)
+Group related tools into versioned, documented skills with dependency management.
+
+```clojure
+;; Skill definition
+{:id :file/operations
+ :name "File Operations"
+ :version "1.0.0"
+ :description "Work with files"
+ :dependencies [:core/essentials]  ; Other skills required
+ :provides [:file/read :file/write]  ; Tools exported
+ :config {:max-file-size 10485760}
+ :lifecycle {:init init-fn :shutdown shutdown-fn}}
+
+;; Usage
+(skill/register! file-skill)
+(skill/load! :file/operations)
+(skill/tools :file/operations)  ; => [:file/read :file/write]
+```
+
+Benefits: Clear ownership, dependency resolution, hot-reloading, configuration per capability.
+
+### 11. Schema Validation Pattern
+Define expected shape up front, validate at runtime.
+
+```clojure
+(def schema
+  {:id {:type :keyword :required true}
+   :version {:type :string :pattern #"^\d+\.\d+\.\d+$"}})
+
+(defn validate [data schema]
+  (let [errors (check-required data schema)]
+    (if (seq errors)
+      {:valid? false :errors errors}
+      {:valid? true})))
+```
+
 ## Events
 
 | Symbol | Label  | Meaning            |
@@ -128,6 +165,8 @@ CHANGELOG.md - terse summary commits (User documentation)
 
 All Tasks: `bb tasks`
 
+**Docstring gotcha:** Avoid em-dashes (—), smart quotes, or other Unicode punctuation in docstrings. They parse as syntax errors in Babashka. Use plain ASCII `-` and `"` instead.
+
 ## bash string escape
 
 Use this bash pattern to protect against escaping issues.
@@ -147,6 +186,24 @@ Use `(resolve 'symbol)` for late binding when namespaces have mutual dependencie
 ;; In ouroboros.ai (needs query, query needs ai)
 :fn (fn [_] ((resolve 'ouroboros.query/q) [:system/status]))
 ```
+
+## Unicode in Docstrings (Babashka)
+
+**Avoid special Unicode characters in docstrings.** Characters like em-dash (—), smart quotes, or other fancy punctuation cause parsing errors in Babashka.
+
+| Bad | Good |
+|-----|------|
+| `"Core principle — execution"` | `"Core principle - execution"` |
+| `"Returns: {:status :success}` | `"Returns: {:status :success}` |
+| `"Value is "quoted"` | `"Value is 'quoted'` |
+
+**Error you'll see:**
+```
+Invalid number: 1.0.0   ; When version string follows em-dash
+Don't know how to create ISeq from: clojure.lang.Symbol
+```
+
+**Fix:** Use plain ASCII characters only in docstrings. Save fancy typography for markdown files.
 
 ## Deep Merge for Nested Config
 
@@ -178,6 +235,35 @@ Map env vars to nested keys, then build config with deep-merge:
           {} env-mapping))
 ```
 
+## No Return Statements in Clojure
+
+Clojure functions return the last expression evaluated. There is no `return` keyword to exit early.
+
+**Anti-pattern (won't work):**
+```clojure
+(defn check [x]
+  (when (< x 0)
+    (return {:error "negative"}))  ; ERROR: return undefined
+  {:value x})
+```
+
+**Pattern (use if/cond):**
+```clojure
+(defn check [x]
+  (if (< x 0)
+    {:error "negative"}
+    {:value x}))
+```
+
+**Pattern (use threading):**
+```clojure
+(defn process [data]
+  (some-> data
+    validate
+    transform
+    (assoc :processed true)))
+```
+
 ## git
 
 **Use symbols in commits for searchable git history.**
@@ -195,6 +281,13 @@ search text (file contents): `git grep "λ"`
 **lint:** `clj-kondo --lint src`
 **nREPL port:** `8888` (use `888X` for multiple concurrent playthroughs)
 **repair after edit:** `clj-paren-repair <file>` — fixes delimiters, formats code
+
+**diagnose parse errors:** If you see "Invalid number" or "Don't know how to create ISeq", check for:
+1. Unicode characters in docstrings (em-dashes, smart quotes)
+2. Unclosed string literals
+3. Missing parentheses/brackets
+
+Run `clj-paren-repair <file>` to auto-fix most issues.
 
 This is a game. Can AI and Humans co-evolve better tooling together?
 
