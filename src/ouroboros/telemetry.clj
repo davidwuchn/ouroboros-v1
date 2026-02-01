@@ -12,7 +12,8 @@
    [clojure.string :as str]
    [clojure.edn :as edn]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [com.wsscode.pathom3.connect.indexes :as pci])
+   [com.wsscode.pathom3.connect.indexes :as pci]
+   [com.wsscode.pathom3.interface.eql :as p.eql])
   (:import [java.time Instant Duration]))
 
 ;; ============================================================================
@@ -99,7 +100,7 @@
   (with-timing {:event :query/execute
                 :query (str (take 100 (pr-str query)))}
     (try
-      (let [result (com.wsscode.pathom3.interface.eql/process env query)]
+      (let [result (p.eql/process env query)]
         (emit! {:event :query/complete
                 :query-keys (keys result)
                 :status :success})
