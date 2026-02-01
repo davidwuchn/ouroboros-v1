@@ -42,7 +42,7 @@ EXPOSE 8888 3000 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD bb -e "(require '[ouroboros.interface :as iface]) (System/exit (if (iface/q [:system/healthy?]) 0 1))" || exit 1
+    CMD bb -e "(require '[ouroboros.engine :as engine]) (System/exit (if (engine/healthy?) 0 1))"
 
 # Default command: run chat bots
 CMD ["bb", "chat"]

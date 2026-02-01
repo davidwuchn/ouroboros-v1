@@ -95,9 +95,36 @@ jobs:
     - name: Check for secrets
       run: |
         echo "◈ Checking for secrets..."
-        # Basic check for common secret patterns
-        if grep -r "sk-" src/ test/ --include="*.clj" 2>/dev/null | grep -v "example\|test\|fake"; then
-          echo "⚠️ Possible API key found in source"
+        # Check for common secret patterns
+        ERRORS=0
+        
+        # OpenAI keys (sk-...)
+        if grep -rE "sk-[a-zA-Z0-9]{20,}" src/ test/ --include="*.clj" 2>/dev/null | grep -v "example\|test\|fake\|placeholder"; then
+          echo "⚠️ Possible OpenAI API key found"
+          ERRORS=$((ERRORS + 1))
+        fi
+        
+        # Slack tokens (xapp-, xoxb-, xoxp-)
+        if grep -rE "x(app|ox[bpa])-[0-9]{10,}" src/ test/ --include="*.clj" 2>/dev/null | grep -v "example\|test\|fake"; then
+          echo "⚠️ Possible Slack token found"
+          ERRORS=$((ERRORS + 1))
+        fi
+        
+        # Discord tokens (64+ char alphanumeric)
+        if grep -rE "[A-Za-z0-9_-]{64,}" src/ test/ --include="*.clj" 2>/dev/null | grep -i "discord\|bot.*token" | grep -v "example\|test\|fake"; then
+          echo "⚠️ Possible Discord token found"
+          ERRORS=$((ERRORS + 1))
+        fi
+        
+        # AWS keys (AKIA...)
+        if grep -rE "AKIA[0-9A-Z]{16}" src/ test/ --include="*.clj" 2>/dev/null; then
+          echo "⚠️ Possible AWS access key found"
+          ERRORS=$((ERRORS + 1))
+        fi
+        
+        if [ $ERRORS -gt 0 ]; then
+          echo "✗ Found $ERRORS potential secret(s)"
           exit 1
         fi
+        
         echo "✓ No obvious secrets found"
