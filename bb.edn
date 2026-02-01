@@ -66,20 +66,25 @@
              (require 'ouroboros.core-test)
              (require 'ouroboros.chat-adapter-test)
              (require 'ouroboros.tool-execution-test)
-             (let [results (merge-with +
-                            (t/run-tests 'ouroboros.core-test)
-                            (t/run-tests 'ouroboros.chat-adapter-test)
-                            (t/run-tests 'ouroboros.tool-execution-test))]
+             (let [sum-results (fn [results]
+                                 {:test (apply + (map :test results))
+                                  :pass (apply + (map :pass results))
+                                  :fail (apply + (map :fail results))
+                                  :error (apply + (map :error results))})
+                   results (sum-results
+                            [(t/run-tests 'ouroboros.core-test)
+                             (t/run-tests 'ouroboros.chat-adapter-test)
+                             (t/run-tests 'ouroboros.tool-execution-test)])]
                (println "\n========================================")
                (println "  Grand Total")
                (println "========================================")
-               (println (str "  Tests: " (:test results 0)))
-               (println (str "  Assertions: " (:pass results 0)))
-               (println (str "  Failures: " (:fail results 0)))
-               (println (str "  Errors: " (:error results 0)))
-               (when (and (zero? (:fail results 0))
-                          (zero? (:error results 0)))
+               (println (str "  Tests: " (:test results)))
+               (println (str "  Assertions: " (:pass results)))
+               (println (str "  Failures: " (:fail results)))
+               (println (str "  Errors: " (:error results)))
+               (when (and (zero? (:fail results))
+                          (zero? (:error results)))
                  (println "\n  ✓ ALL TESTS PASSED!"))
-               (System/exit (if (and (zero? (:fail results 0))
-                                     (zero? (:error results 0)))
+               (System/exit (if (and (zero? (:fail results))
+                                     (zero? (:error results)))
                               0 1))))}}}
