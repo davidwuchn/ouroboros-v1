@@ -1,493 +1,308 @@
 (ns ouroboros.interface
-  "Interface - Engine (∅) + Query + Graph + Memory + Knowledge + API + OpenAPI + AI
+  "Interface - Unified system surface (refactored)
    
-   The unified system surface. Boot sequence:
-   1. Start statechart (Engine)
-   2. Initialize Pathom (Query)
-   3. Load Memory
-   4. Expose via nREPL"
+   This namespace re-exports all interface functions for backward compatibility.
+   
+   For specific domains, you can require directly:
+   - ouroboros.interface.lifecycle - boot! shutdown!
+   - ouroboros.interface.query - q status report
+   - ouroboros.interface.memory - remember recall forget
+   - ouroboros.interface.knowledge - files file search project
+   - ouroboros.interface.api - http-get http-request!
+   - ouroboros.interface.openapi - openapi-*
+   - ouroboros.interface.ai - ai-*
+   - ouroboros.interface.telemetry - telemetry-*
+   - ouroboros.interface.mcp - mcp-*
+   - ouroboros.interface.chat - chat-*
+   - ouroboros.interface.agent - agent-*
+   - ouroboros.interface.auth - auth-*
+   - ouroboros.interface.dashboard - dashboard-*
+   - ouroboros.interface.config - load-config! get-config config-summary"
   (:require
-   [ouroboros.engine :as engine]
-   [ouroboros.query :as query]
-   [ouroboros.memory :as memory]
-   [ouroboros.openapi]
-   [ouroboros.tool-registry :as tool-registry]
-   [ouroboros.ai :as ai]
-   [ouroboros.telemetry :as telemetry]
-   [ouroboros.mcp :as mcp]
-   [ouroboros.chat :as chat]
-   [ouroboros.chat.telegram :as telegram]
-   [ouroboros.chat.slack :as slack]
-   [ouroboros.chat.discord :as discord]
-   [ouroboros.agent :as agent]
-   [ouroboros.auth :as auth]
-   [ouroboros.dashboard :as dashboard]
-   [ouroboros.config :as config]))
+   [ouroboros.interface.lifecycle :as lifecycle]
+   [ouroboros.interface.query :as query]
+   [ouroboros.interface.memory :as memory]
+   [ouroboros.interface.knowledge :as knowledge]
+   [ouroboros.interface.api :as api]
+   [ouroboros.interface.openapi :as openapi]
+   [ouroboros.interface.ai :as ai]
+   [ouroboros.interface.telemetry :as telemetry]
+   [ouroboros.interface.mcp :as mcp]
+   [ouroboros.interface.chat :as chat]
+   [ouroboros.interface.agent :as agent]
+   [ouroboros.interface.auth :as auth]
+   [ouroboros.interface.dashboard :as dashboard]
+   [ouroboros.interface.config :as config]))
 
 ;; ============================================================================
 ;; Lifecycle
 ;; ============================================================================
 
-(defn boot!
+(def boot!
   "Boot the complete system
    
-   Sequence:
-   - Engine: Create statechart session, transition to :running
-   - Query: Initialize Pathom environment with all resolvers
-   - Memory: Load persisted memory from disk"
-  []
-  (println "========================================")
-  (println "  Ouroboros System Boot")
-  (println "========================================")
+   Sequence: Engine → Query → Memory"
+  lifecycle/boot!)
 
-  ;; Step 1: Engine
-  (println "\n[1/3] Starting Engine (∅)...")
-  (engine/boot!)
+(def shutdown!
+  "Graceful shutdown"
+  lifecycle/shutdown!)
 
-  ;; Step 2: Query
-  (println "\n[2/3] Initializing Query interface...")
-  (query/init!)
+;; ============================================================================
+;; Query
+;; ============================================================================
 
-  ;; Step 3: Memory
-  (println "\n[3/3] Loading Memory...")
-  (memory/init!)
-
-  ;; Verification
-  (println "\n========================================")
-  (println "  System Status:")
-  (clojure.pprint/pprint (query/status))
-  (println "========================================")
-
-  ;; Return the query function for convenience
+(def q
+  "Query the system (after boot)"
   query/q)
 
-(defn shutdown!
-  "Graceful shutdown"
-  []
-  (println "\n========================================")
-  (println "  System Shutdown")
-  (println "========================================")
-  (engine/stop!)
-  (println "✓ System stopped"))
-
-;; ============================================================================
-;; Query Helpers (convenience in REPL)
-;; ============================================================================
-
-(defn q
-  "Query the system (after boot)"
-  [query]
-  (query/q query))
-
-(defn remember
-  "Save a value to memory
-   
-   Usage: (remember :my-key \"my value\")"
-  [key value]
-  (memory/save-value! key value))
-
-(defn recall
-  "Get a value from memory
-   
-   Usage: (recall :my-key)"
-  [key]
-  (memory/get-value key))
-
-(defn forget
-  "Delete a value from memory
-   
-   Usage: (forget :my-key)"
-  [key]
-  (memory/delete-value! key))
-
-(defn status
+(def status
   "Current system status"
-  []
-  (query/status))
+  query/status)
 
-(defn report
+(def report
   "Full system report"
-  []
-  (query/full-report))
+  query/report)
 
 ;; ============================================================================
-;; Knowledge Helpers (file system as graph)
+;; Memory
 ;; ============================================================================
 
-(defn files
-  "List files in a directory
-   
-   Usage: (files \"src\")
-          (files \".\")"
-  [dir-path]
-  (query/q [{[:dir-path dir-path]
-             [{:knowledge/files [:file/path :file/name :file/extension
-                                 :file/size :file/directory?]}]}]))
+(def remember
+  "Save a value to memory"
+  memory/remember)
 
-(defn file
-  "Get info about a specific file
-   
-   Usage: (file \"README.md\")"
-  [file-path]
-  (query/q [{[:file-path file-path]
-             [:file/path :file/name :file/size
-              :file/content-preview :file/last-modified]}]))
+(def recall
+  "Get a value from memory"
+  memory/recall)
 
-(defn search
-  "Search files by pattern
-   
-   Usage: (search \"*.clj\")"
-  [pattern]
-  (query/q [{[:search-pattern pattern]
-             [{:knowledge/search [:file/path :file/name :file/size]}]}]))
-
-(defn project
-  "Get project structure
-   
-   Usage: (project)"
-  []
-  (query/q [:knowledge/project]))
+(def forget
+  "Delete a value from memory"
+  memory/forget)
 
 ;; ============================================================================
-;; API Helpers (HTTP requests)
+;; Knowledge
 ;; ============================================================================
 
-(defn http-get
-  "Make HTTP GET request
-   
-   Usage: (http-get \"https://api.github.com/users/github\")"
-  [url]
-  (query/q [{[:url url]
-             [:api/status :api/body :api/success?]}]))
+(def files
+  "List files in a directory"
+  knowledge/files)
 
-(defn http-request!
-  "Make HTTP request (mutation)
-   
-   Usage: (http-request! {:method :post :url \"...\" :body \"...\"})"
-  [{:keys [method url headers body]}]
-  (query/m 'ouroboros.api/api-request!
-           {:method method :url url :headers headers :body body}))
+(def file
+  "Get info about a specific file"
+  knowledge/file)
 
-;; ============================================================================
-;; OpenAPI Helpers (OpenAPI specs → callable clients)
-;; ============================================================================
+(def search
+  "Search files by pattern"
+  knowledge/search)
 
-(defn openapi-bootstrap!
-  "Bootstrap an OpenAPI client from spec URL
-   
-   Usage: (openapi-bootstrap! :petstore \"https://petstore.swagger.io/v2/swagger.json\")"
-  ([name spec-url]
-   (openapi-bootstrap! name spec-url nil))
-  ([name spec-url base-url]
-   (query/m 'ouroboros.openapi/openapi-bootstrap!
-            {:name name :spec-url spec-url :base-url base-url})))
-
-(defn openapi-clients
-  "List registered OpenAPI clients
-   
-   Usage: (openapi-clients)"
-  []
-  (query/q [:openapi/clients]))
-
-(defn openapi-operations
-  "List operations for a client
-   
-   Usage: (openapi-operations :petstore)"
-  [client-name]
-  (ouroboros.openapi/list-operations client-name))
-
-(defn openapi-call!
-  "Call an OpenAPI operation
-   
-   Usage: (openapi-call! :petstore :get-pet-by-id {:petId 1})"
-  [client-name operation-id params]
-  (ouroboros.openapi/call-operation client-name operation-id params))
+(def project
+  "Get project structure"
+  knowledge/project)
 
 ;; ============================================================================
-;; AI Helpers (AI tooling hooks)
+;; API
 ;; ============================================================================
 
-(defn ai-tools
-  "List all AI-available tools
-   
-   Usage: (ai-tools)"
-  []
-  (ai/list-tools))
+(def http-get
+  "Make HTTP GET request"
+  api/http-get)
 
-(defn ai-call!
-  "Call an AI tool with parameters
-   
-   Usage: (ai-call! :file/read {:path \"README.md\"})"
-  [tool-name params]
-  (ai/call-tool tool-name params))
-
-(defn ai-context
-  "Get system context for AI
-   
-   Usage: (ai-context)"
-  []
-  (ai/system-context))
-
-(defn ai-project
-  "Get project context for AI
-   
-   Usage: (ai-project)"
-  []
-  (ai/project-context))
-
-(defn ai-full
-  "Get complete AI context
-   
-   Usage: (ai-full)"
-  []
-  (ai/full-context))
+(def http-request!
+  "Make HTTP request (mutation)"
+  api/http-request!)
 
 ;; ============================================================================
-;; Telemetry Helpers (Structured logging and metrics)
+;; OpenAPI
 ;; ============================================================================
 
-(defn telemetry-events
-  "Get all telemetry events
-   
-   Usage: (telemetry-events)"
-  []
-  (telemetry/get-events))
+(def openapi-bootstrap!
+  "Bootstrap an OpenAPI client from spec URL"
+  openapi/openapi-bootstrap!)
 
-(defn telemetry-recent
-  "Get n recent telemetry events
-   
-   Usage: (telemetry-recent 10)"
-  [n]
-  (telemetry/get-recent-events n))
+(def openapi-clients
+  "List registered OpenAPI clients"
+  openapi/openapi-clients)
 
-(defn telemetry-stats
-  "Get telemetry statistics
-   
-   Usage: (telemetry-stats)"
-  []
-  (query/q [:telemetry/total-events :telemetry/tool-invocations :telemetry/errors]))
+(def openapi-operations
+  "List operations for a client"
+  openapi/openapi-operations)
 
-(defn telemetry-clear!
-  "Clear all telemetry events
-   
-   Usage: (telemetry-clear!)"
-  []
-  (query/m 'ouroboros.telemetry/telemetry-clear! {}))
+(def openapi-call!
+  "Call an OpenAPI operation"
+  openapi/openapi-call!)
 
 ;; ============================================================================
-;; MCP Helpers (Model Context Protocol)
+;; AI
 ;; ============================================================================
 
-(defn mcp-tools
-  "List all MCP-exposed tools
-   
-   Usage: (mcp-tools)"
-  []
-  (mcp/list-mcp-tools))
+(def ai-tools
+  "List all AI-available tools"
+  ai/ai-tools)
 
-(defn mcp-start!
-  "Start MCP server
-   
-   Usage: (mcp-start! {:port 3000})"
-  ([] (mcp/start!))
-  ([opts] (mcp/start! opts)))
+(def ai-call!
+  "Call an AI tool with parameters"
+  ai/ai-call!)
 
-(defn mcp-stop!
-  "Stop MCP server
-   
-   Usage: (mcp-stop!)"
-  []
-  (mcp/stop!))
+(def ai-context
+  "Get system context for AI"
+  ai/ai-context)
 
-(defn mcp-status
-  "Get MCP server status
-   
-   Usage: (mcp-status)"
-  []
-  (mcp/status))
+(def ai-project
+  "Get project context for AI"
+  ai/ai-project)
 
-(defn mcp-invoke!
-  "Invoke a tool via MCP
-   
-   Usage: (mcp-invoke! \"system/status\" {})"
-  [tool-name arguments]
-  (mcp/invoke-tool tool-name arguments))
+(def ai-full
+  "Get complete AI context"
+  ai/ai-full)
 
 ;; ============================================================================
-;; Chat Helpers (Chat Platform Integration)
+;; Telemetry
 ;; ============================================================================
 
-(defn chat-adapters
-  "List registered chat adapters
-   
-   Usage: (chat-adapters)"
-  []
-  (chat/list-chat-tools))
+(def telemetry-events
+  "Get all telemetry events"
+  telemetry/telemetry-events)
 
-(defn chat-start!
-  "Start all chat adapters
-   
-   Usage: (chat-start!)"
-  []
-  (chat/start-all!))
+(def telemetry-recent
+  "Get n recent telemetry events"
+  telemetry/telemetry-recent)
 
-(defn chat-stop!
-  "Stop all chat adapters
-   
-   Usage: (chat-stop!)"
-  []
-  (chat/stop-all!))
+(def telemetry-stats
+  "Get telemetry statistics"
+  telemetry/telemetry-stats)
 
-(defn chat-register-telegram!
-  "Register Telegram bot
-   
-   Usage: (chat-register-telegram! \"YOUR_BOT_TOKEN\")"
-  [token]
-  (let [bot (telegram/make-bot token)]
-    (chat/register-adapter! :telegram bot)
-    {:status :registered :platform :telegram}))
-
-(defn chat-register-slack!
-  "Register Slack bot
-   
-   Usage: (chat-register-slack! \"xapp-...\" \"xoxb-...\")"
-  [app-token bot-token]
-  (let [bot (slack/make-bot app-token bot-token)]
-    (chat/register-adapter! :slack bot)
-    {:status :registered :platform :slack}))
-
-(defn chat-register-discord!
-  "Register Discord bot
-   
-   Usage: (chat-register-discord! \"YOUR_BOT_TOKEN\")"
-  [token]
-  (let [bot (discord/make-bot token)]
-    (chat/register-adapter! :discord bot)
-    {:status :registered :platform :discord}))
-
-(defn chat-sessions
-  "Get active chat sessions
-   
-   Usage: (chat-sessions)"
-  []
-  (keys @chat/chat-sessions))
-
-(defn chat-clear-session!
-  "Clear a chat session
-   
-   Usage: (chat-clear-session! chat-id)"
-  [chat-id]
-  (chat/clear-session! chat-id))
+(def telemetry-clear!
+  "Clear all telemetry events"
+  telemetry/telemetry-clear!)
 
 ;; ============================================================================
-;; Agent Helpers (AI Agent)
+;; MCP
 ;; ============================================================================
 
-(defn agent-configure!
-  "Configure the AI agent
-   
-   Usage: (agent-configure! {:provider :openai :api-key \"sk-...\"})"
-  [config]
-  (agent/configure! config))
+(def mcp-tools
+  "List all MCP-exposed tools"
+  mcp/mcp-tools)
 
-(defn agent-config
-  "Get current agent configuration
-   
-   Usage: (agent-config)"
-  []
-  (agent/get-config))
+(def mcp-start!
+  "Start MCP server"
+  mcp/mcp-start!)
 
-(defn agent-generate
-  "Generate AI response for a message
-   
-   Usage: (agent-generate \"Hello\" [{:role :user :content \"Hi\"}])"
-  [message history]
-  (agent/generate-chat-response message history))
+(def mcp-stop!
+  "Stop MCP server"
+  mcp/mcp-stop!)
 
-;; ============================================================================
-;; Auth Helpers (Authentication)
-;; ============================================================================
+(def mcp-status
+  "Get MCP server status"
+  mcp/mcp-status)
 
-(defn auth-get-user
-  "Get or create user by platform ID
-   
-   Usage: (auth-get-user :telegram \"123456\" \"Alice\")"
-  [platform platform-id name]
-  (auth/get-or-create-user platform platform-id name))
-
-(defn auth-users
-  "List all registered users
-   
-   Usage: (auth-users)"
-  []
-  (auth/list-users))
-
-(defn auth-check-permission
-  "Check if user has permission
-   
-   Usage: (auth-check-permission user :admin)"
-  [user permission]
-  (auth/has-permission? user permission))
-
-(defn auth-rate-limit
-  "Check rate limit for user action
-   
-   Usage: (auth-rate-limit user-id :message)"
-  [user-id action]
-  (auth/check-rate-limit user-id action))
+(def mcp-invoke!
+  "Invoke a tool via MCP"
+  mcp/mcp-invoke!)
 
 ;; ============================================================================
-;; Dashboard Helpers (Web Dashboard)
+;; Chat
 ;; ============================================================================
 
-(defn dashboard-start!
-  "Start web dashboard server
-   
-   Usage: (dashboard-start! {:port 8080})"
-  ([] (dashboard/start!))
-  ([opts] (dashboard/start! opts)))
+(def chat-adapters
+  "List registered chat adapters"
+  chat/chat-adapters)
 
-(defn dashboard-stop!
-  "Stop web dashboard server
-   
-   Usage: (dashboard-stop!)"
-  []
-  (dashboard/stop!))
+(def chat-start!
+  "Start all chat adapters"
+  chat/chat-start!)
 
-(defn dashboard-status
-  "Get dashboard server status
-   
-   Usage: (dashboard-status)"
-  []
-  (dashboard/status))
+(def chat-stop!
+  "Stop all chat adapters"
+  chat/chat-stop!)
+
+(def chat-register-telegram!
+  "Register Telegram bot"
+  chat/chat-register-telegram!)
+
+(def chat-register-slack!
+  "Register Slack bot"
+  chat/chat-register-slack!)
+
+(def chat-register-discord!
+  "Register Discord bot"
+  chat/chat-register-discord!)
+
+(def chat-sessions
+  "Get active chat sessions"
+  chat/chat-sessions)
+
+(def chat-clear-session!
+  "Clear a chat session"
+  chat/chat-clear-session!)
 
 ;; ============================================================================
-;; Config Helpers (Configuration management)
+;; Agent
 ;; ============================================================================
 
-(defn load-config!
-  "Load configuration from environment
-   
-   Usage: (load-config!)"
-  []
-  (config/load-config!))
+(def agent-configure!
+  "Configure the AI agent"
+  agent/agent-configure!)
 
-(defn get-config
-  "Get configuration value
-   
-   Usage: (get-config :openai/api-key)
-          (get-config [:chat :telegram :token])"
-  ([key]
-   (config/get-config key))
-  ([key default]
-   (config/get-config key default)))
+(def agent-config
+  "Get current agent configuration"
+  agent/agent-config)
 
-(defn config-summary
-  "Get configuration summary (safe to log)
-   
-   Usage: (config-summary)"
-  []
-  (config/config-summary))
+(def agent-generate
+  "Generate AI response for a message"
+  agent/agent-generate)
+
+;; ============================================================================
+;; Auth
+;; ============================================================================
+
+(def auth-get-user
+  "Get or create user by platform ID"
+  auth/auth-get-user)
+
+(def auth-users
+  "List all registered users"
+  auth/auth-users)
+
+(def auth-check-permission
+  "Check if user has permission"
+  auth/auth-check-permission)
+
+(def auth-rate-limit
+  "Check rate limit for user action"
+  auth/auth-rate-limit)
+
+;; ============================================================================
+;; Dashboard
+;; ============================================================================
+
+(def dashboard-start!
+  "Start web dashboard server"
+  dashboard/dashboard-start!)
+
+(def dashboard-stop!
+  "Stop web dashboard server"
+  dashboard/dashboard-stop!)
+
+(def dashboard-status
+  "Get dashboard server status"
+  dashboard/dashboard-status)
+
+;; ============================================================================
+;; Config
+;; ============================================================================
+
+(def load-config!
+  "Load configuration from environment"
+  config/load-config!)
+
+(def get-config
+  "Get configuration value"
+  config/get-config)
+
+(def config-summary
+  "Get configuration summary (safe to log)"
+  config/config-summary)
 
 (comment
   ;; Full boot sequence
