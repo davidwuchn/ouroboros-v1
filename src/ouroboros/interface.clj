@@ -16,6 +16,7 @@
    [ouroboros.mcp :as mcp]
    [ouroboros.chat :as chat]
    [ouroboros.chat.telegram :as telegram]
+   [ouroboros.chat.slack :as slack]
    [ouroboros.agent :as agent]))
 
 ;; ============================================================================
@@ -340,6 +341,15 @@
   (let [bot (telegram/make-bot token)]
     (chat/register-adapter! :telegram bot)
     {:status :registered :platform :telegram}))
+
+(defn chat-register-slack!
+  "Register Slack bot
+   
+   Usage: (chat-register-slack! \"xapp-...\" \"xoxb-...\")"
+  [app-token bot-token]
+  (let [bot (slack/make-bot app-token bot-token)]
+    (chat/register-adapter! :slack bot)
+    {:status :registered :platform :slack}))
 
 (defn chat-sessions
   "Get active chat sessions
