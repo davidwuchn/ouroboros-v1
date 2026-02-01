@@ -14,6 +14,7 @@
    [cheshire.core :as json]
    [clojure.string :as str]
    [ouroboros.ai :as ai]
+   [ouroboros.agent.fallback :as fallback]
    [ouroboros.telemetry :as telemetry]
    [com.wsscode.pathom3.connect.operation :as pco]))
 
@@ -135,7 +136,11 @@
          :persona default-persona
          :max-history 10
          :enabled-tools #{:file/read :git/status :system/status
-                          :http/get :memory/get :query/eql}}))
+                          :http/get :memory/get :query/eql}
+         ;; Fallback chain configuration
+         :fallback-chain [:openai :anthropic :ollama]
+         :fallback-enabled? false
+         :provider-configs {}}))
 
 (defn configure!
   "Configure the AI agent
@@ -203,6 +208,38 @@
     (filter #(contains? enabled (keyword (:name %)))
             (ai/list-tools))))
 
+(defn- wrap-generate-fn
+  "Wrap generate-response for use with fallback chain"
+  [messages tools]
+  (fn [provider config _msgs _tools]
+    (generate-response provider config messages tools)))
+
+(defn- generate-with-fallback
+  "Generate response using fallback chain if enabled"
+  [config messages tools]
+  (if (:fallback-enabled? config)
+    (let [chain (:fallback-chain config [:openai :anthropic :ollama])
+          provider-configs (merge
+                            ;; Build configs from current config
+                            {:openai {:api-key (:api-key config)
+                                      :model (or (:model config) "gpt-4o-mini")}}
+                            (:provider-configs config))
+          result (fallback/generate-with-fallback
+                  chain
+                  provider-configs
+                  (wrap-generate-fn messages tools)
+                  messages
+                  tools)]
+      (if (:success result)
+        (do
+          (telemetry/emit! {:event :agent/fallback-success
+                            :provider (:provider result)
+                            :attempts (:attempts result)})
+          (:result result))
+        {:error (str "All providers failed: " (:error result))}))
+    ;; Fallback disabled, use primary provider
+    (generate-response (:provider config) config messages tools)))
+
 (defn generate-chat-response
   "Generate AI response for chat message
    
@@ -218,9 +255,9 @@
         messages (build-messages conversation persona)
         tools (get-enabled-tools)
 
-        ;; Call LLM
+        ;; Call LLM (with fallback if enabled)
         response (if api-key
-                   (generate-response provider config messages tools)
+                   (generate-with-fallback config messages tools)
                    {:error "No API key configured. Set :api-key in (configure!)"})]
 
     (if (:error response)
@@ -240,7 +277,7 @@
                 follow-up-messages (concat messages
                                            [{:role :assistant :content (:content message)}
                                             {:role :user :content tool-context}])
-                follow-up (generate-response provider config follow-up-messages [])]
+                follow-up (generate-with-fallback config follow-up-messages [])]
             (if (:error follow-up)
               {:response (str "I used some tools. Here's what I found:\n" tool-context)}
               {:response (:content (:message (first follow-up)))}))
@@ -253,26 +290,52 @@
 ;; ============================================================================
 
 (pco/defresolver agent-config-resolver [_]
-  {::pco/output [:agent/provider :agent/model :agent/persona-preview]}
+  {::pco/output [:agent/provider :agent/model :agent/persona-preview
+                 :agent/fallback-enabled?]}
   (let [config @agent-config]
     {:agent/provider (:provider config)
      :agent/model (:model config)
-     :agent/persona-preview (str (subs (:persona config) 0 50) "...")}))
+     :agent/persona-preview (str (subs (:persona config) 0 50) "...")
+     :agent/fallback-enabled? (:fallback-enabled? config false)}))
+
+(pco/defresolver agent-fallback-health [_]
+  {::pco/output [{:agent/fallback-health [:provider/status :provider/total-requests
+                                          :provider/total-failures :provider/success-rate]}]}
+  {:agent/fallback-health (fallback/get-provider-stats)})
 
 (pco/defmutation agent-configure! [{:keys [provider api-key model]}]
   {::pco/output [:status :provider]}
   (configure! {:provider provider :api-key api-key :model model})
   {:status :configured :provider provider})
 
+(pco/defmutation agent-enable-fallback! [{:keys [enabled chain]}]
+  {::pco/output [:status :fallback-enabled? :fallback-chain]}
+  (swap! agent-config
+         (fn [c]
+           (cond-> c
+             (some? enabled) (assoc :fallback-enabled? enabled)
+             chain (assoc :fallback-chain (map keyword chain)))))
+  {:status (if (:fallback-enabled? @agent-config) :enabled :disabled)
+   :fallback-enabled? (:fallback-enabled? @agent-config)
+   :fallback-chain (:fallback-chain @agent-config)})
+
+(pco/defmutation agent-reset-provider! [{:keys [provider]}]
+  {::pco/output [:status :provider]}
+  (fallback/reset-health! (keyword provider))
+  {:status :reset :provider provider})
+
 ;; ============================================================================
 ;; Exports
 ;; ============================================================================
 
 (def resolvers
-  [agent-config-resolver])
+  [agent-config-resolver
+   agent-fallback-health])
 
 (def mutations
-  [agent-configure!])
+  [agent-configure!
+   agent-enable-fallback!
+   agent-reset-provider!])
 
 (comment
   ;; Configure agent
@@ -280,12 +343,28 @@
                :api-key "sk-..."
                :model "gpt-4o-mini"})
 
-  ;; Generate response
+  ;; Enable fallback chain
+  (swap! agent-config assoc
+         :fallback-enabled? true
+         :fallback-chain [:openai :anthropic]
+         :provider-configs {:anthropic {:api-key "..."
+                                        :model "claude-3-haiku"}})
+
+  ;; Or via Pathom
+  (require '[ouroboros.query :as q])
+  (q/m 'agent/enable-fallback! {:enabled true
+                                :chain [:openai :anthropic]})
+
+  ;; Check fallback health
+  (fallback/get-provider-stats)
+  (q/q [{:agent/fallback-health [:provider/status
+                                 :provider/success-rate]}])
+
+  ;; Reset provider after issues
+  (fallback/reset-health! :openai)
+  (q/m 'agent/reset-provider! {:provider "openai"})
+
+  ;; Generate response (uses fallback if enabled)
   (generate-chat-response "What's the system status?"
                           [{:role :user :content "Hello"}
-                           {:role :assistant :content "Hi!"}])
-
-  ;; Via Pathom
-  (require '[ouroboros.query :as q])
-  (q/q [:agent/provider :agent/model])
-  (q/m 'agent/configure! {:provider :openai :api-key "..."}))
+                           {:role :assistant :content "Hi!"}]))

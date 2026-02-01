@@ -54,6 +54,25 @@
              (clojure.pprint/pprint (config/config-summary)))}
 
   ;; ==========================================================================
+  ;; Git Hooks
+  ;; ==========================================================================
+
+  git:install-hooks
+  {:doc "Install git hooks (pre-commit test runner)"
+   :task (do (let [source "scripts/git-hooks/pre-commit"
+                   target ".git/hooks/pre-commit"]
+               (if (babashka.fs/exists? source)
+                 (do
+                   (babashka.fs/copy source target {:replace-existing true})
+                   (babashka.fs/set-posix-file-permissions target "rwxr-xr-x")
+                   (println "✓ Pre-commit hook installed")
+                   (println "  Tests will run before each commit")
+                   (println "  Bypass with: git commit --no-verify"))
+                 (do
+                   (println "✗ Hook source not found:")
+                   (println "  " source)))))}
+
+  ;; ==========================================================================
   ;; Testing Tasks
   ;; ==========================================================================
 
