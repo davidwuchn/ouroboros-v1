@@ -170,11 +170,11 @@
           (let [result (try
                          (attempt-generation provider config generate-fn messages tools attempted)
                          (catch Exception e
-                           (record-failure! provider e)
-                           {:error (ex-message e)}))]
+                           {:error e :exception? true}))]
             (if (:error result)
               (do
-                (when-not (instance? Exception (:error result))
+                (if (:exception? result)
+                  (record-failure! provider (:error result))
                   (record-failure! provider (ex-info (:error result) {})))
                 (recur (remove #{provider} remaining)
                        (conj attempted provider)))
@@ -183,6 +183,7 @@
                 {:success true
                  :result result
                  :provider provider
+                 :attempted (conj attempted provider)
                  :attempts (inc (count attempted))}))))))))
 
 ;; ============================================================================

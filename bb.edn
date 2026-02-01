@@ -85,6 +85,7 @@
              (require 'ouroboros.core-test)
              (require 'ouroboros.chat-adapter-test)
              (require 'ouroboros.tool-execution-test)
+             (require 'ouroboros.agent.fallback-test)
              (let [sum-results (fn [results]
                                  {:test (apply + (map :test results))
                                   :pass (apply + (map :pass results))
@@ -93,7 +94,8 @@
                    results (sum-results
                             [(t/run-tests 'ouroboros.core-test)
                              (t/run-tests 'ouroboros.chat-adapter-test)
-                             (t/run-tests 'ouroboros.tool-execution-test)])]
+                             (t/run-tests 'ouroboros.tool-execution-test)
+                             (t/run-tests 'ouroboros.agent.fallback-test)])]
                (println "\n========================================")
                (println "  Grand Total")
                (println "========================================")
