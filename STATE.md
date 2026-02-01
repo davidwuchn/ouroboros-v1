@@ -18,7 +18,8 @@
 | API | ✓ Active | HTTP client via Pathom resolvers |
 | OpenAPI | ✓ Active | OpenAPI specs → callable clients via Martian |
 | AI | ✓ Active | AI tooling hooks - tool discovery, context, execution |
-| **Telemetry** | **✓ New** | **Structured logging, metrics, observability** |
+| Telemetry | ✓ Active | Structured logging, metrics, observability |
+| **MCP** | **✓ New** | **Model Context Protocol - expose tools to any MCP client** |
 
 **Verified Working:**
 ```clojure
@@ -84,6 +85,13 @@
 (iface/telemetry-stats)
 (iface/q [{:telemetry/events [:event/id :event/timestamp :event]}])
 (iface/q [:telemetry/total-events :telemetry/tool-invocations])
+
+;; MCP queries
+(iface/mcp-tools)
+(iface/mcp-start! {:port 3000})
+(iface/mcp-status)
+(iface/mcp-invoke! "system/status" {})
+(iface/mcp-stop!)
 ```
 
 ## Current Capabilities
@@ -138,6 +146,7 @@ In REPL:
 6. ~~**OpenAPI** — OpenAPI specs → callable clients via Martian~~ ✓ Done
 7. ~~**AI** — AI tooling hooks~~ ✓ Done
 8. ~~**Telemetry** — Structured logging and metrics~~ ✓ Done
+9. ~~**MCP** — Model Context Protocol server~~ ✓ Done
 
 **🐍 SYSTEM COMPLETE** — All capabilities implemented. The Ouroboros is whole.
 
