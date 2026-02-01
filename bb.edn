@@ -58,6 +58,28 @@
   ;; ==========================================================================
 
   test
-  {:doc "Run all system tests"
-   :requires ([ouroboros.core-test :as test])
-   :task (test/run-all-tests)}}}
+  {:doc "Run all system tests (core, chat, tools, error-handling)"
+   :requires ([clojure.test :as t])
+   :task (do (println "\n========================================")
+             (println "  Running All Test Suites")
+             (println "========================================")
+             (require 'ouroboros.core-test)
+             (require 'ouroboros.chat-adapter-test)
+             (require 'ouroboros.tool-execution-test)
+             (let [results (merge-with +
+                            (t/run-tests 'ouroboros.core-test)
+                            (t/run-tests 'ouroboros.chat-adapter-test)
+                            (t/run-tests 'ouroboros.tool-execution-test))]
+               (println "\n========================================")
+               (println "  Grand Total")
+               (println "========================================")
+               (println (str "  Tests: " (:test results 0)))
+               (println (str "  Assertions: " (:pass results 0)))
+               (println (str "  Failures: " (:fail results 0)))
+               (println (str "  Errors: " (:error results 0)))
+               (when (and (zero? (:fail results 0))
+                          (zero? (:error results 0)))
+                 (println "\n  ✓ ALL TESTS PASSED!"))
+               (System/exit (if (and (zero? (:fail results 0))
+                                     (zero? (:error results 0)))
+                              0 1))))}}}
