@@ -36,4 +36,21 @@
              (println "  Try: (iface/q [:system/status])")
              (nrepl/start-server! {:host "localhost"
                                    :port 8888})
-             (deref (promise)))}}}
+             (deref (promise)))}
+
+  chat
+  {:doc "Start chat bot (requires TELEGRAM_BOT_TOKEN env var)"
+   :requires ([ouroboros.interface :as iface])
+   :task (let [token (System/getenv "TELEGRAM_BOT_TOKEN")]
+           (if (str/blank? token)
+             (do (println "✗ TELEGRAM_BOT_TOKEN not set")
+                 (println "  Get token from @BotFather")
+                 (System/exit 1))
+             (do (println "◈ Booting system...")
+                 (iface/boot!)
+                 (println "◈ Registering Telegram bot...")
+                 (iface/chat-register-telegram! token)
+                 (println "◈ Starting chat adapters...")
+                 (iface/chat-start!)
+                 (println "✓ Chat bot running. Press Ctrl+C to stop.")
+                 (deref (promise)))))}}}

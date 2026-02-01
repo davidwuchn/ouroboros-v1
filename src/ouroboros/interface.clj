@@ -13,7 +13,9 @@
    [ouroboros.openapi]
    [ouroboros.ai :as ai]
    [ouroboros.telemetry :as telemetry]
-   [ouroboros.mcp :as mcp]))
+   [ouroboros.mcp :as mcp]
+   [ouroboros.chat :as chat]
+   [ouroboros.chat.telegram :as telegram]))
 
 ;; ============================================================================
 ;; Lifecycle
@@ -303,6 +305,54 @@
    Usage: (mcp-invoke! \"system/status\" {})"
   [tool-name arguments]
   (mcp/invoke-tool tool-name arguments))
+
+;; ============================================================================
+;; Chat Helpers (Chat Platform Integration)
+;; ============================================================================
+
+(defn chat-adapters
+  "List registered chat adapters
+   
+   Usage: (chat-adapters)"
+  []
+  (chat/list-chat-tools))
+
+(defn chat-start!
+  "Start all chat adapters
+   
+   Usage: (chat-start!)"
+  []
+  (chat/start-all!))
+
+(defn chat-stop!
+  "Stop all chat adapters
+   
+   Usage: (chat-stop!)"
+  []
+  (chat/stop-all!))
+
+(defn chat-register-telegram!
+  "Register Telegram bot
+   
+   Usage: (chat-register-telegram! \"YOUR_BOT_TOKEN\")"
+  [token]
+  (let [bot (telegram/make-bot token)]
+    (chat/register-adapter! :telegram bot)
+    {:status :registered :platform :telegram}))
+
+(defn chat-sessions
+  "Get active chat sessions
+   
+   Usage: (chat-sessions)"
+  []
+  (keys @chat/chat-sessions))
+
+(defn chat-clear-session!
+  "Clear a chat session
+   
+   Usage: (chat-clear-session! chat-id)"
+  [chat-id]
+  (chat/clear-session! chat-id))
 
 (comment
   ;; Full boot sequence

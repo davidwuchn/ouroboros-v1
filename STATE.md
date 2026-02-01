@@ -19,7 +19,8 @@
 | OpenAPI | ✓ Active | OpenAPI specs → callable clients via Martian |
 | AI | ✓ Active | AI tooling hooks - tool discovery, context, execution |
 | Telemetry | ✓ Active | Structured logging, metrics, observability |
-| **MCP** | **✓ New** | **Model Context Protocol - expose tools to any MCP client** |
+| MCP | ✓ Active | Model Context Protocol - expose tools to any MCP client |
+| **Chat** | **✓ New** | **Telegram bot adapter (Discord/Slack coming)** |
 
 **Verified Working:**
 ```clojure
@@ -92,6 +93,13 @@
 (iface/mcp-status)
 (iface/mcp-invoke! "system/status" {})
 (iface/mcp-stop!)
+
+;; Chat queries
+(iface/chat-register-telegram! "YOUR_BOT_TOKEN")
+(iface/chat-start!)
+(iface/chat-sessions)
+(iface/chat-clear-session! chat-id)
+(iface/chat-stop!)
 ```
 
 ## Current Capabilities
@@ -147,8 +155,23 @@ In REPL:
 7. ~~**AI** — AI tooling hooks~~ ✓ Done
 8. ~~**Telemetry** — Structured logging and metrics~~ ✓ Done
 9. ~~**MCP** — Model Context Protocol server~~ ✓ Done
+10. ~~**Chat** — Telegram bot adapter~~ ✓ Done (Phase 1)
 
-**🐍 SYSTEM COMPLETE** — All capabilities implemented. The Ouroboros is whole.
+**🐍 Phase 1 COMPLETE** — Chat infrastructure ready. Next: AI Agent Layer
+
+### Phase 2: AI Agent (Next)
+- LLM provider integration (OpenAI, Anthropic)
+- Tool selection based on user intent
+- Context-aware responses
+
+### Phase 3: More Platforms
+- Discord bot
+- Slack app
+
+### Phase 4: Production
+- User authentication
+- Rate limiting
+- Web dashboard
 
 ## Active Decisions
 

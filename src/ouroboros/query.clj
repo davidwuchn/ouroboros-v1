@@ -16,7 +16,8 @@
    [ouroboros.openapi :as openapi]
    [ouroboros.ai :as ai]
    [ouroboros.telemetry :as telemetry]
-   [ouroboros.mcp :as mcp]))
+   [ouroboros.mcp :as mcp]
+   [ouroboros.chat :as chat]))
 
 ;; ============================================================================
 ;; Resolvers - Exposing Engine state as graph nodes
@@ -58,7 +59,8 @@
           openapi/resolvers
           ai/resolvers
           telemetry/resolvers
-          mcp/resolvers))
+          mcp/resolvers
+          chat/resolvers))
 
 (defn create-env
   "Create a Pathom environment with all resolvers and mutations"
