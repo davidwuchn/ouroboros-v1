@@ -73,6 +73,12 @@ Small, focused modules. Clear ownership. Interface as unified surface.
 ### 7. Runtime Discoverability
 System documents itself via queries. No stale documentation.
 
+### 8. Extract Shared Infrastructure
+When two modules implement similar functionality (WebSocket for Discord/Slack), extract shared utilities. Reduces duplication, ensures consistency, makes third implementation trivial.
+
+### 9. Configuration as Layers
+12-factor app configuration: defaults < .env < config.edn < environment variables. Deep merge nested maps. Never commit secrets.
+
 ## Events
 
 | Symbol | Label  | Meaning            |
@@ -140,6 +146,36 @@ Use `(resolve 'symbol)` for late binding when namespaces have mutual dependencie
 ```clojure
 ;; In ouroboros.ai (needs query, query needs ai)
 :fn (fn [_] ((resolve 'ouroboros.query/q) [:system/status]))
+```
+
+## Deep Merge for Nested Config
+
+Clojure's `merge` is shallow. For nested configuration maps, use deep-merge:
+
+```clojure
+(defn deep-merge [& maps]
+  (if (every? map? maps)
+    (apply merge-with deep-merge maps)
+    (last maps)))
+
+;; Usage: (deep-merge defaults env-config file-config)
+```
+
+## Environment Configuration Pattern
+
+Map env vars to nested keys, then build config with deep-merge:
+
+```clojure
+(def env-mapping
+  {"TELEGRAM_TOKEN" [:chat :telegram :token]
+   "OPENAI_KEY" [:ai :openai :api-key]})
+
+(def config
+  (reduce (fn [acc [env-var ks]]
+            (if-let [val (System/getenv env-var)]
+              (assoc-in acc ks val)
+              acc))
+          {} env-mapping))
 ```
 
 ## git
