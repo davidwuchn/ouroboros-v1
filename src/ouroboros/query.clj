@@ -14,6 +14,8 @@
    [ouroboros.knowledge :as knowledge]
    [ouroboros.api :as api]
    [ouroboros.openapi :as openapi]
+   [ouroboros.tool-registry :as tool-registry]
+   [ouroboros.tool-defs :as tool-defs]
    [ouroboros.ai :as ai]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.mcp :as mcp]
@@ -83,9 +85,13 @@
 (defonce ^:private query-env (atom nil))
 
 (defn init!
-  "Initialize the query environment"
+  "Initialize the query environment
+
+   Also registers all tools with the tool registry."
   []
   (reset! query-env (create-env))
+  ;; Register tools after query env is ready (breaks circular dependency)
+  (tool-defs/register-all-tools!)
   (println "✓ Query environment initialized"))
 
 (defn q

@@ -9,7 +9,7 @@
   (:require
    [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [ouroboros.ai :as ai]
+   [ouroboros.tool-registry :as tool-registry]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.memory :as memory]
    [ouroboros.agent :as agent])
@@ -99,7 +99,7 @@
 (defn list-chat-tools
   "List tools available in chat context"
   []
-  (filter #(chat-safe-tool? (:tool/name %)) (ai/list-tools)))
+  (filter #(chat-safe-tool? (:tool/name %)) (tool-registry/list-tools)))
 
 ;; ============================================================================
 ;; Message Handler
@@ -125,7 +125,7 @@
                          "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - Check system status\n/tools - List available tools\n\nJust type naturally to chat!")
     :clear (do (clear-session! chat-id)
                (send-message! adapter chat-id "✓ Conversation cleared"))
-    :status (let [result (ai/call-tool :system/status {})]
+    :status (let [result (tool-registry/call-tool :system/status {})]
               (send-message! adapter chat-id
                              (str "*System Status*\n\n"
                                   (pr-str (:result result)))))

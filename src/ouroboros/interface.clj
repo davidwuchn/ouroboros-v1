@@ -11,6 +11,7 @@
    [ouroboros.query :as query]
    [ouroboros.memory :as memory]
    [ouroboros.openapi]
+   [ouroboros.tool-registry :as tool-registry]
    [ouroboros.ai :as ai]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.mcp :as mcp]

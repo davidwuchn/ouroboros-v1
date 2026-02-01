@@ -12,6 +12,7 @@
    [cheshire.core :as json]
    [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
+   [ouroboros.tool-registry :as tool-registry]
    [ouroboros.ai :as ai]
    [ouroboros.telemetry :as telemetry])
   (:import [java.net ServerSocket]
@@ -68,8 +69,11 @@
 (defn list-mcp-tools
   "Convert all Ouroboros tools to MCP format"
   []
-  (map (fn [[name tool]] (ouroboros-tool->mcp name tool))
-       @ai/tool-registry))
+  (map (fn [tool]
+         (ouroboros-tool->mcp (:tool/name tool)
+                              {:description (:tool/description tool)
+                               :parameters (:tool/parameters tool)}))
+       (tool-registry/list-tools)))
 
 ;; ============================================================================
 ;; Tool Invocation
