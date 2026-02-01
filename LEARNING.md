@@ -401,6 +401,59 @@ Clojure functions return the last expression evaluated. There is no `return` key
 
 ---
 
+### Use Babashka for System Scripts
+
+**Rule:** For system automation, analysis, and tooling scripts, use Babashka (`bb`) instead of bash or other scripting languages.
+
+**Why:** Babashka provides the full power of Clojure with fast startup, standard library access, and cross-platform compatibility. No context-switching between languages.
+
+**Example - Namespace Dependency Audit:**
+
+```clojure
+#!/usr/bin/env bb
+(require '[clojure.string :as str]
+         '[clojure.java.io :as io])
+
+(defn ns-name [f]
+  (second (re-find #"\(ns\s+(\S+)" (slurp f))))
+
+(defn requires [f]
+  (->> (re-seq #"\[(ouroboros\.[^\s\]]+)" (slurp f))
+       (map second) set))
+
+(def files (->> (file-seq (io/file "src"))
+                (filter #(str/ends-with? (.getName %) ".clj"))))
+
+(def data (into {} (keep #(let [n (ns-name %)]
+                            (when n [n {:requires (requires %)}]))
+                         files)))
+
+;; Find high fan-in (used by many namespaces)
+(def rev (reduce (fn [acc [ns info]]
+                   (reduce (fn [a r] (update a r (fnil conj #{}) ns))
+                           acc (:requires info)))
+                 {} data))
+
+(println "=== HIGH FAN-IN (3+ importers) ===")
+(doseq [[ns importers] (sort-by #(count (val %)) > rev)
+        :when (>= (count importers) 3)]
+  (println (format "%s: %d importers" ns (count importers))))
+```
+
+**Run it:**
+```bash
+bb audit_deps.clj
+```
+
+**Benefits:**
+- Data structures (maps, sets) for building indexes
+- Standard library (sort-by, filter, group-by)
+- REPL-driven development of scripts
+- Same language as the system being analyzed
+- No shell escaping nightmares
+
+---
+
 ## Open Questions
 
 1. **Persistence:** Atoms are simple but not durable. Should we add Datomic/Datalevin?
