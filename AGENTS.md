@@ -116,6 +116,41 @@ Define expected shape up front, validate at runtime.
       {:valid? true})))
 ```
 
+### 12. Pre-Commit Hooks for Quality Gates
+Automate testing before commits to prevent broken code from entering history.
+
+```bash
+# scripts/git-hooks/pre-commit runs bb test
+bb git:install-hooks  # One-time setup
+git commit -m "⚒ Feature"  # Tests run automatically
+```
+
+Benefits: Catches errors early, ensures test discipline, bypass with `--no-verify` for emergencies.
+
+### 13. Pathom EQL Attribute Conventions
+Pathom resolvers use namespaced keywords (`:memory/key`), not hyphenated (`:memory-key`).
+
+```clojure
+;; Wrong - won't resolve
+(q [{[:memory-key key] [:memory/value]}])
+
+;; Correct - matches resolver input
+(q [{[:memory/key key] [:memory/value :memory/exists?]}])
+```
+
+### 14. Pathom Mutation Symbol Qualification
+Mutations must be called with fully qualified symbols as registered.
+
+```clojure
+;; Registered as: ouroboros.memory/memory-save!
+(m 'ouroboros.memory/memory-save! {:memory/key k :memory/value v})
+
+;; Wrong - 'memory/save! won't be found
+(m 'memory/save! {...})
+```
+
+Always check registered mutations: `(keys (:com.wsscode.pathom3.connect.indexes/index-mutations @env))`
+
 ## Events
 
 | Symbol | Label  | Meaning            |
@@ -238,6 +273,60 @@ Map env vars to nested keys, then build config with deep-merge:
 ## No Return Statements in Clojure
 
 Clojure functions return the last expression evaluated. There is no `return` keyword to exit early.
+
+## SCI (Babashka) Quirks
+
+### defonce with Metadata and Docstring
+SCI doesn't support docstrings in `defonce` when combined with metadata.
+
+```clojure
+;; Broken in SCI
+(defonce ^:private state
+  "Docstring here"  ; This causes parse errors
+  (atom {}))
+
+;; Workaround - use comment
+(defonce ^:private state
+  ;; Docstring here
+  (atom {}))
+```
+
+## No Recur Across Try
+
+Cannot use `recur` inside a `try` block - JVM stack frame constraint.
+
+```clojure
+;; Broken - "Cannot recur across try"
+(loop [items xs]
+  (try
+    (process items)
+    (catch Exception e
+      (recur (rest items)))))  ; ERROR
+
+;; Fixed - extract try into helper
+(defn- try-process [item]
+  (try (process item)
+       (catch Exception e {:error e})))
+
+(loop [items xs]
+  (let [result (try-process (first items))]
+    (if (:error result)
+      (recur (rest items))  ; OK - outside try
+      result)))
+```
+
+## Pathom Debugging
+
+When mutations fail with "Error while processing request", check:
+
+1. **Symbol qualification**: Use fully qualified symbol `'ns/mutation-name`
+2. **Input keys**: Match resolver's `::pco/input` exactly
+3. **Entity map**: Verify params shape matches what mutation expects
+
+```clojure
+;; Debug: list available mutations
+(keys (:com.wsscode.pathom3.connect.indexes/index-mutations @query-env))
+```
 
 **Anti-pattern (won't work):**
 ```clojure
