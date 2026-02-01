@@ -1,5 +1,5 @@
 (ns ouroboros.interface
-  "Interface - Engine (∅) + Query + Graph + Memory + Knowledge + API
+  "Interface - Engine (∅) + Query + Graph + Memory + Knowledge + API + OpenAPI
    
    The unified system surface. Boot sequence:
    1. Start statechart (Engine)
@@ -10,7 +10,8 @@
    [ouroboros.engine :as engine]
    [ouroboros.query :as query]
    [ouroboros.memory :as memory]
-   [ouroboros.openapi]))
+   [ouroboros.openapi]
+   [ouroboros.ai :as ai]))
 
 ;; ============================================================================
 ;; Lifecycle
@@ -190,6 +191,45 @@
    Usage: (openapi-call! :petstore :get-pet-by-id {:petId 1})"
   [client-name operation-id params]
   (ouroboros.openapi/call-operation client-name operation-id params))
+
+;; ============================================================================
+;; AI Helpers (AI tooling hooks)
+;; ============================================================================
+
+(defn ai-tools
+  "List all AI-available tools
+   
+   Usage: (ai-tools)"
+  []
+  (ai/list-tools))
+
+(defn ai-call!
+  "Call an AI tool with parameters
+   
+   Usage: (ai-call! :file/read {:path \"README.md\"})"
+  [tool-name params]
+  (ai/call-tool tool-name params))
+
+(defn ai-context
+  "Get system context for AI
+   
+   Usage: (ai-context)"
+  []
+  (ai/system-context))
+
+(defn ai-project
+  "Get project context for AI
+   
+   Usage: (ai-project)"
+  []
+  (ai/project-context))
+
+(defn ai-full
+  "Get complete AI context
+   
+   Usage: (ai-full)"
+  []
+  (ai/full-context))
 
 (comment
   ;; Full boot sequence

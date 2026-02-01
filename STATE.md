@@ -16,7 +16,8 @@
 | Memory | ✓ Active | Cross-session persistence via EDN |
 | Knowledge | ✓ Active | File system as queryable graph |
 | API | ✓ Active | HTTP client via Pathom resolvers |
-| **OpenAPI** | **✓ New** | **OpenAPI specs → callable clients via Martian** |
+| OpenAPI | ✓ Active | OpenAPI specs → callable clients via Martian |
+| **AI** | **✓ New** | **AI tooling hooks - tool discovery, context, execution** |
 
 **Verified Working:**
 ```clojure
@@ -68,6 +69,13 @@
 (iface/openapi-clients)
 (iface/openapi-operations :petstore)
 (iface/openapi-call! :petstore :get-inventory {})
+
+;; AI queries
+(iface/ai-tools)
+(iface/ai-call! :system/status {})
+(iface/ai-call! :file/read {:path "README.md" :lines 10})
+(iface/ai-context)
+(iface/ai-full)
 ```
 
 ## Current Capabilities
@@ -120,8 +128,9 @@ In REPL:
 4. ~~**Knowledge** — File system as queryable graph~~ ✓ Done
 5. ~~**API** — HTTP client capabilities~~ ✓ Done
 6. ~~**OpenAPI** — OpenAPI specs → callable clients via Martian~~ ✓ Done
+7. ~~**AI** — AI tooling hooks~~ ✓ Done
 
-**System COMPLETE** — All core capabilities implemented. Next: Feed Forward (AI tooling hooks).
+**🐍 SYSTEM COMPLETE** — All capabilities implemented. The Ouroboros is whole.
 
 ## Active Decisions
 

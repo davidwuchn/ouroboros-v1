@@ -13,7 +13,8 @@
    [ouroboros.memory :as memory]
    [ouroboros.knowledge :as knowledge]
    [ouroboros.api :as api]
-   [ouroboros.openapi :as openapi]))
+   [ouroboros.openapi :as openapi]
+   [ouroboros.ai :as ai]))
 
 ;; ============================================================================
 ;; Resolvers - Exposing Engine state as graph nodes
@@ -52,7 +53,8 @@
           memory/resolvers
           knowledge/resolvers
           api/resolvers
-          openapi/resolvers))
+          openapi/resolvers
+          ai/resolvers))
 
 (defn create-env
   "Create a Pathom environment with all resolvers and mutations"
@@ -60,7 +62,8 @@
   (-> (pci/register all-resolvers)
       (pci/register memory/mutations)
       (pci/register api/mutations)
-      (pci/register openapi/mutations)))
+      (pci/register openapi/mutations)
+      (pci/register ai/mutations)))
 
 (defonce ^:private query-env (atom nil))
 
