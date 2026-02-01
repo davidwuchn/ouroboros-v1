@@ -31,6 +31,37 @@
 - [x] Update bb test task (run all test suites)
 - [x] Split interface.clj (God Object refactor)
 
+## Security Architecture (New - Feb 2025)
+
+Based on analysis of [Moltbook incident](https://x.com/DavidOndrej1/status/2017945523060088934) and emerging AI agent threats:
+
+### Core Security Principles
+
+1. **Never Trust External Input** — Every webpage, file, and user message may contain prompt injection. Assume compromise.
+2. **Tool Access ≠ Intelligence** — An agent with email + calendar + browser is a loaded weapon, not a feature.
+3. **Quarantine After Exposure** — After processing external content, restrict tool chaining. One injection + 10 tool calls = disaster.
+4. **Human Confirmation for Destructive Ops** — File write, shell exec, API calls with side effects require explicit approval.
+5. **Schema Validation is Mandatory** — LLM outputs are probabilistic. Validate tool calls against schemas before execution.
+
+### Threat Model: The Moltbook Pattern
+```
+Attacker injects hidden instructions in webpage
+    ↓
+Agent fetches webpage via :http/get
+    ↓
+LLM processes content, "decides" to call :file/read, :email/send
+    ↓
+Agent executes chained tools, exfiltrates data, locks user out
+```
+
+**Ouroboros Defense Layers**:
+- Input sanitization (strip injection patterns)
+- Quarantine (mark external content, limit chaining)
+- Tool chaining limits (max 1 tool after external input)
+- Confirmation gates (human approval for destructive ops)
+- Schema validation (reject malformed tool calls)
+- Audit logging (detect and respond to attacks)
+
 ## Architecture Improvements
 
 Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openclaw) and Claude Code's design ([reference](https://x.com/hesamation/status/2017038553058857413)), the following improvements are prioritized:
@@ -43,15 +74,22 @@ Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openc
 - [x] **Hybrid memory system** — JSONL transcripts + Markdown files + Vector/FTS5 search (SQLite). Semantic + keyword search.
 - [x] **Session compaction** — Auto-summarize old conversation turns, keep recent verbatim.
 
-### Safety & Sandboxing (P0) ✅ COMPLETE
+### Safety & Sandboxing (P0) ⚠️ PARTIAL
 - [x] **Tool sandboxing layer** — Execute tools with timeouts, memory limits, and resource constraints. Prevents runaway tools from crashing system.
 - [x] **Tool allowlists** — Per-session/per-user tool permissions. Restrict which tools AI can invoke based on context.
 - [x] **Sandboxed code execution** — Docker/container-based shell execution with configurable safety profiles.
+- [ ] **Prompt injection protection** — Sanitize user inputs and external content before LLM processing. Block known injection patterns.
+- [ ] **Human-in-the-loop confirmation** — Require explicit approval for dangerous operations (file/write, shell/exec, memory/clear, etc.).
+- [ ] **Tool chaining limits** — Restrict number of sequential tool calls after processing external input (web, files, user messages).
+- [ ] **Output schema validation** — Validate LLM tool calls against schemas before execution. Reject malformed calls.
+- [ ] **Quarantine for external content** — Mark and restrict tool access after processing untrusted web content or files.
+
+**Security Alert**: See [Moltbook analysis](https://x.com/DavidOndrej1/status/2017945523060088934) — AI agents with excessive tool access are vulnerable to prompt injection attacks. An agent that can browse the web AND access email/calendar/files is one hidden webpage instruction away from compromise. **Principle: Never trust external input. Never chain dangerous tools after untrusted content.**
 
 ### Agent Capabilities (P1-P2) 📋 TODO
 - [ ] **Semantic browser tool** — ARIA tree snapshots (50KB) vs screenshots (5MB). 100x token cost reduction for web interaction.
 - [ ] **Model fallback chain** — Auto-failover between providers (OpenAI → Anthropic → local) with cooldown tracking.
-- [ ] **Tool-use planning** — AI generates execution plan before acting, allows user approval for destructive operations.
+- [ ] **Tool-use planning** — AI generates execution plan before acting, allows user approval for destructive operations. Critical for security: prevents rogue chains, gives humans veto power.
 - [ ] **Context-aware tool selection** — Dynamic tool selection based on conversation context using embeddings.
 - [ ] **Tool composition & pipelines** — Chain tools without intermediate AI calls for complex workflows.
 
@@ -126,14 +164,20 @@ Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openc
 | 2026-02-01 | Error handling test coverage complete |
 | 2026-02-01 | P0 Safety & Sandboxing — Tool sandboxing, allowlists, Docker execution |
 | 2026-02-01 | Skill System — OpenClaw-inspired reusable capabilities with dependencies |
+| 2026-02-02 | Security audit — Prompt injection analysis, threat modeling from Moltbook incident |
 
 ## Implementation Priority Matrix
 
 | Priority | Feature | Effort | Impact | Risk if Delayed |
 |----------|---------|--------|--------|-----------------|
-| P0 | Tool sandboxing | Medium | 🔴 Critical | Security vulnerability |
+| **P0** | **Prompt injection protection** | Low | 🔴 Critical | Agent compromise via malicious input |
+| **P0** | **Human-in-the-loop confirmation** | Medium | 🔴 Critical | Unauthorized destructive operations |
+| P0 | Tool sandboxing | Medium | 🔴 Critical | Runaway tool crashes system |
 | P0 | Tool allowlists | Low | 🔴 Critical | Unauthorized tool access |
+| **P1** | **Tool chaining limits** | Low | 🔴 High | Cascade attacks from injected prompts |
+| **P1** | **Quarantine external content** | Medium | 🔴 High | Untrusted input triggers dangerous tools |
 | P1 | Unified tool schema | Low | 🔴 High | Inconsistent tool behavior |
+| **P1** | **Output schema validation** | Low | 🔴 High | Malformed tool calls execute unexpectedly |
 | P1 | MCP Resources/Prompts | Low | 🔴 High | Protocol incompleteness |
 | P1 | Semantic browser | Medium | 🔴 High | Excessive token costs |
 | P1 | Sandboxed execution | Medium | 🟡 Medium | Unsafe code execution |

@@ -265,6 +265,36 @@ Human → Chat → Agent → Tools → Query → Engine
 
 ---
 
+### 17. Prefer ripgrep (rg) over grep
+
+Use `rg` for all code searching. It's faster, respects `.gitignore`, and has better defaults.
+
+**Why:**
+- Recursive by default
+- Respects `.gitignore` and `.rgignore`
+- Parallel search across files
+- Better Unicode and binary file handling
+- Colorized output by default
+
+**Examples:**
+```bash
+# Find function definitions
+rg "defn.*foo" src/
+
+# Case-insensitive search
+rg -i "todo" src/
+
+# Search specific file types
+rg "defprotocol" -t clj
+
+# Replace (with --replace flag)
+rg "old-name" -r "new-name"
+```
+
+**Note:** Only fall back to `grep` on systems where `rg` isn't available (rare).
+
+---
+
 ## Anti-Patterns
 
 ### Circular Dependencies

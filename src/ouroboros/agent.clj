@@ -16,6 +16,7 @@
    [ouroboros.ai :as ai]
    [ouroboros.agent.fallback :as fallback]
    [ouroboros.telemetry :as telemetry]
+   [ouroboros.resolver-registry :as registry]
    [com.wsscode.pathom3.connect.operation :as pco]))
 
 ;; ============================================================================
@@ -336,6 +337,10 @@
   [agent-configure!
    agent-enable-fallback!
    agent-reset-provider!])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 (comment
   ;; Configure agent
