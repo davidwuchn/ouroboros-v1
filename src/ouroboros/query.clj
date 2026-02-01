@@ -18,6 +18,7 @@
    [ouroboros.tool-defs :as tool-defs]
    [ouroboros.ai :as ai]
    [ouroboros.telemetry :as telemetry]
+   [ouroboros.metrics :as metrics]
    [ouroboros.mcp :as mcp]
    [ouroboros.chat :as chat]
    [ouroboros.agent :as agent]
@@ -64,6 +65,7 @@
           openapi/resolvers
           ai/resolvers
           telemetry/resolvers
+          metrics/resolvers
           mcp/resolvers
           chat/resolvers
           agent/resolvers

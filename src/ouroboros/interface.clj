@@ -14,6 +14,7 @@
    - ouroboros.interface.openapi - openapi-*
    - ouroboros.interface.ai - ai-*
    - ouroboros.interface.telemetry - telemetry-*
+   - ouroboros.interface.metrics - metrics-*
    - ouroboros.interface.mcp - mcp-*
    - ouroboros.interface.chat - chat-*
    - ouroboros.interface.agent - agent-*
@@ -33,6 +34,7 @@
    [ouroboros.interface.openapi :as openapi]
    [ouroboros.interface.ai :as ai]
    [ouroboros.interface.telemetry :as telemetry]
+   [ouroboros.interface.metrics :as metrics]
    [ouroboros.interface.mcp :as mcp]
    [ouroboros.interface.chat :as chat]
    [ouroboros.interface.agent :as agent]

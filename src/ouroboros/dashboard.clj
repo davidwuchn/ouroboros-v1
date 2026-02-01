@@ -222,6 +222,9 @@
                              :body (cheshire.core/generate-string
                                     {:healthy ((resolve 'ouroboros.query/q) [:system/healthy?])
                                      :timestamp (str (Instant/now))})}
+      (= uri "/metrics") {:status 200 
+                          :headers {"Content-Type" "text/plain; version=0.0.4"}
+                          :body ((resolve 'ouroboros.metrics/get-prometheus-text))}
       :else {:status 404 :body "Not found"})))
 
 ;; ============================================================================
