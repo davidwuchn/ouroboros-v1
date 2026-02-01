@@ -35,15 +35,15 @@
 
 Based on analysis of Claude Code's architecture ([reference](https://x.com/hesamation/status/2017038553058857413)), the following improvements are prioritized:
 
-### Execution Reliability (P0)
-- [ ] **Lane-based command queues** — Serialize session operations by default, parallel only when explicitly safe. Eliminates race conditions and "async spaghetti."
-- [ ] **Context window guard** — Monitor token usage, compact/summarize when near limit. Prevents crashes from oversized contexts.
+### Execution Reliability (P0) ✅ COMPLETE
+- [x] **Lane-based command queues** — Serialize session operations by default, parallel only when explicitly safe. Eliminates race conditions and "async spaghetti."
+- [x] **Context window guard** — Monitor token usage, compact/summarize when near limit. Prevents crashes from oversized contexts.
 
-### Memory & Search (P1)
-- [ ] **Hybrid memory system** — JSONL transcripts + Markdown files + Vector/FTS5 search (SQLite). Semantic + keyword search.
-- [ ] **Session compaction** — Auto-summarize old conversation turns, keep recent verbatim.
+### Memory & Search (P1) ✅ COMPLETE
+- [x] **Hybrid memory system** — JSONL transcripts + Markdown files + Vector/FTS5 search (SQLite). Semantic + keyword search.
+- [x] **Session compaction** — Auto-summarize old conversation turns, keep recent verbatim.
 
-### Agent Capabilities (P1-P2)
+### Agent Capabilities (P1-P2) 📋 TODO
 - [ ] **Semantic browser tool** — ARIA tree snapshots (50KB) vs screenshots (5MB). 100x token cost reduction.
 - [ ] **Sandboxed execution** — Docker/host/remote shell execution with safety allowlists.
 - [ ] **Model fallback** — Auto-failover between providers with cooldown tracking.
