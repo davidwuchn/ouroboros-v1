@@ -50,6 +50,29 @@ Example: `⚒ Add nrepl task to bb.edn`
 | ∿      | play    | Creative, experimental |
 | ·      | atom    | Atomic, single step    |
 
+## Patterns Discovered (from LEARNING.md)
+
+### 1. Iterative Phase-Based Development
+Build in phases: Core → Intelligence → Interface → Production. Each phase standalone usable.
+
+### 2. Protocol-Based Abstraction
+Define interfaces first (`ChatAdapter`), implement platforms second (Telegram, Slack).
+
+### 3. Unified Query Interface
+One query language (EQL) for everything. System becomes self-documenting.
+
+### 4. Observability by Design
+Telemetry woven into every layer. If you can't observe it, you can't operate it.
+
+### 5. Safety Through Boundaries
+Same system, different safety profiles per interface (chat-safe tools, rate limits).
+
+### 6. Functional Composition
+Small, focused modules. Clear ownership. Interface as unified surface.
+
+### 7. Runtime Discoverability
+System documents itself via queries. No stale documentation.
+
 ## Events
 
 | Symbol | Label  | Meaning            |
@@ -108,6 +131,15 @@ read -r -d '' CODE << 'EoC' || true
 [text or code with any characters]
 EoC
 git commit -m "$CODE"
+```
+
+## Breaking Circular Dependencies
+
+Use `(resolve 'symbol)` for late binding when namespaces have mutual dependencies:
+
+```clojure
+;; In ouroboros.ai (needs query, query needs ai)
+:fn (fn [_] ((resolve 'ouroboros.query/q) [:system/status]))
 ```
 
 ## git
