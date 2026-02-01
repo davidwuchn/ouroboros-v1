@@ -7,6 +7,8 @@
    - ouroboros.interface.lifecycle - boot! shutdown!
    - ouroboros.interface.query - q status report
    - ouroboros.interface.memory - remember recall forget
+   - ouroboros.interface.memory-jsonl - transcript-* summary-*
+   - ouroboros.interface.memory-search - memory-add! memory-search
    - ouroboros.interface.knowledge - files file search project
    - ouroboros.interface.api - http-get http-request!
    - ouroboros.interface.openapi - openapi-*
@@ -36,7 +38,9 @@
    [ouroboros.interface.dashboard :as dashboard]
    [ouroboros.interface.config :as config]
    [ouroboros.interface.lane :as lane]
-   [ouroboros.interface.context-guard :as context-guard]))
+   [ouroboros.interface.context-guard :as context-guard]
+   [ouroboros.interface.memory-jsonl :as memory-jsonl]
+   [ouroboros.interface.memory-search :as memory-search]))
 
 ;; ============================================================================
 ;; Lifecycle
@@ -367,6 +371,90 @@
 (def context-stats
   "Get context guard statistics"
   context-guard/context-stats)
+
+;; ============================================================================
+;; JSONL Session Transcripts (P1 — Clawd-inspired)
+;; ============================================================================
+
+(def transcript-append!
+  "Append message to session transcript"
+  memory-jsonl/transcript-append!)
+
+(def transcript-read
+  "Read session transcript"
+  memory-jsonl/transcript-read)
+
+(def transcript-last-n
+  "Read last N messages from transcript"
+  memory-jsonl/transcript-last-n)
+
+(def transcript-since
+  "Read messages since timestamp"
+  memory-jsonl/transcript-since)
+
+(def transcript-list
+  "List all sessions with transcripts"
+  memory-jsonl/transcript-list)
+
+(def transcript-delete!
+  "Delete session transcript"
+  memory-jsonl/transcript-delete!)
+
+(def transcript-info
+  "Get comprehensive session info"
+  memory-jsonl/transcript-info)
+
+(def summary-write!
+  "Write conversation summary"
+  memory-jsonl/summary-write!)
+
+(def summary-read
+  "Read conversation summary"
+  memory-jsonl/summary-read)
+
+;; ============================================================================
+;; Hybrid Memory Search (P1 — Clawd-inspired)
+;; ============================================================================
+
+(def memory-init!
+  "Initialize memory search database"
+  memory-search/memory-init!)
+
+(def memory-add!
+  "Add memory to search index"
+  memory-search/memory-add!)
+
+(def memory-get
+  "Get memory by ID"
+  memory-search/memory-get)
+
+(def memory-delete!
+  "Delete memory by ID"
+  memory-search/memory-delete!)
+
+(def memory-search-keyword
+  "Keyword search (FTS5)"
+  memory-search/memory-search-keyword)
+
+(def memory-search-vector
+  "Vector similarity search"
+  memory-search/memory-search-vector)
+
+(def memory-search
+  "Hybrid search (keyword + vector)"
+  memory-search/memory-search)
+
+(def memory-list
+  "List all memories"
+  memory-search/memory-list)
+
+(def memory-search-stats
+  "Get memory search statistics"
+  memory-search/memory-stats)
+
+(def memory-clear!
+  "Clear all memories"
+  memory-search/memory-clear!)
 
 (comment
   ;; Full boot sequence
