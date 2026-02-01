@@ -8,8 +8,7 @@
    Mutations: api/request!"
   (:require
    [babashka.http-client :as http]
-   [com.wsscode.pathom3.connect.operation :as pco]
-   [clojure.string :as str]))
+   [com.wsscode.pathom3.connect.operation :as pco]))
 
 ;; ============================================================================
 ;; HTTP Requests

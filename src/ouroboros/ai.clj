@@ -10,11 +10,9 @@
    Note: This namespace no longer depends on query directly.
    Tools are registered via ouroboros.tool-defs after query is loaded."
   (:require
-   [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
    [com.wsscode.pathom3.connect.indexes :as pci]
-   [ouroboros.tool-registry :as registry]
-   [ouroboros.telemetry :as telemetry]))
+   [ouroboros.tool-registry :as registry]))
 
 ;; ============================================================================
 ;; Tool Discovery (delegates to registry)
@@ -52,7 +50,7 @@
   []
   (let [status-result (call-tool :system/status {})
         git-result (call-tool :git/status {})
-        memory-result (call-tool :memory/get {:key :__context_test__})]
+        _memory-result (call-tool :memory/get {:key :__context_test__})]  ; TODO: Use when memory/keys tool available
     {:context/type :system
      :context/timestamp (str (java.time.Instant/now))
      :system/status (:result status-result)
@@ -64,7 +62,7 @@
 (defn project-context
   "Package project state for AI context"
   []
-  (let [project-result (call-tool :file/list {:dir "."})
+  (let [_project-result (call-tool :file/list {:dir "."})  ; TODO: Use for file listing
         commits-result (call-tool :git/commits {:n 3})]
     {:context/type :project
      :context/timestamp (str (java.time.Instant/now))

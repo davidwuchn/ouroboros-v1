@@ -1,2 +1,11 @@
 .nrepl-port
 memory.edn
+.env
+*.log
+.DS_Store
+.classpath
+.project
+.settings/
+target/
+.cpcache/
+.clj-kondo/.cache/

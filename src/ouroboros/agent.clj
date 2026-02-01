@@ -15,8 +15,7 @@
    [clojure.string :as str]
    [ouroboros.ai :as ai]
    [ouroboros.telemetry :as telemetry]
-   [com.wsscode.pathom3.connect.operation :as pco])
-  (:import [java.time Instant]))
+   [com.wsscode.pathom3.connect.operation :as pco]))
 
 ;; ============================================================================
 ;; LLM Providers
