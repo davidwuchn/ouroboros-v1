@@ -10,7 +10,6 @@
    [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
    [com.wsscode.pathom3.connect.indexes :as pci]
-   [ouroboros.query :as query]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.openapi :as openapi]))
 

@@ -20,9 +20,8 @@
 | AI | ✓ Active | AI tooling hooks - tool discovery, context, execution |
 | Telemetry | ✓ Active | Structured logging, metrics, observability |
 | MCP | ✓ Active | Model Context Protocol - expose tools to any MCP client |
-| Chat | ✓ Active | Telegram bot adapter |
+| Chat | ✓ Active | Telegram, Discord, Slack bot adapters |
 | Agent | ✓ Active | AI Agent with LLM providers (OpenAI, Anthropic) |
-| Slack | ✓ Active | Slack bot adapter (Socket Mode) |
 | **Auth** | **✓ New** | **User authentication, permissions, rate limiting** |
 | **Dashboard** | **✓ New** | **Web dashboard for observability** |
 
@@ -101,6 +100,7 @@
 ;; Chat queries
 (iface/chat-register-telegram! "YOUR_BOT_TOKEN")
 (iface/chat-register-slack! "xapp-..." "xoxb-...")
+(iface/chat-register-discord! "YOUR_BOT_TOKEN")
 (iface/chat-start!)
 (iface/chat-sessions)
 (iface/chat-clear-session! chat-id)
@@ -163,8 +163,8 @@ In REPL:
 ## Git State
 
 - Branch: `main`
-- Ahead of origin: 21 commits
-- Latest: `8065696` — ⚒ λ Add Phase 4 - Production features (Auth, Dashboard)
+- Ahead of origin: 21+ commits
+- Latest: Discord adapter implementation
 - Status: Clean (working directory clean)
 
 ## Known Gaps / Next Steps
@@ -178,11 +178,10 @@ In REPL:
 7. ~~**AI** — AI tooling hooks~~ ✓ Done
 8. ~~**Telemetry** — Structured logging and metrics~~ ✓ Done
 9. ~~**MCP** — Model Context Protocol server~~ ✓ Done
-10. ~~**Chat** — Telegram bot adapter~~ ✓ Done (Phase 1)
-11. ~~**Agent** — AI Agent with LLM providers~~ ✓ Done (Phase 2)
-12. ~~**Slack** — Slack bot adapter~~ ✓ Done (Phase 3)
-13. ~~**Auth** — User authentication, rate limiting~~ ✓ Done (Phase 4)
-14. ~~**Dashboard** — Web dashboard for observability~~ ✓ Done (Phase 4)
+10. ~~**Chat** — Telegram, Discord, Slack bot adapters~~ ✓ Done
+11. ~~**Agent** — AI Agent with LLM providers~~ ✓ Done
+12. ~~**Auth** — User authentication, rate limiting~~ ✓ Done
+13. ~~**Dashboard** — Web dashboard for observability~~ ✓ Done
 
 **🐍 SYSTEM COMPLETE** — All phases implemented. The Ouroboros is production-ready.
 

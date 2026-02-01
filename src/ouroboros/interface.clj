@@ -17,6 +17,7 @@
    [ouroboros.chat :as chat]
    [ouroboros.chat.telegram :as telegram]
    [ouroboros.chat.slack :as slack]
+   [ouroboros.chat.discord :as discord]
    [ouroboros.agent :as agent]
    [ouroboros.auth :as auth]
    [ouroboros.dashboard :as dashboard]))
@@ -352,6 +353,15 @@
   (let [bot (slack/make-bot app-token bot-token)]
     (chat/register-adapter! :slack bot)
     {:status :registered :platform :slack}))
+
+(defn chat-register-discord!
+  "Register Discord bot
+   
+   Usage: (chat-register-discord! \"YOUR_BOT_TOKEN\")"
+  [token]
+  (let [bot (discord/make-bot token)]
+    (chat/register-adapter! :discord bot)
+    {:status :registered :platform :discord}))
 
 (defn chat-sessions
   "Get active chat sessions

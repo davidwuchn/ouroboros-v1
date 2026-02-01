@@ -13,8 +13,7 @@
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.auth :as auth]
-   [ouroboros.chat :as chat]
-   [ouroboros.query :as query])
+   [ouroboros.chat :as chat])
   (:import [java.time Instant]))
 
 ;; ============================================================================
