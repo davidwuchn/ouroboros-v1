@@ -10,7 +10,7 @@
     :metadata {...}}"
   (:require
    [clojure.java.io :as io]
-   [clojure.data.json :as json]
+   [cheshire.core :as json]
    [clojure.string :as str]))
 
 ;; ============================================================================
@@ -45,7 +45,7 @@
   [session-id message]
   (ensure-memory-dir!)
   (let [file-path (session-file-path session-id)
-        line (json/write-str message)]
+        line (json/generate-string message)]
     (spit file-path (str line "\n") :append true)
     message))
 
@@ -60,7 +60,7 @@
       (with-open [reader (io/reader file)]
         (->> (line-seq reader)
              (remove str/blank?)
-             (map #(json/read-str % :key-fn keyword))
+             (map #(json/parse-string % true))
              vec))
       [])))
 

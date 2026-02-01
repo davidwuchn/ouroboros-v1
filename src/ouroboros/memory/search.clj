@@ -1,8 +1,11 @@
 (ns ouroboros.memory.search
-  "Hybrid Memory Search — Vector + FTS5 (SQLite)
+  "Hybrid Memory Search - Vector + FTS5 (SQLite)
    
    Combines semantic search (vector similarity) with keyword search (FTS5)
    for best-of-both-worlds memory retrieval.
+   
+   NOTE: This module requires clojure.java.jdbc which is not available
+   in all Babashka distributions. Functions will throw if JDBC is not available.
    
    SQLite schema:
    - memories: id, content, embedding (JSON), timestamp, metadata
@@ -10,8 +13,7 @@
    
    Hybrid ranking: combine vector similarity + BM25 scores"
   (:require
-   [clojure.java.jdbc :as jdbc]
-   [clojure.data.json :as json]
+   [cheshire.core :as json]
    [clojure.string :as str]))
 
 ;; ============================================================================
@@ -25,6 +27,18 @@
   {:classname "org.sqlite.JDBC"
    :subprotocol "sqlite"
    :subname db-path})
+
+;; Lazily load JDBC - not available in all Babashka distributions
+(defn- jdbc
+  "Get JDBC namespace, throwing helpful error if not available"
+  []
+  (try
+    (require '[clojure.java.jdbc :as jdbc])
+    (find-ns 'clojure.java.jdbc)
+    (catch Exception e
+      (throw (ex-info "JDBC not available. This module requires clojure.java.jdbc which is not included in this Babashka distribution."
+                      {:module :memory/search
+                       :error :jdbc-not-available})))))
 
 ;; ============================================================================
 ;; Schema Setup
@@ -73,13 +87,17 @@
    
    Usage: (init-db!)"
   []
-  (let [db (db-spec)]
+  (let [jdbc-ns (jdbc)
+        _jdbc-insert! (ns-resolve jdbc-ns 'insert!)
+        _jdbc-query (ns-resolve jdbc-ns 'query)
+        jdbc-execute! (ns-resolve jdbc-ns 'execute!)
+        db (db-spec)]
     ;; Ensure directory exists
     (let [dir (java.io.File. "memory")]
       (when-not (.exists dir) (.mkdirs dir)))
     ;; Create tables
     (doseq [sql init-sql]
-      (jdbc/execute! db sql))
+      (jdbc-execute! db sql))
     :initialized))
 
 ;; ============================================================================
@@ -130,14 +148,16 @@
    (add-memory! id content source {}))
   ([id content source metadata]
    (init-db!)
-   (let [embedding (get-embedding content)
-             db (db-spec)]
-     (jdbc/insert! db :memories
+   (let [jdbc-ns (jdbc)
+         jdbc-insert! (ns-resolve jdbc-ns 'insert!)
+         embedding (get-embedding content)
+         db (db-spec)]
+     (jdbc-insert! db :memories
                    {:id (name id)
                     :content content
-                    :embedding (json/write-str embedding)
+                    :embedding (json/generate-string embedding)
                     :source (name source)
-                    :metadata (json/write-str metadata)})
+                    :metadata (json/generate-string metadata)})
      {:id id :status :added})))
 
 (defn get-memory
@@ -146,17 +166,19 @@
    Usage: (get-memory :mem-123)"
   [id]
   (init-db!)
-  (let [db (db-spec)
-        result (jdbc/query db
+  (let [jdbc-ns (jdbc)
+        jdbc-query (ns-resolve jdbc-ns 'query)
+        db (db-spec)
+        result (jdbc-query db
                            ["SELECT * FROM memories WHERE id = ?" (name id)]
                            {:result-set-fn first})]
     (when result
       {:id (keyword (:id result))
        :content (:content result)
-       :embedding (json/read-str (:embedding result))
+       :embedding (json/parse-string (:embedding result))
        :source (keyword (:source result))
        :timestamp (:timestamp result)
-       :metadata (json/read-str (:metadata result))})))
+       :metadata (json/parse-string (:metadata result))})))
 
 (defn delete-memory!
   "Delete a memory by ID
@@ -164,8 +186,10 @@
    Usage: (delete-memory! :mem-123)"
   [id]
   (init-db!)
-  (let [db (db-spec)]
-    (jdbc/delete! db :memories ["id = ?" (name id)])
+  (let [jdbc-ns (jdbc)
+        jdbc-delete! (ns-resolve jdbc-ns 'delete!)
+        db (db-spec)]
+    (jdbc-delete! db :memories ["id = ?" (name id)])
     {:id id :status :deleted}))
 
 ;; ============================================================================
@@ -178,10 +202,12 @@
    Usage: (search-keyword \"Clojure programming\")"
   [query & {:keys [limit] :or {limit 10}}]
   (init-db!)
-  (let [db (db-spec)
+  (let [jdbc-ns (jdbc)
+        jdbc-query (ns-resolve jdbc-ns 'query)
+        db (db-spec)
         ;; FTS5 query syntax: AND implicit between terms
         fts-query (str/replace query #"\s+" " AND ")
-        results (jdbc/query db
+        results (jdbc-query db
                             [(str "SELECT m.id, m.content, m.source, m.timestamp,
                                           rank as fts_rank
                                    FROM memories_fts fts
@@ -204,13 +230,15 @@
    Usage: (search-vector \"Clojure programming\" :limit 5)"
   [query & {:keys [limit] :or {limit 10}}]
   (init-db!)
-  (let [db (db-spec)
+  (let [jdbc-ns (jdbc)
+        jdbc-query (ns-resolve jdbc-ns 'query)
+        db (db-spec)
         query-embedding (get-embedding query)
         ;; Get all memories with embeddings
-        memories (jdbc/query db ["SELECT id, content, source, timestamp, embedding FROM memories"])
+        memories (jdbc-query db ["SELECT id, content, source, timestamp, embedding FROM memories"])
         ;; Calculate similarity for each
         scored (map (fn [m]
-                      (let [emb (json/read-str (:embedding m))]
+                      (let [emb (json/parse-string (:embedding m))]
                         (assoc m :similarity (cosine-similarity query-embedding emb)
                                :score (cosine-similarity query-embedding emb))))
                     memories)
@@ -261,7 +289,7 @@
                        :timestamp (:timestamp (first items))
                        :hybrid-score (reduce + (map :normalized-score items))
                        :keyword-score (some :kw-score items)
-                       :vector-score (some :vec-score items)
+                     :vector-score (some :vec-score items)
                        :types (set (map :type items))})
                     grouped)
         ;; Sort by combined score, take top N
@@ -284,8 +312,10 @@
    Usage: (list-memories :limit 100 :offset 0)"
   [& {:keys [limit offset] :or {limit 100 offset 0}}]
   (init-db!)
-  (let [db (db-spec)
-        results (jdbc/query db
+  (let [jdbc-ns (jdbc)
+        jdbc-query (ns-resolve jdbc-ns 'query)
+        db (db-spec)
+        results (jdbc-query db
                             [(str "SELECT id, content, source, timestamp 
                                    FROM memories 
                                    ORDER BY timestamp DESC 
@@ -303,9 +333,11 @@
    DANGER: Irreversible!"
   []
   (init-db!)
-  (let [db (db-spec)]
-    (jdbc/execute! db ["DELETE FROM memories"])
-    (jdbc/execute! db ["DELETE FROM memories_fts"])
+  (let [jdbc-ns (jdbc)
+        jdbc-execute! (ns-resolve jdbc-ns 'execute!)
+        db (db-spec)]
+    (jdbc-execute! db ["DELETE FROM memories"])
+    (jdbc-execute! db ["DELETE FROM memories_fts"])
     :cleared))
 
 (defn memory-stats
@@ -314,10 +346,12 @@
    Usage: (memory-stats)"
   []
   (init-db!)
-  (let [db (db-spec)
-        total (:count (jdbc/query db ["SELECT COUNT(*) as count FROM memories"]
+  (let [jdbc-ns (jdbc)
+        jdbc-query (ns-resolve jdbc-ns 'query)
+        db (db-spec)
+        total (:count (jdbc-query db ["SELECT COUNT(*) as count FROM memories"]
                                   {:result-set-fn first}))
-        sources (jdbc/query db ["SELECT source, COUNT(*) as count FROM memories GROUP BY source"])]
+        sources (jdbc-query db ["SELECT source, COUNT(*) as count FROM memories GROUP BY source"])]
     {:total-memories total
      :by-source (into {} (map (juxt (comp keyword :source) :count) sources))
      :db-path db-path}))
