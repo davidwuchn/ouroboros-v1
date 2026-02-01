@@ -1,5 +1,5 @@
 (ns ouroboros.interface
-  "Interface - Engine (∅) + Query + Graph + Memory + Knowledge + API + OpenAPI
+  "Interface - Engine (∅) + Query + Graph + Memory + Knowledge + API + OpenAPI + AI
    
    The unified system surface. Boot sequence:
    1. Start statechart (Engine)
