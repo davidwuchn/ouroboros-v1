@@ -29,7 +29,24 @@
 - [x] Fix Docker health check (remove resolve)
 - [x] Fix CI secret detection (cover all token types)
 - [x] Update bb test task (run all test suites)
-- [ ] Split interface.clj (God Object refactor)
+- [x] Split interface.clj (God Object refactor)
+
+## Architecture Improvements (Post-Clawd Analysis)
+
+Based on analysis of Claude Code's architecture ([reference](https://x.com/hesamation/status/2017038553058857413)), the following improvements are prioritized:
+
+### Execution Reliability (P0)
+- [ ] **Lane-based command queues** — Serialize session operations by default, parallel only when explicitly safe. Eliminates race conditions and "async spaghetti."
+- [ ] **Context window guard** — Monitor token usage, compact/summarize when near limit. Prevents crashes from oversized contexts.
+
+### Memory & Search (P1)
+- [ ] **Hybrid memory system** — JSONL transcripts + Markdown files + Vector/FTS5 search (SQLite). Semantic + keyword search.
+- [ ] **Session compaction** — Auto-summarize old conversation turns, keep recent verbatim.
+
+### Agent Capabilities (P1-P2)
+- [ ] **Semantic browser tool** — ARIA tree snapshots (50KB) vs screenshots (5MB). 100x token cost reduction.
+- [ ] **Sandboxed execution** — Docker/host/remote shell execution with safety allowlists.
+- [ ] **Model fallback** — Auto-failover between providers with cooldown tracking.
 
 ## Medium Term
 
@@ -69,13 +86,16 @@
 ### AI Improvements
 - [ ] Multi-modal support (images, voice)
 - [ ] Fine-tuning pipeline for custom models
-- [ ] Agent memory and long-term context
+- [ ] Agent memory and long-term context (see Architecture Improvements)
 - [ ] Tool-use planning and reasoning traces
+- [ ] Semantic browser (ARIA snapshots vs screenshots)
+- [ ] Sandboxed code execution with safety controls
 
 ## Completed Recently
 
 | Date | Achievement |
 |------|-------------|
+| 2026-02-01 | Interface.clj refactor — 13 focused namespaces from God Object |
 | 2026-02-01 | Platform definition and test restructuring |
 | 2026-02-01 | Docker + CI/CD implementation |
 | 2026-02-01 | Tool registry restructuring (circular dependency eliminated) |
