@@ -61,10 +61,12 @@ bb test  # Run all system tests
 | Category | Features |
 |----------|----------|
 | **System** | Statecharts, Introspection, Telemetry |
+| **Safety** | Tool sandboxing, Allowlists, Docker execution |
 | **Data** | Git history, File system, Memory, HTTP |
 | **AI** | LLM providers, Tool selection, Context |
 | **Chat** | Telegram, Discord, Slack bots, Rate limiting |
 | **Integration** | MCP server, OpenAPI specs, Dashboard |
+| **Extensibility** | Skill system with dependency management |
 
 ## Usage
 
@@ -84,6 +86,16 @@ bb test  # Run all system tests
 ;; AI tools
 (iface/ai-tools)
 (iface/ai-call! :file/read {:path "README.md"})
+
+;; Safety (P0) - Tool sandboxing
+(iface/allowlist-create! :session-123 :chat-safe)
+(iface/tool-safe :file/read {:path "README.md"} :session-123)
+(iface/sandbox-exec-shell "echo 'Hello'" {:profile :restricted})
+
+;; Skill system
+(iface/skill-register-built-ins!)
+(iface/skill-load! :file/operations)
+(iface/skill-tools :file/operations)  ; => [:file/read :file/write ...]
 ```
 
 ### Chat Bots
@@ -119,7 +131,7 @@ bb chat
 1. **Query over API** — Everything is EQL
 2. **Observe by default** — Telemetry everywhere
 3. **Protocol abstraction** — ChatAdapter, LLM providers
-4. **Safety boundaries** — Rate limits, permissions, safe tools
+4. **Safety boundaries** — Tool sandboxing, allowlists, rate limits, safe tools
 5. **Self-documenting** — System queries itself
 
 ## Documentation

@@ -1,7 +1,7 @@
 # STATE.md
 
 > What is true now. The current snapshot of the system.
-> Updated: 2026-02-01
+> Updated: 2026-02-01 (Latest: P0 Safety + Skill System)
 
 ## System Status
 

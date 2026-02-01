@@ -222,4 +222,72 @@ Human → Chat → Agent → Tools → Query → Engine
 
 ---
 
+## 2026-02-01 — Documentation & Code Quality
+
+### Pattern: Unicode Safety in Babashka
+
+**Observation:** Em-dashes (—), smart quotes, and fancy Unicode in docstrings cause cryptic parse errors.
+
+**Error:**
+```
+Invalid number: 1.0.0
+Don't know how to create ISeq from: clojure.lang.Symbol
+```
+
+**Cause:** Babashka's parser interprets certain Unicode sequences as numbers or syntax.
+
+**Fix:**
+```clojure
+;; Bad - contains em-dash
+"Core principle — execution"
+
+;; Good - plain ASCII
+"Core principle - execution"
+```
+
+**Lesson:** Save fancy typography for markdown files. Use ASCII-only in docstrings.
+
+---
+
+### Pattern: Schema Validation for Skills
+
+**Observation:** Skills need validation to prevent runtime errors from malformed definitions.
+
+**Schema approach:**
+```clojure
+(def skill-schema
+  {:id {:type :keyword :required true}
+   :version {:type :string :pattern #"^\d+\.\d+\.\d+$"}})
+
+(defn validate-skill [skill]
+  (let [errors (check-required skill schema)]
+    {:valid? (empty? errors) :errors errors}))
+```
+
+**Applied in:** `ouroboros.skill/register-skill!`
+
+**Lesson:** Validate at registration time, not load time. Fail fast with clear errors.
+
+---
+
+### Anti-Pattern: Unchecked Tool Parameters
+
+**Problem:** Tools accept any parameters, leading to runtime failures.
+
+```clojure
+;; Bad - no validation
+(defn file-read [{:keys [path lines]}]
+  (slurp path))  ; Fails if path nil
+
+;; Better - explicit checks
+(defn file-read [{:keys [path lines] :or {lines 100}}]
+  (when (nil? path)
+    (throw (ex-info "Path required" {:type :validation-error})))
+  (slurp path))
+```
+
+**Lesson:** Add specs or validation to tools. Document expected parameters.
+
+---
+
 *Feed forward: Each discovery shapes the next version.*
