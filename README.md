@@ -21,6 +21,22 @@ bb nrepl
 (iface/status)              ; Quick status
 ```
 
+### Frontend Development (ClojureScript/Fulcro)
+
+```bash
+# Install dependencies (first time)
+npm install
+
+# Terminal 1: Start backend API server
+bb dashboard
+
+# Terminal 2: Start frontend dev server
+bb frontend:dev
+# Or: npx shadow-cljs watch dashboard
+
+# Access at http://localhost:8080
+```
+
 ### Docker Deployment
 
 ```bash
@@ -51,6 +67,7 @@ bb git:install-hooks    # Install pre-commit hook (runs tests before commits)
 ┌─────────────────────────────────────────────────────────────┐
 │  🐍 OUROBOROS - Co-Evolution Framework                      │
 ├─────────────────────────────────────────────────────────────┤
+│  Frontend          →  ClojureScript/Fulcro                  │
 │  Chat Platforms    →  Telegram | Discord | Slack           │
 │  AI Agent          →  OpenAI | Anthropic | Ollama          │
 │  Tools             →  13 built-in capabilities              │
@@ -116,11 +133,24 @@ bb chat
 
 ### Dashboard
 
+The dashboard provides a web interface for system observability:
+
 ```clojure
-;; Start web dashboard
+;; Start web dashboard (serves frontend + API)
 (iface/dashboard-start! {:port 8080})
 ;; → http://localhost:8080
 ```
+
+**Features:**
+- **Dashboard** — System health, telemetry stats, user count, session overview
+- **Telemetry** — Event logs, tool invocations, error tracking
+- **Users** — User management with roles and permissions
+- **Sessions** — Active chat sessions and adapter status
+
+**Tech Stack:**
+- ClojureScript/Fulcro (normalized state, EQL queries)
+- Shadow CLJS (hot reload, advanced compilation)
+- Ring/Jetty (backend API server)
 
 ### MCP Server
 

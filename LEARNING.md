@@ -484,12 +484,134 @@ bb audit_deps.clj
 
 ---
 
+## ClojureScript/Fulcro Frontend
+
+### Architecture
+
+Fulcro provides a complete, data-driven frontend framework with:
+- **Normalized state** - Client state mirrors server structure
+- **EQL queries** - Same query language for client and server
+- **Dynamic routing** - Route-based code splitting
+- **Hot reload** - Fast development cycle
+- **WebSocket support** - Real-time telemetry updates
+
+### Project Structure
+
+```
+src/frontend/ouroboros/frontend/
+├── app.cljs          # Fulcro application configuration
+├── client.cljs       # Entry point and hot reload
+├── websocket.cljs    # WebSocket client for real-time updates
+├── model/            # Data models
+│   ├── system.cljs   # System status entities
+│   ├── user.cljs     # User entities
+│   ├── telemetry.cljs# Event entities
+│   └── chat.cljs     # Chat session entities
+└── ui/
+    ├── components.cljs    # Reusable UI components
+    ├── root.cljs          # Root component with router
+    └── pages/
+        ├── dashboard.cljs # Overview page
+        ├── telemetry.cljs # Events page (with live updates)
+        ├── users.cljs     # User management
+        └── sessions.cljs  # Chat sessions
+```
+
+### Key Patterns
+
+**1. Page Resolvers**
+Backend provides page-level resolvers for each route:
+```clojure
+(pco/defresolver page-dashboard [_]
+  {::pco/output [:page/id :system/healthy? :auth/user-count ...]}
+  {:page/id :dashboard
+   :system/healthy? (engine/healthy?)
+   :auth/user-count (count @auth/users)
+   ...})
+```
+
+**2. Route Loading**
+Pages use `dr/route-deferred` to load data on navigation:
+```clojure
+:will-enter (fn [app route-params]
+              (dr/route-deferred [:page/id :dashboard]
+                #(df/load! app [:page/id :dashboard] DashboardPage
+                   {:post-mutation `dr/target-ready
+                    :post-mutation-params {:target [:page/id :dashboard]}})))
+```
+
+**3. Component Queries**
+Components declare their data requirements:
+```clojure
+(defsc DashboardPage [this props]
+  {:query [:system/healthy?
+           :telemetry/total-events
+           {:auth/users (comp/get-query User)}]
+   :ident (fn [] [:page/id :dashboard])}
+  ...)
+```
+
+**4. Real-time Updates via WebSocket**
+Telemetry events flow from backend to frontend in real-time:
+```clojure
+;; Backend: Broadcast telemetry events
+(defn telemetry-callback [event]
+  (broadcast-to! :telemetry/events
+    {:type :telemetry/event :data event}))
+
+;; Frontend: Handle incoming events
+(m/defmutation add-telemetry-event [{:keys [event]}]
+  (action [{:keys [state]}]
+    ;; Add to events list
+    (swap! state update-in [:page/id :telemetry :telemetry/events]
+           #(vec (cons event (take 49 %))))
+    ;; Update stats
+    (swap! state update-in [:page/id :telemetry :telemetry/total-events] inc)))
+```
+
+### Development Workflow
+
+```bash
+# Terminal 1: Start backend (with WebSocket support)
+cd /Users/davidwu/workspace/ouroboros-v1
+clojure -M -m ouroboros.dashboard
+
+# Terminal 2: Start frontend dev server
+cd /Users/davidwu/workspace/ouroboros-v1
+bb frontend:dev
+# Or: npx shadow-cljs watch dashboard
+```
+
+Access the app at http://localhost:8080
+WebSocket endpoint: ws://localhost:8080/ws
+
+### Production Build
+
+```bash
+# Build optimized JavaScript
+bb frontend:build
+
+# Files output to: resources/public/js/
+```
+
+### Features
+
+| Feature | Implementation |
+|---------|---------------|
+| **Loading States** | Skeleton screens with shimmer animation |
+| **Error Handling** | Retry buttons, error state UI |
+| **Real-time Updates** | WebSocket with auto-reconnect |
+| **Connection Status** | Live/offline indicator with pulse animation |
+| **Responsive Design** | Mobile-friendly grid layouts |
+
+---
+
 ## Open Questions
 
 1. **Persistence:** Atoms are simple but not durable. Should we add Datomic/Datalevin?
 2. **Scaling:** Single-process now. How to distribute across nodes?
 3. **Security:** API tokens are basic. Need OAuth2/SAML for enterprise?
-4. **Frontend:** Dashboard is HTML strings. Should we add ClojureScript/Re-frame?
+4. **Frontend:** ✓ ClojureScript/Fulcro implemented
 
 ---
 

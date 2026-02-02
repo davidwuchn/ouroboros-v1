@@ -1,12 +1,16 @@
-{:deps {;; Engine (∅) -> substrate: explicit, queryable state machines
+{:deps {;; Engine -> substrate: explicit, queryable state machines
         com.fulcrologic/statecharts                   {:mvn/version "1.2.25"}
         ;; Query + Graph: EQL interface to everything
         com.wsscode/pathom3                           {:mvn/version "2025.01.16-alpha"}
         ;; API: OpenAPI specs -> callable clients
         com.github.oliyh/martian-babashka-http-client {:mvn/version "0.2.1"}
-        org.babashka/http-client                      {:mvn/version "0.4.23"}}
+        org.babashka/http-client                      {:mvn/version "0.4.23"}
+        ;; JSON encoding
+        cheshire/cheshire                             {:mvn/version "5.13.0"}
+        ;; WebSocket support (for Clojure, not Babashka)
+        http-kit/http-kit                             {:mvn/version "2.8.0"}}
 
- :paths ["src" "test"]
+ :paths ["src" "test" "src/frontend"]
 
  :tasks
  {:requires ([clojure.string :as str]
@@ -19,19 +23,19 @@
   boot
   {:doc "Boot the Ouroboros system (Engine + Query)"
    :requires ([ouroboros.interface :as iface])
-   :task (do (println "◈ Booting Ouroboros system...")
+   :task (do (println "Booting Ouroboros system...")
              (iface/boot!)
-             (println "\n✓ System ready")
+             (println "\nSystem ready")
              (println "  Query: (iface/q [:system/status])")
              (println "  Status: (iface/status)"))}
 
   nrepl
   {:doc "Start nREPL on port 8888 with system pre-booted"
    :requires ([babashka.nrepl.server :as nrepl]
-              [ouroboros.interface :as iface])
-   :task (do (println "◈ Booting system...")
+             [ouroboros.interface :as iface])
+   :task (do (println "Booting system...")
              (iface/boot!)
-             (println "◈ Starting nREPL on port 8888...")
+             (println "Starting nREPL on port 8888...")
              (println "  Pre-loaded: ouroboros.interface")
              (println "  Try: (iface/q [:system/status])")
              (nrepl/start-server! {:host "localhost"
@@ -42,6 +46,36 @@
   {:doc "Start chat bots from environment configuration (.env or env vars)"
    :requires ([ouroboros.config :as config])
    :task (config/start-from-env!)}
+
+  ;; ==========================================================================
+  ;; Dashboard Tasks
+  ;; ==========================================================================
+
+  dashboard
+  {:doc "Start the web dashboard server (requires Clojure, not Babashka)"
+   :task (do (println "Dashboard server requires Clojure (deps.edn)")
+             (println "Run: clojure -M -m ouroboros.dashboard")
+             (println "Or use: bb nrepl and start manually"))}
+
+  ;; ==========================================================================
+  ;; Frontend Tasks
+  ;; ==========================================================================
+
+  frontend:dev
+  {:doc "Start shadow-cljs development server"
+   :task (shell "npx shadow-cljs watch dashboard")}
+
+  frontend:build
+  {:doc "Build frontend for production"
+   :task (shell "npx shadow-cljs release dashboard")}
+
+  frontend:server
+  {:doc "Start shadow-cljs server only"
+   :task (shell "npx shadow-cljs server")}
+
+  frontend:install
+  {:doc "Install npm dependencies"
+   :task (shell "npm install")}
 
   ;; ==========================================================================
   ;; Development Tasks
@@ -65,11 +99,11 @@
                  (do
                    (babashka.fs/copy source target {:replace-existing true})
                    (babashka.fs/set-posix-file-permissions target "rwxr-xr-x")
-                   (println "✓ Pre-commit hook installed")
+                   (println "Pre-commit hook installed")
                    (println "  Tests will run before each commit")
                    (println "  Bypass with: git commit --no-verify"))
                  (do
-                   (println "✗ Hook source not found:")
+                   (println "Hook source not found:")
                    (println "  " source)))))}
 
   ;; ==========================================================================
@@ -113,7 +147,7 @@
                (println (str "  Errors: " (:error results)))
                (when (and (zero? (:fail results))
                           (zero? (:error results)))
-                 (println "\n  ✓ ALL TESTS PASSED!"))
+                 (println "\n  ALL TESTS PASSED!"))
                (System/exit (if (and (zero? (:fail results))
                                      (zero? (:error results)))
                               0 1))))}}}

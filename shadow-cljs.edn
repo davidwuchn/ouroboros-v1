@@ -1,0 +1,23 @@
+;; Shadow CLJS Configuration for Ouroboros Dashboard
+{:deps {:aliases [:frontend]}
+
+ ;; Development HTTP server serves static files
+ :dev-http {8080 "resources/public"}
+
+ :builds
+ {:dashboard
+  {:target     :browser
+   :output-dir "resources/public/js"
+   :asset-path "/js"
+
+   :modules    {:main {:init-fn ouroboros.frontend.client/init}}
+
+   :devtools   {:after-load ouroboros.frontend.client/refresh
+                :preloads   [com.fulcrologic.fulcro.inspect.preload]}
+
+   :dev        {:compiler-options
+                {:external-config {:fulcro {:html-source-annotations? true}}}}
+
+   :release    {:compiler-options
+                {:optimizations :advanced
+                 :elide-asserts true}}}}}
