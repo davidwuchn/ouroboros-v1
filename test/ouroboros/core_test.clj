@@ -4,48 +4,20 @@
    Run with: bb test"
   (:require
    [clojure.test :refer [deftest is testing run-tests use-fixtures]]
+   [ouroboros.test-helper :as th]
    [ouroboros.engine :as engine]
    [ouroboros.query :as query]
    [ouroboros.memory :as memory]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.config :as config]
-   [ouroboros.tool-registry :as tool-registry]
-   ;; Require these to register their resolvers
-   [ouroboros.history]
-   [ouroboros.knowledge]
-   [ouroboros.api]
-   [ouroboros.auth]
-   [ouroboros.openapi]
-   [ouroboros.mcp]
-   [ouroboros.agent]
-   [ouroboros.chat]
-   [ouroboros.metrics]
-   [ouroboros.introspection]))
+   [ouroboros.tool-registry :as tool-registry]))
 
 ;; ============================================================================
 ;; Test Fixtures
 ;; ============================================================================
 
-(use-fixtures :once
-  (fn [test-fn]
-    ;; Boot system if needed
-    (when-not (engine/healthy?)
-      (println "◈ Booting system for tests...")
-      (engine/boot!)
-      (query/init!)
-      (memory/init!))
-    (test-fn)))
-
-(use-fixtures :each
-  (fn [test-fn]
-    ;; Clear telemetry
-    (telemetry/clear-events!)
-    ;; Clear test memory keys
-    (memory/delete-value! :test-key)
-    (memory/delete-value! :key1)
-    (memory/delete-value! :key2)
-    ;; Run test
-    (test-fn)))
+(use-fixtures :once th/system-fixture)
+(use-fixtures :each th/clean-fixture)
 
 ;; ============================================================================
 ;; Engine Tests

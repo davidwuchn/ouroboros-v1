@@ -1,684 +1,305 @@
 (ns ouroboros.interface
-  "Interface - Unified system surface (refactored)
+  "Interface - Unified system surface with lazy loading
+
+   This namespace provides lazy-loaded access to all interface functions.
+   Sub-namespaces are loaded on first use, not at require time.
    
-   This namespace re-exports all interface functions for backward compatibility.
-   
-   For specific domains, you can require directly:
+   For specific domains, require directly:
    - ouroboros.interface.lifecycle - boot! shutdown!
    - ouroboros.interface.query - q status report
    - ouroboros.interface.memory - remember recall forget
-   - ouroboros.interface.memory-jsonl - transcript-* summary-*
-   - ouroboros.interface.memory-search - memory-add! memory-search
-   - ouroboros.interface.knowledge - files file search project
-   - ouroboros.interface.api - http-get http-request!
-   - ouroboros.interface.openapi - openapi-*
-   - ouroboros.interface.ai - ai-*
-   - ouroboros.interface.telemetry - telemetry-*
-   - ouroboros.interface.metrics - metrics-*
-   - ouroboros.interface.mcp - mcp-*
-   - ouroboros.interface.chat - chat-*
-   - ouroboros.interface.agent - agent-*
-   - ouroboros.interface.auth - auth-*
-   - ouroboros.interface.dashboard - dashboard-*
-   - ouroboros.interface.config - load-config! get-config config-summary
-   - ouroboros.interface.lane - lane-create! lane-submit! with-session-lane
-   - ouroboros.interface.context-guard - context-check! context-count-tokens
-    - ouroboros.interface.sandbox - P0 safety: allowlist-* sandbox-* tool-safe
-    - ouroboros.interface.security - P0 security: security-* quarantine
-    - ouroboros.interface.confirmation - P0 confirmation: confirm-*
-    - ouroboros.interface.schema - P1 validation: schema-*
-    - ouroboros.interface.skill - Skill system: register-* load-* skill-*"
+   - etc.
+   
+   Note: The first call to any function group will trigger namespace loading."
   (:require
+   ;; Core - always loaded
    [ouroboros.interface.lifecycle :as lifecycle]
    [ouroboros.interface.query :as query]
-   [ouroboros.interface.memory :as memory]
-   [ouroboros.interface.knowledge :as knowledge]
-   [ouroboros.interface.api :as api]
-   [ouroboros.interface.openapi :as openapi]
-   [ouroboros.interface.ai :as ai]
-   [ouroboros.interface.telemetry :as telemetry]
-   [ouroboros.interface.metrics :as metrics]
-   [ouroboros.interface.mcp :as mcp]
-   [ouroboros.interface.chat :as chat]
-   [ouroboros.interface.agent :as agent]
-   [ouroboros.interface.auth :as auth]
-   [ouroboros.interface.dashboard :as dashboard]
-   [ouroboros.interface.config :as config]
-   [ouroboros.interface.lane :as lane]
-   [ouroboros.interface.context-guard :as context-guard]
-   [ouroboros.interface.memory-jsonl :as memory-jsonl]
-   [ouroboros.interface.memory-search :as memory-search]
-   [ouroboros.interface.sandbox :as sandbox]
-   [ouroboros.interface.security :as security]
-   [ouroboros.interface.confirmation :as confirmation]
-   [ouroboros.interface.schema :as schema-validation]
-   [ouroboros.interface.skill :as skill]))
+   [ouroboros.interface.config :as config]))
 
 ;; ============================================================================
-;; Lifecycle
+;; Lazy Loading Helper
 ;; ============================================================================
 
-(def boot!
-  "Boot the complete system
-   
-   Sequence: Engine → Query → Memory"
-  lifecycle/boot!)
+(defonce ^:private loaded-namespaces (atom #{}))
 
-(def shutdown!
-  "Graceful shutdown"
-  lifecycle/shutdown!)
+(defn- lazy-load
+  "Load a namespace on first use
 
-;; ============================================================================
-;; Query
-;; ============================================================================
+   Usage: (lazy-load 'ouroboros.interface.memory 'memory)"
+  [ns-sym alias-sym]
+  (when-not (contains? @loaded-namespaces ns-sym)
+    (require ns-sym)
+    (swap! loaded-namespaces conj ns-sym))
+  (ns-resolve ns-sym alias-sym))
 
-(def q
-  "Query the system (after boot)"
-  query/q)
+(defn- lazy-fn
+  "Create a lazy wrapper for a function
 
-(def status
-  "Current system status"
-  query/status)
-
-(def report
-  "Full system report"
-  query/report)
+   Usage: (def memory-get (lazy-fn 'ouroboros.interface.memory 'get))"
+  [ns-sym fn-sym]
+  (fn [& args]
+    (let [f (lazy-load ns-sym fn-sym)]
+      (apply f args))))
 
 ;; ============================================================================
-;; Memory
+;; Lifecycle (Always Loaded)
 ;; ============================================================================
 
-(def remember
-  "Save a value to memory"
-  memory/remember)
-
-(def recall
-  "Get a value from memory"
-  memory/recall)
-
-(def forget
-  "Delete a value from memory"
-  memory/forget)
+(def boot! lifecycle/boot!)
+(def shutdown! lifecycle/shutdown!)
 
 ;; ============================================================================
-;; Knowledge
+;; Query (Always Loaded)
 ;; ============================================================================
 
-(def files
-  "List files in a directory"
-  knowledge/files)
-
-(def file
-  "Get info about a specific file"
-  knowledge/file)
-
-(def search
-  "Search files by pattern"
-  knowledge/search)
-
-(def project
-  "Get project structure"
-  knowledge/project)
+(def q query/q)
+(def status query/status)
+(def report query/report)
 
 ;; ============================================================================
-;; API
+;; Config (Always Loaded)
 ;; ============================================================================
 
-(def http-get
-  "Make HTTP GET request"
-  api/http-get)
-
-(def http-request!
-  "Make HTTP request (mutation)"
-  api/http-request!)
+(def load-config! config/load-config!)
+(def get-config config/get-config)
+(def config-summary config/config-summary)
 
 ;; ============================================================================
-;; OpenAPI
+;; Memory (Lazy)
 ;; ============================================================================
 
-(def openapi-bootstrap!
-  "Bootstrap an OpenAPI client from spec URL"
-  openapi/openapi-bootstrap!)
-
-(def openapi-clients
-  "List registered OpenAPI clients"
-  openapi/openapi-clients)
-
-(def openapi-operations
-  "List operations for a client"
-  openapi/openapi-operations)
-
-(def openapi-call!
-  "Call an OpenAPI operation"
-  openapi/openapi-call!)
+(def remember (lazy-fn 'ouroboros.interface.memory 'remember))
+(def recall (lazy-fn 'ouroboros.interface.memory 'recall))
+(def forget (lazy-fn 'ouroboros.interface.memory 'forget))
 
 ;; ============================================================================
-;; AI
+;; Knowledge (Lazy)
 ;; ============================================================================
 
-(def ai-tools
-  "List all AI-available tools"
-  ai/ai-tools)
-
-(def ai-call!
-  "Call an AI tool with parameters"
-  ai/ai-call!)
-
-(def ai-context
-  "Get system context for AI"
-  ai/ai-context)
-
-(def ai-project
-  "Get project context for AI"
-  ai/ai-project)
-
-(def ai-full
-  "Get complete AI context"
-  ai/ai-full)
+(def files (lazy-fn 'ouroboros.interface.knowledge 'files))
+(def file (lazy-fn 'ouroboros.interface.knowledge 'file))
+(def search (lazy-fn 'ouroboros.interface.knowledge 'search))
+(def project (lazy-fn 'ouroboros.interface.knowledge 'project))
 
 ;; ============================================================================
-;; Telemetry
+;; API (Lazy)
 ;; ============================================================================
 
-(def telemetry-events
-  "Get all telemetry events"
-  telemetry/telemetry-events)
-
-(def telemetry-recent
-  "Get n recent telemetry events"
-  telemetry/telemetry-recent)
-
-(def telemetry-stats
-  "Get telemetry statistics"
-  telemetry/telemetry-stats)
-
-(def telemetry-clear!
-  "Clear all telemetry events"
-  telemetry/telemetry-clear!)
+(def http-get (lazy-fn 'ouroboros.interface.api 'http-get))
+(def http-request! (lazy-fn 'ouroboros.interface.api 'http-request!))
 
 ;; ============================================================================
-;; MCP
+;; OpenAPI (Lazy)
 ;; ============================================================================
 
-(def mcp-tools
-  "List all MCP-exposed tools"
-  mcp/mcp-tools)
-
-(def mcp-start!
-  "Start MCP server"
-  mcp/mcp-start!)
-
-(def mcp-stop!
-  "Stop MCP server"
-  mcp/mcp-stop!)
-
-(def mcp-status
-  "Get MCP server status"
-  mcp/mcp-status)
-
-(def mcp-invoke!
-  "Invoke a tool via MCP"
-  mcp/mcp-invoke!)
+(def openapi-bootstrap! (lazy-fn 'ouroboros.interface.openapi 'openapi-bootstrap!))
+(def openapi-clients (lazy-fn 'ouroboros.interface.openapi 'openapi-clients))
+(def openapi-operations (lazy-fn 'ouroboros.interface.openapi 'openapi-operations))
+(def openapi-call! (lazy-fn 'ouroboros.interface.openapi 'openapi-call!))
 
 ;; ============================================================================
-;; Chat
+;; AI (Lazy)
 ;; ============================================================================
 
-(def chat-adapters
-  "List registered chat adapters"
-  chat/chat-adapters)
-
-(def chat-start!
-  "Start all chat adapters"
-  chat/chat-start!)
-
-(def chat-stop!
-  "Stop all chat adapters"
-  chat/chat-stop!)
-
-(def chat-register-telegram!
-  "Register Telegram bot"
-  chat/chat-register-telegram!)
-
-(def chat-register-slack!
-  "Register Slack bot"
-  chat/chat-register-slack!)
-
-(def chat-register-discord!
-  "Register Discord bot"
-  chat/chat-register-discord!)
-
-(def chat-sessions
-  "Get active chat sessions"
-  chat/chat-sessions)
-
-(def chat-clear-session!
-  "Clear a chat session"
-  chat/chat-clear-session!)
+(def ai-tools (lazy-fn 'ouroboros.interface.ai 'ai-tools))
+(def ai-call! (lazy-fn 'ouroboros.interface.ai 'ai-call!))
+(def ai-context (lazy-fn 'ouroboros.interface.ai 'ai-context))
+(def ai-project (lazy-fn 'ouroboros.interface.ai 'ai-project))
+(def ai-full (lazy-fn 'ouroboros.interface.ai 'ai-full))
 
 ;; ============================================================================
-;; Agent
+;; Telemetry (Lazy)
 ;; ============================================================================
 
-(def agent-configure!
-  "Configure the AI agent"
-  agent/agent-configure!)
-
-(def agent-config
-  "Get current agent configuration"
-  agent/agent-config)
-
-(def agent-generate
-  "Generate AI response for a message"
-  agent/agent-generate)
+(def telemetry-events (lazy-fn 'ouroboros.interface.telemetry 'telemetry-events))
+(def telemetry-recent (lazy-fn 'ouroboros.interface.telemetry 'telemetry-recent))
+(def telemetry-stats (lazy-fn 'ouroboros.interface.telemetry 'telemetry-stats))
+(def telemetry-clear! (lazy-fn 'ouroboros.interface.telemetry 'telemetry-clear!))
 
 ;; ============================================================================
-;; Auth
+;; Metrics (Lazy)
 ;; ============================================================================
 
-(def auth-get-user
-  "Get or create user by platform ID"
-  auth/auth-get-user)
-
-(def auth-users
-  "List all registered users"
-  auth/auth-users)
-
-(def auth-check-permission
-  "Check if user has permission"
-  auth/auth-check-permission)
-
-(def auth-rate-limit
-  "Check rate limit for user action"
-  auth/auth-rate-limit)
+(def metrics-status (lazy-fn 'ouroboros.interface.metrics 'metrics-status))
+(def metrics-snapshot (lazy-fn 'ouroboros.interface.metrics 'metrics-snapshot))
 
 ;; ============================================================================
-;; Dashboard
+;; MCP (Lazy)
 ;; ============================================================================
 
-(def dashboard-start!
-  "Start web dashboard server"
-  dashboard/dashboard-start!)
-
-(def dashboard-stop!
-  "Stop web dashboard server"
-  dashboard/dashboard-stop!)
-
-(def dashboard-status
-  "Get dashboard server status"
-  dashboard/dashboard-status)
+(def mcp-tools (lazy-fn 'ouroboros.interface.mcp 'mcp-tools))
+(def mcp-start! (lazy-fn 'ouroroboros.interface.mcp 'mcp-start!))
+(def mcp-stop! (lazy-fn 'ouroboros.interface.mcp 'mcp-stop!))
+(def mcp-status (lazy-fn 'ouroboros.interface.mcp 'mcp-status))
+(def mcp-invoke! (lazy-fn 'ouroboros.interface.mcp 'mcp-invoke!))
 
 ;; ============================================================================
-;; Config
+;; Chat (Lazy)
 ;; ============================================================================
 
-(def load-config!
-  "Load configuration from environment"
-  config/load-config!)
-
-(def get-config
-  "Get configuration value"
-  config/get-config)
-
-(def config-summary
-  "Get configuration summary (safe to log)"
-  config/config-summary)
+(def chat-adapters (lazy-fn 'ouroboros.interface.chat 'chat-adapters))
+(def chat-start! (lazy-fn 'ouroboros.interface.chat 'chat-start!))
+(def chat-stop! (lazy-fn 'ouroboros.interface.chat 'chat-stop!))
+(def chat-register-telegram! (lazy-fn 'ouroboros.interface.chat 'chat-register-telegram!))
+(def chat-register-slack! (lazy-fn 'ouroboros.interface.chat 'chat-register-slack!))
+(def chat-register-discord! (lazy-fn 'ouroboros.interface.chat 'chat-register-discord!))
+(def chat-sessions (lazy-fn 'ouroboros.interface.chat 'chat-sessions))
+(def chat-clear-session! (lazy-fn 'ouroboros.interface.chat 'chat-clear-session!))
 
 ;; ============================================================================
-;; Lane-based Execution (P0 — Clawd-inspired)
+;; Agent (Lazy)
 ;; ============================================================================
 
-(def lane-create!
-  "Create a new lane for serialized execution"
-  lane/lane-create!)
-
-(def lane-submit!
-  "Submit command to a lane"
-  lane/lane-submit!)
-
-(def lane-submit!!
-  "Submit command and block for result"
-  lane/lane-submit!!)
-
-(def lane-destroy!
-  "Destroy a lane"
-  lane/lane-destroy!)
-
-(def lane-status
-  "Get lane status"
-  lane/lane-status)
-
-(def lane-stats
-  "Get lane system statistics"
-  lane/lane-stats)
-
-(def with-session-lane
-  "Execute in session's dedicated lane"
-  lane/with-session-lane)
+(def agent-configure! (lazy-fn 'ouroboros.interface.agent 'agent-configure!))
+(def agent-config (lazy-fn 'ouroboros.interface.agent 'agent-config))
+(def agent-generate (lazy-fn 'ouroboros.interface.agent 'agent-generate))
 
 ;; ============================================================================
-;; Context Guard (P0 — Clawd-inspired)
+;; Auth (Lazy)
 ;; ============================================================================
 
-(def context-check!
-  "Check and compact conversation if needed"
-  context-guard/context-check!)
-
-(def context-force-compact!
-  "Force conversation compaction"
-  context-guard/context-force-compact!)
-
-(def context-count-tokens
-  "Count tokens in conversation"
-  context-guard/context-count-tokens)
-
-(def context-register!
-  "Register conversation for monitoring"
-  context-guard/context-register!)
-
-(def context-update!
-  "Update conversation and check compaction"
-  context-guard/context-update!)
-
-(def context-stats
-  "Get context guard statistics"
-  context-guard/context-stats)
+(def auth-get-user (lazy-fn 'ouroboros.interface.auth 'auth-get-user))
+(def auth-users (lazy-fn 'ouroboros.interface.auth 'auth-users))
+(def auth-check-permission (lazy-fn 'ouroboros.interface.auth 'auth-check-permission))
+(def auth-rate-limit (lazy-fn 'ouroboros.interface.auth 'auth-rate-limit))
 
 ;; ============================================================================
-;; JSONL Session Transcripts (P1 — Clawd-inspired)
+;; Dashboard (Lazy)
 ;; ============================================================================
 
-(def transcript-append!
-  "Append message to session transcript"
-  memory-jsonl/transcript-append!)
-
-(def transcript-read
-  "Read session transcript"
-  memory-jsonl/transcript-read)
-
-(def transcript-last-n
-  "Read last N messages from transcript"
-  memory-jsonl/transcript-last-n)
-
-(def transcript-since
-  "Read messages since timestamp"
-  memory-jsonl/transcript-since)
-
-(def transcript-list
-  "List all sessions with transcripts"
-  memory-jsonl/transcript-list)
-
-(def transcript-delete!
-  "Delete session transcript"
-  memory-jsonl/transcript-delete!)
-
-(def transcript-info
-  "Get comprehensive session info"
-  memory-jsonl/transcript-info)
-
-(def summary-write!
-  "Write conversation summary"
-  memory-jsonl/summary-write!)
-
-(def summary-read
-  "Read conversation summary"
-  memory-jsonl/summary-read)
+(def dashboard-start! (lazy-fn 'ouroboros.interface.dashboard 'dashboard-start!))
+(def dashboard-stop! (lazy-fn 'ouroboros.interface.dashboard 'dashboard-stop!))
+(def dashboard-status (lazy-fn 'ouroboros.interface.dashboard 'dashboard-status))
 
 ;; ============================================================================
-;; Hybrid Memory Search (P1 — Clawd-inspired)
+;; Lane (Lazy)
 ;; ============================================================================
 
-(def memory-init!
-  "Initialize memory search database"
-  memory-search/memory-init!)
-
-(def memory-add!
-  "Add memory to search index"
-  memory-search/memory-add!)
-
-(def memory-get
-  "Get memory by ID"
-  memory-search/memory-get)
-
-(def memory-delete!
-  "Delete memory by ID"
-  memory-search/memory-delete!)
-
-(def memory-search-keyword
-  "Keyword search (FTS5)"
-  memory-search/memory-search-keyword)
-
-(def memory-search-vector
-  "Vector similarity search"
-  memory-search/memory-search-vector)
-
-(def memory-search
-  "Hybrid search (keyword + vector)"
-  memory-search/memory-search)
-
-(def memory-list
-  "List all memories"
-  memory-search/memory-list)
-
-(def memory-search-stats
-  "Get memory search statistics"
-  memory-search/memory-stats)
-
-(def memory-clear!
-  "Clear all memories"
-  memory-search/memory-clear!)
+(def lane-create! (lazy-fn 'ouroboros.interface.lane 'lane-create!))
+(def lane-submit! (lazy-fn 'ouroboros.interface.lane 'lane-submit!))
+(def lane-submit!! (lazy-fn 'ouroboros.interface.lane 'lane-submit!!))
+(def lane-destroy! (lazy-fn 'ouroboros.interface.lane 'lane-destroy!))
+(def lane-status (lazy-fn 'ouroboros.interface.lane 'lane-status))
+(def lane-stats (lazy-fn 'ouroboros.interface.lane 'lane-stats))
+(def with-session-lane (lazy-fn 'ouroboros.interface.lane 'with-session-lane))
 
 ;; ============================================================================
-;; P0 Safety & Sandboxing
+;; Context Guard (Lazy)
 ;; ============================================================================
 
-(def allowlist-create!
-  "Create allowlist for subject with permission level"
-  sandbox/allowlist-create!)
-
-(def allowlist-custom!
-  "Create custom allowlist with specific tools"
-  sandbox/allowlist-custom!)
-
-(def allowlist-destroy!
-  "Remove allowlist for subject"
-  sandbox/allowlist-destroy!)
-
-(def allowlist-permitted?
-  "Check if subject can use tool"
-  sandbox/allowlist-permitted?)
-
-(def allowlist-tools
-  "Get list of tools permitted for subject"
-  sandbox/allowlist-tools)
-
-(def allowlist-stats
-  "Get allowlist statistics"
-  sandbox/allowlist-stats)
-
-(def sandbox-stats
-  "Get tool sandbox execution statistics"
-  sandbox/sandbox-stats)
-
-(def sandbox-health
-  "Check sandbox health and error rates"
-  sandbox/sandbox-health)
-
-(def tool-safe
-  "Execute tool with full safety (allowlist + sandbox)"
-  sandbox/tool-safe)
-
-(def session-create!
-  "Create safe session for chat platform"
-  sandbox/session-create!)
-
-(def sandbox-exec-shell
-  "Execute shell command in sandboxed environment"
-  sandbox/sandbox-exec-shell)
-
-(def sandbox-exec-python
-  "Execute Python code in sandboxed environment"
-  sandbox/sandbox-exec-python)
-
-(def sandbox-exec-node
-  "Execute Node.js code in sandboxed environment"
-  sandbox/sandbox-exec-node)
-
-(def sandbox-docker?
-  "Check if Docker is available for sandboxing"
-  sandbox/sandbox-docker?)
-
-(def safety-report
-  "Get comprehensive safety report"
-  sandbox/safety-report)
+(def context-check! (lazy-fn 'ouroboros.interface.context-guard 'context-check!))
+(def context-force-compact! (lazy-fn 'ouroboros.interface.context-guard 'context-force-compact!))
+(def context-count-tokens (lazy-fn 'ouroboros.interface.context-guard 'context-count-tokens))
+(def context-register! (lazy-fn 'ouroboros.interface.context-guard 'context-register!))
+(def context-update! (lazy-fn 'ouroboros.interface.context-guard 'context-update!))
+(def context-stats (lazy-fn 'ouroboros.interface.context-guard 'context-stats))
 
 ;; ============================================================================
-;; P0 Security & Prompt Injection Protection
+;; Memory JSONL (Lazy)
 ;; ============================================================================
 
-(def security-sanitize
-  "Sanitize input to neutralize prompt injection attempts"
-  security/security-sanitize)
-
-(def security-check
-  "Check if input contains injection patterns"
-  security/security-check)
-
-(def security-quarantine!
-  "Place a session in quarantine"
-  security/security-quarantine!)
-
-(def security-release!
-  "Release a session from quarantine"
-  security/security-release!)
-
-(def security-quarantined?
-  "Check if session is currently quarantined"
-  security/security-quarantined?)
-
-(def security-quarantine-status
-  "Get detailed quarantine status for a session"
-  security/security-quarantine-status)
-
-(def security-report
-  "Generate security status report"
-  security/security-report)
+(def transcript-append! (lazy-fn 'ouroboros.interface.memory-jsonl 'transcript-append!))
+(def transcript-read (lazy-fn 'ouroboros.interface.memory-jsonl 'transcript-read))
+(def transcript-last-n (lazy-fn 'ouroboros.interface.memory-jsonl 'transcript-last-n))
+(def transcript-since (lazy-fn 'ouroboros.interface.memory-jsonl 'transcript-since))
+(def transcript-list (lazy-fn 'ouroboros.interface.memory-jsonl 'transcript-list))
+(def transcript-delete! (lazy-fn 'ouroboros.interface.memory-jsonl 'transcript-delete!))
+(def transcript-info (lazy-fn 'ouroboros.interface.memory-jsonl 'transcript-info))
+(def summary-write! (lazy-fn 'ouroboros.interface.memory-jsonl 'summary-write!))
+(def summary-read (lazy-fn 'ouroboros.interface.memory-jsonl 'summary-read))
 
 ;; ============================================================================
-;; P0 Human-in-the-Loop Confirmation
+;; Memory Search (Lazy)
 ;; ============================================================================
 
-(def confirm-pending?
-  "Check if there's a pending confirmation for a session"
-  confirmation/confirm-pending?)
-
-(def confirm-get
-  "Get pending confirmation details for a session"
-  confirmation/confirm-get)
-
-(def confirm-approve!
-  "Approve a pending confirmation"
-  confirmation/confirm-approve!)
-
-(def confirm-deny!
-  "Deny a pending confirmation"
-  confirmation/confirm-deny!)
-
-(def confirm-cancel!
-  "Cancel a pending confirmation"
-  confirmation/confirm-cancel!)
-
-(def confirm-clear!
-  "Clear all confirmations for a session"
-  confirmation/confirm-clear!)
-
-(def confirm-history
-  "Get confirmation history for a session"
-  confirmation/confirm-history)
-
-(def confirm-stats
-  "Get confirmation system statistics"
-  confirmation/confirm-stats)
-
-(def confirm-security-report
-  "Generate security report for confirmations"
-  confirmation/confirm-security-report)
+(def memory-init! (lazy-fn 'ouroboros.interface.memory-search 'memory-init!))
+(def memory-add! (lazy-fn 'ouroboros.interface.memory-search 'memory-add!))
+(def memory-get (lazy-fn 'ouroboros.interface.memory-search 'memory-get))
+(def memory-delete! (lazy-fn 'ouroboros.interface.memory-search 'memory-delete!))
+(def memory-search-keyword (lazy-fn 'ouroboros.interface.memory-search 'memory-search-keyword))
+(def memory-search-vector (lazy-fn 'ouroboros.interface.memory-search 'memory-search-vector))
+(def memory-search (lazy-fn 'ouroboros.interface.memory-search 'memory-search))
+(def memory-list (lazy-fn 'ouroboros.interface.memory-search 'memory-list))
+(def memory-search-stats (lazy-fn 'ouroboros.interface.memory-search 'memory-search-stats))
+(def memory-clear! (lazy-fn 'ouroboros.interface.memory-search 'memory-clear!))
 
 ;; ============================================================================
-;; P1 Schema Validation
+;; Sandbox (Lazy)
 ;; ============================================================================
 
-(def schema-validate
-  "Validate parameters against a tool schema"
-  schema-validation/schema-validate)
-
-(def schema-validate-tool
-  "Validate a complete tool call"
-  schema-validation/schema-validate-tool)
-
-(def schema-strict
-  "Strict validation that rejects unknown parameters"
-  schema-validation/schema-strict)
-
-(def schema-required
-  "Get list of required parameter names from schema"
-  schema-validation/schema-required)
-
-(def schema-optional
-  "Get list of optional parameter names from schema"
-  schema-validation/schema-optional)
-
-(def schema->json
-  "Convert internal schema format to JSON Schema"
-  schema-validation/schema->json)
+(def allowlist-create! (lazy-fn 'ouroboros.interface.sandbox 'allowlist-create!))
+(def allowlist-custom! (lazy-fn 'ouroboros.interface.sandbox 'allowlist-custom!))
+(def allowlist-destroy! (lazy-fn 'ouroboros.interface.sandbox 'allowlist-destroy!))
+(def allowlist-permitted? (lazy-fn 'ouroboros.interface.sandbox 'allowlist-permitted?))
+(def allowlist-tools (lazy-fn 'ouroboros.interface.sandbox 'allowlist-tools))
+(def allowlist-stats (lazy-fn 'ouroboros.interface.sandbox 'allowlist-stats))
+(def sandbox-stats (lazy-fn 'ouroboros.interface.sandbox 'sandbox-stats))
+(def sandbox-health (lazy-fn 'ouroboros.interface.sandbox 'sandbox-health))
+(def tool-safe (lazy-fn 'ouroboros.interface.sandbox 'tool-safe))
+(def session-create! (lazy-fn 'ouroboros.interface.sandbox 'session-create!))
+(def sandbox-exec-shell (lazy-fn 'ouroboros.interface.sandbox 'sandbox-exec-shell))
+(def sandbox-exec-python (lazy-fn 'ouroboros.interface.sandbox 'sandbox-exec-python))
+(def sandbox-exec-node (lazy-fn 'ouroboros.interface.sandbox 'sandbox-exec-node))
+(def sandbox-docker? (lazy-fn 'ouroboros.interface.sandbox 'sandbox-docker?))
+(def safety-report (lazy-fn 'ouroboros.interface.sandbox 'safety-report))
 
 ;; ============================================================================
-;; Skill System
+;; Security (Lazy)
 ;; ============================================================================
 
-(def skill-register!
-  "Register a skill definition"
-  skill/register!)
+(def security-sanitize (lazy-fn 'ouroboros.interface.security 'security-sanitize))
+(def security-check (lazy-fn 'ouroboros.interface.security 'security-check))
+(def security-quarantine! (lazy-fn 'ouroboros.interface.security 'security-quarantine!))
+(def security-release! (lazy-fn 'ouroboros.interface.security 'security-release!))
+(def security-quarantined? (lazy-fn 'ouroboros.interface.security 'security-quarantined?))
+(def security-quarantine-status (lazy-fn 'ouroboros.interface.security 'security-quarantine-status))
+(def security-report (lazy-fn 'ouroboros.interface.security 'security-report))
 
-(def skill-load!
-  "Load a skill and its dependencies"
-  skill/load!)
+;; ============================================================================
+;; Confirmation (Lazy)
+;; ============================================================================
 
-(def skill-unload!
-  "Unload a skill"
-  skill/unload!)
+(def confirm-pending? (lazy-fn 'ouroboros.interface.confirmation 'confirm-pending?))
+(def confirm-get (lazy-fn 'ouroboros.interface.confirmation 'confirm-get))
+(def confirm-approve! (lazy-fn 'ouroboros.interface.confirmation 'confirm-approve!))
+(def confirm-deny! (lazy-fn 'ouroboros.interface.confirmation 'confirm-deny!))
+(def confirm-cancel! (lazy-fn 'ouroboros.interface.confirmation 'confirm-cancel!))
+(def confirm-clear! (lazy-fn 'ouroboros.interface.confirmation 'confirm-clear!))
+(def confirm-history (lazy-fn 'ouroboros.interface.confirmation 'confirm-history))
+(def confirm-stats (lazy-fn 'ouroboros.interface.confirmation 'confirm-stats))
+(def confirm-security-report (lazy-fn 'ouroboros.interface.confirmation 'confirm-security-report))
 
-(def skill-reload!
-  "Reload a skill"
-  skill/reload!)
+;; ============================================================================
+;; Schema Validation (Lazy)
+;; ============================================================================
 
-(def skill-list
-  "List all registered skills"
-  skill/list)
+(def schema-validate (lazy-fn 'ouroboros.interface.schema 'schema-validate))
+(def schema-validate-tool (lazy-fn 'ouroboros.interface.schema 'schema-validate-tool))
+(def schema-strict (lazy-fn 'ouroboros.interface.schema 'schema-strict))
+(def schema-required (lazy-fn 'ouroboros.interface.schema 'schema-required))
+(def schema-optional (lazy-fn 'ouroboros.interface.schema 'schema-optional))
+(def schema->json (lazy-fn 'ouroboros.interface.schema 'schema->json))
 
-(def skill-loaded
-  "List all loaded skills"
-  skill/loaded)
+;; ============================================================================
+;; Skill (Lazy)
+;; ============================================================================
 
-(def skill-tools
-  "Get tools provided by a skill"
-  skill/tools)
+(def skill-register! (lazy-fn 'ouroboros.interface.skill 'skill-register!))
+(def skill-load! (lazy-fn 'ouroboros.interface.skill 'skill-load!))
+(def skill-unload! (lazy-fn 'ouroboros.interface.skill 'skill-unload!))
+(def skill-reload! (lazy-fn 'ouroboros.interface.skill 'skill-reload!))
+(def skill-list (lazy-fn 'ouroboros.interface.skill 'skill-list))
+(def skill-loaded (lazy-fn 'ouroboros.interface.skill 'skill-loaded))
+(def skill-tools (lazy-fn 'ouroboros.interface.skill 'skill-tools))
+(def skill-tool->skill (lazy-fn 'ouroboros.interface.skill 'skill-tool->skill))
+(def skill-search (lazy-fn 'ouroboros.interface.skill 'skill-search))
+(def skill-stats (lazy-fn 'ouroboros.interface.skill 'skill-stats))
+(def skill-register-built-ins! (lazy-fn 'ouroboros.interface.skill 'skill-register-built-ins!))
 
-(def skill-tool->skill
-  "Find which skill provides a tool"
-  skill/tool->skill)
-
-(def skill-search
-  "Search skills by keyword"
-  skill/search)
-
-(def skill-stats
-  "Get skill system statistics"
-  skill/stats)
-
-(def skill-register-built-ins!
-  "Register all built-in skills"
-  skill/register-built-ins!)
+;; ============================================================================
+;; REPL
+;; ============================================================================
 
 (comment
   ;; Full boot sequence
@@ -689,6 +310,13 @@
   (q [:system/healthy?])
   (status)
   (report)
+
+  ;; Lazy loading demo
+  ;; First call loads the namespace
+  (remember :test-key "test-value")
+  
+  ;; Check what's loaded
+  @loaded-namespaces
 
   ;; Shutdown
   (shutdown!))

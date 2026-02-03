@@ -94,6 +94,52 @@ Use symbols in commit messages for searchable git history.
 - No `recur` inside `try` blocks
 - Pathom: use namespaced keywords (`:memory/key` not `:memory-key`)
 
+### Testing with Resolver Registry
+
+Since the refactoring to resolver-registry pattern, tests must explicitly require namespaces that register resolvers:
+
+```clojure
+;; Use test-helper for automatic setup
+(ns my-test
+  (:require [ouroboros.test-helper :as th]))
+
+(use-fixtures :once th/system-fixture)
+(use-fixtures :each th/clean-fixture)
+```
+
+Or manually require resolver namespaces:
+```clojure
+(:require
+  [ouroboros.history]      ; registers git resolvers
+  [ouroboros.knowledge]    ; registers file resolvers
+  [ouroboros.api]          ; registers http resolvers
+  ;; ... etc)
+```
+
+**Why:** Resolvers self-register when their namespace loads. If the namespace isn't required, the resolvers won't be available in the query environment.
+
+### Lazy Loading Interface
+
+The interface namespace now uses lazy loading:
+
+```clojure
+(require '[ouroboros.interface :as iface])
+
+;; Core functions (always loaded)
+(iface/boot!)
+(iface/q [:system/status])
+
+;; Lazy functions (load on first use)
+(iface/remember :key "value")  ; loads memory namespace
+(iface/files "src")            ; loads knowledge namespace
+```
+
+Check loaded namespaces:
+```clojure
+@iface/loaded-namespaces
+;; => #{ouroboros.interface.memory ouroboros.interface.knowledge}
+```
+
 ---
 
 ## Rule for ψ (AI)

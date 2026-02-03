@@ -694,6 +694,35 @@ bb frontend:build
 
 ---
 
+## Architecture Decisions
+
+### Dependency Injection Evaluation
+
+**Current Approach:** Registry pattern + lazy loading
+- **Pros:** Simple, no external dependencies, works with Babashka
+- **Cons:** Manual registration, no lifecycle management
+
+**Alternatives Considered:**
+
+1. **Integrant** - Component lifecycle management
+   - Pros: Clean lifecycle, dependency graph
+   - Cons: Additional dependency, overkill for current scale
+   - Verdict: Not needed yet
+
+2. **Component** - Stuart Sierra's library
+   - Pros: Industry standard, well-documented
+   - Cons: Heavyweight, requires protocol definitions
+   - Verdict: Too complex for current needs
+
+3. **Mount** - State management
+   - Pros: Simple, defstate macro
+   - Cons: Global state, harder to test
+   - Verdict: Registry pattern is cleaner
+
+**Decision:** Stick with registry pattern. It's simple, testable, and sufficient for current architecture. Revisit if system grows beyond 100 components.
+
+---
+
 ## Open Questions
 
 1. **Persistence:** Atoms are simple but not durable. Should we add Datomic/Datalevin?

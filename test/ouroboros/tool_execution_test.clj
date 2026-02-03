@@ -4,44 +4,16 @@
    High Priority: Test AI tool functionality"
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
+   [ouroboros.test-helper :as th]
    [ouroboros.tool-registry :as tool-registry]
-   [ouroboros.tool-defs :as tool-defs]
-   [ouroboros.engine :as engine]
-   [ouroboros.query :as query]
-   ;; Require these to register their resolvers
-   [ouroboros.history]
-   [ouroboros.knowledge]
-   [ouroboros.api]
-   [ouroboros.auth]
-   [ouroboros.openapi]
-   [ouroboros.mcp]
-   [ouroboros.agent]
-   [ouroboros.chat]
-   [ouroboros.metrics]
-   [ouroboros.introspection]
-   [ouroboros.telemetry :as telemetry]
-   [ouroboros.memory]))
+   [ouroboros.telemetry :as telemetry]))
 
 ;; ============================================================================
 ;; Test Fixtures
 ;; ============================================================================
 
-(use-fixtures :once
-  (fn [test-fn]
-    ;; Boot system once for all tests
-    (when-not (engine/healthy?)
-      (engine/boot!)
-      (query/init!))
-    ;; Ensure tools are registered
-    (when (zero? (count (tool-registry/list-tools)))
-      (tool-defs/register-all-tools!))
-    (test-fn)))
-
-(use-fixtures :each
-  (fn [test-fn]
-    ;; Clear telemetry between tests
-    (telemetry/clear-events!)
-    (test-fn)))
+(use-fixtures :once th/system-fixture)
+(use-fixtures :each th/clean-fixture)
 
 ;; ============================================================================
 ;; System Tools Tests
