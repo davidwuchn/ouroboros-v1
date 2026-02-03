@@ -276,6 +276,46 @@
   @(promise))
 
 ;; ============================================================================
+;; Pathom Resolvers
+;; ============================================================================
+
+(require '[com.wsscode.pathom3.connect.operation :as pco])
+(require '[ouroboros.resolver-registry :as registry])
+
+(pco/defresolver config-summary-resolver [_]
+  {::pco/output [:config/summary]}
+  (load-config!)
+  {:config/summary (config-summary)})
+
+(pco/defresolver config-value [{:keys [path]}]
+  {::pco/input [:path]
+   ::pco/output [:config/value :config/exists?]}
+  (let [value (get-config (edn/read-string path))]
+    {:config/value value
+     :config/exists? (some? value)}))
+
+(pco/defresolver config-keys [_]
+  {::pco/output [:config/keys]}
+  (load-config!)
+  {:config/keys (keys @config-cache)})
+
+(pco/defresolver config-sources [_]
+  {::pco/output [:config/sources]}
+  {:config/sources
+   {:config/has-env-file? (.exists (java.io.File. ".env"))
+    :config/has-edn-file? (.exists (java.io.File. "config.edn"))
+    :config/env-vars (count (System/getenv))}})
+
+(def resolvers
+  [config-summary-resolver
+   config-value
+   config-keys
+   config-sources])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+
+;; ============================================================================
 ;; Exports
 ;; ============================================================================
 
@@ -291,4 +331,10 @@
   (config-summary)
 
   ;; Auto-start from environment
-  (start-from-env!))
+  (start-from-env!)
+
+  ;; Via Pathom
+  (require '[ouroboros.query :as q])
+  (q/q [:config/summary])
+  (q/q [{[:path "[:ai :openai :model]"] [:config/value :config/exists?]}])
+  (q/q [:config/keys]))

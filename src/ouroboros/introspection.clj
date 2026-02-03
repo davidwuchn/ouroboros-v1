@@ -105,13 +105,44 @@
                         :introspection/engine-type "statecharts"
                         :introspection/self-aware? true}})
 
+(pco/defresolver introspection-resolvers [_]
+  {::pco/output [{:introspection/resolvers [:resolver/count :resolver/names]}]}
+  (let [resolvers (registry/all-resolvers)]
+    {:introspection/resolvers
+     {:resolver/count (count resolvers)
+      :resolver/names (mapv #(str (get-in % [:com.wsscode.pathom3.connect.operation/op-name]))
+                          resolvers)}}))
+
+(pco/defresolver introspection-mutations [_]
+  {::pco/output [{:introspection/mutations [:mutation/count :mutation/names]}]}
+  (let [mutations (registry/all-mutations)]
+    {:introspection/mutations
+     {:mutation/count (count mutations)
+       :mutation/names (mapv #(str (get-in % [:com.wsscode.pathom3.connect.operation/op-name]))
+                           mutations)}}))
+
+(pco/defresolver introspection-system-info [_]
+  {::pco/output [:introspection/system-info]}
+  {:introspection/system-info
+   {:system/java-version (System/getProperty "java.version")
+    :system/clojure-version (clojure-version)
+    :system/os-name (System/getProperty "os.name")
+    :system/os-arch (System/getProperty "os.arch")
+    :system/available-processors (.availableProcessors (Runtime/getRuntime))
+    :system/max-memory-mb (quot (.maxMemory (Runtime/getRuntime)) (* 1024 1024))
+    :system/total-memory-mb (quot (.totalMemory (Runtime/getRuntime)) (* 1024 1024))
+    :system/free-memory-mb (quot (.freeMemory (Runtime/getRuntime)) (* 1024 1024))}})
+
 (def resolvers
   "Pathom resolvers for engine introspection"
   [introspection-states
    introspection-transitions
    introspection-current
    introspection-events
-   introspection-meta])
+   introspection-meta
+   introspection-resolvers
+   introspection-mutations
+   introspection-system-info])
 
 ;; Register with resolver registry on load
 (registry/register-resolvers! resolvers)

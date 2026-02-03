@@ -223,6 +223,73 @@
   (let [events (filter #(= (keyword tool-name) (:tool %)) (get-events))]
     {:telemetry/by-tool events}))
 
+(pco/defresolver telemetry-tool-summary [_]
+  {::pco/output [{:telemetry/tool-summary [:tool/name :tool/invocations :tool/avg-duration :tool/error-rate]}]}
+  (let [events (get-events)
+        tool-invocations (filter #(= :tool/invoke (:event %)) events)
+        tool-stats (reduce (fn [acc event]
+                             (let [tool-name (:tool event)]
+                               (-> acc
+                                   (update-in [tool-name :invocations] (fnil inc 0))
+                                   (update-in [tool-name :total-duration] (fnil + 0) (:duration-ms event 0))
+                                   (update-in [tool-name :errors] (fnil + 0) (if (:success? event) 0 1)))))
+                           {}
+                           tool-invocations)
+        summary (map (fn [[tool-name stats]]
+                       {:tool/name tool-name
+                        :tool/invocations (:invocations stats 0)
+                        :tool/avg-duration (if (> (:invocations stats 0) 0)
+                                            (/ (:total-duration stats 0) (:invocations stats 0))
+                                            0)
+                        :tool/error-rate (if (> (:invocations stats 0) 0)
+                                          (/ (:errors stats 0) (:invocations stats 0) 0.01)
+                                          0)})
+                     tool-stats)]
+    {:telemetry/tool-summary summary}))
+
+(pco/defresolver telemetry-event-types [_]
+  {::pco/output [{:telemetry/event-types [:event/type :event/count]}]}
+  (let [events (get-events)
+        type-counts (frequencies (map :event events))
+        types (map (fn [[type count]]
+                    {:event/type type
+                     :event/count count})
+                  type-counts)]
+    {:telemetry/event-types types}))
+
+(pco/defresolver telemetry-time-series [{:keys [event-type window-minutes]}]
+  {::pco/input [:event-type :window-minutes]
+   ::pco/output [{:telemetry/time-series [:timestamp :count]}]}
+  (let [events (get-events)
+        now (Instant/now)
+        window-start (.minus now (Duration/ofMinutes (or window-minutes 60)))
+        filtered-events (filter #(and (= event-type (:event %))
+                                     (when-let [ts (:event/timestamp %)]
+                                       (.isAfter (Instant/parse ts) window-start)))
+                               events)
+        ;; Group by minute
+        by-minute (group-by #(let [ts (Instant/parse (:event/timestamp %))]
+                              (.truncatedTo ts java.time.temporal.ChronoUnit/MINUTES))
+                           filtered-events)
+        series (map (fn [[minute events]]
+                     {:timestamp (str minute)
+                      :count (count events)})
+                   (sort-by first by-minute))]
+    {:telemetry/time-series series}))
+
+(pco/defresolver telemetry-health [_]
+  {::pco/output [:telemetry/healthy? :telemetry/last-event :telemetry/events-per-minute]}
+  (let [events (get-events)
+        last-event (last events)
+        now (Instant/now)
+        one-minute-ago (.minus now (Duration/ofMinutes 1))
+        recent-events (filter #(when-let [ts (:event/timestamp %)]
+                                (.isAfter (Instant/parse ts) one-minute-ago))
+                             events)]
+    {:telemetry/healthy? true  ; Telemetry is healthy if it's running
+     :telemetry/last-event (:event/timestamp last-event)
+     :telemetry/events-per-minute (count recent-events)}))
+
 (pco/defmutation telemetry-clear! [_]
   {::pco/output [:status]}
   (clear-events!))
@@ -235,7 +302,11 @@
   [telemetry-events
    telemetry-recent
    telemetry-stats
-   telemetry-by-tool])
+   telemetry-by-tool
+   telemetry-tool-summary
+   telemetry-event-types
+   telemetry-time-series
+   telemetry-health])
 
 (def mutations
   [telemetry-clear!])
