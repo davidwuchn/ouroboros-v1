@@ -1,5 +1,8 @@
 (ns ouroboros.telemetry
   "Telemetry - Structured logging and metrics for system observability
+
+   Now uses pluggable backends via ouroboros.telemetry.protocol.
+   By default: console + memory backends.
    
    Captures events across the system:
    - Tool invocations (duration, success, params)
@@ -14,41 +17,47 @@
    [com.wsscode.pathom3.connect.operation :as pco]
    [com.wsscode.pathom3.connect.indexes :as pci]
    [com.wsscode.pathom3.interface.eql :as p.eql]
-   [ouroboros.resolver-registry :as registry])
+   [ouroboros.resolver-registry :as registry]
+   [ouroboros.telemetry.protocol :as tp])
   (:import [java.time Instant Duration]))
 
 ;; ============================================================================
-;; Event Store (Circular Buffer)
+;; Default Backends
 ;; ============================================================================
 
-(def ^:private max-events 1000)
-(defonce ^:private event-store (atom clojure.lang.PersistentQueue/EMPTY))
-(defonce ^:private event-counter (atom 0))
+(defonce ^:private memory-store (tp/memory-backend :max-events 1000))
 
-(defn- enqueue-event! [event]
-  (swap! event-counter inc)
-  (swap! event-store
-         (fn [q]
-           (let [new-q (conj q (assoc event :event/id @event-counter))]
-             (if (> (count new-q) max-events)
-               (pop new-q)
-               new-q)))))
+(defn init!
+  "Initialize telemetry with default backends
+
+   Usage: (init!)"
+  []
+  (tp/set-backends! [(tp/console-backend)
+                     memory-store])
+  (println "✓ Telemetry initialized with console + memory backends"))
+
+;; Initialize on namespace load
+(init!)
+
+;; ============================================================================
+;; Event Store Access (for backward compatibility)
+;; ============================================================================
 
 (defn get-events
-  "Get all events from the store"
+  "Get all events from the memory backend"
   []
-  (vec @event-store))
+  (vec @(:store memory-store)))
 
 (defn get-recent-events
   "Get n most recent events"
   [n]
-  (vec (take-last n @event-store)))
+  (vec (take-last n @(:store memory-store))))
 
 (defn clear-events!
-  "Clear all events"
+  "Clear all events from memory backend"
   []
-  (reset! event-store clojure.lang.PersistentQueue/EMPTY)
-  (reset! event-counter 0)
+  (reset! (:store memory-store) clojure.lang.PersistentQueue/EMPTY)
+  (reset! (:counter memory-store) 0)
   {:status :cleared})
 
 ;; ============================================================================
@@ -56,17 +65,11 @@
 ;; ============================================================================
 
 (defn emit!
-  "Emit a telemetry event
-   
+  "Emit a telemetry event to all backends
+
    Usage: (emit! {:event :tool/invoke :tool :file/read :duration-ms 12})"
   [event-data]
-  (let [event (merge event-data
-                     {:event/timestamp (str (Instant/now))
-                      :event/seq @event-counter})]
-    (enqueue-event! event)
-    ;; Also print structured log for external capture
-    (println (str "[TELEMETRY] " (pr-str event)))
-    event))
+  (tp/emit! event-data))
 
 ;; ============================================================================
 ;; Instrumentation Wrappers
@@ -158,6 +161,30 @@
           :duration-ms duration-ms}))
 
 ;; ============================================================================
+;; Backend Management
+;; ============================================================================
+
+(defn set-backends!
+  "Set telemetry backends (replaces current)
+
+   Usage: (set-backends! [(tp/console-backend) (tp/file-backend \"events.log\")])"
+  [backends]
+  (tp/set-backends! backends)
+  ;; Always keep memory store for queries
+  (when-not (some #(instance? ouroboros.telemetry.protocol.MemoryBackend %) backends)
+    (tp/add-backend! memory-store)))
+
+(defn add-backend!
+  "Add a backend"
+  [backend]
+  (tp/add-backend! backend))
+
+(defn get-backends
+  "Get active backends"
+  []
+  (tp/get-backends))
+
+;; ============================================================================
 ;; Pathom Resolvers
 ;; ============================================================================
 
@@ -214,11 +241,14 @@
   [telemetry-clear!])
 
 ;; Register with resolver registry on load
-(require '[ouroboros.resolver-registry :as registry])
 (registry/register-resolvers! resolvers)
 (registry/register-mutations! mutations)
 
 (comment
+  ;; Setup custom backends
+  (set-backends! [(tp/console-backend)
+                  (tp/file-backend "logs/telemetry.log")])
+
   ;; Emit events
   (emit! {:event :test :message "Hello telemetry"})
 
