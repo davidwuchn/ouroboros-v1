@@ -110,13 +110,34 @@
   ;; Analysis Tasks
   ;; ==========================================================================
 
-  audit:ns
-  {:doc "Audit namespace dependency graph (circular deps, fan-in, depth)"
-   :task (shell "bb scripts/ns-audit.clj")}
+   audit:ns
+   {:doc "Audit namespace dependency graph (circular deps, fan-in, depth)"
+    :task (shell "bb scripts/ns-audit.clj")}
 
-  ;; ==========================================================================
-  ;; Testing Tasks
-  ;; ==========================================================================
+   ;; ==========================================================================
+   ;; Utility Tasks
+   ;; ==========================================================================
+
+   download
+   {:doc "Fast download with auto-resume (usage: bb download <url> [file] [-c 16])"
+    :task (let [args *command-line-args*]
+            (if (seq args)
+              (apply shell "bb" "scripts/fast-download.clj" args)
+              (do
+                (println "Usage: bb download <url> [output-file] [options]")
+                (println "")
+                (println "Options:")
+                (println "  -c, --connections N  Number of parallel connections (default: 16)")
+                (println "  -s, --splits N       Number of splits (default: 16)")
+                (println "")
+                (println "Examples:")
+                (println "  bb download https://example.com/file.zip")
+                (println "  bb download https://example.com/file.zip my-file.zip")
+                (println "  bb download https://example.com/file.zip -c 32"))))}
+
+   ;; ==========================================================================
+   ;; Testing Tasks
+   ;; ==========================================================================
 
   test
   {:doc "Run all system tests (core, chat, tools, error-handling)"
