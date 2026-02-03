@@ -7,7 +7,20 @@
    [ouroboros.tool-registry :as tool-registry]
    [ouroboros.tool-defs :as tool-defs]
    [ouroboros.engine :as engine]
-   [ouroboros.query :as query]))
+   [ouroboros.query :as query]
+   ;; Require these to register their resolvers
+   [ouroboros.history]
+   [ouroboros.knowledge]
+   [ouroboros.api]
+   [ouroboros.auth]
+   [ouroboros.openapi]
+   [ouroboros.mcp]
+   [ouroboros.agent]
+   [ouroboros.chat]
+   [ouroboros.metrics]
+   [ouroboros.introspection]
+   [ouroboros.telemetry :as telemetry]
+   [ouroboros.memory]))
 
 ;; ============================================================================
 ;; Test Fixtures
@@ -27,8 +40,7 @@
 (use-fixtures :each
   (fn [test-fn]
     ;; Clear telemetry between tests
-    (require '[ouroboros.telemetry :as telemetry])
-    ((resolve 'telemetry/clear-events!))
+    (telemetry/clear-events!)
     (test-fn)))
 
 ;; ============================================================================

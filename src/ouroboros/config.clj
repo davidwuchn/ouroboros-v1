@@ -255,9 +255,9 @@
   (println "  Ouroboros Chat Bot Startup")
   (println "========================================")
 
-  ;; Boot system
-  (require '[ouroboros.interface :as iface])
-  ((resolve 'iface/boot!))
+  ;; Boot system (resolve to avoid circular dep)
+  (when-let [boot! (resolve 'ouroboros.interface.lifecycle/boot!)]
+    (boot!))
 
   ;; Load config
   (load-config!)

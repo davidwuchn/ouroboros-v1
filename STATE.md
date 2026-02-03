@@ -30,6 +30,10 @@
 | **Tool Allowlist** | **✓ New** | **Per-session/per-user tool permissions** |
 | **Sandboxed Execution** | **✓ New** | **Docker/container-based shell/code execution** |
 | **Skill System** | **✓ New** | **Reusable skill definitions with dependency management** |
+| **Prompt Injection Protection** | **✓ New** | **Input sanitization, pattern detection, risk scoring** |
+| **Content Quarantine** | **✓ New** | **Track external content, limit tool chaining after exposure** |
+| **Human Confirmation** | **✓ New** | **Require approval for dangerous operations (file/write, shell/exec)** |
+| **Output Schema Validation** | **✓ New** | **Validate LLM tool calls against schemas before execution** |
 
 **Verified Working:**
 ```clojure
@@ -212,6 +216,10 @@ In REPL:
 15. ~~**Tool Allowlist** — Per-session/per-user permissions~~ ✓ Done
 16. ~~**Sandboxed Execution** — Docker-based shell/code execution~~ ✓ Done
 17. ~~**Skill System** — Reusable skill definitions with dependency management~~ ✓ Done
+18. ~~**Prompt Injection Protection** — Input sanitization, pattern detection, risk scoring~~ ✓ Done
+19. ~~**Content Quarantine** — Track external content, limit tool chaining~~ ✓ Done
+20. ~~**Human Confirmation** — Require approval for dangerous operations~~ ✓ Done
+21. ~~**Output Schema Validation** — Validate LLM tool calls against schemas before execution~~ ✓ Done
 
 **🐍 SYSTEM COMPLETE** — All P0 safety features implemented. The Ouroboros is production-ready with comprehensive security controls.
 
@@ -233,7 +241,7 @@ Used by: Discord Gateway, Slack Socket Mode
 bb test  # Run all system tests
 ```
 
-**Coverage:** 32+ tests, 150+ assertions
+**Coverage:** 52+ tests, 227+ assertions
 - Engine lifecycle and state verification
 - Query initialization and EQL queries
 - Memory operations

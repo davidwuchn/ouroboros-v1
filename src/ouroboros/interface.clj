@@ -23,8 +23,11 @@
    - ouroboros.interface.config - load-config! get-config config-summary
    - ouroboros.interface.lane - lane-create! lane-submit! with-session-lane
    - ouroboros.interface.context-guard - context-check! context-count-tokens
-   - ouroboros.interface.sandbox - P0 safety: allowlist-* sandbox-* tool-safe
-   - ouroboros.interface.skill - Skill system: register-* load-* skill-*"
+    - ouroboros.interface.sandbox - P0 safety: allowlist-* sandbox-* tool-safe
+    - ouroboros.interface.security - P0 security: security-* quarantine
+    - ouroboros.interface.confirmation - P0 confirmation: confirm-*
+    - ouroboros.interface.schema - P1 validation: schema-*
+    - ouroboros.interface.skill - Skill system: register-* load-* skill-*"
   (:require
    [ouroboros.interface.lifecycle :as lifecycle]
    [ouroboros.interface.query :as query]
@@ -46,6 +49,9 @@
    [ouroboros.interface.memory-jsonl :as memory-jsonl]
    [ouroboros.interface.memory-search :as memory-search]
    [ouroboros.interface.sandbox :as sandbox]
+   [ouroboros.interface.security :as security]
+   [ouroboros.interface.confirmation :as confirmation]
+   [ouroboros.interface.schema :as schema-validation]
    [ouroboros.interface.skill :as skill]))
 
 ;; ============================================================================
@@ -525,6 +531,106 @@
 (def safety-report
   "Get comprehensive safety report"
   sandbox/safety-report)
+
+;; ============================================================================
+;; P0 Security & Prompt Injection Protection
+;; ============================================================================
+
+(def security-sanitize
+  "Sanitize input to neutralize prompt injection attempts"
+  security/security-sanitize)
+
+(def security-check
+  "Check if input contains injection patterns"
+  security/security-check)
+
+(def security-quarantine!
+  "Place a session in quarantine"
+  security/security-quarantine!)
+
+(def security-release!
+  "Release a session from quarantine"
+  security/security-release!)
+
+(def security-quarantined?
+  "Check if session is currently quarantined"
+  security/security-quarantined?)
+
+(def security-quarantine-status
+  "Get detailed quarantine status for a session"
+  security/security-quarantine-status)
+
+(def security-report
+  "Generate security status report"
+  security/security-report)
+
+;; ============================================================================
+;; P0 Human-in-the-Loop Confirmation
+;; ============================================================================
+
+(def confirm-pending?
+  "Check if there's a pending confirmation for a session"
+  confirmation/confirm-pending?)
+
+(def confirm-get
+  "Get pending confirmation details for a session"
+  confirmation/confirm-get)
+
+(def confirm-approve!
+  "Approve a pending confirmation"
+  confirmation/confirm-approve!)
+
+(def confirm-deny!
+  "Deny a pending confirmation"
+  confirmation/confirm-deny!)
+
+(def confirm-cancel!
+  "Cancel a pending confirmation"
+  confirmation/confirm-cancel!)
+
+(def confirm-clear!
+  "Clear all confirmations for a session"
+  confirmation/confirm-clear!)
+
+(def confirm-history
+  "Get confirmation history for a session"
+  confirmation/confirm-history)
+
+(def confirm-stats
+  "Get confirmation system statistics"
+  confirmation/confirm-stats)
+
+(def confirm-security-report
+  "Generate security report for confirmations"
+  confirmation/confirm-security-report)
+
+;; ============================================================================
+;; P1 Schema Validation
+;; ============================================================================
+
+(def schema-validate
+  "Validate parameters against a tool schema"
+  schema-validation/schema-validate)
+
+(def schema-validate-tool
+  "Validate a complete tool call"
+  schema-validation/schema-validate-tool)
+
+(def schema-strict
+  "Strict validation that rejects unknown parameters"
+  schema-validation/schema-strict)
+
+(def schema-required
+  "Get list of required parameter names from schema"
+  schema-validation/schema-required)
+
+(def schema-optional
+  "Get list of optional parameter names from schema"
+  schema-validation/schema-optional)
+
+(def schema->json
+  "Convert internal schema format to JSON Schema"
+  schema-validation/schema->json)
 
 ;; ============================================================================
 ;; Skill System

@@ -11,7 +11,8 @@
    [clojure.string :as str]
    [babashka.fs :as fs]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [ouroboros.engine :as engine]))
+   [ouroboros.engine :as engine]
+   [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
 ;; Storage
@@ -150,6 +151,10 @@
 (def mutations
   "Pathom mutations for memory operations"
   [memory-save! memory-delete! memory-clear!])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 (comment
   ;; Direct usage

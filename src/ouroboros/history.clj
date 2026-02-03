@@ -10,7 +10,8 @@
   (:require
    [babashka.process :refer [shell]]
    [clojure.string :as str]
-   [com.wsscode.pathom3.connect.operation :as pco]))
+   [com.wsscode.pathom3.connect.operation :as pco]
+   [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
 ;; Git Command Interface
@@ -150,6 +151,9 @@
 (def resolvers
   "Pathom resolvers for git history"
   [git-commits git-status git-branches git-meta])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
 
 (comment
   ;; Resolvers are auto-registered in query.clj

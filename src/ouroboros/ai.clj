@@ -11,7 +11,8 @@
    Tools are registered via ouroboros.tool-defs after query is loaded."
   (:require
    [com.wsscode.pathom3.connect.operation :as pco]
-   [ouroboros.tool-registry :as registry]))
+   [ouroboros.tool-registry :as tool-registry]
+   [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
 ;; Tool Discovery (delegates to registry)
@@ -20,12 +21,12 @@
 (defn list-tools
   "List all available AI tools"
   []
-  (registry/list-tools))
+   (tool-registry/list-tools))
 
 (defn get-tool
   "Get a specific tool"
   [tool-name]
-  (registry/get-tool tool-name))
+  (tool-registry/get-tool tool-name))
 
 ;; ============================================================================
 ;; Tool Execution (delegates to registry)
@@ -36,7 +37,7 @@
 
    Delegates to tool-registry/call-tool for actual execution."
   [tool-name params]
-  (registry/call-tool tool-name params))
+  (tool-registry/call-tool tool-name params))
 
 ;; ============================================================================
 ;; Context Packaging
@@ -55,8 +56,8 @@
      :system/status (:result status-result)
      :git/status (:result git-result)
      :memory/keys []  ; Would need memory/keys tool
-     :tools/available (count (registry/list-tools))
-     :tools/names (map :tool/name (registry/list-tools))}))
+     :tools/available (count (tool-registry/list-tools))
+     :tools/names (map :tool/name (tool-registry/list-tools))}))
 
 (defn project-context
   "Package project state for AI context"
@@ -100,6 +101,10 @@
 
 (def mutations
   [ai-call!])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 (comment
   ;; List all tools (requires tools to be registered via tool-defs)

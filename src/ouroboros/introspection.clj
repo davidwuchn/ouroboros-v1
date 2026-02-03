@@ -9,7 +9,8 @@
   (:require
    [com.fulcrologic.statecharts :as sc]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [ouroboros.engine :as engine]))
+   [ouroboros.engine :as engine]
+   [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
 ;; Statechart Structure Extraction
@@ -111,6 +112,9 @@
    introspection-current
    introspection-events
    introspection-meta])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
 
 (comment
   ;; Direct usage

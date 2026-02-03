@@ -74,15 +74,15 @@ Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openc
 - [x] **Hybrid memory system** — JSONL transcripts + Markdown files + Vector/FTS5 search (SQLite). Semantic + keyword search.
 - [x] **Session compaction** — Auto-summarize old conversation turns, keep recent verbatim.
 
-### Safety & Sandboxing (P0) ⚠️ PARTIAL
+### Safety & Sandboxing (P0) ✅ COMPLETE
 - [x] **Tool sandboxing layer** — Execute tools with timeouts, memory limits, and resource constraints. Prevents runaway tools from crashing system.
 - [x] **Tool allowlists** — Per-session/per-user tool permissions. Restrict which tools AI can invoke based on context.
 - [x] **Sandboxed code execution** — Docker/container-based shell execution with configurable safety profiles.
-- [ ] **Prompt injection protection** — Sanitize user inputs and external content before LLM processing. Block known injection patterns.
-- [ ] **Human-in-the-loop confirmation** — Require explicit approval for dangerous operations (file/write, shell/exec, memory/clear, etc.).
-- [ ] **Tool chaining limits** — Restrict number of sequential tool calls after processing external input (web, files, user messages).
-- [ ] **Output schema validation** — Validate LLM tool calls against schemas before execution. Reject malformed calls.
-- [ ] **Quarantine for external content** — Mark and restrict tool access after processing untrusted web content or files.
+- [x] **Prompt injection protection** — Sanitize user inputs and external content before LLM processing. Block known injection patterns.
+- [x] **Human-in-the-loop confirmation** — Require explicit approval for dangerous operations (file/write, shell/exec, memory/clear, etc.).
+- [x] **Tool chaining limits** — Restrict number of sequential tool calls after processing external input (web, files, user messages).
+- [x] **Output schema validation** — Validate LLM tool calls against schemas before execution. Reject malformed calls.
+- [x] **Quarantine for external content** — Mark and restrict tool access after processing untrusted web content or files.
 
 **Security Alert**: See [Moltbook analysis](https://x.com/DavidOndrej1/status/2017945523060088934) — AI agents with excessive tool access are vulnerable to prompt injection attacks. An agent that can browse the web AND access email/calendar/files is one hidden webpage instruction away from compromise. **Principle: Never trust external input. Never chain dangerous tools after untrusted content.**
 
@@ -165,6 +165,8 @@ Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openc
 | 2026-02-01 | P0 Safety & Sandboxing — Tool sandboxing, allowlists, Docker execution |
 | 2026-02-01 | Skill System — OpenClaw-inspired reusable capabilities with dependencies |
 | 2026-02-02 | Security audit — Prompt injection analysis, threat modeling from Moltbook incident |
+| 2026-02-02 | P0 Security Complete — Prompt injection protection, human confirmation, tool chaining limits |
+| 2026-02-02 | P1 Security — Output schema validation for LLM tool calls |
 
 ## Implementation Priority Matrix
 

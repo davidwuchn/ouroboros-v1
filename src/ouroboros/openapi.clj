@@ -8,7 +8,8 @@
    [cheshire.core :as json]
    [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [martian.core :as martian]))
+   [martian.core :as martian]
+   [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
 ;; Client Registry
@@ -182,6 +183,10 @@
 (def mutations
   "Pathom mutations for OpenAPI operations"
   [openapi-call! openapi-bootstrap!])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 (comment
   ;; Bootstrap a client

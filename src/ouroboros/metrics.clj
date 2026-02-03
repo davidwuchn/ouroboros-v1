@@ -15,9 +15,10 @@
    - ouroboros_chat_sessions gauge
    - ouroboros_llm_tokens_total counter (if available in events)"
   (:require
-   [clojure.string :as str]
-   [com.wsscode.pathom3.connect.operation :as pco]
-   [ouroboros.telemetry :as telemetry])
+    [clojure.string :as str]
+    [com.wsscode.pathom3.connect.operation :as pco]
+    [ouroboros.telemetry :as telemetry]
+    [ouroboros.resolver-registry :as registry])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -308,6 +309,10 @@
 
 (def mutations
   [])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 (comment
   ;; Start metrics server

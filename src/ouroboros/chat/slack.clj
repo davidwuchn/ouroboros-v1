@@ -16,7 +16,7 @@
    [babashka.http-client :as http]
    [cheshire.core :as json]
    [clojure.string :as str]
-   [ouroboros.chat :as chat]
+   [ouroboros.chat.protocol :as chatp]
    [ouroboros.chat.websocket :as ws]
    [ouroboros.telemetry :as telemetry])
   (:import [java.time Instant]))
@@ -77,9 +77,9 @@
           user-name (or (:username event) user-id)]
       ;; Ignore bot messages
       (when-not (:bot_id event)
-        (chat/make-message :slack channel user-id user-name text
-                           (when timestamp
-                             (str (Instant/ofEpochMilli (long (* 1000 (Double/parseDouble timestamp)))))))))))
+        (chatp/make-message :slack channel user-id user-name text
+                            (when timestamp
+                              (str (Instant/ofEpochMilli (long (* 1000 (Double/parseDouble timestamp)))))))))))
 
 ;; ============================================================================
 ;; WebSocket Event Handler
@@ -166,7 +166,7 @@
 ;; ============================================================================
 
 (defrecord SlackBot [app-token bot-token ws-atom running-atom handler-atom reconnect-atom]
-  chat/ChatAdapter
+  chatp/ChatAdapter
 
   (start! [this handler]
     (reset! handler-atom handler)
@@ -238,15 +238,13 @@
   ;; Test auth
   (test-auth "xoxb-YOUR-BOT-TOKEN")
 
-  ;; Register and start
-  (chat/register-adapter! :slack bot)
-  (chat/start-all!)
+  ;; Register and start (requires ouroboros.chat)
+  ;; (chat/register-adapter! :slack bot)
+  ;; (chat/start-all!)
 
   ;; Send message (channel ID must be a string)
-  (chat/send-message! bot "C1234567890" "Hello from Ouroboros!")
+  (chatp/send-message! bot "C1234567890" "Hello from Ouroboros!")
 
   ;; Stop
-  (chat/stop-all!)
-
-  ;; Check active adapters
-  @chat/active-adapters)
+  ;; (chat/stop-all!)
+  )

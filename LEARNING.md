@@ -4,6 +4,49 @@
 
 ---
 
+## Architecture Evolution
+
+### 2025-02: Resolver Registry Pattern
+
+**Problem:** `query.clj` was a "god module" with 16 requires, creating circular dependencies throughout the system.
+
+**Solution:** Registry pattern for Pathom resolvers.
+
+**Before (circular):**
+```clojure
+;; query.clj - required everything
+(:require
+  [ouroboros.history]      ; for git resolvers
+  [ouroboros.knowledge]    ; for file resolvers
+  [ouroboros.api]          ; for http resolvers
+  ... 13 more)
+```
+
+**After (decoupled):**
+```clojure
+;; query.clj - only 3 requires
+(:require
+  [ouroboros.resolver-registry :as registry]
+  [ouroboros.engine :as engine])
+
+;; Each resolver namespace self-registers
+(ns ouroboros.history
+  (:require [ouroboros.resolver-registry :as registry]))
+
+(def resolvers [git-commits git-status ...])
+(registry/register-resolvers! resolvers)
+```
+
+**Results:**
+- Circular deps: 15 → 3 (all false positives)
+- Query requires: 16 → 3
+- Deepest chain: 14 → 11
+- All 52 tests pass
+
+**Key Insight:** Protocols and registries should live in their own namespaces to break cycles.
+
+---
+
 ## Patterns
 
 ### 1. Iterative Phase-Based Development
@@ -314,6 +357,51 @@ rg "old-name" -r "new-name"
 ;; ouroboros.tool-defs - depends on registry and query
 (defn- make-query-tool []
   {:fn (fn [params] (query/q ...))})
+```
+
+**Solution 3 (Refactored 2025-02):** Resolver Registry Pattern
+
+Instead of query requiring all namespaces (circular), each namespace registers its resolvers:
+
+```clojure
+;; ouroboros.resolver-registry - central registry, no deps
+(defonce resolver-registry (atom []))
+
+(defn register-resolvers! [resolvers]
+  (swap! resolver-registry into resolvers))
+
+;; In each resolver namespace (e.g., ouroboros.history)
+(def resolvers [git-commits git-status ...])
+(registry/register-resolvers! resolvers)
+
+;; query.clj - just collects registered resolvers
+(defn create-env []
+  (-> (pci/register (registry/all-resolvers))
+      (pci/register (registry/all-mutations))))
+```
+
+**Benefits:**
+- Query goes from 16 requires to 3
+- No circular dependencies
+- Resolvers self-register on namespace load
+- Easy to add new resolver namespaces without touching query
+
+**Protocol Extraction:**
+When adapters need protocols but shouldn't depend on the whole namespace:
+
+```clojure
+;; Extract to ouroboros.chat.protocol
+(defprotocol ChatAdapter
+  (start! [this handler])
+  (send-message! [this chat-id text]))
+
+;; Adapters use protocol namespace only
+(ns ouroboros.chat.telegram
+  (:require [ouroboros.chat.protocol :as chatp]))
+
+(defrecord TelegramBot [...]
+  chatp/ChatAdapter
+  ...)
 ```
 
 ---

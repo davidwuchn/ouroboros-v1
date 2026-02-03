@@ -12,38 +12,31 @@
    [ouroboros.tool-registry :as tool-registry]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.memory :as memory]
-   [ouroboros.agent :as agent])
+   [ouroboros.agent :as agent]
+   [ouroboros.confirmation :as confirmation]
+   [ouroboros.resolver-registry :as registry])
   (:import [java.time Instant]))
 
 ;; ============================================================================
 ;; ChatAdapter Protocol
 ;; ============================================================================
 
-(defprotocol ChatAdapter
-  "Protocol for chat platform adapters"
-  (start! [this handler]
-    "Start listening for messages, call handler on each message")
-  (stop! [this]
-    "Stop listening")
-  (send-message! [this chat-id text]
-    "Send a text message to a chat")
-  (send-markdown! [this chat-id text]
-    "Send a markdown-formatted message"))
+;; Protocol is defined in ouroboros.chat.protocol to break circular deps
+;; This namespace extends it with session management
+(require '[ouroboros.chat.protocol :as chatp])
+
+;; Re-export protocol methods for backward compatibility
+(def start! chatp/start!)
+(def stop! chatp/stop!)
+(def send-message! chatp/send-message!)
+(def send-markdown! chatp/send-markdown!)
 
 ;; ============================================================================
 ;; Message Structure
 ;; ============================================================================
 
-(defn make-message
-  "Create a standardized message map"
-  [platform chat-id user-id user-name text timestamp]
-  {:message/id (str (java.util.UUID/randomUUID))
-   :message/platform platform
-   :message/chat-id chat-id
-   :message/user-id user-id
-   :message/user-name user-name
-   :message/text text
-   :message/timestamp (or timestamp (str (Instant/now)))})
+;; Re-export from protocol namespace for backward compatibility
+(def make-message chatp/make-message)
 
 ;; ============================================================================
 ;; Session Management
@@ -116,13 +109,13 @@
 
 (defn- handle-command
   "Handle built-in chat commands"
-  [adapter chat-id cmd args]
+  [adapter chat-id user-name cmd args]
   (telemetry/emit! {:event :chat/command :command cmd :chat-id chat-id})
   (case cmd
     :start (send-message! adapter chat-id
-                          "🐍 Ouroboros Assistant ready!\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status")
+                          "🐍 Ouroboros Assistant ready!\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/confirm - Approve operation\n/deny - Reject operation")
     :help (send-message! adapter chat-id
-                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - Check system status\n/tools - List available tools\n\nJust type naturally to chat!")
+                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - Check system status\n/tools - List available tools\n/confirm - Approve pending dangerous operation\n/deny - Reject pending operation\n\nJust type naturally to chat!")
     :clear (do (clear-session! chat-id)
                (send-message! adapter chat-id "✓ Conversation cleared"))
     :status (let [result (tool-registry/call-tool :system/status {})]
@@ -133,6 +126,16 @@
              (send-message! adapter chat-id
                             (str "*Available Tools*\n\n"
                                  (str/join "\n" (map :tool/name tools)))))
+    :confirm (let [result (confirmation/approve! chat-id :approved-by user-name)]
+               (case (:status result)
+                 :approved (send-message! adapter chat-id
+                                          (str "✓ Confirmed: " (:tool result) "\nExecuting now..."))
+                 :error (send-message! adapter chat-id
+                                       (str "⚠️ " (:reason result)))))
+    :deny (let [result (confirmation/deny! chat-id "User declined" :denied-by user-name)]
+            (case (:status result)
+              :denied (send-message! adapter chat-id "✗ Operation denied")
+              :error (send-message! adapter chat-id (str "⚠️ " (:reason result)))))
     (send-message! adapter chat-id (str "Unknown command: " (name cmd)))))
 
 (defn- handle-natural-message
@@ -146,8 +149,8 @@
   ;; Get conversation history
   (let [session (get-session chat-id)
         history (:history session)
-        ;; Generate AI response
-        result (agent/generate-chat-response text history)]
+        ;; Generate AI response with session tracking
+        result (agent/generate-chat-response text history :session-id chat-id)]
 
     (if (:error result)
       ;; Error response
@@ -167,7 +170,7 @@
 
     ;; Check for commands
     (if-let [[cmd args] (extract-command text)]
-      (handle-command adapter chat-id cmd args)
+      (handle-command adapter chat-id user-name cmd args)
       (handle-natural-message adapter chat-id user-name text))))
 
 ;; ============================================================================
@@ -225,6 +228,10 @@
 
 (def mutations
   [])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 (comment
   ;; Usage

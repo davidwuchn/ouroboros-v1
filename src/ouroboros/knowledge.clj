@@ -7,10 +7,11 @@
    - :knowledge/content - file contents
    - :knowledge/project - project structure"
   (:require
-   [babashka.fs :as fs]
-   [clojure.string :as str]
-   [com.wsscode.pathom3.connect.operation :as pco]
-   [ouroboros.history :as history]))
+    [babashka.fs :as fs]
+    [clojure.string :as str]
+    [com.wsscode.pathom3.connect.operation :as pco]
+    [ouroboros.history :as history]
+    [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
 ;; File System Queries
@@ -113,6 +114,9 @@
    knowledge-content-preview
    knowledge-project
    knowledge-search])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
 
 (comment
   ;; Direct usage

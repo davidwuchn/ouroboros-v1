@@ -16,9 +16,11 @@
    (list-tools)
    (call-tool :my/tool {:x \"hello\"} :session-123)  ; With safety context"
   (:require
+   [clojure.string :as str]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.tool-sandbox :as sandbox]
-   [ouroboros.tool-allowlist :as allowlist]))
+   [ouroboros.tool-allowlist :as allowlist]
+   [ouroboros.schema :as schema]))
 
 ;; ============================================================================
 ;; Registry
@@ -103,68 +105,86 @@
    {:status :error :error \"...\"}       ; Execution error"
   ([tool-name params subject]
    (call-tool-safe tool-name params subject {}))
-  ([tool-name params subject opts]
-   (let [{:keys [check-allowlist? use-sandbox? sandbox-opts]
-          :or {check-allowlist? true use-sandbox? true}} opts
-         tool-kw (keyword tool-name)]
-     
-     ;; Step 1: Check allowlist
-     (if (and check-allowlist? (not (allowlist/permitted? subject tool-kw {:params params})))
-       ;; Forbidden - not in allowlist
-       (do
-         (telemetry/emit! {:event :tool/forbidden
-                           :tool tool-kw
-                           :subject subject})
-         {:status :forbidden
-          :tool tool-kw
-          :error (str "Tool " tool-kw " not permitted for subject " subject)
-          :subject subject})
-       
-       ;; Step 2: Execute with sandbox
-       (if-let [tool (get-tool tool-kw)]
-         (do
-           (telemetry/log-tool-invoke tool-kw params)
-           (if use-sandbox?
-             ;; Use sandbox for safe execution
-             (let [sandbox-result (sandbox/execute! tool-kw (:fn tool) params sandbox-opts)]
-               (case (:status sandbox-result)
-                 :success {:status :success
-                           :tool tool-kw
-                           :params params
-                           :result (:result sandbox-result)
-                           :duration-ms (:duration-ms sandbox-result)}
-                 :timeout {:status :timeout
-                           :tool tool-kw
-                           :error (:error sandbox-result)
-                           :timeout-ms (:timeout-ms sandbox-result)}
-                 :memory-exceeded {:status :error
-                                   :tool tool-kw
-                                   :error (:error sandbox-result)
-                                   :memory-used-mb (:memory-used-mb sandbox-result)}
-                 {:status :error
-                  :tool tool-kw
-                  :error (:error sandbox-result)}))
-             ;; Direct execution (bypass sandbox - use with caution)
-             (try
-               (let [start (System/nanoTime)
-                     result ((:fn tool) params)
-                     duration (/ (- (System/nanoTime) start) 1e6)]
-                 (telemetry/log-tool-complete tool-kw result duration)
-                 {:status :success
-                  :tool tool-kw
-                  :params params
-                  :result result
-                  :duration-ms duration})
-               (catch Exception e
-                 (telemetry/log-tool-error tool-kw e)
-                 {:status :error
-                  :tool tool-kw
-                  :params params
-                  :error (.getMessage e)}))))
-         {:status :not-found
-          :tool tool-kw
-          :error "Tool not found"
-          :available-tools (keys @registry-atom)})))))
+   ([tool-name params subject opts]
+    (let [{:keys [check-allowlist? use-sandbox? validate-schema? sandbox-opts]
+           :or {check-allowlist? true use-sandbox? true validate-schema? true}} opts
+          tool-kw (keyword tool-name)]
+
+      ;; Step 1: Check allowlist
+      (if (and check-allowlist? (not (allowlist/permitted? subject tool-kw {:params params})))
+        ;; Forbidden - not in allowlist
+        (do
+          (telemetry/emit! {:event :tool/forbidden
+                            :tool tool-kw
+                            :subject subject})
+          {:status :forbidden
+           :tool tool-kw
+           :error (str "Tool " tool-kw " not permitted for subject " subject)
+           :subject subject})
+
+        ;; Step 2: Validate schema
+        (if-let [tool (get-tool tool-kw)]
+          (let [validation (when validate-schema?
+                             (schema/validate-tool-call tool-kw params tool))]
+            (if (and validate-schema? (not (:valid? validation)))
+              ;; Schema validation failed
+              (do
+                (telemetry/emit! {:event :tool/validation-failed
+                                  :tool tool-kw
+                                  :errors (:errors validation)
+                                  :subject subject})
+                {:status :validation-failed
+                 :tool tool-kw
+                 :error (str "Schema validation failed: " (str/join ", " (:errors validation)))
+                 :validation-errors (:errors validation)
+                 :subject subject})
+
+              ;; Step 3: Execute with sandbox
+              (let [validated-params (if validate-schema?
+                                       (:params validation)
+                                       params)]
+                (telemetry/log-tool-invoke tool-kw validated-params)
+                (if use-sandbox?
+                  ;; Use sandbox for safe execution
+                  (let [sandbox-result (sandbox/execute! tool-kw (:fn tool) validated-params sandbox-opts)]
+                    (case (:status sandbox-result)
+                      :success {:status :success
+                                :tool tool-kw
+                                :params validated-params
+                                :result (:result sandbox-result)
+                                :duration-ms (:duration-ms sandbox-result)}
+                      :timeout {:status :timeout
+                                :tool tool-kw
+                                :error (:error sandbox-result)
+                                :timeout-ms (:timeout-ms sandbox-result)}
+                      :memory-exceeded {:status :error
+                                        :tool tool-kw
+                                        :error (:error sandbox-result)
+                                        :memory-used-mb (:memory-used-mb sandbox-result)}
+                      {:status :error
+                       :tool tool-kw
+                       :error (:error sandbox-result)}))
+                  ;; Direct execution (bypass sandbox - use with caution)
+                  (try
+                    (let [start (System/nanoTime)
+                          result ((:fn tool) validated-params)
+                          duration (/ (- (System/nanoTime) start) 1e6)]
+                      (telemetry/log-tool-complete tool-kw result duration)
+                      {:status :success
+                       :tool tool-kw
+                       :params validated-params
+                       :result result
+                       :duration-ms duration})
+                    (catch Exception e
+                      (telemetry/log-tool-error tool-kw e)
+                      {:status :error
+                       :tool tool-kw
+                       :params validated-params
+                       :error (.getMessage e)}))))))
+          {:status :not-found
+           :tool tool-kw
+           :error "Tool not found"
+           :available-tools (keys @registry-atom)})))))
 
 ;; ============================================================================
 ;; Legacy Execution (DEPRECATED - use call-tool-safe instead)

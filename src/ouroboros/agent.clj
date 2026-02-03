@@ -15,6 +15,8 @@
    [clojure.string :as str]
    [ouroboros.ai :as ai]
    [ouroboros.agent.fallback :as fallback]
+   [ouroboros.confirmation :as confirmation]
+   [ouroboros.security :as security]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.resolver-registry :as registry]
    [com.wsscode.pathom3.connect.operation :as pco]))
@@ -174,16 +176,48 @@
     {:name name :arguments args}))
 
 (defn- execute-tool-call
-  "Execute a tool call and return result"
-  [{:keys [name arguments]}]
-  (telemetry/emit! {:event :agent/tool-call :tool name})
-  (try
-    (let [result (ai/call-tool (keyword name) arguments)]
-      (telemetry/emit! {:event :agent/tool-result :tool name :success? true})
-      (str "Tool result: " (pr-str (:result result))))
-    (catch Exception e
-      (telemetry/emit! {:event :agent/tool-error :tool name :error (.getMessage e)})
-      (str "Tool error: " (.getMessage e)))))
+  "Execute a tool call and return result
+
+   Security checks:
+   - Tool chaining limits (respects quarantine)
+   - Dangerous tool confirmation (if configured)"
+  [{:keys [name arguments]} session-id]
+  ;; Security: Check chaining limits
+  (let [chain-check (security/check-and-record! session-id)]
+    (if (:allowed? chain-check)
+      ;; Check if dangerous tool requires confirmation
+      (if (confirmation/dangerous-tool? name)
+        ;; Dangerous tool - require confirmation
+        (let [confirm-result (confirmation/execute-with-confirmation
+                              session-id
+                              (keyword name)
+                              arguments
+                              (fn [tool args]
+                                (ai/call-tool tool args)))]
+          (case (:status confirm-result)
+            :pending (str "⚠️ CONFIRMATION REQUIRED\n\n"
+                         "Tool: " name "\n"
+                         "Description: " (:description confirm-result) "\n\n"
+                         "Please confirm by replying: /confirm")
+            :executed (do
+                        (telemetry/emit! {:event :agent/tool-result :tool name :success? true :session session-id})
+                        (str "Tool result: " (pr-str (:result confirm-result))))
+            :error (str "Tool error: " (:reason confirm-result))
+            (str "Unexpected confirmation status: " (:status confirm-result))))
+        ;; Safe tool - execute directly
+        (do
+          (telemetry/emit! {:event :agent/tool-call :tool name :session session-id})
+          (try
+            (let [result (ai/call-tool (keyword name) arguments)]
+              (telemetry/emit! {:event :agent/tool-result :tool name :success? true :session session-id})
+              (str "Tool result: " (pr-str (:result result))))
+            (catch Exception e
+              (telemetry/emit! {:event :agent/tool-error :tool name :error (.getMessage e) :session session-id})
+              (str "Tool error: " (.getMessage e))))))
+      ;; Chaining limit exceeded
+      (do
+        (telemetry/emit! {:event :agent/tool-call-blocked :tool name :reason (:reason chain-check) :session session-id})
+        (str "Tool call blocked: " (:reason chain-check))))))
 
 ;; ============================================================================
 ;; Response Generation
@@ -243,16 +277,28 @@
 
 (defn generate-chat-response
   "Generate AI response for chat message
-   
+
    Usage: (generate-chat-response \"Hello, what's the system status?\" history)"
-  [user-message history]
+  [user-message history & {:keys [session-id] :or {session-id :default}}]
   (telemetry/emit! {:event :agent/generate :message-length (count user-message)})
 
-  (let [config @agent-config
+  ;; Security: Sanitize input before LLM processing
+  (let [sanitization (security/sanitize-or-reject user-message)
+        _ (when (= (:status sanitization) :rejected)
+            (telemetry/emit! {:event :agent/input-rejected
+                              :session session-id
+                              :risk-score (:risk-score sanitization)}))
+
+        ;; Use sanitized or original input
+        safe-message (case (:status sanitization)
+                       :rejected "[Input blocked for security reasons]"
+                       (:input sanitization))
+
+        config @agent-config
         {:keys [provider api-key persona]} config
 
         ;; Build conversation
-        conversation (concat history [{:role :user :content user-message}])
+        conversation (concat history [{:role :user :content safe-message}])
         messages (build-messages conversation persona)
         tools (get-enabled-tools)
 
@@ -271,7 +317,7 @@
 
         (if (seq tool-calls)
           ;; Handle tool calls
-          (let [tool-results (map execute-tool-call (map parse-tool-call tool-calls))
+          (let [tool-results (map #(execute-tool-call % session-id) (map parse-tool-call tool-calls))
                 tool-context (str "I used the following tools:\n"
                                   (str/join "\n" tool-results))
                 ;; Follow-up without tools to get final response

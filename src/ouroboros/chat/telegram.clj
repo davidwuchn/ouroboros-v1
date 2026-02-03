@@ -13,7 +13,7 @@
    [babashka.http-client :as http]
    [cheshire.core :as json]
    [clojure.string :as str]
-   [ouroboros.chat :as chat]
+   [ouroboros.chat.protocol :as chatp]
    [ouroboros.telemetry :as telemetry])
   (:import [java.time Instant]))
 
@@ -74,14 +74,14 @@
           text (:text msg "")
           timestamp (when (:date msg)
                       (str (Instant/ofEpochSecond (:date msg))))]
-      (chat/make-message :telegram chat-id user-id user-name text timestamp))))
+      (chatp/make-message :telegram chat-id user-id user-name text timestamp))))
 
 ;; ============================================================================
 ;; Bot State
 ;; ============================================================================
 
 (defrecord TelegramBot [token offset-atom running-atom handler-atom]
-  chat/ChatAdapter
+  chatp/ChatAdapter
 
   (start! [this handler]
     (reset! handler-atom handler)
@@ -158,12 +158,13 @@
   ;; Test token
   (get-me "YOUR_BOT_TOKEN")
 
-  ;; Register and start
-  (chat/register-adapter! :telegram bot)
-  (chat/start-all!)
+  ;; Register and start (requires ouroboros.chat)
+  ;; (chat/register-adapter! :telegram bot)
+  ;; (chat/start-all!)
 
   ;; Send message
-  (chat/send-message! bot 123456789 "Hello from Ouroboros!")
+  (chatp/send-message! bot 123456789 "Hello from Ouroboros!")
 
   ;; Stop
-  (chat/stop-all!))
+  ;; (chat/stop-all!)
+  )

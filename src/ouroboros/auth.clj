@@ -11,6 +11,7 @@
    - Rate limit tracking per user"
   (:require
    [com.wsscode.pathom3.connect.operation :as pco]
+   [ouroboros.resolver-registry :as registry]
    [ouroboros.telemetry :as telemetry])
   (:import [java.time Instant]
            [java.security SecureRandom]
@@ -174,6 +175,10 @@
 
 (def mutations
   [auth-set-role!])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 (comment
   ;; Create users

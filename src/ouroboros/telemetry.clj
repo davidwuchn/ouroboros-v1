@@ -13,7 +13,8 @@
    [clojure.edn :as edn]
    [com.wsscode.pathom3.connect.operation :as pco]
    [com.wsscode.pathom3.connect.indexes :as pci]
-   [com.wsscode.pathom3.interface.eql :as p.eql])
+   [com.wsscode.pathom3.interface.eql :as p.eql]
+   [ouroboros.resolver-registry :as registry])
   (:import [java.time Instant Duration]))
 
 ;; ============================================================================
@@ -211,6 +212,11 @@
 
 (def mutations
   [telemetry-clear!])
+
+;; Register with resolver registry on load
+(require '[ouroboros.resolver-registry :as registry])
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 (comment
   ;; Emit events

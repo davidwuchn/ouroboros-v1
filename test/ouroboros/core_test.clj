@@ -9,7 +9,18 @@
    [ouroboros.memory :as memory]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.config :as config]
-   [ouroboros.tool-registry :as tool-registry]))
+   [ouroboros.tool-registry :as tool-registry]
+   ;; Require these to register their resolvers
+   [ouroboros.history]
+   [ouroboros.knowledge]
+   [ouroboros.api]
+   [ouroboros.auth]
+   [ouroboros.openapi]
+   [ouroboros.mcp]
+   [ouroboros.agent]
+   [ouroboros.chat]
+   [ouroboros.metrics]
+   [ouroboros.introspection]))
 
 ;; ============================================================================
 ;; Test Fixtures

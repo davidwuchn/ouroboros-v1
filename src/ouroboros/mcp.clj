@@ -14,7 +14,8 @@
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.tool-registry :as tool-registry]
    [ouroboros.ai :as ai]
-   [ouroboros.telemetry :as telemetry])
+   [ouroboros.telemetry :as telemetry]
+   [ouroboros.resolver-registry :as registry])
   (:import [java.net ServerSocket]
            [java.io BufferedReader InputStreamReader]
            [java.util.concurrent Executors]))
@@ -254,6 +255,10 @@
 
 (def mutations
   [mcp-start! mcp-stop! mcp-invoke!])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 ;; ============================================================================
 ;; REPL Integration

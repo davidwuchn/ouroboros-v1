@@ -15,7 +15,7 @@
    [babashka.http-client :as http]
    [cheshire.core :as json]
    [clojure.string :as str]
-   [ouroboros.chat :as chat]
+   [ouroboros.chat.protocol :as chatp]
    [ouroboros.telemetry :as telemetry])
   (:import
    [java.net URI]
@@ -115,9 +115,9 @@
             timestamp (:timestamp msg)
             ;; Check if this is a bot message
             bot? (:bot author false)]
-        ;; Ignore bot messages
-        (when-not bot?
-          (chat/make-message :discord channel-id user-id user-name text timestamp))))))
+         ;; Ignore bot messages
+         (when-not bot?
+           (chatp/make-message :discord channel-id user-id user-name text timestamp))))))
 
 (defn- parse-ready
   "Parse ready event for bot info"
@@ -230,7 +230,7 @@
 ;; ============================================================================
 
 (defrecord DiscordBot [token ws-atom running-atom handler-atom seq-num-atom reconnect-atom]
-  chat/ChatAdapter
+  chatp/ChatAdapter
 
   (start! [this handler]
     (reset! handler-atom handler)
@@ -319,18 +319,13 @@
   ;; Test Gateway
   (test-gateway "YOUR_BOT_TOKEN")
 
-  ;; Register and start
-  (chat/register-adapter! :discord bot)
-  (chat/start-all!)
+  ;; Register and start (requires ouroboros.chat)
+  ;; (chat/register-adapter! :discord bot)
+  ;; (chat/start-all!)
 
   ;; Send message (channel ID must be a string)
-  (chat/send-message! bot "1234567890123456789" "Hello from Ouroboros!")
+  (chatp/send-message! bot "1234567890123456789" "Hello from Ouroboros!")
 
   ;; Stop
-  (chat/stop-all!)
-
-  ;; Check active adapters
-  @chat/active-adapters
-
-  ;; Check sessions
-  @chat/chat-sessions)
+  ;; (chat/stop-all!)
+  )

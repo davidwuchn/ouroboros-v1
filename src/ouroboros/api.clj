@@ -8,7 +8,8 @@
    Mutations: api/request!"
   (:require
    [babashka.http-client :as http]
-   [com.wsscode.pathom3.connect.operation :as pco]))
+   [com.wsscode.pathom3.connect.operation :as pco]
+   [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
 ;; HTTP Requests
@@ -68,6 +69,10 @@
 (def mutations
   "Pathom mutations for API operations"
   [api-request!])
+
+;; Register with resolver registry on load
+(registry/register-resolvers! resolvers)
+(registry/register-mutations! mutations)
 
 (comment
   ;; Direct usage

@@ -5,6 +5,7 @@
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [ouroboros.chat :as chat]
+   [ouroboros.chat.protocol :as chatp]
    [ouroboros.chat.telegram :as telegram]
    [ouroboros.chat.discord :as discord]
    [ouroboros.chat.slack :as slack]
@@ -29,7 +30,7 @@
 ;; ============================================================================
 
 (defrecord MockAdapter [messages-atom running-atom]
-  chat/ChatAdapter
+  chatp/ChatAdapter
   (start! [this handler]
     (reset! running-atom true)
     this)
@@ -56,31 +57,31 @@
 
     ;; Telegram
     (let [tg-bot (telegram/make-bot "fake-token")]
-      (is (satisfies? chat/ChatAdapter tg-bot)
+      (is (satisfies? chatp/ChatAdapter tg-bot)
           "Telegram bot should satisfy ChatAdapter")
-      (is (ifn? chat/start!)
+      (is (ifn? chatp/start!)
           "Telegram should implement start! (MultiFn)")
-      (is (ifn? chat/stop!)
+      (is (ifn? chatp/stop!)
           "Telegram should implement stop! (MultiFn)")
-      (is (ifn? chat/send-message!)
+      (is (ifn? chatp/send-message!)
           "Telegram should implement send-message! (MultiFn)"))
 
     ;; Discord
     (let [discord-bot (discord/make-bot "fake-token")]
-      (is (satisfies? chat/ChatAdapter discord-bot)
+      (is (satisfies? chatp/ChatAdapter discord-bot)
           "Discord bot should satisfy ChatAdapter")
-      (is (ifn? chat/start!)
+      (is (ifn? chatp/start!)
           "Discord should implement start! (MultiFn)")
-      (is (ifn? chat/stop!)
+      (is (ifn? chatp/stop!)
           "Discord should implement stop! (MultiFn)"))
 
     ;; Slack
     (let [slack-bot (slack/make-bot "xapp-fake" "xoxb-fake")]
-      (is (satisfies? chat/ChatAdapter slack-bot)
+      (is (satisfies? chatp/ChatAdapter slack-bot)
           "Slack bot should satisfy ChatAdapter")
-      (is (ifn? chat/start!)
+      (is (ifn? chatp/start!)
           "Slack should implement start! (MultiFn)")
-      (is (ifn? chat/stop!)
+      (is (ifn? chatp/stop!)
           "Slack should implement stop! (MultiFn)"))
 
     (println "  ✓ All platforms satisfy ChatAdapter protocol")))
