@@ -145,6 +145,8 @@
    :task (do (println "\n========================================")
              (println "  Running All Test Suites")
              (println "========================================")
+             (println "NOTE: ECA integration tests require manual execution")
+             (println "      Run: bb test:eca (requires ECA binary installed)\n")
               (require 'ouroboros.core-test)
               (require 'ouroboros.chat-adapter-test)
               (require 'ouroboros.tool-execution-test)
@@ -171,6 +173,27 @@
                (when (and (zero? (:fail results))
                           (zero? (:error results)))
                  (println "\n  ALL TESTS PASSED!"))
+               (System/exit (if (and (zero? (:fail results))
+                                     (zero? (:error results)))
+                              0 1))))}
+
+  test:eca
+  {:doc "Run ECA integration tests (requires ECA binary installed)"
+   :requires ([clojure.test :as t])
+   :task (do (println "\n========================================")
+             (println "  Running ECA Integration Tests")
+             (println "========================================")
+             (println "⚠️  Requires: ECA binary installed")
+             (println "   Download from: https://github.com/editor-code-assistant/eca/releases\n")
+             (require 'ouroboros.eca-approval-bridge-test)
+             (let [results (t/run-tests 'ouroboros.eca-approval-bridge-test)]
+               (println "\n========================================")
+               (println "  ECA Test Results")
+               (println "========================================")
+               (println (str "  Tests: " (:test results)))
+               (println (str "  Assertions: " (:pass results)))
+               (println (str "  Failures: " (:fail results)))
+               (println (str "  Errors: " (:error results)))
                (System/exit (if (and (zero? (:fail results))
                                      (zero? (:error results)))
                               0 1))))}}}

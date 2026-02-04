@@ -17,6 +17,7 @@
    [ouroboros.memory :as memory]
    [ouroboros.agent :as agent]
    [ouroboros.confirmation :as confirmation]
+   [ouroboros.eca_approval_bridge :as eca-approval]
    [ouroboros.resolver-registry :as registry])
   (:import [java.time Instant]))
 
@@ -95,7 +96,7 @@
     :start (send-message! adapter chat-id
                           "🐍 Ouroboros Assistant ready!\n\n⚠️  AI responses use deprecated internal agent.\nUse ECA for production: https://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/confirm - Approve operation\n/deny - Reject operation")
     :help (send-message! adapter chat-id
-                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - Check system status\n/tools - List available tools\n/confirm - Approve pending dangerous operation\n/deny - Reject pending operation\n\nJust type naturally to chat!")
+                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve dangerous operation (use ECA id for ECA tools)\n/deny <id> <reason> - Reject operation\n\n*ECA Tool Approval:*\nWhen ECA requests tool approval, you'll receive an `eca-*` ID. Use `/confirm eca-xxx` to approve or `/deny eca-xxx reason` to deny.\n\nJust type naturally to chat!")
     :clear (do (clear-session! chat-id)
                (send-message! adapter chat-id "✓ Conversation cleared"))
     :status (let [result (tool-registry/call-tool :system/status {})]
@@ -106,16 +107,37 @@
              (send-message! adapter chat-id
                             (str "*Available Tools*\n\n"
                                  (str/join "\n" (map :tool/name tools)))))
-    :confirm (let [result (confirmation/approve! chat-id :approved-by user-name)]
-               (case (:status result)
-                 :approved (send-message! adapter chat-id
-                                          (str "✓ Confirmed: " (:tool result) "\nExecuting..."))
-                 :error (send-message! adapter chat-id
-                                       (str "⚠️ " (:reason result)))))
-    :deny (let [result (confirmation/deny! chat-id "User declined" :denied-by user-name)]
-            (case (:status result)
-              :denied (send-message! adapter chat-id "✗ Operation denied")
-              :error (send-message! adapter chat-id (str "⚠️ " (:reason result)))))
+    :confirm (if-let [[prefix id] (str/split (or args "") #"\s+" 2)]
+               (if (= prefix "eca-")
+                 ;; Handle ECA approval
+                 (let [result (eca-approval/process-chat-confirm! chat-id args user-name)]
+                   (case (:status result)
+                     :approved (send-message! adapter chat-id
+                                              (str "✓ ECA Tool Approved: " (:tool result) "\nSending to ECA..."))
+                     :error (send-message! adapter chat-id
+                                          (str "⚠️ " (:reason result)))))
+                 ;; Handle internal confirmation
+                 (let [result (confirmation/approve! chat-id :approved-by user-name)]
+                   (case (:status result)
+                     :approved (send-message! adapter chat-id
+                                              (str "✓ Confirmed: " (:tool result) "\nExecuting..."))
+                     :error (send-message! adapter chat-id
+                                           (str "⚠️ " (:reason result))))))
+               (send-message! adapter chat-id "⚠️ Usage: /confirm <confirmation-id>"))
+    :deny (if-let [[confirmation-id & reason-parts] (str/split (or args "") #"\s+" 2)]
+            (let [reason (str/join " " reason-parts)]
+              (if (= confirmation-id "eca-")
+                ;; Handle ECA rejection
+                (let [result (eca-approval/process-chat-deny! chat-id args reason user-name)]
+                  (case (:status result)
+                    :denied (send-message! adapter chat-id "✗ ECA Tool Denied")
+                    :error (send-message! adapter chat-id (str "⚠️ " (:reason result)))))
+                ;; Handle internal rejection
+                (let [result (confirmation/deny! chat-id reason :denied-by user-name)]
+                  (case (:status result)
+                    :denied (send-message! adapter chat-id "✗ Operation denied")
+                    :error (send-message! adapter chat-id (str "⚠️ " (:reason result)))))))
+            (send-message! adapter chat-id "⚠️ Usage: /deny <confirmation-id> <reason>"))
     (send-message! adapter chat-id (str "Unknown command: " (name cmd)))))
 
 (defn- handle-natural-message
