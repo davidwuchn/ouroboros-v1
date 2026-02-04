@@ -769,12 +769,158 @@ bb frontend:build
 
 ---
 
+## ECA Integration
+
+### Architecture Shift
+
+Ouroboros now integrates with ECA (Editor Code Assistant) as its AI backend. This shifts Ouroboros from building AI capabilities to focusing on chat platform integration.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Ouroboros                          │
+│  Chat Adapters (Telegram, Discord, Slack, WebSocket)   │
+│           │                                             │
+│           ▼                                             │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │              ECA Protocol Client                │   │
+│  │          (ouroboros.eca-client)                │   │
+│  └─────────────────────────────────────────────────┘   │
+│           │                                             │
+│           ▼                                             │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │                    ECA Binary                    │   │
+│  │  LLM Providers, Tool Engine, Chat Interface     │   │
+│  └─────────────────────────────────────────────────┘   │
+```
+
+### ECA Client (`ouroboros.eca-client`)
+
+The ECA client implements JSON-RPC 2.0 communication over stdin/stdout.
+
+**Key Features:**
+- JSON-RPC framing with Content-Length headers
+- Initialize handshake with capabilities negotiation
+- Request/response handling with promise-based responses
+- Notification handling for async events (tool approvals, content)
+- Pathom integration for EQL access to ECA state
+
+**Usage:**
+```clojure
+(require '[ouroboros.eca-client :as eca])
+
+;; Start ECA
+(eca/start!)
+
+;; Check status
+(eca/status)
+;; => {:running true, :eca-path "...", :pending-requests 0}
+
+;; Chat with AI
+(eca/chat-prompt "What files are in the project?")
+
+;; Query context
+(eca/query-context)
+
+;; Query files
+(eca/query-files "*.clj")
+
+;; Approve/reject tool calls
+(eca/approve-tool! {:tool "file/read" :params {:path "..."}})
+(eca/reject-tool! {:tool "shell/exec" :reason "Dangerous tool"})
+
+;; Stop ECA
+(eca/stop!)
+```
+
+**Pathom Integration:**
+```clojure
+;; Query ECA status
+(q [:eca/running :eca/eca-path])
+
+;; Start ECA via mutation
+(m 'eca/start! {:eca-path "/path/to/eca"})
+
+;; Chat via mutation
+(m 'eca/chat! {:message "Hello!"})
+```
+
+### Protocol Methods
+
+**Ouroboros → ECA (requests):**
+- `initialize` — Handshake with capabilities
+- `chat/prompt` — Send message to LLM
+- `chat/queryContext` — Get context (repoMap, files)
+- `chat/queryFiles` — Search files
+- `chat/queryCommands` — Available commands
+
+**ECA → Ouroboros (notifications):**
+- `chat/content-received` — Assistant response
+- `chat/toolCallApprove` — Request tool approval
+- `chat/toolCallReject` — Tool call rejected
+- `chat/promptStop` — Streaming stopped
+
+### Tool Approval Bridge
+
+Critical for security. All tool calls from ECA must be approved by the user via chat platform.
+
+```
+User: "Read config.json and summarize"
+     │
+     ▼
+ECA → Ouroboros: chat/toolCallApprove
+  {tool: "file/read", params: {path: "config.json"}}
+     │
+     ▼
+Ouroboros → Telegram: "Allow file/read on config.json?"
+     │
+     User clicks ✅ or ❌
+     │
+     ▼
+Ouroboros → ECA: chat/toolCallApprove (or Reject)
+```
+
+### ECA Binary Discovery
+
+The ECA client automatically locates the ECA binary:
+
+```clojure
+(def ^:private default-eca-path
+  (cond
+    (System/getenv "ECA_PATH") (System/getenv "ECA_PATH")
+    (babashka.fs/exists? "/usr/local/bin/eca") "/usr/local/bin/eca"
+    (babashka.fs/exists? (str (System/getProperty "user.home") "/.local/bin/eca"))
+    (str (System/getProperty "user.home") "/.local/bin/eca")
+    :else "eca"))
+```
+
+Set `ECA_PATH` environment variable to override.
+
+### Telemetry Events
+
+The ECA client emits telemetry for observability:
+
+| Event | Meaning |
+|-------|---------|
+| `:eca/send-request` | Sent JSON-RPC request |
+| `:eca/notification` | Received notification |
+| `:eca/response` | Received response |
+| `:eca/initialize` | Started handshake |
+| `:eca/initialized` | Handshake complete |
+| `:eca/chat-prompt` | User message sent |
+| `:eca/tool-approved` | Tool approved by user |
+| `:eca/tool-rejected` | Tool rejected by user |
+| `:eca/read-error` | Failed to read from ECA |
+| `:eca/start-error` | Failed to start ECA |
+
+---
+
 ## Open Questions
 
 1. **Persistence:** Atoms are simple but not durable. Should we add Datomic/Datalevin?
 2. **Scaling:** Single-process now. How to distribute across nodes?
 3. **Security:** API tokens are basic. Need OAuth2/SAML for enterprise?
 4. **Frontend:** ✓ ClojureScript/Fulcro implemented
+5. **ECA Tool Bridge:** How to map ECA tools to Ouroboros tool approval?
 
 ---
 
