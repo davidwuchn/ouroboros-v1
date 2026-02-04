@@ -326,6 +326,59 @@
 (def skill-register-built-ins! (lazy-fn 'ouroboros.interface.skill 'skill-register-built-ins!))
 
 ;; ============================================================================
+;; ECA Client (NEW - Phase 1)
+;; ============================================================================
+
+(def eca-start!
+  "Start ECA client (JSON-RPC connection to ECA binary)
+
+   Usage: (eca-start!)
+          (eca-start! {:eca-path \"/path/to/eca\"})"
+  (lazy-fn 'ouroboros.interface.eca-client 'start))
+
+(def eca-stop!
+  "Stop ECA client
+
+   Usage: (eca-stop!)"
+  (lazy-fn 'ouroboros.interface.eca-client 'stop))
+
+(def eca-status
+  "Get ECA client status
+
+   Usage: (eca-status)"
+  (lazy-fn 'ouroboros.interface.eca-client 'status))
+
+(def eca-chat-prompt
+  "Send chat message to ECA
+
+   Usage: (eca-chat-prompt \"Hello, help me write a function!\")"
+  (lazy-fn 'ouroboros.interface.eca-client 'chat))
+
+(def eca-query-context
+  "Query context from ECA (repoMap, files, etc.)
+
+   Usage: (eca-query-context)"
+  (lazy-fn 'ouroboros.interface.eca-client 'query-context))
+
+(def eca-query-files
+  "Search files in ECA workspace
+
+   Usage: (eca-query-files \"*.clj\")"
+  (lazy-fn 'ouroboros.interface.eca-client 'query-files))
+
+(def eca-approve-tool!
+  "Approve tool call from ECA
+
+   Usage: (eca-approve-tool! {:tool \"file/read\" :params {:path \"README.md\"}})"
+  (lazy-fn 'ouroboros.interface.eca-client 'approve))
+
+(def eca-reject-tool!
+  "Reject tool call from ECA
+
+   Usage: (eca-reject-tool! {:tool \"shell/exec\" :reason \"Too dangerous\"})"
+  (lazy-fn 'ouroboros.interface.eca-client 'reject))
+
+;; ============================================================================
 ;; REPL
 ;; ============================================================================
 
