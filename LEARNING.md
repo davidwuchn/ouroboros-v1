@@ -778,4 +778,44 @@ bb frontend:build
 
 ---
 
+## Tooling
+
+### Guaranteed nREPL Detachment with tmux
+
+**Problem:** Starting nREPL directly in a shell command may leave it attached or cause issues when the parent process terminates.
+
+**Solution:** Use `tmux new -d -s nrepl` to create a fully detached session.
+
+```bash
+tmux new -d -s nrepl "cd /Users/davidwu/workspace/ouroboros-v1 && bb nrepl"
+```
+
+**Why this works:**
+- `-d` detaches immediately after creation
+- `-s nrepl` names the session for easy reference
+- The quoted command runs inside the tmux session
+- Session survives parent terminal exit
+- Verified via `tmux ls` and `tmux capture-pane`
+
+**Lifecycle:**
+```bash
+# Start (detached)
+tmux new -d -s nrepl "cd ... && bb nrepl"
+
+# Attach (when needed)
+tmux attach -t nrepl
+
+# Kill (when done)
+tmux kill-session -t nrepl
+```
+
+**nREPL Initialization Phases:**
+1. `[1/3]` Initializing Engine... (riven statecharts)
+2. `[2/3]` Initializing Query interface...
+3. `[3/3]` Loading Memory...
+
+**Port:** 8888 (written to `.nrepl-port`)
+
+---
+
 *Feed forward: Each discovery shapes the next version.*
