@@ -9,23 +9,31 @@
   (:require
    [ouroboros.interface :as iface]))
 
-;; Lazy loading - delegate to actual implementation
-(def eca-start! (resolve 'ouroboros.eca-client/start!))
-(def eca-stop! (resolve 'ouroboros.eca-client/stop!))
-(def eca-status (resolve 'ouroboros.eca-client/status))
-(def eca-chat-prompt (resolve 'ouroboros.eca-client/chat-prompt))
-(def eca-query-context (resolve 'ouroboros.eca-client/query-context))
-(def eca-query-files (resolve 'ouroboros.eca-client/query-files))
-(def eca-approve-tool! (resolve 'ouroboros.eca-client/approve-tool!))
-(def eca-reject-tool! (resolve 'ouroboros.eca-client/reject-tool!))
+;; Lazy loading - resolve at call time, not load time
+(defn- resolve-eca [sym]
+  (let [ns-sym (ns-resolve *ns* 'ouroboros.eca-client)]
+    (when ns-sym
+      (ns-resolve ns-sym sym))))
 
-;; Convenience wrappers
+(defmacro deflazy [name]
+  `(def ~name (delay (resolve-eca '~name))))
+
+(deflazy eca-start!)
+(deflazy eca-stop!)
+(deflazy eca-status)
+(deflazy eca-chat-prompt)
+(deflazy eca-query-context)
+(deflazy eca-query-files)
+(deflazy eca-approve-tool!)
+(deflazy eca-reject-tool!)
+
+;; Convenience wrappers that handle the delay
 (defn start
   "Start ECA client
 
    Usage: (eca/start)"
   [& {:keys [eca-path]}]
-  (let [f (resolve 'ouroboros.eca-client/start!)]
+  (let [f (resolve-eca 'start)]
     (if eca-path
       (f {:eca-path eca-path})
       (f))))
@@ -35,31 +43,35 @@
 
    Usage: (eca/stop)"
   []
-  ((resolve 'ouroboros.eca-client/stop!)))
+  (let [f (resolve-eca 'stop)]
+    (f)))
 
 (defn chat
   "Send chat message to ECA
 
    Usage: (eca/chat \"Hello!\")"
   [message]
-  ((resolve 'ouroboros.eca-client/chat-prompt) message))
+  (let [f (resolve-eca 'chat-prompt)]
+    (f message)))
 
 (defn approve
   "Approve tool call from ECA
 
    Usage: (eca/approve {:tool \"file/read\" :params {:path \"README.md\"}})"
   [tool-params]
-  ((resolve 'ouroboros.eca-client/approve-tool!) tool-params))
+  (let [f (resolve-eca 'approve-tool!)]
+    (f tool-params)))
 
 (defn reject
   "Reject tool call from ECA
 
    Usage: (eca/reject {:tool \"shell/exec\" :reason \"Too dangerous\"})"
   [tool-reason]
-  ((resolve 'ouroboros.eca-client/reject-tool!) tool-reason))
+  (let [f (resolve-eca 'reject-tool!)]
+    (f tool-reason)))
 
 (comment
-  ;; Lazy loading demo
+  ;; Usage
   (require '[ouroboros.interface :as iface])
   (iface/eca-start!)
   (iface/eca-status)

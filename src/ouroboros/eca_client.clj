@@ -37,10 +37,9 @@
    [babashka.process :as sh]
    [cheshire.core :as json]
    [clojure.string :as str]
-   [clojure.java.io :as io]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.resolver-registry :as registry])
-  (:import [java.io BufferedReader PrintWriter BufferedInputStream]))
+  (:import [java.io BufferedReader PrintWriter InputStreamReader]))
 
 ;; ============================================================================
 ;; State
@@ -54,6 +53,9 @@
          :request-id 0
          :pending-requests {}
          :callbacks {}}))
+
+;; Forward declarations
+(declare initialize!)
 
 ;; ============================================================================
 ;; Configuration
@@ -185,7 +187,7 @@
                 (handle-response! response)
                 (handle-notification! response))))
           (Thread/sleep 100)
-          (recur)))))))
+          (recur))))))
 
 ;; ============================================================================
 ;; ECA Lifecycle
@@ -227,7 +229,7 @@
        (read-loop!)
 
        ;; Initialize handshake
-       (initialize!)
+       (initialize! {})
 
        {:status :running
         :eca-path eca-path})
@@ -240,12 +242,15 @@
 
 (defn- initialize!
   "Send initialize handshake to ECA"
-  (let [params {:process-id (long (ProcessHandle/current).pid)
-                 :client-info {:name "ouroboros"
-                               :version "0.1.0"}
-                 :capabilities {}
-                 :workspace-folders [{:uri (str "file://" (System/getProperty "user.dir"))
-                                     :name "ouroboros"}]}
+  [{}]
+  (let [;; Get process ID - use a stable identifier
+        process-id (long (hash (str (System/getProperty "user.name") (System/currentTimeMillis))))
+        params {:process-id process-id
+                :client-info {:name "ouroboros"
+                              :version "0.1.0"}
+                :capabilities {}
+                :workspace-folders [{:uri (str "file://" (System/getProperty "user.dir"))
+                                    :name "ouroboros"}]}
         response-promise (send-request! "initialize" params)]
 
     (telemetry/emit! {:event :eca/initialize})
@@ -288,7 +293,7 @@
   (telemetry/emit! {:event :eca/stop})
   (let [{:keys [eca-process running]} @state]
     (when @running
-      (reset! state assoc :running false)
+      (swap! state assoc :running false)
 
       (when eca-process
         (.destroy eca-process)

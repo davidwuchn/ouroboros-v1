@@ -334,49 +334,49 @@
 
    Usage: (eca-start!)
           (eca-start! {:eca-path \"/path/to/eca\"})"
-  (lazy-fn 'ouroboros.interface.eca-client 'start))
+  (lazy-fn 'ouroboros.interface.eca-client 'eca-start!))
 
 (def eca-stop!
   "Stop ECA client
 
    Usage: (eca-stop!)"
-  (lazy-fn 'ouroboros.interface.eca-client 'stop))
+  (lazy-fn 'ouroboros.interface.eca-client 'eca-stop!))
 
 (def eca-status
   "Get ECA client status
 
    Usage: (eca-status)"
-  (lazy-fn 'ouroboros.interface.eca-client 'status))
+  (lazy-fn 'ouroboros.interface.eca-client 'eca-status))
 
 (def eca-chat-prompt
   "Send chat message to ECA
 
    Usage: (eca-chat-prompt \"Hello, help me write a function!\")"
-  (lazy-fn 'ouroboros.interface.eca-client 'chat))
+  (lazy-fn 'ouroboros.interface.eca-client 'eca-chat-prompt))
 
 (def eca-query-context
   "Query context from ECA (repoMap, files, etc.)
 
    Usage: (eca-query-context)"
-  (lazy-fn 'ouroboros.interface.eca-client 'query-context))
+  (lazy-fn 'ouroboros.interface.eca-client 'eca-query-context))
 
 (def eca-query-files
   "Search files in ECA workspace
 
    Usage: (eca-query-files \"*.clj\")"
-  (lazy-fn 'ouroboros.interface.eca-client 'query-files))
+  (lazy-fn 'ouroboros.interface.eca-client 'eca-query-files))
 
 (def eca-approve-tool!
   "Approve tool call from ECA
 
    Usage: (eca-approve-tool! {:tool \"file/read\" :params {:path \"README.md\"}})"
-  (lazy-fn 'ouroboros.interface.eca-client 'approve))
+  (lazy-fn 'ouroboros.interface.eca-client 'eca-approve-tool!))
 
 (def eca-reject-tool!
   "Reject tool call from ECA
 
    Usage: (eca-reject-tool! {:tool \"shell/exec\" :reason \"Too dangerous\"})"
-  (lazy-fn 'ouroboros.interface.eca-client 'reject))
+  (lazy-fn 'ouroboros.interface.eca-client 'eca-reject-tool!))
 
 ;; ============================================================================
 ;; REPL
