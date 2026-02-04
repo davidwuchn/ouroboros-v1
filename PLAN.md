@@ -153,6 +153,51 @@ Ouroboros → ECA: chat/toolCallApprove (or Reject)
 ECA continues or aborts
 ```
 
+### MCP Server Strategy (Bidirectional Tool Access)
+
+**Problem**: ECA has file/grep/edit tools, but lacks git/memory/telemetry capabilities.
+
+**Solution**: Ouroboros runs MCP server exposing **unique tools only**.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Tool Architecture                      │
+├─────────────────────────────────────────────────────────┤
+│                                                           │
+│  ECA Built-in Tools          Ouroboros Unique Tools      │
+│  ──────────────────          ───────────────────────     │
+│  • file/read                 • git/commits               │
+│  • file/write                • git/status                │
+│  • file/edit                 • git/diff                  │
+│  • grep                      • memory/get                │
+│  • find                      • memory/set                │
+│  • shell/exec                • telemetry/events          │
+│                              • openapi/bootstrap         │
+│                                                           │
+│         ▲                              ▲                 │
+│         │                              │                 │
+│    ECA uses                    ECA connects via MCP      │
+│    (built-in)                  (http://localhost:3000)   │
+│                                                           │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Flow**:
+1. User (via Telegram): "Show me recent commits"
+2. Ouroboros → ECA (JSON-RPC): chat/prompt
+3. ECA → LLM: Process request
+4. LLM decides: Need git/commits tool
+5. ECA → Ouroboros MCP Server: git/commits (MCP call)
+6. Ouroboros executes git log
+7. Ouroboros → ECA: Results
+8. ECA → Ouroboros: chat/content-received
+9. Ouroboros → Telegram: "Recent commits: ..."
+
+**Why MCP for this?**
+- ECA is already an MCP client (standard protocol)
+- Clean separation: JSON-RPC for chat control, MCP for tool access
+- Generic: Other MCP clients (Claude Desktop, Continue) can also use Ouroboros tools
+
 ### Implementation Phases
 
 #### Phase 1: ECA Protocol Client (Week 1)
@@ -169,11 +214,25 @@ ECA continues or aborts
 - [ ] Handle timeout (auto-reject for safety)
 - [ ] Test with dangerous tools (file/write, shell/exec)
 
-#### Phase 3: MCP Bridge (Optional, Week 3)
-- [ ] Expose Ouroboros tools via MCP server
-- [ ] Configure ECA to connect to Ouroboros MCP
-- [ ] Test bidirectional tool calls
-- [ ] Handle MCP connection lifecycle
+#### Phase 3: MCP Server Refinement (Optional, Week 3)
+- [ ] Refactor MCP server to expose ONLY Ouroboros-unique tools
+      - Git operations (commits, status, diff, log)
+      - Persistent memory (get, set, keys, delete)
+      - Telemetry (events, stats, clear)
+      - OpenAPI client generation (bootstrap, call, list)
+- [ ] Remove redundant tools from MCP (file/*, http/* — ECA has these)
+- [ ] Configure ECA to connect to Ouroboros MCP server
+- [ ] Add authentication (API key) for external MCP clients
+- [ ] Add security: localhost-only by default, rate limiting
+- [ ] Test bidirectional: Chat → Ouroboros → ECA → MCP → Ouroboros tools
+- [ ] Document MCP server setup for external clients (Claude Desktop, Continue, Cline)
+- [ ] Handle MCP connection lifecycle (start, stop, health checks)
+
+**Why keep MCP?**
+- ECA (MCP client) gets access to Ouroboros unique capabilities (git, memory, telemetry)
+- Generic integration point for other MCP clients (Claude Desktop, Continue, Cline)
+- Standard protocol (loose coupling) vs JSON-RPC (tight coupling for chat)
+- Clear separation: JSON-RPC for chat platforms, MCP for AI tool clients
 
 #### Phase 4: Polish & Cleanup (Week 4)
 - [ ] Remove internal LLM/AI code (delegated to ECA)
@@ -188,8 +247,10 @@ ECA continues or aborts
 |-----------|--------|-------------|
 | `ouroboros.ai` | LLM routing | ECA |
 | `ouroboros.agent` | AI agent | ECA chat |
-| `ouroboros.tool-defs` | Tool implementations | ECA tools |
+| `ouroboros.tool-defs` (partial) | Redundant file/* tools | ECA file tools |
 | `ouroboros.schema` | Schema validation | ECA validation |
+
+**Note**: Tool-defs for git/*, memory/*, telemetry/*, openapi/* remain — these are Ouroboros-unique capabilities exposed via MCP server.
 
 ### Risk Assessment
 
@@ -419,11 +480,14 @@ These are now handled by ECA:
 
 | Feature | Reason |
 |---------|--------|
-| Chat Adapters | Platform-specific implementations |
-| Memory System | Ouroboros-unique persistent storage |
-| Tool Approval Bridge | Chat-platform-specific UX |
-| Dashboard | Web UI for monitoring |
-| Telemetry | Ouroboros-specific observability |
+| Chat Adapters | Platform-specific implementations (Telegram, Discord, Slack) |
+| Memory System | Persistent cross-session storage (JSONL + EDN) |
+| Tool Approval Bridge | Chat-platform-specific UX for ECA tool approval |
+| Dashboard | Web UI for monitoring system health |
+| Telemetry | Ouroboros-specific observability (event tracking, metrics) |
+| **MCP Server** | **Expose unique tools (git, memory, telemetry) to ECA + external MCP clients** |
+| Git Tools | Repository operations (commits, status, diff, log) |
+| OpenAPI Client | Dynamic API client generation from OpenAPI specs |
 
 ## How to Contribute
 
