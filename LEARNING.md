@@ -477,15 +477,61 @@ SCI doesn't support docstrings in `defonce` with metadata.
 
 Cannot use `recur` inside a `try` block - JVM stack frame constraint.
 
+**Real-world example from eca_client.clj:**
 ```clojure
 ;; Broken - "Cannot recur across try"
-(loop [items xs]
-  (try
-    (process items)
-    (catch Exception e
-      (recur (rest items)))))  ; ERROR
+(defn- read-loop! []
+  (future
+    (loop []
+      (when @running
+        (try
+          (if-let [response (read-jsonrpc-response stdout)]
+            (do
+              (if (:id response)
+                (handle-response! response)
+                (handle-notification! response))
+              (recur))  ; ERROR
+            (do
+              (Thread/sleep 100)
+              (recur))))  ; ERROR
+          (catch Exception e
+            (telemetry/emit! {:event :eca/read-error
+                              :error (.getMessage e)})
+            (when @running
+              (Thread/sleep 1000)
+              (recur))))))))  ; ERROR
+```
 
-;; Fixed - extract try into helper
+**Fixed - restructure to keep recur outside try:**
+```clojure
+(defn- read-loop! []
+  "Background thread to read responses from ECA"
+  (let [{:keys [stdout running]} @state]
+    (future
+      (loop []
+        (when @running
+          (let [response (try
+                           (read-jsonrpc-response stdout)
+                           (catch Exception e
+                             (telemetry/emit! {:event :eca/read-error
+                                               :error (.getMessage e)})
+                             nil))]
+            (when response
+              (if (:id response)
+                (handle-response! response)
+                (handle-notification! response))))
+          (Thread/sleep 100)
+          (recur))))))
+```
+
+**Key restructuring:**
+1. Extract `try/catch` to wrap just the risky operation
+2. Store result in `let` binding
+3. Process result outside the `try` block
+4. Keep `recur` in tail position, outside all `try` forms
+
+**Simpler pattern - extract try into helper:**
+```clojure
 (defn- try-process [item]
   (try (process item)
        (catch Exception e {:error e})))

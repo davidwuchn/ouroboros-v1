@@ -174,22 +174,18 @@
     (future
       (loop []
         (when @running
-          (try
-            (if-let [response (read-jsonrpc-response stdout)]
-              (do
-                (if (:id response)
-                  (handle-response! response)
-                  (handle-notification! response))
-                (recur))
-              (do
-                (Thread/sleep 100)
-                (recur)))
-            (catch Exception e
-              (telemetry/emit! {:event :eca/read-error
-                                :error (.getMessage e)})
-              (when @running
-                (Thread/sleep 1000)
-                (recur))))))))))
+          (let [response (try
+                           (read-jsonrpc-response stdout)
+                           (catch Exception e
+                             (telemetry/emit! {:event :eca/read-error
+                                               :error (.getMessage e)})
+                             nil))]
+            (when response
+              (if (:id response)
+                (handle-response! response)
+                (handle-notification! response))))
+          (Thread/sleep 100)
+          (recur)))))))
 
 ;; ============================================================================
 ;; ECA Lifecycle
