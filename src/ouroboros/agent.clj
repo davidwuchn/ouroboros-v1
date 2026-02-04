@@ -1,14 +1,18 @@
 (ns ouroboros.agent
   "Agent - AI Agent with persona and tool access
-   
-   Provides intelligent responses using LLM providers (OpenAI, Anthropic, etc.)
-   with access to Ouroboros tools based on user intent.
-   
-   Features:
+
+   DEPRECATED: This namespace will be removed in a future version.
+   AI/LLM functionality is now delegated to ECA (Editor Code Assistant).
+
+   See: https://github.com/editor-code-assistant/eca
+
+   This namespace provided:
    - Configurable persona/system prompt
    - Tool selection based on context
    - Conversation history management
-   - Multiple LLM provider support"
+   - Multiple LLM provider support (OpenAI, Anthropic, Ollama)
+
+   All functionality is now handled by ECA integration."
   (:require
    [babashka.http-client :as http]
    [cheshire.core :as json]
@@ -22,15 +26,15 @@
    [com.wsscode.pathom3.connect.operation :as pco]))
 
 ;; ============================================================================
-;; LLM Providers
+;; LLM Providers (DEPRECATED)
 ;; ============================================================================
 
-(defmulti generate-response
+(defmulti ^:deprecated generate-response
   "Generate response from LLM provider"
   (fn [provider _config _messages _tools] provider))
 
 ;; OpenAI Provider
-(defmethod generate-response :openai
+(defmethod ^:deprecated generate-response :openai
   [_ config messages tools]
   (let [api-key (:api-key config)
         model (or (:model config) "gpt-4o-mini")
@@ -60,7 +64,7 @@
           (:choices result))))))
 
 ;; Anthropic Provider
-(defmethod generate-response :anthropic
+(defmethod ^:deprecated generate-response :anthropic
   [_ config messages tools]
   (let [api-key (:api-key config)
         model (or (:model config) "claude-3-5-sonnet-20241022")
@@ -107,7 +111,7 @@
                                        (:tool_use (:content result)))}}])))))
 
 ;; Local/Ollama Provider (placeholder)
-(defmethod generate-response :ollama
+(defmethod ^:deprecated generate-response :ollama
   [_ _config _messages _tools]
   (let [_url (or (:url _config) "http://localhost:11434/api/chat")
         _model (or (:model _config) "llama3.1")]
@@ -115,7 +119,7 @@
     {:error "Ollama provider not yet implemented"}))
 
 ;; ============================================================================
-;; Agent Configuration
+;; Agent Configuration (DEPRECATED)
 ;; ============================================================================
 
 (def default-persona
@@ -162,7 +166,7 @@
   @agent-config)
 
 ;; ============================================================================
-;; Tool Execution
+;; Tool Execution (DEPRECATED)
 ;; ============================================================================
 
 (defn- parse-tool-call
@@ -220,7 +224,7 @@
         (str "Tool call blocked: " (:reason chain-check))))))
 
 ;; ============================================================================
-;; Response Generation
+;; Response Generation (DEPRECATED)
 ;; ============================================================================
 
 (defn- build-messages
@@ -333,7 +337,7 @@
           {:response (:content message)})))))
 
 ;; ============================================================================
-;; Pathom Integration
+;; Pathom Integration (DEPRECATED)
 ;; ============================================================================
 
 (pco/defresolver agent-config-resolver [_]

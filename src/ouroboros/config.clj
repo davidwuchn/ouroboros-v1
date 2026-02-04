@@ -193,21 +193,26 @@
 ;; ============================================================================
 
 (defn auto-configure-agent!
-  "Configure AI agent from environment if API key present"
+  "Configure AI agent from environment if API key present
+
+   DEPRECATED: This function is deprecated and will be removed.
+   Use ECA for AI configuration instead: https://github.com/editor-code-assistant/eca"
   []
   (require '[ouroboros.agent :as agent])
+  (println "⚠️  DEPRECATED: auto-configure-agent! is deprecated.")
+  (println "     Use ECA for AI: https://github.com/editor-code-assistant/eca")
   (when-let [api-key (get-config [:ai :openai :api-key])]
     ((resolve 'agent/configure!)
      {:provider :openai
       :api-key api-key
       :model (get-config [:ai :openai :model] "gpt-4o-mini")})
-    (println "✓ Agent configured: OpenAI"))
+    (println "✓ Agent configured: OpenAI (deprecated)"))
   (when-let [api-key (get-config [:ai :anthropic :api-key])]
     ((resolve 'agent/configure!)
      {:provider :anthropic
       :api-key api-key
       :model (get-config [:ai :anthropic :model] "claude-3-5-sonnet-20241022")})
-    (println "✓ Agent configured: Anthropic")))
+    (println "✓ Agent configured: Anthropic (deprecated)")))
 
 (defn auto-start-chat!
   "Auto-start configured chat bots from environment"
@@ -247,6 +252,9 @@
 
 (defn start-from-env!
   "Full startup from environment configuration
+
+   DEPRECATED: This function is deprecated and will be removed.
+   Use ECA for AI functionality instead: https://github.com/editor-code-assistant/eca
    
    Usage: bb chat
    Loads config, configures agent, starts chat bots"
@@ -254,6 +262,10 @@
   (println "========================================")
   (println "  Ouroboros Chat Bot Startup")
   (println "========================================")
+  (println)
+  (println "⚠️  DEPRECATED: This startup path uses internal AI agent.")
+  (println "     Use ECA for production: https://github.com/editor-code-assistant/eca")
+  (println)
 
   ;; Boot system (resolve to avoid circular dep)
   (when-let [boot! (resolve 'ouroboros.interface.lifecycle/boot!)]
@@ -262,7 +274,7 @@
   ;; Load config
   (load-config!)
 
-  ;; Configure agent
+  ;; Configure agent (deprecated)
   (auto-configure-agent!)
 
   ;; Start chat bots

@@ -1,39 +1,47 @@
 (ns ouroboros.interface.ai
-  "AI interface - AI tooling hooks and context"
+  "AI interface - AI tooling hooks and context
+
+   DEPRECATED: This namespace will be removed in a future version.
+   Use ECA (https://github.com/editor-code-assistant/eca) for AI functionality."
   (:require
    [ouroboros.ai :as ai]))
 
-(defn ai-tools
-  "List all AI-available tools
-   
-   Usage: (ai-tools)"
+(defn ^:deprecated ai-tools
+  "DEPRECATED: Use ECA for AI tools.
+
+   List all AI-available tools"
   []
+  (println "⚠️  DEPRECATED: iface/ai-tools is deprecated. Use ECA instead.")
   (ai/list-tools))
 
-(defn ai-call!
-  "Call an AI tool with parameters
-   
-   Usage: (ai-call! :file/read {:path \"README.md\"})"
+(defn ^:deprecated ai-call!
+  "DEPRECATED: Use ECA for AI tool calls.
+
+   Call an AI tool with parameters"
   [tool-name params]
+  (println "⚠️  DEPRECATED: iface/ai-call! is deprecated. Use ECA instead.")
   (ai/call-tool tool-name params))
 
-(defn ai-context
-  "Get system context for AI
-   
-   Usage: (ai-context)"
+(defn ^:deprecated ai-context
+  "DEPRECATED: Use ECA for AI context.
+
+   Get system context for AI"
   []
+  (println "⚠️  DEPRECATED: iface/ai-context is deprecated. Use ECA instead.")
   (ai/system-context))
 
-(defn ai-project
-  "Get project context for AI
-   
-   Usage: (ai-project)"
+(defn ^:deprecated ai-project
+  "DEPRECATED: Use ECA for AI context.
+
+   Get project context for AI"
   []
+  (println "⚠️  DEPRECATED: iface/ai-project is deprecated. Use ECA instead.")
   (ai/project-context))
 
-(defn ai-full
-  "Get complete AI context
-   
-   Usage: (ai-full)"
+(defn ^:deprecated ai-full
+  "DEPRECATED: Use ECA for AI context.
+
+   Get complete AI context"
   []
+  (println "⚠️  DEPRECATED: iface/ai-full is deprecated. Use ECA instead.")
   (ai/full-context))

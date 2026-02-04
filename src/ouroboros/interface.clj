@@ -99,14 +99,24 @@
 (def openapi-call! (lazy-fn 'ouroboros.interface.openapi 'openapi-call!))
 
 ;; ============================================================================
-;; AI (Lazy)
+;; AI (Lazy) - DEPRECATED
 ;; ============================================================================
 
-(def ai-tools (lazy-fn 'ouroboros.interface.ai 'ai-tools))
-(def ai-call! (lazy-fn 'ouroboros.interface.ai 'ai-call!))
-(def ai-context (lazy-fn 'ouroboros.interface.ai 'ai-context))
-(def ai-project (lazy-fn 'ouroboros.interface.ai 'ai-project))
-(def ai-full (lazy-fn 'ouroboros.interface.ai 'ai-full))
+(def ai-tools
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.ai 'ai-tools))
+(def ai-call!
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.ai 'ai-call!))
+(def ai-context
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.ai 'ai-context))
+(def ai-project
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.ai 'ai-project))
+(def ai-full
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.ai 'ai-full))
 
 ;; ============================================================================
 ;; Telemetry (Lazy)
@@ -148,12 +158,18 @@
 (def chat-clear-session! (lazy-fn 'ouroboros.interface.chat 'chat-clear-session!))
 
 ;; ============================================================================
-;; Agent (Lazy)
+;; Agent (Lazy) - DEPRECATED
 ;; ============================================================================
 
-(def agent-configure! (lazy-fn 'ouroboros.interface.agent 'agent-configure!))
-(def agent-config (lazy-fn 'ouroboros.interface.agent 'agent-config))
-(def agent-generate (lazy-fn 'ouroboros.interface.agent 'agent-generate))
+(def agent-configure!
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.agent 'agent-configure!))
+(def agent-config
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.agent 'agent-config))
+(def agent-generate
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.agent 'agent-generate))
 
 ;; ============================================================================
 ;; Auth (Lazy)
@@ -271,15 +287,27 @@
 (def confirm-security-report (lazy-fn 'ouroboros.interface.confirmation 'confirm-security-report))
 
 ;; ============================================================================
-;; Schema Validation (Lazy)
+;; Schema Validation (Lazy) - DEPRECATED
 ;; ============================================================================
 
-(def schema-validate (lazy-fn 'ouroboros.interface.schema 'schema-validate))
-(def schema-validate-tool (lazy-fn 'ouroboros.interface.schema 'schema-validate-tool))
-(def schema-strict (lazy-fn 'ouroboros.interface.schema 'schema-strict))
-(def schema-required (lazy-fn 'ouroboros.interface.schema 'schema-required))
-(def schema-optional (lazy-fn 'ouroboros.interface.schema 'schema-optional))
-(def schema->json (lazy-fn 'ouroboros.interface.schema 'schema->json))
+(def schema-validate
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.schema 'schema-validate))
+(def schema-validate-tool
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.schema 'schema-validate-tool))
+(def schema-strict
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.schema 'schema-strict))
+(def schema-required
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.schema 'schema-required))
+(def schema-optional
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.schema 'schema-optional))
+(def schema->json
+  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
+  (lazy-fn 'ouroboros.interface.schema 'schema->json))
 
 ;; ============================================================================
 ;; Skill (Lazy)

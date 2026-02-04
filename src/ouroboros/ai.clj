@@ -1,94 +1,91 @@
 (ns ouroboros.ai
   "AI - Tooling hooks for AI interaction
 
-   Makes the system discoverable and usable by AI through:
+   DEPRECATED: This namespace will be removed in a future version.
+   AI/LLM functionality is now delegated to ECA (Editor Code Assistant).
+
+   See: https://github.com/editor-code-assistant/eca
+
+   This namespace provided:
    - Tool discovery: List all available capabilities
    - Structured execution: Call tools with parameters
    - Context packaging: Export system state for AI context
-   - Self-description: System explains itself to AI
 
-   Note: This namespace no longer depends on query directly.
-   Tools are registered via ouroboros.tool-defs after query is loaded."
+   These functions are now available via ECA integration."
   (:require
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.tool-registry :as tool-registry]
    [ouroboros.resolver-registry :as registry]))
 
-;; ============================================================================
-;; Tool Discovery (delegates to registry)
-;; ============================================================================
+(defn ^:deprecated list-tools
+  "DEPRECATED: Use ECA for AI tool listing.
 
-(defn list-tools
-  "List all available AI tools"
+   List all available AI tools"
   []
-   (tool-registry/list-tools))
+  (tool-registry/list-tools))
 
-(defn get-tool
-  "Get a specific tool"
+(defn ^:deprecated get-tool
+  "DEPRECATED: Use ECA for AI tool access.
+
+   Get a specific tool"
   [tool-name]
   (tool-registry/get-tool tool-name))
 
-;; ============================================================================
-;; Tool Execution (delegates to registry)
-;; ============================================================================
+(defn ^:deprecated call-tool
+  "DEPRECATED: Use ECA for AI tool execution.
 
-(defn call-tool
-  "Execute a tool by name with parameters
-
-   Delegates to tool-registry/call-tool for actual execution."
+   Execute a tool by name with parameters"
   [tool-name params]
   (tool-registry/call-tool tool-name params))
 
-;; ============================================================================
-;; Context Packaging
-;; ============================================================================
+(defn ^:deprecated system-context
+  "DEPRECATED: Use ECA for AI context.
 
-(defn system-context
-  "Package system state for AI context
-
-   Uses tools to gather context information without direct query dependency."
+   Package system state for AI context"
   []
   (let [status-result (call-tool :system/status {})
-        git-result (call-tool :git/status {})
-        _memory-result (call-tool :memory/get {:key :__context_test__})]  ; TODO: Use when memory/keys tool available
+        git-result (call-tool :git/status {})]
     {:context/type :system
      :context/timestamp (str (java.time.Instant/now))
      :system/status (:result status-result)
      :git/status (:result git-result)
-     :memory/keys []  ; Would need memory/keys tool
+     :memory/keys []
      :tools/available (count (tool-registry/list-tools))
      :tools/names (map :tool/name (tool-registry/list-tools))}))
 
-(defn project-context
-  "Package project state for AI context"
+(defn ^:deprecated project-context
+  "DEPRECATED: Use ECA for AI context.
+
+   Package project state for AI context"
   []
-  (let [_project-result (call-tool :file/list {:dir "."})  ; TODO: Use for file listing
-        commits-result (call-tool :git/commits {:n 3})]
+  (let [commits-result (call-tool :git/commits {:n 3})]
     {:context/type :project
      :context/timestamp (str (java.time.Instant/now))
      :project/root (System/getProperty "user.dir")
      :recent-commits (:result commits-result)}))
 
-(defn full-context
-  "Get complete context for AI"
+(defn ^:deprecated full-context
+  "DEPRECATED: Use ECA for AI context.
+
+   Get complete context for AI"
   []
   {:system (system-context)
    :project (project-context)
    :tools (list-tools)})
 
 ;; ============================================================================
-;; Pathom Resolvers
+;; Pathom Resolvers (also deprecated)
 ;; ============================================================================
 
-(pco/defresolver ai-tools [_]
+(pco/defresolver ^:deprecated ai-tools [_]
   {::pco/output [{:ai/tools [:tool/name :tool/description :tool/parameters]}]}
   {:ai/tools (list-tools)})
 
-(pco/defresolver ai-context [_]
+(pco/defresolver ^:deprecated ai-context [_]
   {::pco/output [:ai/context]}
   {:ai/context (system-context)})
 
-(pco/defmutation ai-call! [{:keys [tool params]}]
+(pco/defmutation ^:deprecated ai-call! [{:keys [tool params]}]
   {::pco/output [:tool :params :result :status :error]}
   (call-tool tool params))
 
@@ -107,21 +104,12 @@
 (registry/register-mutations! mutations)
 
 (comment
-  ;; List all tools (requires tools to be registered via tool-defs)
+  ;; DEPRECATED - These will be removed
   (list-tools)
-
-  ;; Get system context
   (system-context)
-
-  ;; Call a tool
   (call-tool :system/status {})
-  (call-tool :git/commits {:n 3})
-  (call-tool :file/read {:path "README.md" :lines 20})
 
-  ;; Full context
-  (full-context)
-
-  ;; Via Pathom (requires query to be initialized)
+  ;; Via Pathom (deprecated)
   (require '[ouroboros.query :as q])
   (q/q [:ai/context])
   (q/q [{:ai/tools [:tool/name :tool/description]}]))

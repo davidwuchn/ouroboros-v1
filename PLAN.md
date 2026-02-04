@@ -4,26 +4,233 @@
 
 ## Current Status
 
-**PLATFORM COMPLETE** — All core capabilities implemented:
-- Engine (∅), Query (EQL), Memory, Knowledge, API, OpenAPI
-- AI tools (13), Agent (LLM integration), Chat (3 platforms)
-- Telemetry, MCP, Auth, Dashboard, Config
-- Docker, CI/CD, Test Suite
+**ARCHITECTURE SHIFT** — Pivoting to ECA integration model:
+- Chat platforms (Telegram, Discord, Slack) remain core Ouroboros value
+- AI/LLM capabilities delegated to ECA (Editor Code Assistant)
+- Ouroboros becomes ECA "editor client" for chat platforms
+
+## ECA Integration Strategy
+
+### Why ECA?
+
+ECA (Editor Code Assistant) is a battle-tested Clojure-based AI coding assistant:
+- **613 stars**, 37 forks, v0.97.7 (near 1.0)
+- Editor plugins for Emacs, VSCode, Vim, IntelliJ
+- **10+ LLM providers** (Anthropic, OpenAI, Copilot, Ollama, Deepseek, etc.)
+- MCP client with HTTP/SSE/stdio transport
+- Enterprise-grade tool calling, context management, session handling
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     ECA-INTEGRATED ARCHITECTURE                   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Telegram/Discord/Slack/WebSocket                               │
+│         │                                                       │
+│         ▼                                                       │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    Ouroboros                             │    │
+│  │                                                          │    │
+│  │  ┌───────────────┐    ┌────────────────────────────┐    │    │
+│  │  │ Chat Adapters │───►│ Ouroboros-ECA Protocol      │────┼──►│
+│  │  │               │    │ (JSON-RPC over stdio)       │    │    │
+│  │  └───────────────┘    └────────────────────────────┘    │    │
+│  │                                                          │    │
+│  │  ┌──────────────────────────────────────────────────┐   │    │
+│  │  │ Ouroboros Tools (Git, Memory, HTTP, Knowledge)    │   │    │
+│  │  │ ← Exposed to ECA via MCP Server (optional)       │   │    │
+│  │  └──────────────────────────────────────────────────┘   │    │
+│  │                                                          │    │
+│  │  ┌──────────────────────────────────────────────────┐   │    │
+│  │  │ Tool Approval Bridge                             │   │    │
+│  │  │ - Forward tool calls to chat platforms          │   │    │
+│  │  │ - Wait for user approval                         │   │    │
+│  │  │ - Send approval/rejection back to ECA           │   │    │
+│  │  └──────────────────────────────────────────────────┘   │    │
+│  │                                                          │    │
+│  │  ┌──────────────────────────────────────────────────┐   │    │
+│  │  │ Memory & Session Context                         │   │    │
+│  │  │ - Persistent conversation history                │   │    │
+│  │  │ - Ouroboros-unique features (no overlap with ECA)│   │    │
+│  │  └──────────────────────────────────────────────────┘   │    │
+│  │                                                          │    │
+│  │  ┌──────────────────────────────────────────────────┐   │    │
+│  │  │ Dashboard & Observability                        │   │    │
+│  │  │ - System health, metrics, audit logs             │   │    │
+│  │  └──────────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                            │                                     │
+│                            │ ECA Client (JSON-RPC)               │
+│                            ▼                                     │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                       ECA Binary                        │    │
+│  │                                                          │    │
+│  │  ┌──────────────────────────────────────────────────┐   │    │
+│  │  │ LLM Routing Layer                                 │   │    │
+│  │  │ - Anthropic, OpenAI, Copilot, Ollama, Deepseek  │   │    │
+│  │  │ - Model fallback, token management               │   │    │
+│  │  └──────────────────────────────────────────────────┘   │    │
+│  │                                                          │    │
+│  │  ┌──────────────────────────────────────────────────┐   │    │
+│  │  │ Tool Engine                                      │   │    │
+│  │  │ - File system, grep, edit, completion          │   │    │
+│  │  │ - MCP client for external tools                  │   │    │
+│  │  │ - Context management (repoMap, index, hooks)   │   │    │
+│  │  └──────────────────────────────────────────────────┘   │    │
+│  │                                                          │    │
+│  │  ┌──────────────────────────────────────────────────┐   │    │
+│  │  │ Chat Interface                                  │   │    │
+│  │  │ - Prompt handling, streaming                     │   │    │
+│  │  │ - Tool approval workflow                        │   │    │
+│  │  │ - Message formatting, diff display              │   │    │
+│  │  └──────────────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### What Ouroboros Provides (Unique Value)
+
+| Component | Description | Status |
+|-----------|-------------|--------|
+| **Chat Adapters** | Telegram, Discord, Slack, WebSocket | ✅ Existing |
+| **Memory System** | Persistent conversation context, JSONL storage | ✅ Existing |
+| **Tool Bridge** | Forward tool calls to chat for approval | 🔄 New |
+| **ECA Protocol Client** | JSON-RPC communication with ECA | 🔄 New |
+| **MCP Server** | Expose Ouroboros tools to ECA | ⚠️ Existing |
+| **Dashboard** | Web UI for monitoring | ✅ Existing |
+
+### What ECA Provides (Delegated)
+
+| Component | Description | Benefit |
+|-----------|-------------|---------|
+| **LLM Providers** | Anthropic, OpenAI, Copilot, Ollama, etc. | 10+ providers, battle-tested |
+| **Tool Engine** | File read/write, grep, completion | Editor-grade UX |
+| **Context Management** | repoMap, file indexing, workspace | Sophisticated context |
+| **Chat Interface** | Streaming, tool display, diffs | Rich interaction |
+| **Protocol** | JSON-RPC 2.0 over stdio | Standard, well-defined |
+
+### ECA Protocol Methods (What Ouroboros Implements)
+
+```clojure
+;; Ouroboros → ECA (requests)
+"initialize"          ;; Handshake with capabilities
+"chat/prompt"         ;; Send message to LLM
+"chat/queryContext"  ;; Get context (repoMap, files, etc.)
+"chat/queryFiles"     ;; Search files
+"chat/queryCommands" ;; Available commands
+
+;; ECA → Ouroboros (notifications/callbacks)
+"chat/content-received"   ;; Assistant response
+"chat/toolCallApprove"    ;; Request tool approval
+"chat/toolCallReject"     ;; Tool call rejected
+"chat/promptStop"         ;; Streaming stopped
+```
+
+### Tool Approval Flow (Critical for Security)
+
+```
+User: "Read config.json and summarize"
+     │
+     ▼
+ECA: chat/prompt → Assistant: "I'll read the file"
+     │
+     ▼
+ECA → Ouroboros: chat/toolCallApprove
+  {tool: "file/read", params: {path: "config.json"}}
+     │
+     ▼
+Ouroboros → Telegram: "🔧 Allow file/read on config.json?"
+     │
+     User clicks ✅ or ❌
+     │
+     ▼
+Ouroboros → ECA: chat/toolCallApprove (or Reject)
+     │
+     ▼
+ECA continues or aborts
+```
+
+### Implementation Phases
+
+#### Phase 1: ECA Protocol Client (Week 1)
+- [ ] Create `ouroboros.eca-client` namespace
+- [ ] Implement JSON-RPC message framing (Content-Length header)
+- [ ] Implement initialize handshake
+- [ ] Implement chat/prompt with response parsing
+- [ ] Start/stop ECA process lifecycle
+
+#### Phase 2: Tool Approval Bridge (Week 2)
+- [ ] Implement chat/toolCallApprove handler
+- [ ] Forward approval requests to chat platforms
+- [ ] Implement approval/rejection callbacks
+- [ ] Handle timeout (auto-reject for safety)
+- [ ] Test with dangerous tools (file/write, shell/exec)
+
+#### Phase 3: MCP Bridge (Optional, Week 3)
+- [ ] Expose Ouroboros tools via MCP server
+- [ ] Configure ECA to connect to Ouroboros MCP
+- [ ] Test bidirectional tool calls
+- [ ] Handle MCP connection lifecycle
+
+#### Phase 4: Polish & Cleanup (Week 4)
+- [ ] Remove internal LLM/AI code (delegated to ECA)
+- [ ] Update interface.clj to use ECA client
+- [ ] Update documentation
+- [ ] End-to-end integration tests
+- [ ] Release notes
+
+### What Gets Removed/Deprecated
+
+| Component | Reason | Replacement |
+|-----------|--------|-------------|
+| `ouroboros.ai` | LLM routing | ECA |
+| `ouroboros.agent` | AI agent | ECA chat |
+| `ouroboros.tool-defs` | Tool implementations | ECA tools |
+| `ouroboros.schema` | Schema validation | ECA validation |
+
+### Risk Assessment
+
+| Risk | Mitigation |
+|------|------------|
+| ECA dependency | Version pinning, fallback to internal AI |
+| Protocol changes | Test suite for protocol compatibility |
+| Tool approval latency | Async handling, timeout defaults |
+| No ECA binary | Docker image with embedded ECA |
+
+### Comparison
+
+| Aspect | Before (Internal AI) | After (ECA Integration) |
+|--------|---------------------|-------------------------|
+| LLM Providers | ~3 | 10+ |
+| Editor Features | None | Full |
+| Maintenance | High (own LLM code) | Low (ECA updates) |
+| Tool Approval | Custom | ECA-native |
+| Protocol | Ad-hoc | JSON-RPC (standard) |
+
+### Migration Path
+
+1. **Parallel Run** — Run both internal AI and ECA, compare outputs
+2. **Gradual Shift** — Route specific chat platforms to ECA first
+3. **Full Migration** — Remove internal AI once stable
+
+---
 
 ## Immediate Priorities
 
-### 1. Documentation Cleanup ✅ COMPLETE
-- [x] Fix README.md (add Discord to architecture)
-- [x] Update STATE.md (remove duplicate examples, fix test counts)
-- [x] Update LEARNING.md (document registry pattern, not just resolve)
-- [x] Delete Containerfile (superseded by Dockerfile)
-- [x] Fix .gitignore (remove tracked ignored files)
+### 1. ECA Integration ✅ IN PROGRESS
+- [ ] Phase 1: ECA Protocol Client
+- [ ] Phase 2: Tool Approval Bridge
+- [ ] Phase 3: MCP Bridge (optional)
+- [ ] Phase 4: Polish & Cleanup
 
 ### 2. Test Coverage
 - [x] Chat adapter tests (protocol compliance)
 - [x] Tool execution tests (all 13 tools)
 - [x] Error handling tests (boundary conditions)
-- [ ] Integration tests (full chat flow with AI) — WIP
+- [ ] Integration tests (full chat flow with ECA) — NEW
 
 ### 3. Infrastructure Hardening ✅ COMPLETE
 - [x] Fix Docker health check (remove resolve)
@@ -86,12 +293,17 @@ Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openc
 
 **Security Alert**: See [Moltbook analysis](https://x.com/DavidOndrej1/status/2017945523060088934) — AI agents with excessive tool access are vulnerable to prompt injection attacks. An agent that can browse the web AND access email/calendar/files is one hidden webpage instruction away from compromise. **Principle: Never trust external input. Never chain dangerous tools after untrusted content.**
 
-### Agent Capabilities (P1-P2) 📋 TODO
-- [ ] **Semantic browser tool** — ARIA tree snapshots (50KB) vs screenshots (5MB). 100x token cost reduction for web interaction.
-- [ ] **Model fallback chain** — Auto-failover between providers (OpenAI → Anthropic → local) with cooldown tracking.
-- [ ] **Tool-use planning** — AI generates execution plan before acting, allows user approval for destructive operations. Critical for security: prevents rogue chains, gives humans veto power.
-- [ ] **Context-aware tool selection** — Dynamic tool selection based on conversation context using embeddings.
-- [ ] **Tool composition & pipelines** — Chain tools without intermediate AI calls for complex workflows.
+### Agent Capabilities (P1-P2) 📋 DELEGATED TO ECA
+The following are now delegated to ECA:
+- [x] **LLM Routing** — Handled by ECA (10+ providers)
+- [x] **Tool Engine** — Handled by ECA (filesystem, grep, completion)
+- [x] **Context Management** — Handled by ECA (repoMap, index, hooks)
+- [x] **Chat Interface** — Handled by ECA (streaming, diff display)
+
+Ouroboros focuses on:
+- [ ] **Tool Approval Bridge** — Forward tool calls to chat platforms for approval
+- [ ] **MCP Server** — Expose Ouroboros tools to ECA
+- [ ] **Chat Platform Integration** — Telegram, Discord, Slack, WebSocket
 
 ### Observability (P2) 📊 PRODUCTION READINESS
 - [ ] **Metrics export** — Prometheus/OpenTelemetry format for monitoring systems.
@@ -107,7 +319,7 @@ Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openc
 - [ ] **Query caching** — Pathom resolver caching for frequently accessed data.
 - [ ] **Connection pooling** — HTTP client pooling for API calls and chat platforms.
 - [ ] **Memory optimization** — Event buffer sizing, lazy loading for large datasets.
-- [ ] **Streaming responses** — Real-time progress updates for long-running operations.
+- [ ] **Streaming responses** — ECA supports streaming, wire through to chat platforms.
 
 ### Developer Experience
 - [ ] **REPL-driven debugging guide** — Document patterns for interactive development.
@@ -121,6 +333,11 @@ Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openc
 - [ ] **Voice integration** — Speech-to-text and text-to-speech capabilities.
 - [ ] **Multi-modal support** — Image understanding and generation.
 - [ ] **Message formatting** — Rich formatting (markdown, code blocks, interactive elements).
+
+### ECA Integration (Short-term)
+- [ ] **Protocol compatibility tests** — Ensure Ouroboros works with ECA versions.
+- [ ] **Fallback mode** — Internal AI for when ECA is unavailable.
+- [ ] **Config unification** — Single config for Ouroboros + ECA settings.
 
 ## Long Term / Research
 
@@ -140,13 +357,15 @@ Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openc
 - [ ] **Compliance frameworks** — SOC2, GDPR, HIPAA considerations.
 - [ ] **Data retention policies** — Automated cleanup with legal hold support.
 
-### AI Research
-- [ ] **Fine-tuning pipeline** — Custom model training for specialized domains.
-- [ ] **Reasoning traces** — Show AI's step-by-step thinking for transparency.
-- [ ] **Multi-agent coordination** — Multiple AI agents collaborating on tasks.
-- [ ] **Local model support** — Ollama/Llama.cpp integration for offline operation.
+### AI Research (DELEGATED TO ECA)
+These are now handled by ECA:
+- [x] Fine-tuning pipeline — Use ECA's provider configuration
+- [x] Reasoning traces — Use ECA's chat interface
+- [x] Multi-agent coordination — Use ECA's MCP capabilities
+- [x] Local model support — Use ECA's Ollama integration
 
 ### Protocol Completeness (MCP)
+- [x] **MCP Tools** ✅ COMPLETE — Exposed via `ouroboros.mcp`
 - [ ] **MCP Resources** — Expose contextual data sources (files, git history) as resources.
 - [ ] **MCP Prompts** — Templated workflows for common AI-assisted tasks.
 - [ ] **MCP Sampling** — Let AI request additional context from the server.
@@ -167,32 +386,48 @@ Based on analysis of [OpenClaw architecture](https://deepwiki.com/openclaw/openc
 | 2026-02-02 | Security audit — Prompt injection analysis, threat modeling from Moltbook incident |
 | 2026-02-02 | P0 Security Complete — Prompt injection protection, human confirmation, tool chaining limits |
 | 2026-02-02 | P1 Security — Output schema validation for LLM tool calls |
+| 2026-02-05 | **Architecture Shift** — ECA integration strategy adopted |
 
 ## Implementation Priority Matrix
 
 | Priority | Feature | Effort | Impact | Risk if Delayed |
 |----------|---------|--------|--------|-----------------|
-| **P0** | **Prompt injection protection** | Low | 🔴 Critical | Agent compromise via malicious input |
-| **P0** | **Human-in-the-loop confirmation** | Medium | 🔴 Critical | Unauthorized destructive operations |
-| P0 | Tool sandboxing | Medium | 🔴 Critical | Runaway tool crashes system |
-| P0 | Tool allowlists | Low | 🔴 Critical | Unauthorized tool access |
-| **P1** | **Tool chaining limits** | Low | 🔴 High | Cascade attacks from injected prompts |
-| **P1** | **Quarantine external content** | Medium | 🔴 High | Untrusted input triggers dangerous tools |
-| P1 | Unified tool schema | Low | 🔴 High | Inconsistent tool behavior |
-| **P1** | **Output schema validation** | Low | 🔴 High | Malformed tool calls execute unexpectedly |
-| P1 | MCP Resources/Prompts | Low | 🔴 High | Protocol incompleteness |
-| P1 | Semantic browser | Medium | 🔴 High | Excessive token costs |
-| P1 | Sandboxed execution | Medium | 🟡 Medium | Unsafe code execution |
+| **P0** | **ECA Protocol Client** | Medium | 🔴 Critical | No AI integration |
+| **P0** | **Tool Approval Bridge** | Medium | 🔴 Critical | Security bypass |
+| P0 | Prompt injection protection | Low | 🔴 Critical | Agent compromise via malicious input |
+| P0 | Human-in-the-loop confirmation | Medium | 🔴 Critical | Unauthorized destructive operations |
+| **P1** | **Chat Adapter → ECA routing** | Medium | 🔴 High | Broken chat AI |
+| P1 | Tool chaining limits | Low | 🔴 High | Cascade attacks from injected prompts |
+| P1 | Quarantine external content | Medium | 🔴 High | Untrusted input triggers dangerous tools |
+| P1 | MCP Bridge (Ouroboros → ECA) | Medium | 🟡 Medium | Missing Ouroboros tools in ECA |
+| P1 | Model fallback | Medium | 🟢 Low | Provider downtime |
 | P2 | Streaming responses | Medium | 🟡 Medium | Poor UX for long operations |
-| P2 | Tool composition | Medium | 🟡 Medium | Limited workflow capability |
 | P2 | Metrics export | Low | 🟢 Low | Operational blindness |
-| P2 | Model fallback | Medium | 🟢 Low | Provider downtime |
 | P3 | Context-aware selection | High | 🟢 Low | Suboptimal tool usage |
 | P3 | Plugin system | High | 🟢 Low | Limited extensibility |
 
+### Features Removed (Delegated to ECA)
+
+| Feature | Reason | ECA Equivalent |
+|---------|--------|----------------|
+| `ouroboros.ai` | LLM routing | ECA `llm_providers/*` |
+| `ouroboros.agent` | AI agent | ECA `features/chat.clj` |
+| `ouroboros.tool-defs` | Tool implementations | ECA `features/tools/*` |
+| `ouroboros.schema` | Schema validation | ECA `tools.util` |
+
+### Features Retained (Ouroboros Unique)
+
+| Feature | Reason |
+|---------|--------|
+| Chat Adapters | Platform-specific implementations |
+| Memory System | Ouroboros-unique persistent storage |
+| Tool Approval Bridge | Chat-platform-specific UX |
+| Dashboard | Web UI for monitoring |
+| Telemetry | Ouroboros-specific observability |
+
 ## How to Contribute
 
-1. Pick an item from Immediate Priorities or Architecture Improvements
+1. Pick an item from ECA Integration or Immediate Priorities
 2. Discuss in GitHub issue first
 3. Follow the established patterns (see AGENTS.md)
 4. Update tests and documentation
