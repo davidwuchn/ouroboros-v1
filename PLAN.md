@@ -352,6 +352,8 @@ Agent executes chained tools, exfiltrates data, locks user out
 3. ✅ Build static empathy map builder with backend integration
 4. ✅ Update navigation and routing (root.cljs updated)
 
+**Bug fix**: Added missing `memory/swap!` function to enable webux resolvers (all tests pass).
+
 **Impact**: Creates virtuous cycle where teams build better products using structured methodology, every interaction generates wisdom, and success patterns propagate across the organization.
 
 ## Architecture Improvements

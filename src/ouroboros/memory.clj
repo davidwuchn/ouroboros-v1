@@ -89,6 +89,16 @@
     {:memory/cleared? true
      :memory/count count}))
 
+(defn swap!
+  "Update value at key with function f, similar to clojure.core/swap!
+   f receives current value (or nil if absent) and returns new value.
+   Persists to disk and returns new value."
+  [key f]
+  (let [old (get-value key)
+        new (f old)]
+    (save-value! key new)
+    new))
+
 (defn init!
   "Initialize memory - load from disk"
   []
