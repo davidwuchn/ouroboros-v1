@@ -65,14 +65,18 @@ bb git:install-hooks    # Install pre-commit hook (runs tests before commits)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  🐍 OUROBOROS - Co-Evolution Framework                      │
+│  🐍 OUROBOROS - Collaborative Product Development          │
 ├─────────────────────────────────────────────────────────────┤
-│  Frontend          →  ClojureScript/Fulcro                  │
+│  Web UX Platform   →  Fulcro/ClojureScript builders        │
+│  · Visual builders (Empathy Map → Lean Canvas)             │
+│  · Real-time collaboration (cursors, comments)             │
+│  · Offline sync, analytics, embedding SDK                  │
 │  Chat Platforms    →  Telegram | Discord | Slack           │
-│  AI Agent          →  OpenAI | Anthropic | Ollama          │
-│  Tools             →  13 built-in capabilities              │
-│  Query Interface   →  EQL over Pathom                       │
-│  Engine            →  Statecharts (∅)                       │
+│  AI Integration    →  ECA (Editor Code Assistant)          │
+│  · 10+ LLM providers via ECA binary                        │
+│  · Tool approval bridge for dangerous operations           │
+│  Query Interface   →  Pathom/EQL (55+ resolvers)           │
+│  Engine            →  Statecharts (∅) lifecycle            │
 └─────────────────────────────────────────────────────────────┘
 ```
 

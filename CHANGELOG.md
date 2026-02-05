@@ -6,7 +6,7 @@
 
 ### Web UX Platform — Complete (10 weeks, 5 phases)
 
-- `XXXXXXX` ⚒ λ Add Web UX Platform - Full collaborative product development
+- `72ca366` ⚒ λ Add Web UX Platform - Full collaborative product development
   - Phase 1: Foundation — Project CRUD, builder sessions
   - Phase 2: Interactive Builders — Visual canvas, drag-and-drop sticky notes
   - Phase 3: Collaboration — Multi-user presence, cursors, comments, versions
@@ -21,7 +21,7 @@
 
 ### ECA Integration — Architecture Shift
 
-- `XXXXXXX` ⚒ λ Add ECA Integration - Editor Code Assistant protocol
+- `72ca366` ⚒ λ Add ECA Integration - Editor Code Assistant protocol
   - JSON-RPC 2.0 protocol client for ECA binary communication
   - Tool approval bridge for dangerous operations
   - Session management with user tracking
@@ -154,5 +154,7 @@ git log --grep="Telemetry" --oneline
 | λ | Lambda | 0 (embedded in others) |
 
 ---
+
+**See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [LEARNING](LEARNING.md)
 
 *🐍 The Ouroboros consumes its own history to grow.*

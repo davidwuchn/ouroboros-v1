@@ -954,4 +954,6 @@ The ECA client emits telemetry for observability:
 
 ---
 
+**See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
+
 *Feed forward: Each discovery shapes the next version.*

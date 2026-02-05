@@ -1,7 +1,6 @@
 # STATE.md
 
 > What is true now. The current snapshot of the system.
-> Last Updated: 2026-02-05
 
 ## System Status
 
@@ -286,3 +285,7 @@ The Web UX Platform is production-ready with all 5 phases implemented:
 1. **Metrics Export** — Prometheus/OpenTelemetry format for production monitoring
 2. **Streaming Responses** — Wire ECA streaming to chat platforms
 3. **Mobile App** — PWA or React Native (Phase 6)
+
+---
+
+**See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [PLAN](PLAN.md) · [LEARNING](LEARNING.md) · [CHANGELOG](CHANGELOG.md)

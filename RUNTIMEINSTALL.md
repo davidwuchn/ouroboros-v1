@@ -84,3 +84,7 @@ If you prefer to manage installations yourself:
 | clojure-mcp-light | AI REPL tools (clj-nrepl-eval, clj-paren-repair) | https://github.com/bhauman/clojure-mcp-light |
 
 The game requires all tools functional before play begins.
+
+---
+
+**See Also:** [README](README.md) · [AGENTS](AGENTS.md)

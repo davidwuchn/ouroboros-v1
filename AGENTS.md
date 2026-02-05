@@ -235,4 +235,6 @@ When you discover a pattern, anti-pattern, or insight:
 
 ---
 
+**See Also:** [README](README.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [LEARNING](LEARNING.md) · [CHANGELOG](CHANGELOG.md)
+
 *Patterns and detailed learnings: see LEARNING.md*
