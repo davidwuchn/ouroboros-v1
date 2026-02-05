@@ -314,6 +314,13 @@ ECA continues or aborts
 - [x] Update bb test task (run all test suites)
 - [x] Split interface.clj (God Object refactor)
 
+### 4. Web UX Platform Initiative 📋 NEW
+- [ ] Phase 1: Foundation (Project scaffolding, basic builders)
+- [ ] Phase 2: Interactive Builders (Rich canvas, real-time updates)
+- [ ] Phase 3: Collaboration (Multi-user, comments, versioning)
+- [ ] Phase 4: Wisdom & AI (Integrated chat, learning insights)
+- [ ] Phase 5: Polish & Scale (Performance, offline, API)
+
 ## Security Architecture (New - Feb 2025)
 
 Based on analysis of [Moltbook incident](https://x.com/DavidOndrej1/status/2017945523060088934) and emerging AI agent threats:
@@ -344,6 +351,85 @@ Agent executes chained tools, exfiltrates data, locks user out
 - Confirmation gates (human approval for destructive ops)
 - Schema validation (reject malformed tool calls)
 - Audit logging (detect and respond to attacks)
+
+## Web UX Platform Initiative (New - Feb 2025)
+
+**Vision**: Transform Ouroboros from chat-based assistant to collaborative product development platform with dedicated web interface.
+
+**Core Value**: Teams move from scattered conversations to structured wisdom-building with persistent artifacts, real-time collaboration, and integrated learning memory.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  WEB UX CLIENT ARCHITECTURE              │
+├─────────────────────────────────────────────────────────┤
+│  Fulcro/ClojureScript App                               │
+│  • Interactive builders (Empathy→ValueProp→MVP→Canvas)  │
+│  • Real-time collaboration (WebSocket)                  │
+│  • Integrated chat with ECA                             │
+│  • Wisdom building dashboard                            │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Key Features
+
+1. **Workspace Dashboard** - Project gallery, progress tracking, team collaboration
+2. **Interactive Builders** - Visual editors for each flywheel stage
+3. **Integrated Chat** - Context-aware messaging with ECA AI assistant
+4. **Wisdom Building** - Learning insights, pattern recognition, template library
+5. **Collaboration** - Live editing, comments, version history, export
+
+### Implementation Phases (10 weeks)
+
+#### Phase 1: Foundation (Week 1-2)
+- Extend Fulcro router with project/builder routes
+- Project data model and basic builder UI
+- Backend resolvers for projects and builder sessions
+- Single-user persistence
+
+#### Phase 2: Interactive Builders (Week 3-4)
+- Rich canvas components (drag-and-drop, visual editors)
+- Real-time updates via WebSocket
+- Validation, guidance, export functionality
+- Mobile responsive layouts
+
+#### Phase 3: Collaboration (Week 5-6)
+- Multi-user presence and live editing
+- Comment system on canvas elements
+- Version history and team management
+
+#### Phase 4: Wisdom & AI (Week 7-8)
+- Integrated chat with ECA and project context
+- Learning insights panel and pattern recognition
+- Template library and wisdom dashboard
+
+#### Phase 5: Polish & Scale (Week 9-10)
+- Performance optimization and offline support
+- Advanced visualizations and API embedding
+- Documentation and onboarding
+
+### Integration Points
+
+- **Chat Platforms** - Notifications, approval requests via Telegram/Discord/Slack
+- **ECA** - AI assistant with project context, builder suggestions
+- **Learning Memory** - Auto-save insights, pattern application, wisdom transfer
+- **Existing Dashboard** - Extend current Fulcro app with new builder pages
+
+### Success Metrics
+
+- **Builder Completion Rate** - % of projects reaching Lean Canvas
+- **Time to Canvas** - Average time from empathy to complete business model
+- **Team Collaboration** - % of projects with multiple contributors
+- **Wisdom Application** - Frequency of learning insight reuse
+
+### First Steps (Next 48 hours)
+1. Create project scaffolding (new UI pages for builder/chat/wisdom)
+2. Extend existing dashboard with Projects page
+3. Build static empathy map builder with backend integration
+4. Update navigation and routing
+
+**Impact**: Creates virtuous cycle where teams build better products using structured methodology, every interaction generates wisdom, and success patterns propagate across the organization.
 
 ## Architecture Improvements
 
@@ -472,6 +558,7 @@ These are now handled by ECA:
 | **P0** | **Tool Approval Bridge** | Medium | 🔴 Critical | ✅ Done |
 | **P1** | **MCP Server Refinement** | Medium | 🟡 High | ✅ Done |
 | **P1** | **Chat Adapter → ECA routing** | Medium | 🔴 High | 📋 Next |
+| **P1** | **Web UX Platform** | High | 🟡 High | 📋 Next |
 | P1 | Tool chaining limits | Low | 🔴 High | ✅ Done |
 | P1 | Quarantine external content | Medium | 🔴 High | ✅ Done |
 | P1 | MCP Authentication | Medium | 🟡 Medium | 📋 Next |
@@ -498,6 +585,7 @@ These are now handled by ECA:
 | Memory System | Persistent cross-session storage (JSONL + EDN) |
 | Tool Approval Bridge | Chat-platform-specific UX for ECA tool approval |
 | Dashboard | Web UI for monitoring system health |
+| **Web UX Platform** | **Interactive product development workspace with learning flywheel** |
 | Telemetry | Ouroboros-specific observability (event tracking, metrics) |
 | **MCP Server** | **Expose unique tools (git, memory, telemetry) to ECA + external MCP clients** |
 | Git Tools | Repository operations (commits, status, diff, log) |
