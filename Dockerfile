@@ -36,9 +36,8 @@ USER ouroboros
 
 # Expose ports
 # 8888 - nREPL
-# 3000 - MCP server
 # 8080 - Dashboard
-EXPOSE 8888 3000 8080
+EXPOSE 8888 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

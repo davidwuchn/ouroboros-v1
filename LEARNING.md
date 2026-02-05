@@ -101,7 +101,7 @@ Telemetry woven into every layer. If you can't observe it, you can't operate it.
 
 **Events emitted:**
 - `:tool/invoke` — AI tool execution
-- `:mcp/complete` — MCP operation
+
 - `:chat/message` — User message
 - `:agent/generate` — LLM call
 - `:auth/user-created` — New user
@@ -141,7 +141,7 @@ System documents itself via queries. No stale documentation.
 **Self-querying:**
 - `[:introspection/configuration]` — What states exist?
 - `[:ai/tools]` — What can the AI do?
-- `[:mcp/tools]` — What do MCP clients see?
+
 - `[:auth/users]` — Who's registered?
 
 ---
@@ -178,32 +178,6 @@ When two modules implement similar functionality (WebSocket for Discord/Slack), 
               acc))
           {} env-mapping))
 ```
-
----
-
-### 10. Skill-Based Architecture
-
-Group related tools into versioned, documented skills with dependency management.
-
-```clojure
-;; Skill definition
-{:id :file/operations
- :name "File Operations"
- :version "1.0.0"
- :description "Work with files"
- :dependencies [:core/essentials]
- :provides [:file/read :file/write]
- :config {:max-file-size 10485760}
- :lifecycle {:init init-fn :shutdown shutdown-fn}}
-
-;; Usage
-(skill/register! file-skill)
-(skill/tools :file/operations)  ; => [:file/read :file/write]
-```
-
-**Benefits:** Clear ownership, dependency resolution, hot-reloading, configuration per capability.
-
----
 
 ### 11. Schema Validation Pattern
 

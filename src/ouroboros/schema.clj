@@ -1,49 +1,43 @@
 (ns ouroboros.schema
   "Schema validation for tool inputs
 
-   DEPRECATED: This namespace will be removed in a future version.
-   Schema validation is now handled by ECA (Editor Code Assistant).
+   Internal namespace for tool parameter validation.
+   Used by tool-registry for validating tool calls.
 
-   See: https://github.com/editor-code-assistant/eca
-
-   This namespace provided:
-   - Type validation for tool parameters
-   - Parameter coercion
-   - JSON Schema conversion
-
-   All functionality is now handled by ECA's validation layer."
+   Note: This is for internal tool validation, not AI/LLM integration.
+   AI functionality is delegated to ECA (Editor Code Assistant)."
   (:require
    [clojure.string :as str]
    [ouroboros.telemetry :as telemetry]))
 
 ;; ============================================================================
-;; Type Validation (DEPRECATED)
+;; Type Validation
 ;; ============================================================================
 
-(defmulti ^:deprecated validate-type
-  "DEPRECATED: Use ECA for type validation."
+(defmulti validate-type
+  "Validate a value against a type specification"
   (fn [value type-spec] type-spec))
 
-(defmethod ^:deprecated validate-type :string [value _] (string? value))
-(defmethod ^:deprecated validate-type :int [value _] (int? value))
-(defmethod ^:deprecated validate-type :number [value _] (number? value))
-(defmethod ^:deprecated validate-type :boolean [value _] (boolean? value))
-(defmethod ^:deprecated validate-type :keyword [value _] (keyword? value))
-(defmethod ^:deprecated validate-type :map [value _] (map? value))
-(defmethod ^:deprecated validate-type :vector [value _] (vector? value))
-(defmethod ^:deprecated validate-type :list [value _] (seq? value))
-(defmethod ^:deprecated validate-type :any [_ _] true)
-(defmethod ^:deprecated validate-type :default [value type-spec]
+(defmethod validate-type :string [value _] (string? value))
+(defmethod validate-type :int [value _] (int? value))
+(defmethod validate-type :number [value _] (number? value))
+(defmethod validate-type :boolean [value _] (boolean? value))
+(defmethod validate-type :keyword [value _] (keyword? value))
+(defmethod validate-type :map [value _] (map? value))
+(defmethod validate-type :vector [value _] (vector? value))
+(defmethod validate-type :list [value _] (seq? value))
+(defmethod validate-type :any [_ _] true)
+(defmethod validate-type :default [value type-spec]
   (telemetry/emit! {:event :schema/unknown-type
                     :type type-spec
                     :value-type (type value)})
   true)
 
 ;; ============================================================================
-;; Coercion (DEPRECATED)
+;; Coercion
 ;; ============================================================================
 
-(defn- ^:deprecated coerce-value [value type-spec]
+(defn- coerce-value [value type-spec]
   (case type-spec
     :string (str value)
     :int (try
@@ -62,10 +56,10 @@
     value))
 
 ;; ============================================================================
-;; Parameter Validation (DEPRECATED)
+;; Parameter Validation
 ;; ============================================================================
 
-(defn- ^:deprecated validate-param [param-name value schema]
+(defn- validate-param [param-name value schema]
   (let [param-type (get schema :type :any)
         required? (get schema :required false)
         default-value (get schema :default nil)
@@ -94,10 +88,8 @@
                          ": expected " (name param-type)
                          ", got " (type actual-value))]})))))
 
-(defn ^:deprecated validate-params
-  "DEPRECATED: Use ECA for parameter validation.
-
-   Validate parameters against a tool schema"
+(defn validate-params
+  "Validate parameters against a tool schema"
   [params schema]
   (let [results (map (fn [[param-name param-schema]]
                        (let [result (validate-param param-name params param-schema)]
@@ -108,7 +100,7 @@
                                (keep (fn [[param-name result]]
                                        (when (contains? result :value)
                                          [param-name (:value result)])))
-                                     results)
+                               results)
         errors (mapcat #(get (second %) :errors []) results)]
 
     (telemetry/emit! {:event :schema/validation
@@ -120,10 +112,8 @@
      :params validated-params
      :errors errors}))
 
-(defn ^:deprecated validate-tool-call
-  "DEPRECATED: Use ECA for tool call validation.
-
-   Validate a complete tool call"
+(defn validate-tool-call
+  "Validate a complete tool call"
   [tool-name params tool-schema]
   (let [param-schema (get tool-schema :parameters {})
         validation (validate-params params param-schema)]
@@ -132,13 +122,11 @@
            :original-params params)))
 
 ;; ============================================================================
-;; Strict Validation (DEPRECATED)
+;; Strict Validation
 ;; ============================================================================
 
-(defn ^:deprecated validate-strict
-  "DEPRECATED: Use ECA for strict validation.
-
-   Strict validation that rejects unknown parameters"
+(defn validate-strict
+  "Strict validation that rejects unknown parameters"
   [params schema]
   (let [allowed-params (set (keys schema))
         actual-params (set (keys params))
@@ -156,27 +144,23 @@
       base-validation)))
 
 ;; ============================================================================
-;; Utility Functions (DEPRECATED)
+;; Utility Functions
 ;; ============================================================================
 
-(defn ^:deprecated get-required-params [schema]
-  "DEPRECATED: Use ECA for schema utilities."
+(defn get-required-params [schema]
   (keep (fn [[param-name param-schema]]
           (when (get param-schema :required false)
             param-name))
         schema))
 
-(defn ^:deprecated get-optional-params [schema]
-  "DEPRECATED: Use ECA for schema utilities."
+(defn get-optional-params [schema]
   (keep (fn [[param-name param-schema]]
           (when-not (get param-schema :required false)
             param-name))
         schema))
 
-(defn ^:deprecated schema->json-schema [schema]
-  "DEPRECATED: Use ECA for schema conversion.
-
-   Convert internal schema format to JSON Schema"
+(defn schema->json-schema [schema]
+  "Convert internal schema format to JSON Schema"
   {:type "object"
    :properties (into {}
                      (map (fn [[param-name param-schema]]
@@ -192,14 +176,18 @@
                           schema))
    :required (mapv name (get-required-params schema))})
 
+;; ============================================================================
+;; Exports
+;; ============================================================================
+
 (comment
-  ;; DEPRECATED - All functions will be removed
+  ;; Validation examples
   (validate-params {:path "test.txt"}
-                    {:path {:type :string :required true}})
+                   {:path {:type :string :required true}})
 
-  ;; Strict validation (deprecated)
+  ;; Strict validation
   (validate-strict {:path "test.txt" :extra "value"}
-                  {:path {:type :string :required true}})
+                   {:path {:type :string :required true}})
 
-  ;; Get required/optional (deprecated)
+  ;; Get required/optional
   (get-required-params {:a {:required true} :b {:required false} :c {}}))

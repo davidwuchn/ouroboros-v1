@@ -20,8 +20,7 @@
    [ouroboros.api]
    [ouroboros.auth]
    [ouroboros.openapi]
-   [ouroboros.mcp]
-   [ouroboros.agent]
+
    [ouroboros.chat]
    [ouroboros.metrics]
    [ouroboros.introspection]
@@ -30,7 +29,9 @@
    [ouroboros.engine :as engine]
    [ouroboros.query :as query]
    [ouroboros.tool-defs :as tool-defs]
-   [ouroboros.tool-registry :as tool-registry]))
+   [ouroboros.tool-registry :as tool-registry]
+   [ouroboros.learning]
+   [ouroboros.educational-approval]))
 
 ;; ============================================================================
 ;; System Fixtures

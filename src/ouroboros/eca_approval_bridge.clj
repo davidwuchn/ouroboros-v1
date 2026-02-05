@@ -29,10 +29,13 @@
    [ouroboros.confirmation :as confirmation]
    [ouroboros.chat.protocol :as chatp]
    [ouroboros.telemetry :as telemetry]
-   [ouroboros.eca-client :as eca-client]))
+   [ouroboros.eca-client :as eca-client]
+   [ouroboros.educational-approval :as edu]))
 
 ;; Forward declarations
-(declare forward-to-chat-platform!)
+(declare forward-to-chat-platform!
+         handle-tool-call-approve
+         handle-tool-call-reject)
 
 ;; ============================================================================
 ;; State
@@ -44,7 +47,36 @@
          :adapter nil                ; Chat adapter for forwarding
          :pending-approvals {}       ; Track approvals in flight
          :timeout-ms 120000          ; 2 minute default timeout
-         }))
+         :eca-callbacks-registered? false}))
+
+;; ============================================================================
+;; ECA Callback Registration
+;; ============================================================================
+
+(defn- handle-eca-tool-call-approve [notification]
+  "Handle incoming tool call approval request from ECA"
+  (handle-tool-call-approve notification))
+
+(defn- handle-eca-tool-call-reject [notification]
+  "Handle incoming tool call rejection from ECA"
+  (handle-tool-call-reject notification))
+
+(defn register-eca-callbacks!
+  "Register callbacks with ECA client to receive tool approval requests.
+   Must be called after ECA client is started."
+  []
+  (eca-client/register-callback! "chat/toolCallApprove" handle-eca-tool-call-approve)
+  (eca-client/register-callback! "chat/toolCallReject" handle-eca-tool-call-reject)
+  (swap! state assoc :eca-callbacks-registered? true)
+  nil)
+
+(defn unregister-eca-callbacks!
+  "Unregister callbacks from ECA client."
+  []
+  (eca-client/unregister-callback! "chat/toolCallApprove")
+  (eca-client/unregister-callback! "chat/toolCallReject")
+  (swap! state assoc :eca-callbacks-registered? false)
+  nil)
 
 ;; ============================================================================
 ;; Tool Danger Classification
@@ -224,29 +256,43 @@
 (defn set-adapter!
   "Set the chat adapter for forwarding approval requests"
   [adapter]
-  (swap! state assoc :adapter adapter))
+  (swap! state assoc :adapter adapter)
+  (when-not (:eca-callbacks-registered? @state)
+    (register-eca-callbacks!)))
 
 (defn forward-to-chat-platform!
-  "Forward approval request to chat platform
+  "Forward approval request to chat platform with educational content
 
-   Sends a message to all active chat sessions asking for confirmation."
+   Sends an educational message to all active chat sessions asking for confirmation.
+   Includes risk assessment, best practices, and learning opportunities."
   [confirmation-id description tool-name arguments]
   (let [adapter (:adapter @state)
-        message (format "*🔐 Tool Approval Required*\n\n*Tool:* `%s`\n*Action:* %s\n\nReply with `/confirm %s` to approve or `/deny %s` with reason."
-                        tool-name
-                        description
-                        confirmation-id
-                        confirmation-id)]
-
+        ;; Get educational enhancement
+        enhanced (edu/enhance-approval-message tool-name arguments)
+        ;; Replace {id} placeholder with actual confirmation ID
+        message (str/replace (:message enhanced) "{id}" confirmation-id)]
     (when adapter
       ;; Forward to all active chat sessions
       (telemetry/emit! {:event :eca-approval/forwarding-to-chat
                         :confirmation-id confirmation-id
+                        :tool tool-name
+                        :risk (:risk enhanced)
+                        :learning-opportunity (:learning-opportunity enhanced)
                         :adapter adapter})
-
       ;; The adapter should handle routing to active sessions
       (when-let [forward-fn (:forward-approval-request adapter)]
-        (forward-fn confirmation-id message tool-name arguments))))))
+        (do
+          (forward-fn confirmation-id message tool-name arguments)
+          ;; Create learning opportunity for user
+          (let [learning (edu/create-learning-from-approval
+                          "default-user"  ;; TODO: Get actual user ID
+                          tool-name
+                          arguments
+                          (:risk enhanced))]
+            (telemetry/emit! {:event :educational-approval/learning-created
+                              :confirmation-id confirmation-id
+                              :tool tool-name
+                              :learning-title (:title learning)})))))))
 
 (defn- send-to-session!
   "Send approval request to a specific chat session"
@@ -421,6 +467,7 @@
       {:status :error :reason "Invalid confirmation ID format"})
     {:status :error :reason "Missing confirmation ID"}))
 
+)
 ;; ============================================================================
 ;; Comments / Examples
 ;; ============================================================================

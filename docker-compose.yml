@@ -27,8 +27,7 @@ services:
     ports:
       # nREPL port (optional, for debugging)
       - "8888:8888"
-      # MCP server port
-      - "3000:3000"
+
       # Dashboard port
       - "8080:8080"
     

@@ -1,7 +1,7 @@
 # STATE.md
 
 > What is true now. The current snapshot of the system.
-> Updated: 2026-02-01 (Latest: P0 Safety + Skill System)
+> Updated: 2026-02-05 (Latest: Learning Flywheel Foundation)
 
 ## System Status
 
@@ -17,11 +17,9 @@
 | Knowledge | ✓ Active | File system as queryable graph |
 | API | ✓ Active | HTTP client via Pathom resolvers |
 | OpenAPI | ✓ Active | OpenAPI specs → callable clients via Martian |
-| AI | ✓ Active | AI tooling hooks - tool discovery, context, execution |
 | Telemetry | ✓ Active | Structured logging, metrics, observability |
-| MCP | ✓ Active | Model Context Protocol - expose tools to any MCP client |
+
 | Chat | ✓ Active | Telegram, Discord, Slack bot adapters (shared WebSocket) |
-| Agent | ✓ Active | AI Agent with LLM providers (OpenAI, Anthropic) |
 | **Config** | **✓ New** | **Environment-based configuration (.env, env vars)** |
 | **Auth** | **✓ New** | **User authentication, permissions, rate limiting** |
 | **Dashboard** | **✓ New** | **Web dashboard for observability** |
@@ -29,11 +27,15 @@
 | **Tool Sandbox** | **✓ New** | **Timeouts, memory limits, error isolation for tool execution** |
 | **Tool Allowlist** | **✓ New** | **Per-session/per-user tool permissions** |
 | **Sandboxed Execution** | **✓ New** | **Docker/container-based shell/code execution** |
-| **Skill System** | **✓ New** | **Reusable skill definitions with dependency management** |
+
 | **Prompt Injection Protection** | **✓ New** | **Input sanitization, pattern detection, risk scoring** |
 | **Content Quarantine** | **✓ New** | **Track external content, limit tool chaining after exposure** |
 | **Human Confirmation** | **✓ New** | **Require approval for dangerous operations (file/write, shell/exec)** |
 | **Output Schema Validation** | **✓ New** | **Validate LLM tool calls against schemas before execution** |
+| **ECA Client** | **✓ Ready** | **JSON-RPC connection to ECA binary (auto-start)** |
+| **Learning Memory System** | **✓ Ready** | **Store/recall insights, patterns, wisdom** |
+| **Educational Approval** | **✓ Ready** | **Tool approvals with risk explanations, best practices** |
+| **Learning Interface** | **✓ Ready** | **Lazy-loaded API for learning operations** |
 
 **Verified Working:**
 ```clojure
@@ -81,12 +83,7 @@
 (iface/openapi-operations :petstore)
 (iface/openapi-call! :petstore :get-inventory {})
 
-;; AI queries
-(iface/ai-tools)
-(iface/ai-call! :system/status {})
-(iface/ai-call! :file/read {:path "README.md" :lines 10})
-(iface/ai-context)
-(iface/ai-full)
+
 
 ;; Telemetry queries
 (iface/telemetry-events)
@@ -95,12 +92,7 @@
 (iface/q [{:telemetry/events [:event/id :event/timestamp :event]}])
 (iface/q [:telemetry/total-events :telemetry/tool-invocations])
 
-;; MCP queries
-(iface/mcp-tools)
-(iface/mcp-start! {:port 3000})
-(iface/mcp-status)
-(iface/mcp-invoke! "system/status" {})
-(iface/mcp-stop!)
+
 
 ;; Chat queries
 (iface/chat-register-telegram! "YOUR_BOT_TOKEN")
@@ -111,11 +103,7 @@
 (iface/chat-clear-session! chat-id)
 (iface/chat-stop!)
 
-;; Agent queries
-(iface/agent-configure! {:provider :openai :api-key "sk-..." :model "gpt-4o-mini"})
-(iface/agent-config)
-(iface/agent-generate "What's the system status?" [{:role :user :content "Hello"}])
-(iface/q [:agent/provider :agent/model :agent/persona-preview])
+
 
 ;; Auth queries
 (iface/auth-get-user :telegram "123456" "Alice")
@@ -145,13 +133,7 @@
 (iface/sandbox-exec-shell "echo 'Hello'" {:profile :restricted})
 (iface/safety-report)
 
-;; Skill system
-(iface/skill-register-built-ins!)           ; Register built-in skills
-(iface/skill-load! :file/operations)        ; Load a skill
-(iface/skill-list)                          ; List all registered skills
-(iface/skill-loaded)                        ; List loaded skills
-(iface/skill-tools :file/operations)        ; Get tools from skill
-(iface/skill-stats)                         ; Get skill statistics
+
 ```
 
 ## Current Capabilities
@@ -205,23 +187,38 @@ In REPL:
 4. ~~**Knowledge** — File system as queryable graph~~ ✓ Done
 5. ~~**API** — HTTP client capabilities~~ ✓ Done
 6. ~~**OpenAPI** — OpenAPI specs → callable clients via Martian~~ ✓ Done
-7. ~~**AI** — AI tooling hooks~~ ✓ Done
-8. ~~**Telemetry** — Structured logging and metrics~~ ✓ Done
-9. ~~**MCP** — Model Context Protocol server~~ ✓ Done
-10. ~~**Chat** — Telegram, Discord, Slack bot adapters~~ ✓ Done
-11. ~~**Agent** — AI Agent with LLM providers~~ ✓ Done
-12. ~~**Auth** — User authentication, rate limiting~~ ✓ Done
-13. ~~**Dashboard** — Web dashboard for observability~~ ✓ Done
-14. ~~**Tool Sandbox** — Timeouts, memory limits for tool execution~~ ✓ Done
-15. ~~**Tool Allowlist** — Per-session/per-user permissions~~ ✓ Done
-16. ~~**Sandboxed Execution** — Docker-based shell/code execution~~ ✓ Done
-17. ~~**Skill System** — Reusable skill definitions with dependency management~~ ✓ Done
+7. ~~**Telemetry** — Structured logging and metrics~~ ✓ Done
+8. ~~**Chat** — Telegram, Discord, Slack bot adapters~~ ✓ Done
+9. ~~**Auth** — User authentication, rate limiting~~ ✓ Done
+10. ~~**Dashboard** — Web dashboard for observability~~ ✓ Done
+11. ~~**Tool Sandbox** — Timeouts, memory limits for tool execution~~ ✓ Done
+12. ~~**Tool Allowlist** — Per-session/per-user permissions~~ ✓ Done
+13. ~~**Sandboxed Execution** — Docker-based shell/code execution~~ ✓ Done
+
 18. ~~**Prompt Injection Protection** — Input sanitization, pattern detection, risk scoring~~ ✓ Done
 19. ~~**Content Quarantine** — Track external content, limit tool chaining~~ ✓ Done
 20. ~~**Human Confirmation** — Require approval for dangerous operations~~ ✓ Done
 21. ~~**Output Schema Validation** — Validate LLM tool calls against schemas before execution~~ ✓ Done
 
 **🐍 SYSTEM COMPLETE** — All P0 safety features implemented. The Ouroboros is production-ready with comprehensive security controls.
+
+**Architectural Pivot (2026-02-05)**: Transitioned to ECA integration model + learning flywheel foundation — transforming chat from utility assistant to wisdom partner via progressive disclosure (utility → understanding → insight → wisdom).
+
+**Key Changes**:
+- ✅ **Learning Memory System** — Store/recall insights, patterns, wisdom
+- ✅ **Educational Approval** — Tool approvals with risk explanations, best practices  
+- ✅ **ECA Integration** — JSON-RPC client with callback system, auto-start
+- ✅ **Interface Updates** — Lazy-loaded APIs for learning operations
+- 🔄 **Approval Bridge Integration** — Educational messages for tool approvals (partial)
+- 🔄 **Chat Commands** — `/learn`, `/recall`, `/wisdom` commands (pending)
+- 🔄 **Progressive Disclosure** — Depth manager for utility→understanding→wisdom (pending)
+
+**Decommissioned**:
+- ✗ MCP server (functionality delegated to ECA)
+- ✗ Internal AI/agent system (delegated to ECA)
+- ✗ Skill system (replaced by learning flywheel)
+
+**Next Phase**: Complete approval bridge integration, add chat commands, implement progressive disclosure in chat handler.
 
 ## Shared Components
 
@@ -259,12 +256,11 @@ docker-compose up -d
 
 # Production build
 docker build -t ouroboros .
-docker run -d --env-file .env -p 3000:3000 -p 8080:8080 ouroboros
+docker run -d --env-file .env -p 8080:8080 ouroboros
 ```
 
 **Ports:**
 - 8888 - nREPL (optional, debugging)
-- 3000 - MCP server
 - 8080 - Web dashboard
 
 ### CI/CD

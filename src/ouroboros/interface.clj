@@ -19,8 +19,7 @@
    [ouroboros.knowledge :as knowledge]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.api :as api]
-   [ouroboros.openapi :as openapi]
-   [ouroboros.mcp :as mcp]))
+   [ouroboros.openapi :as openapi]))
 
 ;; ============================================================================
 ;; Lazy Loading Helper
@@ -114,32 +113,35 @@
 ;; ============================================================================
 
 (defn files
-  "List files in directory
+  "List files in directory via EQL query
    
    Usage: (files \"src\")"
   [dir-path]
-  (knowledge/list-files dir-path))
+  (q [{[:dir-path dir-path]
+       [{:knowledge/files [:file/path :file/name]}]}]))
 
 (defn file
-  "Get file info
+  "Get file info via EQL query
    
    Usage: (file \"README.md\")"
   [file-path]
-  (knowledge/get-file file-path))
+  (q [{[:file-path file-path]
+       [:file/path :file/name :file/size :file/content-preview]}]))
 
 (defn search
-  "Search files by pattern
+  "Search files by pattern via EQL query
    
    Usage: (search \"*.clj\")"
   [pattern]
-  (knowledge/search-files pattern))
+  (q [{[:search-pattern pattern]
+       [{:knowledge/search [:file/path :file/name :file/size]}]}]))
 
 (defn project
-  "Get project structure
+  "Get project structure via EQL query
    
    Usage: (project)"
   []
-  (knowledge/get-project))
+  (q [:knowledge/project]))
 
 ;; ============================================================================
 ;; API (Direct)
@@ -150,14 +152,14 @@
    
    Usage: (http-get \"https://api.example.com/data\")"
   [url]
-  (api/http-get url))
+  (api/http-request :get url {}))
 
 (defn http-request!
   "Make HTTP request with method
    
    Usage: (http-request! :post \"https://api.example.com/data\" {:body {...}})"
   [method url opts]
-  (api/http-request! method url opts))
+  (api/http-request method url opts))
 
 ;; ============================================================================
 ;; OpenAPI (Direct)
@@ -168,7 +170,7 @@
    
    Usage: (openapi-bootstrap! :petstore \"https://petstore.swagger.io/v2/swagger.json\")"
   [name spec-url]
-  (openapi/bootstrap-client! name spec-url))
+  (openapi/bootstrap! name spec-url))
 
 (defn openapi-clients
   "List registered OpenAPI clients"
@@ -188,26 +190,6 @@
    Usage: (openapi-call! :petstore :get-pet-by-id {:petId 123})"
   [client-name operation params]
   (openapi/call-operation client-name operation params))
-
-;; ============================================================================
-;; AI (Lazy) - DEPRECATED
-;; ============================================================================
-
-(def ai-tools
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.ai 'ai-tools))
-(def ai-call!
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.ai 'ai-call!))
-(def ai-context
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.ai 'ai-context))
-(def ai-project
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.ai 'ai-project))
-(def ai-full
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.ai 'ai-full))
 
 ;; ============================================================================
 ;; Telemetry (Direct)
@@ -240,38 +222,7 @@
 (def metrics-status (lazy-fn 'ouroboros.interface.metrics 'metrics-status))
 (def metrics-snapshot (lazy-fn 'ouroboros.interface.metrics 'metrics-snapshot))
 
-;; ============================================================================
-;; MCP (Direct)
-;; ============================================================================
 
-(defn mcp-tools
-  "List MCP-exposed tools"
-  []
-  (mcp/list-mcp-tools))
-
-(defn mcp-start!
-  "Start MCP server
-   
-   Usage: (mcp-start! {:port 3000})"
-  ([] (mcp/start!))
-  ([opts] (mcp/start! opts)))
-
-(defn mcp-stop!
-  "Stop MCP server"
-  []
-  (mcp/stop!))
-
-(defn mcp-status
-  "Get MCP server status"
-  []
-  (mcp/status))
-
-(defn mcp-invoke!
-  "Invoke tool via MCP
-   
-   Usage: (mcp-invoke! \"system/status\" {})"
-  [tool-name arguments]
-  (mcp/invoke-tool tool-name arguments))
 
 ;; ============================================================================
 ;; Chat (Lazy)
@@ -285,20 +236,6 @@
 (def chat-register-discord! (lazy-fn 'ouroboros.interface.chat 'chat-register-discord!))
 (def chat-sessions (lazy-fn 'ouroboros.interface.chat 'chat-sessions))
 (def chat-clear-session! (lazy-fn 'ouroboros.interface.chat 'chat-clear-session!))
-
-;; ============================================================================
-;; Agent (Lazy) - DEPRECATED
-;; ============================================================================
-
-(def agent-configure!
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.agent 'agent-configure!))
-(def agent-config
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.agent 'agent-config))
-(def agent-generate
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.agent 'agent-generate))
 
 ;; ============================================================================
 ;; Auth (Lazy)
@@ -328,17 +265,6 @@
 (def lane-status (lazy-fn 'ouroboros.interface.lane 'lane-status))
 (def lane-stats (lazy-fn 'ouroboros.interface.lane 'lane-stats))
 (def with-session-lane (lazy-fn 'ouroboros.interface.lane 'with-session-lane))
-
-;; ============================================================================
-;; Context Guard (Lazy)
-;; ============================================================================
-
-(def context-check! (lazy-fn 'ouroboros.interface.context-guard 'context-check!))
-(def context-force-compact! (lazy-fn 'ouroboros.interface.context-guard 'context-force-compact!))
-(def context-count-tokens (lazy-fn 'ouroboros.interface.context-guard 'context-count-tokens))
-(def context-register! (lazy-fn 'ouroboros.interface.context-guard 'context-register!))
-(def context-update! (lazy-fn 'ouroboros.interface.context-guard 'context-update!))
-(def context-stats (lazy-fn 'ouroboros.interface.context-guard 'context-stats))
 
 ;; ============================================================================
 ;; Memory JSONL (Lazy)
@@ -415,44 +341,7 @@
 (def confirm-stats (lazy-fn 'ouroboros.interface.confirmation 'confirm-stats))
 (def confirm-security-report (lazy-fn 'ouroboros.interface.confirmation 'confirm-security-report))
 
-;; ============================================================================
-;; Schema Validation (Lazy) - DEPRECATED
-;; ============================================================================
 
-(def schema-validate
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.schema 'schema-validate))
-(def schema-validate-tool
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.schema 'schema-validate-tool))
-(def schema-strict
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.schema 'schema-strict))
-(def schema-required
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.schema 'schema-required))
-(def schema-optional
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.schema 'schema-optional))
-(def schema->json
-  "DEPRECATED: Use ECA instead. https://github.com/editor-code-assistant/eca"
-  (lazy-fn 'ouroboros.interface.schema 'schema->json))
-
-;; ============================================================================
-;; Skill (Lazy)
-;; ============================================================================
-
-(def skill-register! (lazy-fn 'ouroboros.interface.skill 'skill-register!))
-(def skill-load! (lazy-fn 'ouroboros.interface.skill 'skill-load!))
-(def skill-unload! (lazy-fn 'ouroboros.interface.skill 'skill-unload!))
-(def skill-reload! (lazy-fn 'ouroboros.interface.skill 'skill-reload!))
-(def skill-list (lazy-fn 'ouroboros.interface.skill 'skill-list))
-(def skill-loaded (lazy-fn 'ouroboros.interface.skill 'skill-loaded))
-(def skill-tools (lazy-fn 'ouroboros.interface.skill 'skill-tools))
-(def skill-tool->skill (lazy-fn 'ouroboros.interface.skill 'skill-tool->skill))
-(def skill-search (lazy-fn 'ouroboros.interface.skill 'skill-search))
-(def skill-stats (lazy-fn 'ouroboros.interface.skill 'skill-stats))
-(def skill-register-built-ins! (lazy-fn 'ouroboros.interface.skill 'skill-register-built-ins!))
 
 ;; ============================================================================
 ;; ECA Client (NEW - Phase 1)
@@ -506,6 +395,80 @@
 
    Usage: (eca-reject-tool! {:tool \"shell/exec\" :reason \"Too dangerous\"})"
   (lazy-fn 'ouroboros.interface.eca-client 'eca-reject-tool!))
+
+;; ============================================================================
+;; Learning System (NEW - Wisdom Flywheel)
+;; ============================================================================
+
+(def learning-save-insight!
+  "Save a learning insight
+
+   Usage: (learning-save-insight! :user-123 {:title \"...\" :insights [...]})"
+  (lazy-fn 'ouroboros.interface.learning 'save-insight!))
+
+(def learning-get-history
+  "Get learning history for a user
+
+   Usage: (learning-get-history :user-123)"
+  (lazy-fn 'ouroboros.interface.learning 'get-history))
+
+(def learning-recall-pattern
+  "Recall learnings by pattern
+
+   Usage: (learning-recall-pattern :user-123 \"sequence-type\")"
+  (lazy-fn 'ouroboros.interface.learning 'recall-pattern))
+
+(def learning-find-related
+  "Find related learnings for context
+
+   Usage: (learning-find-related :user-123 \"python error\")"
+  (lazy-fn 'ouroboros.interface.learning 'find-related-learnings))
+
+(def learning-create-from-error
+  "Create learning from error/fix pattern
+
+   Usage: (learning-create-from-error :user-123 \"TypeError\" \"Fix\" \"context\")"
+  (lazy-fn 'ouroboros.interface.learning 'create-error-learning))
+
+(def learning-apply!
+  "Increment application count for a learning
+
+   Usage: (learning-apply! \"user-123/sequence-types-1234567890\")"
+  (lazy-fn 'ouroboros.interface.learning 'apply-learning!))
+
+(def learning-user-stats
+  "Get learning statistics for user
+
+   Usage: (learning-user-stats :user-123)"
+  (lazy-fn 'ouroboros.interface.learning 'user-stats))
+
+;; ============================================================================
+;; Educational Approval (NEW - Teaching Moments)
+;; ============================================================================
+
+(def educational-enhance-approval
+  "Enhance approval message with educational content
+
+   Usage: (educational-enhance-approval \"file/write\" {:path \"config.json\"})"
+  (lazy-fn 'ouroboros.interface.educational-approval 'enhance-approval))
+
+(def educational-calculate-risk
+  "Calculate risk level for tool
+
+   Usage: (educational-calculate-risk \"shell/exec\" {:command \"rm -rf /tmp\"})"
+  (lazy-fn 'ouroboros.interface.educational-approval 'calculate-risk))
+
+(def educational-get-tool-knowledge
+  "Get knowledge about a tool
+
+   Usage: (educational-get-tool-knowledge \"file/write\")"
+  (lazy-fn 'ouroboros.interface.educational-approval 'get-tool-knowledge))
+
+(def educational-wrap-forward-approval
+  "Wrap forward approval function with educational enhancement
+
+   Usage: (def enhanced (educational-wrap-forward-approval original-forward-fn))"
+  (lazy-fn 'ouroboros.interface.educational-approval 'wrap-forward-approval))
 
 ;; ============================================================================
 ;; REPL

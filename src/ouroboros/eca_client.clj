@@ -58,6 +58,38 @@
 (declare initialize!)
 
 ;; ============================================================================
+;; Callback Registration
+;; ============================================================================
+
+(defn register-callback!
+  "Register a callback function for a specific ECA notification method.
+
+   The callback function will be called with the notification map when a
+   notification with matching method is received.
+
+   Usage: (register-callback! \"chat/toolCallApprove\" handle-tool-call)
+          (register-callback! \"chat/content-received\" handle-content)"
+  [method callback-fn]
+  (swap! state update :callbacks assoc method callback-fn)
+  nil)
+
+(defn unregister-callback!
+  "Remove callback for a method.
+
+   Usage: (unregister-callback! \"chat/toolCallApprove\")"
+  [method]
+  (swap! state update :callbacks dissoc method)
+  nil)
+
+(defn clear-callbacks!
+  "Remove all callbacks.
+
+   Usage: (clear-callbacks!)"
+  []
+  (swap! state assoc :callbacks {})
+  nil)
+
+;; ============================================================================
 ;; Configuration
 ;; ============================================================================
 
@@ -138,6 +170,15 @@
 
     (telemetry/emit! {:event :eca/notification
                       :method method})
+
+    ;; Call registered callback if any
+    (when-let [callback (get-in @state [:callbacks method])]
+      (try
+        (callback notification)
+        (catch Exception e
+          (telemetry/emit! {:event :eca/callback-error
+                            :method method
+                            :error (.getMessage e)}))))
 
     (case method
       "chat/content-received"
@@ -250,35 +291,40 @@
                               :version "0.1.0"}
                 :capabilities {}
                 :workspace-folders [{:uri (str "file://" (System/getProperty "user.dir"))
-                                    :name "ouroboros"}]}
-        response-promise (send-request! "initialize" params)]
+                                     :name "ouroboros"}]}
+        response-promise (send-request! "initialize" params)
+        timeout-ms 30000
+        start-time (System/currentTimeMillis)]
 
     (telemetry/emit! {:event :eca/initialize})
 
     (try
-      (let [response @response-promise
-            timeout-ms 30000
-            start-time (System/currentTimeMillis)]
-
-        (loop []
-          (if @response
-            (do
-              (if (:error response)
-                (do
-                  (telemetry/emit! {:event :eca/initialize-error
-                                    :error (:error response)})
-                  (println "✗ ECA initialize error:" (:error response)))
-                (do
-                  (println "✓ ECA initialized")
-                  (telemetry/emit! {:event :eca/initialized}))))
-
-            (if (> (- (System/currentTimeMillis) start-time) timeout-ms)
+      ;; Wait for response with timeout using polling loop
+      (loop []
+        (cond
+          ;; Response received
+          (realized? response-promise)
+          (let [response @response-promise]
+            (if (:error response)
               (do
-                (telemetry/emit! {:event :eca/initialize-timeout})
-                (println "⚠️  ECA initialize timeout"))
+                (telemetry/emit! {:event :eca/initialize-error
+                                  :error (:error response)})
+                (println "✗ ECA initialize error:" (:error response)))
               (do
-                (Thread/sleep 100)
-                (recur))))))
+                (println "✓ ECA initialized")
+                (telemetry/emit! {:event :eca/initialized}))))
+
+          ;; Timeout reached
+          (> (- (System/currentTimeMillis) start-time) timeout-ms)
+          (do
+            (telemetry/emit! {:event :eca/initialize-timeout})
+            (println "⚠️  ECA initialize timeout"))
+
+          ;; Keep waiting
+          :else
+          (do
+            (Thread/sleep 100)
+            (recur))))
 
       (catch Exception e
         (telemetry/emit! {:event :eca/initialize-exception

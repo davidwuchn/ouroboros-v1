@@ -17,9 +17,9 @@
 
 (deftest tool-danger-classification
   (testing "Safe tools are auto-approved"
-    (is (= :safe (ouroboros.eca-approval-bridge/eca-tool-danger-level "file/read")))
-    (is (= :safe (ouroboros.eca-approval-bridge/eca-tool-danger-level "grep")))
-    (is (= :safe (ouroboros.eca-approval-bridge/eca-tool-danger-level "status"))))
+    (is (= :safe (bridge/eca-tool-danger-level "file/read")))
+    (is (= :safe (bridge/eca-tool-danger-level "grep")))
+    (is (= :safe (bridge/eca-tool-danger-level "status"))))
 
   (testing "Dangerous tools require confirmation"
     (is (= :confirmation-required (bridge/eca-tool-danger-level "file/write")))

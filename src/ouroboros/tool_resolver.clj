@@ -9,7 +9,7 @@
        #'memory-get                    ; Resolver var
        :memory/get                     ; Tool name
        {:description "Get value from memory"
-        :unique? true                  ; Expose via MCP
+        :unique? true                  ; Expose to ECA
         :category :memory})            ; Category
 
    Or auto-map resolvers to tools using naming convention:
@@ -115,35 +115,7 @@
     (println (str "✓ Registered " (count mappings) " tools from resolvers"))
     names))
 
-;; ============================================================================
-;; MCP Integration
-;; ============================================================================
 
-(defn resolver->mcp-schema
-  "Convert a tool mapping to MCP tool schema format"
-  [mapping]
-  (let [resolver-var (:tool/resolver mapping)
-        input-spec (::pco/input (meta resolver-var))]
-    {:name (str/replace (str (:tool/name mapping)) #":" "")
-     :description (or (:description mapping) (:doc (meta resolver-var)))
-     :inputSchema {:type "object"
-                   :properties (into {} (map (fn [[k v]]
-                                               [(name k)
-                                                (merge {:type (name (or (:type v) :string))}
-                                                       (when (:description v)
-                                                         {:description (:description v)})
-                                                       (when (:default v)
-                                                         {:default (:default v)}))])
-                                             (pco-input->tool-params input-spec)))
-                   :required (vec (keep (fn [[k v]] (when (:required v) (name k)))
-                                        (pco-input->tool-params input-spec)))}}))
-
-(defn list-mcp-tools-from-resolvers
-  "Get MCP tool schemas for all unique tool mappings"
-  []
-  (->> (vals @resolver-tool-map)
-       (filter :unique?)
-       (map resolver->mcp-schema)))
 
 ;; ============================================================================
 ;; Convenience: Define tools from resolvers
@@ -172,7 +144,4 @@
      :category :memory})
 
   ;; Register all
-  (register-all-resolver-tools!)
-
-  ;; Check MCP schemas
-  (list-mcp-tools-from-resolvers))
+  (register-all-resolver-tools!))

@@ -19,7 +19,8 @@
    [ouroboros.eca-client :as eca]
    [ouroboros.confirmation :as confirmation]
    [ouroboros.eca_approval_bridge :as eca-approval]
-   [ouroboros.resolver-registry :as registry])
+   [ouroboros.resolver-registry :as registry]
+   [ouroboros.learning :as learning])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -243,6 +244,16 @@
                         :error (.getMessage e)}))))
 
 (defn start-all! []
+  ;; Ensure ECA client is running
+  (let [eca-status (eca/status)]
+    (when-not (:running eca-status)
+      (println "◈ Starting ECA client...")
+      (try
+        (eca/start!)
+        (println "✓ ECA client started")
+        (catch Exception e
+          (println "⚠️  Failed to start ECA client:" (.getMessage e))))))
+
   (doseq [[platform adapter] @active-adapters]
     (let [handler (make-message-handler adapter)]
       ;; Wire ECA approval bridge to this adapter

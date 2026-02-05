@@ -28,11 +28,8 @@
 
 (def ^:private default-config
   "Default configuration values"
-  {:ai {:openai {:model "gpt-4o-mini"}
-        :anthropic {:model "claude-3-5-sonnet-20241022"}}
-   :chat {:max-history 10
+  {:chat {:max-history 10
           :rate-limit-ms 1000}
-   :mcp {:port 3000}
    :dashboard {:port 8080}
    :nrepl {:port 8888}})
 
@@ -85,12 +82,6 @@
    "SLACK_APP_TOKEN" [:chat :slack :app-token]
    "SLACK_BOT_TOKEN" [:chat :slack :bot-token]
    "DISCORD_BOT_TOKEN" [:chat :discord :token]
-   "OPENAI_API_KEY" [:ai :openai :api-key]
-   "OPENAI_MODEL" [:ai :openai :model]
-   "ANTHROPIC_API_KEY" [:ai :anthropic :api-key]
-   "ANTHROPIC_MODEL" [:ai :anthropic :model]
-   "OUROBOROS_PERSONA" [:ai :persona]
-   "MCP_PORT" [:mcp :port]
    "DASHBOARD_PORT" [:dashboard :port]
    "NREPL_PORT" [:nrepl :port]})
 
@@ -182,37 +173,11 @@
             :slack (boolean (and (get-in cfg [:chat :slack :app-token])
                                  (get-in cfg [:chat :slack :bot-token])))
             :discord (boolean (get-in cfg [:chat :discord :token]))}
-     :ai {:openai (boolean (get-in cfg [:ai :openai :api-key]))
-          :anthropic (boolean (get-in cfg [:ai :anthropic :api-key]))
-          :model (get-in cfg [:ai :openai :model])}
-     :services {:mcp (get-in cfg [:mcp :port])
-                :dashboard (get-in cfg [:dashboard :port])}}))
+     :services {:dashboard (get-in cfg [:dashboard :port])}}))
 
 ;; ============================================================================
 ;; Auto-start Helpers
 ;; ============================================================================
-
-(defn auto-configure-agent!
-  "Configure AI agent from environment if API key present
-
-   DEPRECATED: This function is deprecated and will be removed.
-   Use ECA for AI configuration instead: https://github.com/editor-code-assistant/eca"
-  []
-  (require '[ouroboros.agent :as agent])
-  (println "⚠️  DEPRECATED: auto-configure-agent! is deprecated.")
-  (println "     Use ECA for AI: https://github.com/editor-code-assistant/eca")
-  (when-let [api-key (get-config [:ai :openai :api-key])]
-    ((resolve 'agent/configure!)
-     {:provider :openai
-      :api-key api-key
-      :model (get-config [:ai :openai :model] "gpt-4o-mini")})
-    (println "✓ Agent configured: OpenAI (deprecated)"))
-  (when-let [api-key (get-config [:ai :anthropic :api-key])]
-    ((resolve 'agent/configure!)
-     {:provider :anthropic
-      :api-key api-key
-      :model (get-config [:ai :anthropic :model] "claude-3-5-sonnet-20241022")})
-    (println "✓ Agent configured: Anthropic (deprecated)")))
 
 (defn auto-start-chat!
   "Auto-start configured chat bots from environment"
@@ -251,20 +216,14 @@
 ;; ============================================================================
 
 (defn start-from-env!
-  "Full startup from environment configuration
+  "Full startup from environment configuration for chat bots
 
-   DEPRECATED: This function is deprecated and will be removed.
-   Use ECA for AI functionality instead: https://github.com/editor-code-assistant/eca
-   
    Usage: bb chat
-   Loads config, configures agent, starts chat bots"
+   Loads config and starts chat bots (Telegram, Slack, Discord)"
   []
   (println "========================================")
   (println "  Ouroboros Chat Bot Startup")
   (println "========================================")
-  (println)
-  (println "⚠️  DEPRECATED: This startup path uses internal AI agent.")
-  (println "     Use ECA for production: https://github.com/editor-code-assistant/eca")
   (println)
 
   ;; Boot system (resolve to avoid circular dep)
@@ -273,9 +232,6 @@
 
   ;; Load config
   (load-config!)
-
-  ;; Configure agent (deprecated)
-  (auto-configure-agent!)
 
   ;; Start chat bots
   (auto-start-chat!)

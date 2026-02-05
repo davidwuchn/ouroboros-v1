@@ -42,7 +42,7 @@
      - :description - Human-readable description
      - :parameters - Parameter schema for the tool
      - :fn - Implementation function (params -> result)
-     - :unique? - (optional) Whether tool is unique to Ouroboros (for MCP filtering)"
+     - :unique? - (optional) Whether tool is unique to Ouroboros (for ECA integration)"
   [tool-name {:keys [description parameters fn unique?] :as spec}]
   (swap! registry-atom assoc tool-name
          {:description description

@@ -85,8 +85,8 @@ bb git:install-hooks    # Install pre-commit hook (runs tests before commits)
 | **Data** | Git history, File system, Memory, HTTP |
 | **AI** | LLM providers, Tool selection, Context |
 | **Chat** | Telegram, Discord, Slack bots, Rate limiting |
-| **Integration** | MCP server, OpenAPI specs, Dashboard |
-| **Extensibility** | Skill system with dependency management |
+| **Integration** | OpenAPI specs, Dashboard |
+
 
 ## Usage
 
@@ -112,10 +112,7 @@ bb git:install-hooks    # Install pre-commit hook (runs tests before commits)
 (iface/tool-safe :file/read {:path "README.md"} :session-123)
 (iface/sandbox-exec-shell "echo 'Hello'" {:profile :restricted})
 
-;; Skill system
-(iface/skill-register-built-ins!)
-(iface/skill-load! :file/operations)
-(iface/skill-tools :file/operations)  ; => [:file/read :file/write ...]
+
 ```
 
 ### Chat Bots
@@ -152,12 +149,7 @@ The dashboard provides a web interface for system observability:
 - Shadow CLJS (hot reload, advanced compilation)
 - Ring/Jetty (backend API server)
 
-### MCP Server
 
-```clojure
-;; Expose tools to any MCP client
-(iface/mcp-start! {:port 3000})
-```
 
 ## Design Principles
 

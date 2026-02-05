@@ -94,7 +94,7 @@
 (def ouroboros-unique-tools
   "Tools that are unique to Ouroboros (not in ECA)
    
-   These should be exposed via MCP for ECA to use.
+   These should be exposed to ECA via protocol.
    
    Categories:
    - git/*        → Git repository operations
@@ -118,7 +118,7 @@
 (def eca-redundant-tools
   "Tools that ECA already has built-in
    
-   These should NOT be exposed via MCP to avoid duplication.
+   These should NOT be exposed to ECA to avoid duplication.
    
    ECA built-in tools:
    - file/read, file/write, file/edit, file/search, file/list
@@ -130,7 +130,7 @@
     :http/get})
 
 (defn unique-tool?
-  "Check if tool should be exposed via MCP"
+  "Check if tool should be exposed to ECA"
   [tool-name]
   (contains? ouroboros-unique-tools tool-name))
 

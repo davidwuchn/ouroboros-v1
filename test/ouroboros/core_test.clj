@@ -204,10 +204,10 @@
     (is (some? @config/config-cache)
         "Config should be cached")
 
-    ;; Verify default values exist
-    (let [model (config/get-config [:ai :openai :model])]
-      (is (string? model)
-          "Should have default model"))
+    ;; Verify default values exist (AI config removed, check chat config instead)
+    (let [max-history (config/get-config [:chat :max-history])]
+      (is (number? max-history)
+          "Should have default max-history"))
 
     (println "  ✓ Configuration verified")))
 
