@@ -6,7 +6,7 @@
 
 ## Architecture Evolution
 
-### 2025-02: Resolver Registry Pattern
+### 2026-02: Resolver Registry Pattern
 
 **Problem:** `query.clj` was a "god module" with 16 requires, creating circular dependencies throughout the system.
 
@@ -893,8 +893,8 @@ The ECA client emits telemetry for observability:
 1. **Persistence:** Atoms are simple but not durable. Should we add Datomic/Datalevin?
 2. **Scaling:** Single-process now. How to distribute across nodes?
 3. **Security:** API tokens are basic. Need OAuth2/SAML for enterprise?
-4. **Frontend:** ✓ ClojureScript/Fulcro implemented
-5. **ECA Tool Bridge:** How to map ECA tools to Ouroboros tool approval?
+4. **Frontend:** ✅ ClojureScript/Fulcro implemented
+5. **ECA Tool Bridge:** ✅ Implemented — ECA forwards tool calls to chat platforms for approval
 
 ---
 

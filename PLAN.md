@@ -1,22 +1,26 @@
 # PLAN.md
 
 > Next steps and future directions for Ouroboros.
+> Last Updated: 2026-02-05
 
 ## Current Status
 
-**ARCHITECTURE SHIFT** — Pivoting to ECA integration model:
-- Chat platforms (Telegram, Discord, Slack) remain core Ouroboros value
+**ARCHITECTURE SHIFT** — ECA integration model active:
+- Chat platforms (Telegram, Discord, Slack) = core Ouroboros value
 - AI/LLM capabilities delegated to ECA (Editor Code Assistant)
-- Ouroboros becomes ECA "editor client" for chat platforms
+- Ouroboros = ECA "editor client" for chat platforms
 
-**LEARNING FLYWHEEL IMPLEMENTED** — Foundation for wisdom-building chat:
-- ✓ **Learning Memory System** - Store/recall insights, patterns, wisdom
-- ✓ **Educational Approval** - Tool approvals with risk explanations, best practices  
-- ✓ **Interface Integration** - Lazy-loaded APIs for all learning operations
-- ◐ **Approval Bridge Integration** - Educational messages for tool approvals (partial)
-- ✅ **Chat Commands** - `/learn`, `/recall`, `/wisdom`, `/build canvas|empathy|valueprop|mvp` commands (ready)
-- ◐ **Progressive Disclosure** - Depth manager for utility→understanding→wisdom (partial: stage suggestions)
-- ✅ **Product Development Flywheel** - Empathy Map → Value Proposition → MVP → Lean Canvas with learning integration
+**Status Key:** ✅ Done | ◐ Partial | 📋 Planned | ✗ Removed
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Learning Memory System | ✅ Done | Store/recall insights, patterns, wisdom |
+| Educational Approval | ✅ Done | Tool approvals with risk explanations |
+| Interface Integration | ✅ Done | Lazy-loaded APIs for learning |
+| Approval Bridge Integration | ◐ Partial | Educational messages for approvals |
+| Chat Commands | ✅ Done | `/learn`, `/recall`, `/wisdom`, `/build` |
+| Progressive Disclosure | ◐ Partial | Stage suggestions implemented |
+| Product Development Flywheel | ✅ Done | Empathy→ValueProp→MVP→Canvas |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
@@ -168,30 +172,17 @@ ECA continues or aborts
 
 ### ECA Integration Status
 
-#### ✅ Phase 1: ECA Protocol Client (Completed)
-- ✅ Create `ouroboros.eca-client` namespace
-- ✅ Implement JSON-RPC message framing (Content-Length header)
-- ✅ Implement initialize handshake
-- ✅ Implement chat/prompt with response parsing
-- ✅ Start/stop ECA process lifecycle
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 1: ECA Protocol Client | ✅ Done | JSON-RPC, handshake, lifecycle |
+| 2: Tool Approval Bridge | ✅ Done | Forward to chat, callbacks, timeouts |
+| 3: MCP Server | ✗ Removed | Delegated to ECA |
+| 4: Polish & Integration | ◐ Partial | Docs, tests, release notes |
 
-#### ◐ Phase 2: Tool Approval Bridge (Partial)
-- ✅ Implement chat/toolCallApprove handler
-- ✅ Forward approval requests to chat platforms
-- ✅ Implement approval/rejection callbacks
-- ✅ Handle timeout (auto-reject for safety)
-- ◐ Test with dangerous tools (file/write, shell/exec)
-
-#### ✗ Phase 3: MCP Server (Decommissioned)
-- MCP functionality delegated to ECA
-- Ouroboros focuses on unique capabilities via direct integration
-
-#### ◐ Phase 4: Polish & Integration (In Progress)
-- ✅ Remove internal LLM/AI code (delegated to ECA)
-- ✅ Update interface.clj to use ECA client
-- ◐ Update documentation
-- ◐ End-to-end integration tests
-- ◐ Release notes
+**Remaining:**
+- [ ] End-to-end integration tests
+- [ ] Release notes
+- [ ] Protocol compatibility tests
 
 ### What Gets Removed/Deprecated
 
@@ -233,25 +224,19 @@ ECA continues or aborts
 
 ## Immediate Priorities
 
-### 1. ECA Integration ✅ LARGELY COMPLETE
-- ✅ Phase 1: ECA Protocol Client (Done)
-- ◐ Phase 2: Tool Approval Bridge (Partial: approval bridge integration)
-- ✗ Phase 3: MCP Bridge (Decommissioned)
-- ◐ Phase 4: Polish & Integration (In progress: docs, tests, release notes)
+### 1. ECA Integration — ✅ Done
+All core integration complete. Remaining polish tracked above.
 
 ### 2. Test Coverage
 - [x] Chat adapter tests (protocol compliance)
 - [x] Tool execution tests (all 13 tools)
 - [x] Error handling tests (boundary conditions)
-- [ ] Integration tests (full chat flow with ECA) — NEW
+- [ ] Integration tests (full chat flow with ECA) — **Next**
 
-### 3. Infrastructure Hardening ✅ COMPLETE
-- [x] Fix Docker health check (remove resolve)
-- [x] Fix CI secret detection (cover all token types)
-- [x] Update bb test task (run all test suites)
-- [x] Split interface.clj (God Object refactor)
+### 3. Infrastructure Hardening — ✅ Done
+All items completed. See [CHANGELOG.md](CHANGELOG.md).
 
-### 4. Web UX Platform Initiative 📋 NEW
+### 4. Web UX Platform Initiative — 📋 Current Focus
 - [ ] Phase 1: Foundation (Project scaffolding, basic builders)
 - [ ] Phase 2: Interactive Builders (Rich canvas, real-time updates)
 - [ ] Phase 3: Collaboration (Multi-user, comments, versioning)
@@ -483,17 +468,17 @@ These are now handled by ECA:
 
 | Priority | Feature | Effort | Impact | Status |
 |----------|---------|--------|--------|--------|
-| **P0** | **ECA Protocol Client** | Medium | 🔴 Critical | ✅ Done |
-| **P0** | **Tool Approval Bridge** | Medium | 🔴 Critical | ✅ Done |
-| **P0** | **Tool chaining limits** | Low | 🔴 High | ✅ Done |
-| **P0** | **Quarantine external content** | Medium | 🔴 High | ✅ Done |
-| **P1** | **Web UX Platform** | High | 🟡 High | 📋 Next |
-| **P1** | **Chat Adapter → ECA integration** | Medium | 🔴 High | ✅ Done |
-| **P1** | **Approval bridge completion** | Medium | 🟡 Medium | 📋 Next |
-| **P2** | **Streaming responses** | Medium | 🟡 Medium | 📋 Later |
-| **P2** | **Metrics export** | Low | 🟢 Low | 📋 Later |
-| **P3** | **Context-aware selection** | High | 🟢 Low | 📋 Later |
-| **P3** | **Plugin system** | High | 🟢 Low | 📋 Later |
+| **P0** | ECA Protocol Client | Medium | 🔴 Critical | ✅ Done |
+| **P0** | Tool Approval Bridge | Medium | 🔴 Critical | ✅ Done |
+| **P0** | Tool chaining limits | Low | 🔴 High | ✅ Done |
+| **P0** | Quarantine external content | Medium | 🔴 High | ✅ Done |
+| **P1** | **Web UX Platform** | High | 🟡 High | 📋 **Current** |
+| **P1** | Chat Adapter → ECA integration | Medium | 🔴 High | ✅ Done |
+| **P1** | Approval bridge completion | Medium | 🟡 Medium | ◐ Partial |
+| **P2** | Streaming responses | Medium | 🟡 Medium | 📋 Planned |
+| **P2** | Metrics export | Low | 🟢 Low | 📋 Planned |
+| **P3** | Context-aware selection | High | 🟢 Low | 📋 Planned |
+| **P3** | Plugin system | High | 🟢 Low | 📋 Planned |
 
 ### Features Removed (Delegated to ECA)
 

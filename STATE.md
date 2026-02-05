@@ -1,42 +1,42 @@
 # STATE.md
 
 > What is true now. The current snapshot of the system.
-> Updated: 2026-02-05 (Latest: Learning Flywheel Foundation)
+> Last Updated: 2026-02-05
 
 ## System Status
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Engine (∅) | ✓ Running | Statechart lifecycle operational |
-| Query | ✓ Active | Pathom EQL interface exposed |
-| Interface | ✓ Ready | Unified boot/shutdown via `ouroboros.interface` |
-| nREPL | ✓ Port 8888 | Auto-boots system on connect |
-| History | ✓ Active | Git resolvers for commits, status, branches |
-| Introspection | ✓ Active | Engine queries its own statechart |
-| Memory | ✓ Active | Cross-session persistence via EDN |
-| Knowledge | ✓ Active | File system as queryable graph |
-| API | ✓ Active | HTTP client via Pathom resolvers |
-| OpenAPI | ✓ Active | OpenAPI specs → callable clients via Martian |
-| Telemetry | ✓ Active | Structured logging, metrics, observability |
+| Engine (∅) | ✅ Running | Statechart lifecycle operational |
+| Query | ✅ Active | Pathom EQL interface exposed |
+| Interface | ✅ Ready | Unified boot/shutdown via `ouroboros.interface` |
+| nREPL | ✅ Port 8888 | Auto-boots system on connect |
+| History | ✅ Active | Git resolvers for commits, status, branches |
+| Introspection | ✅ Active | Engine queries its own statechart |
+| Memory | ✅ Active | Cross-session persistence via EDN |
+| Knowledge | ✅ Active | File system as queryable graph |
+| API | ✅ Active | HTTP client via Pathom resolvers |
+| OpenAPI | ✅ Active | OpenAPI specs → callable clients via Martian |
+| Telemetry | ✅ Active | Structured logging, metrics, observability |
 
-| Chat | ✓ Active | Telegram, Discord, Slack bot adapters (shared WebSocket) |
-| **Config** | **✓ New** | **Environment-based configuration (.env, env vars)** |
-| **Auth** | **✓ New** | **User authentication, permissions, rate limiting** |
-| **Dashboard** | **✓ New** | **Web dashboard for observability** |
-| **CI/CD** | **✓ New** | **GitHub Actions + Docker deployment** |
-| **Tool Sandbox** | **✓ New** | **Timeouts, memory limits, error isolation for tool execution** |
-| **Tool Allowlist** | **✓ New** | **Per-session/per-user tool permissions** |
-| **Sandboxed Execution** | **✓ New** | **Docker/container-based shell/code execution** |
+| Chat | ✅ Active | Telegram, Discord, Slack bot adapters (shared WebSocket) |
+| **Config** | ✅ Done | **Environment-based configuration (.env, env vars)** |
+| **Auth** | ✅ Done | **User authentication, permissions, rate limiting** |
+| **Dashboard** | ✅ Done | **Web dashboard for observability** |
+| **CI/CD** | ✅ Done | **GitHub Actions + Docker deployment** |
+| **Tool Sandbox** | ✅ Done | **Timeouts, memory limits, error isolation for tool execution** |
+| **Tool Allowlist** | ✅ Done | **Per-session/per-user tool permissions** |
+| **Sandboxed Execution** | ✅ Done | **Docker/container-based shell/code execution** |
 
-| **Prompt Injection Protection** | **✓ New** | **Input sanitization, pattern detection, risk scoring** |
-| **Content Quarantine** | **✓ New** | **Track external content, limit tool chaining after exposure** |
-| **Human Confirmation** | **✓ New** | **Require approval for dangerous operations (file/write, shell/exec)** |
-| **Output Schema Validation** | **✓ New** | **Validate LLM tool calls against schemas before execution** |
-| **ECA Client** | **✓ Ready** | **JSON-RPC connection to ECA binary (auto-start)** |
-| **Learning Memory System** | **✓ Ready** | **Store/recall insights, patterns, wisdom** |
-| **Educational Approval** | **✓ Ready** | **Tool approvals with risk explanations, best practices** |
-| **Learning Interface** | **✓ Ready** | **Lazy-loaded API for learning operations** |
-| **Lean Canvas Builder** | **✓ Ready** | **Interactive Lean Canvas creation with learning integration** |
+| **Prompt Injection Protection** | ✅ Done | **Input sanitization, pattern detection, risk scoring** |
+| **Content Quarantine** | ✅ Done | **Track external content, limit tool chaining after exposure** |
+| **Human Confirmation** | ✅ Done | **Require approval for dangerous operations (file/write, shell/exec)** |
+| **Output Schema Validation** | ✅ Done | **Validate LLM tool calls against schemas before execution** |
+| **ECA Client** | ✅ Done | **JSON-RPC connection to ECA binary (auto-start)** |
+| **Learning Memory System** | ✅ Done | **Store/recall insights, patterns, wisdom** |
+| **Educational Approval** | ✅ Done | **Tool approvals with risk explanations, best practices** |
+| **Learning Interface** | ✅ Done | **Lazy-loaded API for learning operations** |
+| **Lean Canvas Builder** | ✅ Done | **Interactive Lean Canvas creation with learning integration** |
 
 **Verified Working:**
 ```clojure
@@ -176,30 +176,18 @@ In REPL:
 ## Git State
 
 - Branch: `main`
-- Ahead of origin: 21+ commits
-- Latest: Tool registry restructuring + comprehensive test suite
 - Status: Clean (working directory clean)
+- Last Updated: 2026-02-05
 
-## Known Gaps / Next Steps
+## Completed Features
 
-1. ~~**History** — Git resolvers for commit history, diffs~~ ✓ Done
-2. ~~**Introspection** — Engine queries Engine (meta-statecharts)~~ ✓ Done
-3. ~~**Memory** — Cross-session persistence~~ ✓ Done
-4. ~~**Knowledge** — File system as queryable graph~~ ✓ Done
-5. ~~**API** — HTTP client capabilities~~ ✓ Done
-6. ~~**OpenAPI** — OpenAPI specs → callable clients via Martian~~ ✓ Done
-7. ~~**Telemetry** — Structured logging and metrics~~ ✓ Done
-8. ~~**Chat** — Telegram, Discord, Slack bot adapters~~ ✓ Done
-9. ~~**Auth** — User authentication, rate limiting~~ ✓ Done
-10. ~~**Dashboard** — Web dashboard for observability~~ ✓ Done
-11. ~~**Tool Sandbox** — Timeouts, memory limits for tool execution~~ ✓ Done
-12. ~~**Tool Allowlist** — Per-session/per-user permissions~~ ✓ Done
-13. ~~**Sandboxed Execution** — Docker-based shell/code execution~~ ✓ Done
+All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 
-18. ~~**Prompt Injection Protection** — Input sanitization, pattern detection, risk scoring~~ ✓ Done
-19. ~~**Content Quarantine** — Track external content, limit tool chaining~~ ✓ Done
-20. ~~**Human Confirmation** — Require approval for dangerous operations~~ ✓ Done
-21. ~~**Output Schema Validation** — Validate LLM tool calls against schemas before execution~~ ✓ Done
+## Current Focus / Next Steps
+
+1. **Web UX Platform** — Interactive product development workspace
+2. **Metrics Export** — Prometheus/OpenTelemetry format
+3. **Streaming Responses** — Wire ECA streaming to chat platforms
 
 **🐍 SYSTEM COMPLETE** — All P0 safety features implemented. The Ouroboros is production-ready with comprehensive security controls.
 
@@ -274,5 +262,5 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
 ## Active Decisions
 
 - nREPL auto-boots system — trade-off: convenience vs control
-- State stored in atoms — simple, not durable
-- Pathom resolvers are static — could be dynamically registered
+- Registry pattern for resolvers — decoupled, self-registering
+- ECA integration for AI — delegate LLM/tool handling, focus on chat platforms

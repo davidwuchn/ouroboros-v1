@@ -120,7 +120,7 @@ Or manually require resolver namespaces:
 
 ### Lazy Loading Interface
 
-The interface namespace now uses lazy loading:
+The interface namespace uses lazy loading:
 
 ```clojure
 (require '[ouroboros.interface :as iface])
@@ -139,6 +139,24 @@ Check loaded namespaces:
 @iface/loaded-namespaces
 ;; => #{ouroboros.interface.memory ouroboros.interface.knowledge}
 ```
+
+### ECA Integration
+
+AI/LLM capabilities are delegated to ECA (Editor Code Assistant):
+
+```clojure
+;; Start ECA connection
+(require '[ouroboros.eca-client :as eca])
+(eca/start!)
+
+;; Send chat prompt
+(eca/chat-prompt "What files are in this project?")
+
+;; Tool approvals flow through chat platforms
+;; ECA → Ouroboros → Telegram/Discord/Slack → User → Ouroboros → ECA
+```
+
+**Why:** ECA provides 10+ LLM providers, editor-grade tools, and sophisticated context management. Ouroboros focuses on chat platform integration and unique capabilities.
 
 ---
 

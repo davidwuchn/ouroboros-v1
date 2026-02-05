@@ -169,4 +169,3 @@ The dashboard provides a web interface for system observability:
 ## License
 
 MIT — See LICENSE file
-# Git Hooks
