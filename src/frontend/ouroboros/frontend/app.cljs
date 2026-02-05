@@ -4,7 +4,6 @@
    [com.fulcrologic.fulcro.application :as app]
    [com.fulcrologic.fulcro.networking.http-remote :as http]
    [com.fulcrologic.fulcro.algorithms.merge :as merge]
-   [com.fulcrologic.fulcro.components :as comp]
    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
@@ -12,7 +11,6 @@
 ;; ============================================================================
 
 (defonce app
-  "The Fulcro application instance"
   (app/fulcro-app
    {:remotes
     {:remote (http/fulcro-http-remote {:url "/api/eql"})}

@@ -9,8 +9,7 @@
    
    Used by Discord and Slack adapters."
   (:require
-   [cheshire.core :as json]
-   [clojure.string :as str])
+   [cheshire.core :as json])
   (:import
    [java.net URI]
    [java.net.http WebSocket HttpClient WebSocket$Listener]

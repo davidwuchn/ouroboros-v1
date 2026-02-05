@@ -160,6 +160,68 @@ AI/LLM capabilities are delegated to ECA (Editor Code Assistant):
 
 ---
 
+## AI Assistant Quick Reference
+
+### System Overview (30-Second Context)
+Ouroboros = Chat platforms (Telegram/Discord/Slack) + Web UX collaborative canvas + ECA AI integration.
+Current focus: 5-phase product development flywheel (Empathy→Value Prop→MVP→Lean Canvas).
+
+### Key Namespaces
+| File | Purpose |
+|------|---------|
+| `ouroboros.webux` | Project CRUD, builder sessions |
+| `ouroboros.collaboration` | Real-time presence, cursors, comments |
+| `ouroboros.wisdom` | AI templates, insights, ECA context |
+| `ouroboros.analytics` | Metrics, progress tracking, predictions |
+| `ouroboros.offline-sync` | Queue, conflict resolution |
+| `ouroboros.embed` | iframe/SDK for third-party integration |
+| `ouroboros.interface` | Unified boot/query/shutdown API |
+
+### Common REPL Commands
+```clojure
+(require '[ouroboros.interface :as iface])
+(iface/boot!)                    ; Start system
+(iface/q [:system/status])        ; Check health
+(iface/q [:webux/project-count])  ; Get stats
+
+;; Web UX operations
+(require '[ouroboros.webux :as webux])
+(webux/create-project! {:user-id :test :name "Project"})
+
+;; Template library
+(require '[ouroboros.wisdom :as wisdom])
+(wisdom/list-templates)
+
+;; Analytics
+(require '[ouroboros.analytics :as analytics])
+(analytics/project-progress :project-id :user-id)
+```
+
+### Architecture Decisions
+- **ECA Integration**: LLM/tools delegated to ECA binary (JSON-RPC over stdio)
+- **Memory**: JSONL + EDN persistence (not DB), cross-session storage
+- **Web UX**: Fulcro/ClojureScript frontend, Pathom/EQL backend
+- **Chat**: Protocol-based adapters (Telegram HTTP, Discord/Slack WebSocket)
+- **Statecharts**: Engine (∅) manages system lifecycle with formal state machine
+
+### Testing
+```bash
+bb test          # Core tests (43 tests)
+bb test:webux    # WebUX tests (requires Clojure, not Babashka)
+```
+
+### Documentation Hierarchy
+| File | Purpose |
+|------|---------|
+| README.md | User onboarding |
+| AGENTS.md | This file — bootstraps AI/you |
+| STATE.md | Current system status |
+| PLAN.md | Future roadmap, architecture decisions |
+| LEARNING.md | Discovered patterns, insights |
+| CHANGELOG.md | Commit history |
+
+---
+
 ## Rule for ψ (AI)
 
 ### Auto-Update Documentation on Learning

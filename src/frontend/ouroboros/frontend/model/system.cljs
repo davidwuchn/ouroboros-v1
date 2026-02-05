@@ -1,8 +1,7 @@
 (ns ouroboros.frontend.model.system
   "System data model"
   (:require
-   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-   [com.fulcrologic.fulcro.algorithms.normalized-state :as fs]))
+   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]))
 
 ;; ============================================================================
 ;; System Status

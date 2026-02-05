@@ -89,7 +89,7 @@
     {:memory/cleared? true
      :memory/count count}))
 
-(defn swap!
+(defn update!
   "Update value at key with function f, similar to clojure.core/swap!
    f receives current value (or nil if absent) and returns new value.
    Persists to disk and returns new value."
@@ -98,6 +98,9 @@
         new (f old)]
     (save-value! key new)
     new))
+
+;; Deprecated alias for backward compatibility
+(def swap! update!)
 
 (defn init!
   "Initialize memory - load from disk"

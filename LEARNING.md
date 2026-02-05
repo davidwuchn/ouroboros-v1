@@ -898,4 +898,60 @@ The ECA client emits telemetry for observability:
 
 ---
 
+## Web UX Platform Patterns
+
+### 2026-02: Code Review Fixes
+
+**Problem:** Web UX Platform code review revealed critical issues:
+1. Memory leaks from unbounded `defonce` atoms
+2. Non-deterministic color selection (random)
+3. Missing input validation
+4. Duplicated key generation patterns
+
+**Solutions:**
+
+**1. Session Cleanup with TTL**
+```clojure
+(def ^:private session-ttl-ms (* 24 60 60 1000))
+
+(defn cleanup-stale-sessions! []
+  (let [cutoff (- (System/currentTimeMillis) session-ttl-ms)]
+    (swap! session-presence
+           #(->> % (remove (fn [[_ users]] 
+                            (every? (fn [u] (< (:joined-at u) cutoff)) 
+                                   (vals users)))) 
+                  (into {})))))
+```
+
+**2. Deterministic Color Selection**
+```clojure
+;; Before: (rand-nth colors) — non-deterministic, hard to test
+;; After: hash-based selection
+(defn- user-color [id] 
+  (nth colors (mod (hash id) (count colors))))
+```
+
+**3. Input Validation at Boundaries**
+```clojure
+(pco/defmutation create-project! [{:keys [user-id name]}]
+  (when (nil? user-id)
+    (throw (ex-info "user-id required" {:param :user-id})))
+  (when (str/blank? name)
+    (throw (ex-info "name required" {:param :name})))
+  ;; ... logic)
+```
+
+**4. Queue Compaction**
+```clojure
+(defn- compact-queue! [session-id]
+  (swap! operation-queues update session-id 
+         #(filterv (fn [op] (or (= (:status op) :pending)
+                               (< (- (now) (:queued-at op)) retention)))
+                    %)))
+```
+
+**Key Insight:** Production code needs explicit resource management—cleanup, validation, and bounds checking.
+
+---
+
 *Feed forward: Each discovery shapes the next version.*

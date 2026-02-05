@@ -37,6 +37,10 @@
 | **Educational Approval** | ✅ Done | **Tool approvals with risk explanations, best practices** |
 | **Learning Interface** | ✅ Done | **Lazy-loaded API for learning operations** |
 | **Lean Canvas Builder** | ✅ Done | **Interactive Lean Canvas creation with learning integration** |
+| **Web UX Platform - Phase 2** | ✅ Done | **Rich canvas components: drag-and-drop, sticky notes, visual layouts** |
+| **Web UX Platform - Phase 3** | ✅ Done | **Multi-user collaboration: presence, cursors, comments, version history** |
+| **Web UX Platform - Phase 4** | ✅ Done | **Wisdom & AI: templates, insights, ECA chat integration, pattern recognition** |
+| **Web UX Platform - Phase 5** | ✅ Done | **Polish & Scale: offline sync, analytics, embedding API, onboarding tours** |
 
 **Verified Working:**
 ```clojure
@@ -185,7 +189,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Current Focus / Next Steps
 
-1. **Web UX Platform** — Interactive product development workspace
+1. **Web UX Platform Phase 5** — Polish & Scale (performance, offline support, embedding API)
 2. **Metrics Export** — Prometheus/OpenTelemetry format
 3. **Streaming Responses** — Wire ECA streaming to chat platforms
 
@@ -228,7 +232,7 @@ Used by: Discord Gateway, Slack Socket Mode
 bb test  # Run all system tests
 ```
 
-**Coverage:** 52+ tests, 227+ assertions
+**Coverage:** 52+ tests, 227+ assertions, 55+ resolvers
 - Engine lifecycle and state verification
 - Query initialization and EQL queries
 - Memory operations
@@ -264,3 +268,21 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
 - nREPL auto-boots system — trade-off: convenience vs control
 - Registry pattern for resolvers — decoupled, self-registering
 - ECA integration for AI — delegate LLM/tool handling, focus on chat platforms
+
+## Current Focus / Next Steps
+
+### Web UX Platform — ALL PHASES COMPLETE ✅
+
+The Web UX Platform is production-ready with all 5 phases implemented:
+
+**Completed:**
+- ✅ **Phase 1**: Foundation — Project CRUD, basic builders
+- ✅ **Phase 2**: Interactive Builders — Visual canvas, drag-and-drop, sticky notes
+- ✅ **Phase 3**: Collaboration — Multi-user presence, cursors, comments, versions
+- ✅ **Phase 4**: Wisdom & AI — Templates, insights, ECA integration
+- ✅ **Phase 5**: Polish & Scale — Offline sync, analytics, embedding API, onboarding
+
+**Next Priorities:**
+1. **Metrics Export** — Prometheus/OpenTelemetry format for production monitoring
+2. **Streaming Responses** — Wire ECA streaming to chat platforms
+3. **Mobile App** — PWA or React Native (Phase 6)

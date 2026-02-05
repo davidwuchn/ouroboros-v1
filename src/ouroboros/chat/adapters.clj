@@ -12,7 +12,6 @@
   (:require
    [babashka.http-client :as http]
    [cheshire.core :as json]
-   [clojure.string :as str]
    [ouroboros.chat.protocol :as chatp]
    [ouroboros.chat.websocket :as ws]
    [ouroboros.telemetry :as telemetry])

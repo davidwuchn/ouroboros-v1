@@ -1,10 +1,7 @@
-{:lint-as {com.wsscode.pathom3.connect.operation/defresolver clojure.core/defn
-           com.wsscode.pathom3.connect.operation/defmutation clojure.core/defn}
-
- :linters {:unresolved-symbol {:exclude [ouroboros.skill
-                                         ouroboros.tool-allowlist
-                                         ouroboros.tool-sandbox]}
-           :unused-namespace {:exclude [ouroboros.telemetry]}
-           :private-call {:level :off}
-           :unused-binding {:exclude-destructured-keys-in-fn-args true
-                            :exclude-defmulti-args true}}}
+{:lint-as {com.fulcrologic.fulcro.components/defsc clojure.core/defn
+           com.fulcrologic.fulcro.components/defui clojure.core/defn}
+ :linters {:unresolved-symbol {:exclude [(com.fulcrologic.fulcro.components/defsc)
+                                         (com.fulcrologic.fulcro.components/defui)]
+                               :exclude-patterns ["^this$" "^env$"]}
+           :unused-binding {:exclude-patterns ["^this$" "^_"]
+                            :exclude [ouroboros.frontend.ui.components/button]}}}

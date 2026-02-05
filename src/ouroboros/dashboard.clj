@@ -4,7 +4,6 @@
    HTTP server with EQL API and WebSocket support for real-time updates.
    Uses ring/jetty for HTTP and http-kit for WebSockets."
   (:require
-   [clojure.string :as str]
    [ring.adapter.jetty :as jetty]
    [ring.middleware.resource :as resource]
    [ring.middleware.content-type :as content-type]

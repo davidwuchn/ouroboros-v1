@@ -2,8 +2,7 @@
   "WebSocket client for real-time updates"
   (:require
    [com.fulcrologic.fulcro.application :as app]
-   [com.fulcrologic.fulcro.algorithms.merge :as merge]
-   [com.fulcrologic.fulcro.components :as comp]))
+   [com.fulcrologic.fulcro.algorithms.merge :as merge]))
 
 ;; ============================================================================
 ;; Connection State
@@ -12,6 +11,7 @@
 (defonce ws-connection (atom nil))
 (defonce reconnect-timeout (atom nil))
 (defonce reconnect-attempts (atom 0))
+(defonce subscribed-topics (atom #{}))  ;; Track topics we're subscribed to
 
 (def max-reconnect-attempts 5)
 (def reconnect-delay-ms 3000)
@@ -38,6 +38,18 @@
     (merge/merge! app
                   {:page/id :telemetry
                    :telemetry/events [data]})))
+
+(defmethod handle-message :builder-session/update
+  [{:keys [session-id data]}]
+  (js/console.log "Builder session update received:" session-id data)
+  ;; Merge into app state - update session data
+  (when-let [app @app/app]
+    ;; Find which builder page this belongs to and update its session/data
+    ;; For now, we'll update a global location; pages can watch this
+    (merge/merge! app
+                  {:page/id :builder-session-update
+                   :builder-session/id session-id
+                   :builder-session/data data})))
 
 (defmethod handle-message :pong
   [{:keys [timestamp]}]
@@ -115,6 +127,39 @@
   (when-let [ws @ws-connection]
     (when (= (.-readyState ws) js/WebSocket.OPEN)
       (.send ws (js/JSON.stringify (clj->js message))))))
+
+(defn- send-subscription!
+  "Send subscription/unsubscription message"
+  [type topic]
+  (send! {:type type :topic topic}))
+
+(defn subscribe!
+  "Subscribe to a WebSocket topic"
+  [topic]
+  (when (and (connected?) (not (contains? @subscribed-topics topic)))
+    (send-subscription! "subscribe" topic)
+    (swap! subscribed-topics conj topic)
+    (js/console.log "Subscribed to topic:" topic)))
+
+(defn unsubscribe!
+  "Unsubscribe from a WebSocket topic"
+  [topic]
+  (when (and (connected?) (contains? @subscribed-topics topic))
+    (send-subscription! "unsubscribe" topic)
+    (swap! subscribed-topics disj topic)
+    (js/console.log "Unsubscribed from topic:" topic)))
+
+(defn subscribe-builder-session!
+  "Subscribe to builder session updates"
+  [session-id]
+  (let [topic (str "builder-session/" session-id)]
+    (subscribe! topic)))
+
+(defn unsubscribe-builder-session!
+  "Unsubscribe from builder session updates"
+  [session-id]
+  (let [topic (str "builder-session/" session-id)]
+    (unsubscribe! topic)))
 
 (defn ping!
   "Send ping to keep connection alive"

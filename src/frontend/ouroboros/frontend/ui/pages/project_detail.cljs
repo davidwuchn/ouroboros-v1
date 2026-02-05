@@ -5,7 +5,6 @@
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
    [com.fulcrologic.fulcro.data-fetch :as df]
-   [com.fulcrologic.fulcro.mutations :as m]
    [ouroboros.frontend.ui.components :as ui]))
 
 ;; ============================================================================

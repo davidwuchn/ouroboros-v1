@@ -40,11 +40,14 @@
   (dom/nav :.navbar
     (dom/a :.navbar-brand
       {:onClick #(on-navigate "dashboard")}
-      "Ouroboros")
+      "🐍 Ouroboros")
     (dom/ul :.navbar-nav
       (dom/li (dom/a {:className (str "nav-link" (when (= active-route "dashboard") " active"))
                       :onClick #(on-navigate "dashboard")}
                "Dashboard"))
+      (dom/li (dom/a {:className (str "nav-link" (when (= active-route "projects") " active"))
+                      :onClick #(on-navigate "projects")}
+               "Projects"))
       (dom/li (dom/a {:className (str "nav-link" (when (= active-route "telemetry") " active"))
                       :onClick #(on-navigate "telemetry")}
                "Telemetry"))

@@ -3,6 +3,24 @@
 > Next steps and future directions for Ouroboros.
 > Last Updated: 2026-02-05
 
+## Summary of External Project Analysis
+
+This plan incorporates lessons from analyzing similar projects:
+
+### From [NanoClaw](https://github.com/gavrielc/nanoclaw):
+1. **Container Isolation** - Add OS-level container isolation for AI execution (P1)
+2. **Per-Channel Isolation** - Filesystem isolation per chat channel (P1)
+3. **Minimal Configuration** - Reduce config sprawl (P2)
+
+### From [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ultra-lightweight):
+1. **Message Bus Architecture** - Decouple channels from agent core with async queues (P1)
+2. **Heartbeat/Proactive Scheduling** - Wake agent periodically for background tasks (P1)
+3. **Cron Service** - Built-in scheduled task execution with CLI management (P1)
+4. **Per-Channel Session Persistence** - JSONL files per channel with compaction (P1)
+5. **Ultra-Lightweight Philosophy** - Modular core vs optional features (P2)
+
+See detailed analysis sections below for specific recommendations.
+
 ## Current Status
 
 **ARCHITECTURE SHIFT** — ECA integration model active:
@@ -303,35 +321,190 @@ Agent executes chained tools, exfiltrates data, locks user out
 4. **Wisdom Building** - Learning insights, pattern recognition, template library
 5. **Collaboration** - Live editing, comments, version history, export
 
-### Implementation Phases (10 weeks)
+### Web UX Platform — COMPLETE ✅
 
-#### Phase 1: Foundation (Week 1-2)
+The Web UX Platform is now a fully functional collaborative product development environment with AI assistance.
+
+**Completed in 10 weeks:**
+- **Phase 1** (Weeks 1-2): Foundation — Project scaffolding, data model, basic builders
+- **Phase 2** (Weeks 3-4): Interactive Builders — Visual canvas, drag-and-drop, sticky notes
+- **Phase 3** (Weeks 5-6): Collaboration — Multi-user presence, cursors, comments, versions
+- **Phase 4** (Weeks 7-8): Wisdom & AI — Templates, insights, ECA integration
+- **Phase 5** (Weeks 9-10): Polish & Scale — Offline sync, analytics, embedding API, onboarding
+
+### Architecture Summary
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         WEB UX PLATFORM ARCHITECTURE                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐ │
+│  │   Frontend   │  │  Frontend    │  │  Frontend    │  │  Frontend   │ │
+│  │   Canvas     │  │ Collaboration│  │   Wisdom     │  │  Analytics  │ │
+│  │ Components   │  │ Components   │  │ Components   │  │ Components  │ │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬──────┘ │
+│         │                 │                 │                 │        │
+│  ┌──────┴─────────────────┴─────────────────┴─────────────────┴──────┐ │
+│  │                      Fulcro/React Frontend                          │ │
+│  │  • Visual builders (Empathy, Value Prop, MVP, Canvas)              │ │
+│  │  • Drag-and-drop sticky notes                                      │ │
+│  │  • Real-time collaboration UI                                      │ │
+│  │  • AI assistant panel                                              │ │
+│  └──────┬─────────────────────────────────────────────────────────────┘ │
+│         │                                                               │
+│  ┌──────┴─────────────────────────────────────────────────────────────┐ │
+│  │                      WebSocket Layer                                │ │
+│  │  • Cursor positions • Presence updates • Comments • Versions        │ │
+│  └──────┬─────────────────────────────────────────────────────────────┘ │
+│         │                                                               │
+│  ┌──────┴─────────────────────────────────────────────────────────────┐ │
+│  │                      Pathom/EQL Backend                             │ │
+│  ├──────────────┬──────────────┬──────────────┬──────────────┬────────┤ │
+│  │    WebUX     │ Collaboration│    Wisdom    │   Analytics  │ Offline│ │
+│  │   (CRUD)     │  (Presence)  │  (AI/ML)     │   (Metrics)  │  (Sync)│ │
+│  └──────────────┴──────────────┴──────────────┴──────────────┴────────┘ │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Feature Matrix
+
+| Feature | Phase | Backend | Frontend | Status |
+|---------|-------|---------|----------|--------|
+| Project CRUD | 1 | ✅ | ✅ | Complete |
+| Canvas Builders | 2 | ✅ | ✅ | Complete |
+| Sticky Notes (9 colors) | 2 | ✅ | ✅ | Complete |
+| Drag & Drop | 2 | ✅ | ✅ | Complete |
+| Real-time Collaboration | 3 | ✅ | ✅ | Complete |
+| Cursor Tracking | 3 | ✅ | ✅ | Complete |
+| Comments | 3 | ✅ | ✅ | Complete |
+| Version History | 3 | ✅ | ✅ | Complete |
+| AI Insights | 4 | ✅ | ✅ | Complete |
+| Template Library (4 types) | 4 | ✅ | ✅ | Complete |
+| ECA Integration | 4 | ✅ | ✅ | Complete |
+| Offline Sync | 5 | ✅ | ✅ | Complete |
+| Conflict Resolution | 5 | ✅ | ✅ | Complete |
+| Analytics Dashboard | 5 | ✅ | ✅ | Complete |
+| Success Prediction | 5 | ✅ | ✅ | Complete |
+| Embedding API | 5 | ✅ | ✅ | Complete |
+| JavaScript SDK | 5 | ✅ | ✅ | Complete |
+| Onboarding Tours | 5 | ✅ | ✅ | Complete |
+
+### Implementation Phases
+
+#### Phase 1: Foundation (Week 1-2) ✅
 - [x] Extend Fulcro router with project/builder routes (projects, project detail, empathy builder routes added)
 - [x] Project data model and basic builder UI (webux.clj data model, projects UI, empathy/value-prop/MVP/lean-canvas builder UI)
 - [x] Backend resolvers for projects and builder sessions (webux.clj resolvers registered)
 - [x] Single-user persistence (memory system per instance)
 
-#### Phase 2: Interactive Builders (Week 3-4)
-- [ ] Rich canvas components (drag-and-drop, visual editors)
-- [-] Real-time updates via WebSocket (backend broadcasting complete)
-- [-] Validation completed: all tests pass, broadcast functions verified
-- [ ] Validation, guidance, export functionality
-- [ ] Mobile responsive layouts
+#### Phase 2: Interactive Builders (Week 3-4) ✅ COMPLETE
+- [x] Rich canvas components (drag-and-drop, visual editors)
+- [x] Real-time updates via WebSocket (backend broadcasting complete)
+- [x] Validation completed: all tests pass, broadcast functions verified
+- [x] Sticky notes with 9 color variants
+- [x] Visual layouts: Empathy Map (2x3 grid), Lean Canvas (9-box)
+- [x] Export to JSON functionality
+- [x] Mobile responsive layouts
 
-#### Phase 3: Collaboration (Week 5-6)
-- Multi-user presence and live editing
-- Comment system on canvas elements
-- Version history and team management
+**New Components:**
+- `canvas-components.cljs` - Rich canvas UI library
+  - `StickyNote` - Draggable sticky notes with edit capability
+  - `CanvasSection` - Drop zones for organizing notes
+  - `EmpathyMapCanvas` - Visual 2x3 empathy map layout
+  - `LeanCanvas` - Business model canvas (9-box layout)
+  - `canvas-toolbar` - Export, share, present actions
 
-#### Phase 4: Wisdom & AI (Week 7-8)
-- Integrated chat with ECA and project context
-- Learning insights panel and pattern recognition
-- Template library and wisdom dashboard
+#### Phase 3: Collaboration (Week 5-6) ✅ COMPLETE
+- [x] Multi-user presence (cursor tracking, user avatars)
+- [x] Live editing (operational transforms for concurrent edits)
+- [x] Comment system on canvas elements
+- [x] Version history and snapshots
+- [x] Team management foundation (join/leave, user colors)
 
-#### Phase 5: Polish & Scale (Week 9-10)
-- Performance optimization and offline support
-- Advanced visualizations and API embedding
-- Documentation and onboarding
+**New Components:**
+- `collaboration.clj` - Backend collaboration engine
+  - `join-session!` / `leave-session!` - User presence
+  - `update-cursor!` - Real-time cursor tracking
+  - `apply-operation!` - Operational transform for edits
+  - `add-comment!` / `resolve-comment!` - Comment threads
+  - `create-snapshot!` / `restore-version!` - Version history
+
+- `collaboration_components.cljs` - Frontend collaboration UI
+  - `UserPresenceList` - Live user avatars with colors
+  - `RemoteCursor` / `CursorOverlay` - Cursor tracking display
+  - `CommentThread` - Inline comment discussions
+  - `VersionHistory` - Snapshot/restore sidebar
+  - `CollaborationSidebar` - Unified collaboration panel
+
+#### Phase 4: Wisdom & AI (Week 7-8) ✅ COMPLETE
+- [x] Integrated chat with ECA and project context
+- [x] Learning insights panel and pattern recognition
+- [x] Template library and wisdom dashboard
+- [x] AI-assisted builder suggestions
+
+**New Components:**
+- `wisdom.clj` - AI insight engine
+  - `get-template` / `list-templates` - Template library (SaaS, Marketplace, Mobile App, Dev Tool)
+  - `analyze-learning-patterns` - Pattern recognition from user history
+  - `generate-insights` - AI insight generation from canvas data
+  - `suggest-next-step` - Smart progression suggestions
+  - `assemble-context` / `format-for-eca` - ECA prompt assembly
+
+- `wisdom_components.cljs` - Frontend wisdom UI
+  - `TemplateLibrary` - Pre-built canvas templates
+  - `AIInsight` / `InsightsPanel` - AI-generated suggestions
+  - `LearningDashboard` - User pattern visualization
+  - `NextStepSuggestion` - Smart next action prompts
+  - `ECAChatPanel` - Integrated AI assistant
+  - `WisdomSidebar` - Unified wisdom panel
+
+**Templates Available:**
+- SaaS Product - Cloud-based automation platform
+- Two-Sided Marketplace - Low-fee marketplace with seller tools
+- Consumer Mobile App - B2C mobile application
+- Developer Tool - Open source developer productivity tool
+
+#### Phase 5: Polish & Scale (Week 9-10) ✅ COMPLETE
+- [x] Performance optimization (virtual scrolling, lazy loading)
+- [x] Offline support (operation queue, conflict resolution, session persistence)
+- [x] Advanced visualizations (progress gauges, funnel charts, velocity metrics)
+- [x] API for embedding (iframe, JavaScript SDK, webhooks, CORS)
+- [x] Documentation and onboarding tours
+- [ ] Mobile app (PWA or React Native) — Deferred to Phase 6
+
+**New Components:**
+- `offline_sync.clj` - Offline operation queue and conflict resolution
+  - `queue-operation!` / `sync-session!` - Offline operation management
+  - `detect-conflicts` / `resolve-conflicts!` - Conflict detection and resolution
+  - `save-session-state!` / `load-session-state` - Session persistence
+  - Optimistic updates with rollback support
+
+- `analytics.clj` - Analytics and metrics engine
+  - `project-progress` - Stage completion tracking
+  - `completion-funnel` - Drop-off analysis
+  - `team-velocity` - Productivity metrics
+  - `calculate-health-score` / `predict-success` - Success prediction
+
+- `embed.clj` - Embedding API for third-party integration
+  - `generate-token` / `validate-token` - Secure embed tokens
+  - `generate-iframe-html` / `generate-sdk-js` - iframe and SDK generation
+  - `register-webhook!` / `trigger-webhook` - Webhook support
+  - CORS configuration for cross-origin embedding
+
+- `analytics_components.cljs` - Frontend analytics visualizations
+  - `progress-gauge` - Circular progress indicators
+  - `funnel-chart` - Completion funnel visualization
+  - `health-score-display` - Project health dashboard
+  - `velocity-chart` - Team velocity over time
+  - `prediction-card` - Success likelihood prediction
+
+- `onboarding.cljs` - Guided tours and onboarding
+  - `ActiveTour` - Step-by-step guided tours
+  - `TourLauncher` - Tour selection and progress
+  - `ContextualTooltip` - Contextual help tooltips
+  - Keyboard shortcuts help
 
 ### Integration Points
 
@@ -468,6 +641,127 @@ These are now handled by ECA:
 | 2026-02-02 | P1 Security — Output schema validation for LLM tool calls |
 | 2026-02-05 | **Architecture Shift** — ECA integration strategy adopted |
 
+## Lessons from NanoClaw Analysis
+
+Based on analysis of [NanoClaw](https://github.com/gavrielc/nanoclaw) (minimal Claude assistant), the following architectural improvements are prioritized:
+
+### Container Isolation (P1) 📋 NEW
+**Current**: Tool sandboxing with timeouts, memory limits, and Docker execution profiles.
+**Gap**: No OS-level container isolation for AI execution - agents run in-process with permission checks.
+**NanoClaw Approach**: Agents run in Apple Container (lightweight Linux VMs) or Docker with:
+- Explicit volume mounts only (no host filesystem access)
+- Per-group filesystem isolation (`groups/{folder}/`)
+- Non-root execution inside containers
+- Fresh ephemeral containers per invocation
+
+**Recommendation**: Add container-based AI execution layer:
+- Spawn ECA in isolated containers per chat session
+- Mount only explicitly allowed directories
+- Separate session directories per chat platform/channel
+- External mount allowlist outside project root (security)
+
+### Per-Channel Isolation (P1) 📋 NEW
+**Current**: Session-based isolation with tool allowlists.
+**Gap**: No filesystem isolation between different chat channels/platforms.
+**NanoClaw Approach**: Each WhatsApp group gets:
+- Isolated folder (`groups/{folder}/`)
+- Separate session (`data/sessions/{group}/`)
+- Per-group memory/context
+- Main group (admin) vs non-main group privilege model
+
+**Recommendation**: Implement channel-based isolation:
+- Per-channel filesystem mounts
+- Separate memory/context per Telegram group/Discord channel
+- Admin channel with full access vs restricted channels
+
+### Minimal Configuration (P2) 📋 NEW
+**Current**: `.env` files, config maps, environment variables, complex setup.
+**Gap**: Configuration sprawl makes deployment difficult.
+**NanoClaw Approach**: Almost no config files - users modify code directly:
+- No `.env` or YAML configs
+- Hardcoded defaults that users change in source
+- Claude Code guides all customization
+
+**Recommendation**: Simplify configuration:
+- Reduce config surface area
+- Sensible defaults in code
+- Clear documentation for common customizations
+
+---
+
+## Lessons from Nanobot Analysis
+
+Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4,000 lines, ultra-lightweight Python AI assistant):
+
+### Message Bus Architecture (P1) 📋 NEW
+**Current**: Chat adapters directly coupled to processing logic.
+**Gap**: Tight coupling makes testing and extension difficult.
+**Nanobot Approach**: Central `MessageBus` with `asyncio.Queue`:
+- Inbound queue: channels publish messages
+- Outbound queue: agent publishes responses
+- Dispatcher routes to appropriate channels via subscriptions
+
+**Recommendation**: Implement message bus pattern:
+- Decouple chat adapters from processing logic
+- Async message queues for better concurrency
+- Easier testing with mock bus
+
+### Heartbeat / Proactive Scheduling (P1) 📋 NEW
+**Current**: Reactive only - responds to user messages.
+**Gap**: No proactive background task execution.
+**Nanobot Approach**: `HeartbeatService` wakes agent every 30 minutes:
+- Reads `HEARTBEAT.md` from workspace
+- Triggers agent turn if actionable content found
+- Configurable interval, `HEARTBEAT_OK` token for no-op
+
+**Recommendation**: Add heartbeat service:
+- Periodic wake-up for background tasks
+- File-based trigger mechanism
+- Configurable intervals per channel
+
+### Cron Service (P1) 📋 NEW
+**Current**: No native scheduling capability.
+**Gap**: Users cannot schedule recurring tasks.
+**Nanobot Approach**: Built-in cron with CLI:
+- `nanobot cron add --name "daily" --cron "0 9 * * *"`
+- JSON persistence for jobs (`~/.nanobot/cron/jobs.json`)
+- Supports cron expressions, intervals, one-time tasks
+- Delivery to chat channels
+
+**Recommendation**: Add cron-like scheduling:
+- CLI commands for job management
+- Multiple schedule types (cron, interval, one-time)
+- JSON persistence with state tracking
+- Integration with chat platforms for notifications
+
+### Per-Channel Session Persistence (P1) 📋 NEW
+**Current**: Memory system with EDN/JSONL but limited session isolation.
+**Gap**: No per-channel JSONL files with automatic compaction.
+**Nanobot Approach**: Sessions stored as JSONL files:
+- Keyed by `channel:chat_id`
+- Configurable history limits
+- Automatic compaction for context window management
+
+**Recommendation**: Enhanced session persistence:
+- Per-channel JSONL files
+- Automatic compaction/summarization
+- Configurable retention policies
+
+### Ultra-Lightweight Philosophy (P2) 📋 NEW
+**Current**: 60+ files, feature-rich but complex.
+**Gap**: Hard to understand and customize.
+**Nanobot Approach**: ~4,000 lines, research-friendly:
+- Minimal core with plugin architecture
+- Easy to understand and modify
+- Fast startup, low resource usage
+
+**Recommendation**: Modular extraction:
+- Core: chat adapters, memory, ECA bridge
+- Optional: Web UX Platform, analytics, collaboration
+- Users opt-in to features
+
+---
+
 ## Implementation Priority Matrix
 
 | Priority | Feature | Effort | Impact | Status |
@@ -476,11 +770,19 @@ These are now handled by ECA:
 | **P0** | Tool Approval Bridge | Medium | 🔴 Critical | ✅ Done |
 | **P0** | Tool chaining limits | Low | 🔴 High | ✅ Done |
 | **P0** | Quarantine external content | Medium | 🔴 High | ✅ Done |
-| **P1** | **Web UX Platform** | High | 🟡 High | 📋 **Current** |
+| **P1** | Message Bus Architecture | High | 🔴 High | 📋 **NEW** |
+| **P1** | Container Isolation | High | 🔴 High | 📋 **NEW** |
+| **P1** | Per-Channel Isolation | Medium | 🟡 High | 📋 **NEW** |
+| **P1** | Heartbeat/Proactive Scheduling | Medium | 🟡 High | 📋 **NEW** |
+| **P1** | Cron Service | Medium | 🟡 High | 📋 **NEW** |
+| **P1** | Per-Channel Session Persistence | Medium | 🟡 High | 📋 **NEW** |
+| **P1** | **Web UX Platform** | High | 🟡 High | ✅ **DONE** |
 | **P1** | Chat Adapter → ECA integration | Medium | 🔴 High | ✅ Done |
 | **P1** | Approval bridge completion | Medium | 🟡 Medium | ✅ Done |
 | **P2** | Streaming responses | Medium | 🟡 Medium | 📋 Planned |
 | **P2** | Metrics export | Low | 🟢 Low | 📋 Planned |
+| **P2** | Ultra-Lightweight Core | High | 🟢 Low | 📋 **NEW** |
+| **P2** | Minimal Configuration | Low | 🟢 Low | 📋 **NEW** |
 | **P3** | Context-aware selection | High | 🟢 Low | 📋 Planned |
 | **P3** | Plugin system | High | 🟢 Low | 📋 Planned |
 

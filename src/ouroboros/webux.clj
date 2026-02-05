@@ -38,6 +38,13 @@
   #{:empathy-map :value-proposition :mvp-planning :lean-canvas})
 
 ;; ============================================================================
+;; Key Helpers
+;; ============================================================================
+
+(defn- user-key [prefix user-id]
+  (keyword (str prefix "/" (name user-id))))
+
+;; ============================================================================
 ;; Project Operations
 ;; ============================================================================
 
@@ -49,17 +56,23 @@
 
 (defn- projects-key
   [user-id]
-  (keyword (str "projects/" (name user-id))))
+  (user-key "projects" user-id))
 
 (pco/defmutation create-project!
   "Create a new project
 
    Parameters:
-   - :user-id - Project owner
-   - :name - Project name
+   - :user-id - Project owner (required)
+   - :name - Project name (required, non-empty)
    - :description - Optional project description"
   [{:keys [user-id name description]}]
   {::pco/output [:project/id :project/name :project/status]}
+  ;; Validation
+  (when (nil? user-id)
+    (throw (ex-info "user-id is required" {:param :user-id})))
+  (when (str/blank? name)
+    (throw (ex-info "name is required and cannot be blank" {:param :name})))
+  
   (let [project-id (generate-project-id user-id name)
         project {:project/id project-id
                  :project/name name
@@ -71,10 +84,10 @@
         key (projects-key user-id)]
     
     ;; Store in memory
-    (memory/swap! key 
-                  (fn [projects]
-                    (let [projects (or projects {})]
-                      (assoc projects project-id project))))
+    (memory/update! key 
+                    (fn [projects]
+                      (let [projects (or projects {})]
+                        (assoc projects project-id project))))
     
     ;; Save as learning insight
     (learning/save-insight! user-id
@@ -97,7 +110,7 @@
   [{:keys [user-id project-id updates]}]
   {::pco/output [:project/id :project/updated-at]}
   (let [key (projects-key user-id)]
-    (memory/swap! key
+    (memory/update! key
                   (fn [projects]
                     (if-let [project (get projects project-id)]
                       (assoc projects project-id 
@@ -118,7 +131,7 @@
   [{:keys [user-id project-id]}]
   {::pco/output [:project/id :project/deleted?]}
   (let [key (projects-key user-id)]
-    (memory/swap! key
+    (memory/update! key
                   (fn [projects]
                     (dissoc projects project-id)))
     
@@ -155,7 +168,7 @@
 
 (defn- sessions-key
   [user-id]
-  (keyword (str "builder-sessions/" (name user-id))))
+  (user-key "builder-sessions" user-id))
 
 (pco/defmutation start-builder-session!
   "Start a new builder session
@@ -185,7 +198,7 @@
                  :session/updated-at (str (java.time.Instant/now))}
         key (sessions-key user-id)]
     
-    (memory/swap! key
+    (memory/update! key
                   (fn [sessions]
                     (let [sessions (or sessions {})]
                       (assoc sessions session-id session))))
@@ -206,7 +219,7 @@
   [{:keys [user-id session-id data]}]
   {::pco/output [:session/id :session/updated-at]}
   (let [key (sessions-key user-id)]
-    (memory/swap! key
+    (memory/update! key
                   (fn [sessions]
                     (if-let [session (get sessions session-id)]
                       (assoc sessions session-id
@@ -232,7 +245,7 @@
   {::pco/output [:session/id :session/state :session/completed-at]}
   (let [key (sessions-key user-id)
         completed-at (str (java.time.Instant/now))]
-    (memory/swap! key
+    (memory/update! key
                   (fn [sessions]
                     (if-let [session (get sessions session-id)]
                       (assoc sessions session-id
