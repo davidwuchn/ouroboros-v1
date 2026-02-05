@@ -1,21 +1,26 @@
 (ns ouroboros.interface
-  "Interface - Unified system surface with lazy loading
+  "Interface - Unified system surface
 
-   This namespace provides lazy-loaded access to all interface functions.
-   Sub-namespaces are loaded on first use, not at require time.
+   This namespace provides direct access to all system capabilities.
+   Core namespaces are always loaded. Extension namespaces are lazy-loaded.
    
-   For specific domains, require directly:
-   - ouroboros.interface.lifecycle - boot! shutdown!
-   - ouroboros.interface.query - q status report
-   - ouroboros.interface.memory - remember recall forget
-   - etc.
-   
-   Note: The first call to any function group will trigger namespace loading."
+   Usage:
+     (require '[ouroboros.interface :as iface])
+     (iface/boot!)
+     (iface/q [:system/status])
+     (iface/remember :key \"value\")"
   (:require
    ;; Core - always loaded
    [ouroboros.interface.lifecycle :as lifecycle]
-   [ouroboros.interface.query :as query]
-   [ouroboros.interface.config :as config]))
+   [ouroboros.interface.config :as config]
+   ;; Direct core access (no interface wrapper)
+   [ouroboros.query :as query]
+   [ouroboros.memory :as memory]
+   [ouroboros.knowledge :as knowledge]
+   [ouroboros.telemetry :as telemetry]
+   [ouroboros.api :as api]
+   [ouroboros.openapi :as openapi]
+   [ouroboros.mcp :as mcp]))
 
 ;; ============================================================================
 ;; Lazy Loading Helper
@@ -50,12 +55,26 @@
 (def shutdown! lifecycle/shutdown!)
 
 ;; ============================================================================
-;; Query (Always Loaded)
+;; Query (Direct)
 ;; ============================================================================
 
-(def q query/q)
-(def status query/status)
-(def report query/report)
+(defn q
+  "Execute EQL query
+   
+   Usage: (q [:system/status])
+          (q [{:git/commits [:git/hash]}])"
+  [query-expr]
+  (query/q query-expr))
+
+(defn status
+  "Current system status"
+  []
+  (query/status))
+
+(defn report
+  "Full system report"
+  []
+  (query/full-report))
 
 ;; ============================================================================
 ;; Config (Always Loaded)
@@ -66,37 +85,109 @@
 (def config-summary config/config-summary)
 
 ;; ============================================================================
-;; Memory (Lazy)
+;; Memory (Direct)
 ;; ============================================================================
 
-(def remember (lazy-fn 'ouroboros.interface.memory 'remember))
-(def recall (lazy-fn 'ouroboros.interface.memory 'recall))
-(def forget (lazy-fn 'ouroboros.interface.memory 'forget))
+(defn remember
+  "Save value to persistent memory
+   
+   Usage: (remember :key \"value\")"
+  [key value]
+  (memory/save-value! key value))
+
+(defn recall
+  "Get value from memory
+   
+   Usage: (recall :key)"
+  [key]
+  (memory/get-value key))
+
+(defn forget
+  "Delete value from memory
+   
+   Usage: (forget :key)"
+  [key]
+  (memory/delete-value! key))
 
 ;; ============================================================================
-;; Knowledge (Lazy)
+;; Knowledge (Direct)
 ;; ============================================================================
 
-(def files (lazy-fn 'ouroboros.interface.knowledge 'files))
-(def file (lazy-fn 'ouroboros.interface.knowledge 'file))
-(def search (lazy-fn 'ouroboros.interface.knowledge 'search))
-(def project (lazy-fn 'ouroboros.interface.knowledge 'project))
+(defn files
+  "List files in directory
+   
+   Usage: (files \"src\")"
+  [dir-path]
+  (knowledge/list-files dir-path))
+
+(defn file
+  "Get file info
+   
+   Usage: (file \"README.md\")"
+  [file-path]
+  (knowledge/get-file file-path))
+
+(defn search
+  "Search files by pattern
+   
+   Usage: (search \"*.clj\")"
+  [pattern]
+  (knowledge/search-files pattern))
+
+(defn project
+  "Get project structure
+   
+   Usage: (project)"
+  []
+  (knowledge/get-project))
 
 ;; ============================================================================
-;; API (Lazy)
+;; API (Direct)
 ;; ============================================================================
 
-(def http-get (lazy-fn 'ouroboros.interface.api 'http-get))
-(def http-request! (lazy-fn 'ouroboros.interface.api 'http-request!))
+(defn http-get
+  "Make HTTP GET request
+   
+   Usage: (http-get \"https://api.example.com/data\")"
+  [url]
+  (api/http-get url))
+
+(defn http-request!
+  "Make HTTP request with method
+   
+   Usage: (http-request! :post \"https://api.example.com/data\" {:body {...}})"
+  [method url opts]
+  (api/http-request! method url opts))
 
 ;; ============================================================================
-;; OpenAPI (Lazy)
+;; OpenAPI (Direct)
 ;; ============================================================================
 
-(def openapi-bootstrap! (lazy-fn 'ouroboros.interface.openapi 'openapi-bootstrap!))
-(def openapi-clients (lazy-fn 'ouroboros.interface.openapi 'openapi-clients))
-(def openapi-operations (lazy-fn 'ouroboros.interface.openapi 'openapi-operations))
-(def openapi-call! (lazy-fn 'ouroboros.interface.openapi 'openapi-call!))
+(defn openapi-bootstrap!
+  "Bootstrap OpenAPI client from spec URL
+   
+   Usage: (openapi-bootstrap! :petstore \"https://petstore.swagger.io/v2/swagger.json\")"
+  [name spec-url]
+  (openapi/bootstrap-client! name spec-url))
+
+(defn openapi-clients
+  "List registered OpenAPI clients"
+  []
+  (openapi/list-clients))
+
+(defn openapi-operations
+  "List operations for client
+   
+   Usage: (openapi-operations :petstore)"
+  [client-name]
+  (openapi/list-operations client-name))
+
+(defn openapi-call!
+  "Call OpenAPI operation
+   
+   Usage: (openapi-call! :petstore :get-pet-by-id {:petId 123})"
+  [client-name operation params]
+  (openapi/call-operation client-name operation params))
 
 ;; ============================================================================
 ;; AI (Lazy) - DEPRECATED
@@ -119,13 +210,28 @@
   (lazy-fn 'ouroboros.interface.ai 'ai-full))
 
 ;; ============================================================================
-;; Telemetry (Lazy)
+;; Telemetry (Direct)
 ;; ============================================================================
 
-(def telemetry-events (lazy-fn 'ouroboros.interface.telemetry 'telemetry-events))
-(def telemetry-recent (lazy-fn 'ouroboros.interface.telemetry 'telemetry-recent))
-(def telemetry-stats (lazy-fn 'ouroboros.interface.telemetry 'telemetry-stats))
-(def telemetry-clear! (lazy-fn 'ouroboros.interface.telemetry 'telemetry-clear!))
+(defn telemetry-events
+  "Get all telemetry events"
+  []
+  (telemetry/get-events))
+
+(defn telemetry-recent
+  "Get n recent telemetry events"
+  [n]
+  (telemetry/get-recent-events n))
+
+(defn telemetry-stats
+  "Get telemetry statistics"
+  []
+  (query/q [:telemetry/total-events :telemetry/tool-invocations]))
+
+(defn telemetry-clear!
+  "Clear all telemetry events"
+  []
+  (query/m 'ouroboros.telemetry/telemetry-clear! {}))
 
 ;; ============================================================================
 ;; Metrics (Lazy)
@@ -135,14 +241,37 @@
 (def metrics-snapshot (lazy-fn 'ouroboros.interface.metrics 'metrics-snapshot))
 
 ;; ============================================================================
-;; MCP (Lazy)
+;; MCP (Direct)
 ;; ============================================================================
 
-(def mcp-tools (lazy-fn 'ouroboros.interface.mcp 'mcp-tools))
-(def mcp-start! (lazy-fn 'ouroboros.interface.mcp 'mcp-start!))
-(def mcp-stop! (lazy-fn 'ouroboros.interface.mcp 'mcp-stop!))
-(def mcp-status (lazy-fn 'ouroboros.interface.mcp 'mcp-status))
-(def mcp-invoke! (lazy-fn 'ouroboros.interface.mcp 'mcp-invoke!))
+(defn mcp-tools
+  "List MCP-exposed tools"
+  []
+  (mcp/list-mcp-tools))
+
+(defn mcp-start!
+  "Start MCP server
+   
+   Usage: (mcp-start! {:port 3000})"
+  ([] (mcp/start!))
+  ([opts] (mcp/start! opts)))
+
+(defn mcp-stop!
+  "Stop MCP server"
+  []
+  (mcp/stop!))
+
+(defn mcp-status
+  "Get MCP server status"
+  []
+  (mcp/status))
+
+(defn mcp-invoke!
+  "Invoke tool via MCP
+   
+   Usage: (mcp-invoke! \"system/status\" {})"
+  [tool-name arguments]
+  (mcp/invoke-tool tool-name arguments))
 
 ;; ============================================================================
 ;; Chat (Lazy)
