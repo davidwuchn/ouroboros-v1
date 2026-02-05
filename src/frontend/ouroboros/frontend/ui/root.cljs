@@ -11,7 +11,10 @@
    [ouroboros.frontend.ui.pages.sessions :as sessions]
    [ouroboros.frontend.ui.pages.projects :as projects]
    [ouroboros.frontend.ui.pages.project-detail :as project-detail]
-   [ouroboros.frontend.ui.pages.empathy-builder :as empathy-builder]))
+   [ouroboros.frontend.ui.pages.empathy-builder :as empathy-builder]
+   [ouroboros.frontend.ui.pages.value-prop-builder :as value-prop-builder]
+   [ouroboros.frontend.ui.pages.mvp-builder :as mvp-builder]
+   [ouroboros.frontend.ui.pages.lean-canvas-builder :as lean-canvas-builder]))
 
 ;; ============================================================================
 ;; Navigation Handler
@@ -34,7 +37,10 @@
     sessions/SessionsPage
     projects/ProjectsPage
     project-detail/ProjectDetailPage
-    empathy-builder/EmpathyBuilderPage]})
+    empathy-builder/EmpathyBuilderPage
+    value-prop-builder/ValuePropBuilderPage
+    mvp-builder/MVPBuilderPage
+    lean-canvas-builder/LeanCanvasBuilderPage]})
 
 (def ui-main-router (comp/factory MainRouter))
 

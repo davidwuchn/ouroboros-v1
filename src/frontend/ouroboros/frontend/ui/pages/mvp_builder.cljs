@@ -1,5 +1,5 @@
-(ns ouroboros.frontend.ui.pages.empathy-builder
-  "Empathy Map builder page"
+(ns ouroboros.frontend.ui.pages.mvp-builder
+  "MVP Planning builder page"
   (:require
    [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
@@ -13,30 +13,30 @@
 ;; Mutations
 ;; ============================================================================
 
-(m/defmutation start-empathy-session [{:keys [project-id persona-name]}]
+(m/defmutation start-mvp-session [{:keys [project-id]}]
   (remote [env] env)
   (ok-action [{:keys [result state]}]
     (let [session-data (:body result)]
-      (swap! state assoc-in [:empathy-session :session/data] session-data))))
+      (swap! state assoc-in [:mvp-session :session/data] session-data))))
 
-(m/defmutation submit-empathy-section [{:keys [session-id section-key response]}]
+(m/defmutation submit-mvp-section [{:keys [session-id section-key response]}]
   (remote [env] env)
   (ok-action [{:keys [result state]}]
     (let [next-prompt (:body result)]
-      (swap! state assoc-in [:empathy-session :session/data] (:session next-prompt))
-      (swap! state assoc-in [:empathy-session :ui/current-prompt] next-prompt))))
+      (swap! state assoc-in [:mvp-session :session/data] (:session next-prompt))
+      (swap! state assoc-in [:mvp-session :ui/current-prompt] next-prompt))))
 
-(m/defmutation complete-empathy-session [{:keys [session-id]}]
+(m/defmutation complete-mvp-session [{:keys [session-id]}]
   (remote [env] env))
 
 ;; ============================================================================
 ;; Section Components
 ;; ============================================================================
 
-(defsc EmpathySection
-  "Individual empathy map section display"
+(defsc MVPSection
+  "Individual MVP planning section display"
   [this {:keys [section-key title response completed?]}]
-  (dom/div {:className (str "empathy-section " (when completed? "completed"))}
+  (dom/div {:className (str "mvp-section " (when completed? "completed"))}
     (dom/div :.section-header
       (dom/h4 title)
       (when completed?
@@ -44,13 +44,13 @@
     (when response
       (dom/div :.section-response response))))
 
-(def ui-empathy-section (comp/factory EmpathySection {:keyfn :section-key}))
+(def ui-mvp-section (comp/factory MVPSection {:keyfn :section-key}))
 
 ;; ============================================================================
 ;; Progress Component
 ;; ============================================================================
 
-(defn empathy-progress [{:keys [current total]}]
+(defn mvp-progress [{:keys [current total]}]
   (let [percentage (if (> total 0) (* 100 (/ current total)) 0)]
     (dom/div :.progress-container
       (dom/div :.progress-bar
@@ -61,11 +61,11 @@
 ;; Input Component
 ;; ============================================================================
 
-(defsc EmpathyInput
-  "Input form for current empathy section"
+(defsc MVPInput
+  "Input form for current MVP planning section"
   [this {:keys [prompt hint on-submit]}]
   (let [response (or (comp/get-state this :response) "")]
-    (dom/div :.empathy-input
+    (dom/div :.mvp-input
       (dom/div :.prompt-section
         (dom/h3 :.prompt-text prompt)
         (when hint
@@ -90,73 +90,73 @@
 ;; Main Builder Page
 ;; ============================================================================
 
-(defsc EmpathyBuilderPage
-  "Empathy Map builder page"
+(defsc MVPBuilderPage
+  "MVP Planning builder page"
   [this {:keys [project-id project-name session/ui] :as props}]
   {:query         [:project-id :project-name
                    {:session/ui [:ui/current-section :ui/total-sections :ui/prompt :ui/hint
                                 :ui/completed-sections :ui/complete?]}
                    :session/data
-                   [df/marker-table :empathy-builder]]
-   :ident         (fn [] [:page/id :empathy-builder])
-   :route-segment ["project" :project-id "empathy"]
+                   [df/marker-table :mvp-builder]]
+   :ident         (fn [] [:page/id :mvp-builder])
+   :route-segment ["project" :project-id "mvp"]
    :initial-state (fn [_] {:session/ui {:ui/current-section 0
-                                        :ui/total-sections 7
-                                        :ui/prompt "Who is your customer?"
-                                        :ui/hint "Give them a name, age, job"
+                                        :ui/total-sections 8
+                                        :ui/prompt "What is the smallest version of your product?"
+                                        :ui/hint "Focus on the core functionality that delivers value"
                                         :ui/completed-sections []
                                         :ui/complete? false}})
    :will-enter    (fn [app {:keys [project-id]}]
-                    (dr/route-deferred [:page/id :empathy-builder]
+                    (dr/route-deferred [:page/id :mvp-builder]
                       (fn []
-                        (df/load! app [:page/id :empathy-builder] EmpathyBuilderPage
-                          {:marker :empathy-builder
+                        (df/load! app [:page/id :mvp-builder] MVPBuilderPage
+                          {:marker :mvp-builder
                            :params {:project-id project-id}
                            :post-mutation `dr/target-ready
-                           :post-mutation-params {:target [:page/id :empathy-builder]}}))))}
+                           :post-mutation-params {:target [:page/id :mvp-builder]}}))))}
   
-  (let [loading? (df/loading? (get props [df/marker-table :empathy-builder]))
+  (let [loading? (df/loading? (get props [df/marker-table :mvp-builder]))
         {:keys [ui/current-section ui/total-sections ui/prompt ui/hint
                 ui/completed-sections ui/complete?]} (or ui {})
         session-data (or (:session/data props) {})]
     
     (if loading?
-      (dom/div :.loading "Loading empathy builder...")
-      (dom/div :.empathy-builder-page
+      (dom/div :.loading "Loading MVP planner...")
+      (dom/div :.mvp-builder-page
         ;; Header
         (dom/div :.builder-header
-          (dom/h1 "🧠 Empathy Map Builder")
+          (dom/h1 "🚀 MVP Planning Builder")
           (dom/p :.builder-subtitle (str "Project: " project-name)))
         
         ;; Progress
-        (empathy-progress {:current (count completed-sections) :total total-sections})
+        (mvp-progress {:current (count completed-sections) :total total-sections})
         
         (if complete?
           ;; Completion State
           (dom/div :.completion-state
             (dom/div :.completion-icon "🎉")
-            (dom/h2 "Empathy Map Complete!")
-            (dom/p "You now deeply understand your customer. Ready for the next step?")
+            (dom/h2 "MVP Plan Complete!")
+            (dom/p "You now have a clear MVP plan. Ready for the next step?")
             (dom/div :.completion-actions
               (ui/button
                 {:on-click #(dr/change-route! this ["project" {:project-id project-id}])
                  :variant :secondary}
                 "Back to Project")
               (ui/button
-                {:on-click #(dr/change-route! this ["project" {:project-id project-id} "valueprop"])
+                {:on-click #(dr/change-route! this ["project" {:project-id project-id} "canvas"])
                  :variant :primary}
-                "Continue to Value Proposition →")))
+                "Continue to Lean Canvas →")))
           
           ;; Active Builder
           (dom/div :.builder-content
             ;; Current Input
             (when prompt
               (ui/card {:title (str "Section " (inc (count completed-sections)) "/" total-sections)}
-                (empathy-input
+                (mvp-input
                   {:prompt prompt
                    :hint hint
                    :on-submit (fn [response]
-                                (comp/transact! this [(submit-empathy-section
+                                (comp/transact! this [(submit-mvp-section
                                                         {:session-id (:session/id session-data)
                                                          :section-key (keyword (str "section-" current-section))
                                                          :response response})]))})))
@@ -165,4 +165,4 @@
             (when (seq completed-sections)
               (ui/card {:title "Completed Sections"}
                 (dom/div :.completed-sections
-                  (map #(ui-empathy-section %) completed-sections))))))))))
+                  (map #(ui-mvp-section %) completed-sections))))))))))

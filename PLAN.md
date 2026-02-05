@@ -238,7 +238,7 @@ All core integration complete. Remaining polish tracked above.
 All items completed. See [CHANGELOG.md](CHANGELOG.md).
 
 ### 4. Web UX Platform Initiative — 📋 Current Focus
-- [-] Phase 1: Foundation (Project scaffolding ✅, basic builders 1/4)
+- [-] Phase 1: Foundation (Project scaffolding ✅, basic builders 4/4)
 - [ ] Phase 2: Interactive Builders (Rich canvas, real-time updates)
 - [ ] Phase 3: Collaboration (Multi-user, comments, versioning)
 - [ ] Phase 4: Wisdom & AI (Integrated chat, learning insights)
@@ -307,7 +307,7 @@ Agent executes chained tools, exfiltrates data, locks user out
 
 #### Phase 1: Foundation (Week 1-2)
 - [x] Extend Fulcro router with project/builder routes (projects, project detail, empathy builder routes added)
-- [x] Project data model and basic builder UI (webux.clj data model, projects UI, empathy builder UI)
+- [x] Project data model and basic builder UI (webux.clj data model, projects UI, empathy/value-prop/MVP/lean-canvas builder UI)
 - [x] Backend resolvers for projects and builder sessions (webux.clj resolvers registered)
 - [x] Single-user persistence (memory system per instance)
 
