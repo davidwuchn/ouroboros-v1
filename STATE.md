@@ -36,6 +36,7 @@
 | **Learning Memory System** | **✓ Ready** | **Store/recall insights, patterns, wisdom** |
 | **Educational Approval** | **✓ Ready** | **Tool approvals with risk explanations, best practices** |
 | **Learning Interface** | **✓ Ready** | **Lazy-loaded API for learning operations** |
+| **Lean Canvas Builder** | **✓ Ready** | **Interactive Lean Canvas creation with learning integration** |
 
 **Verified Working:**
 ```clojure

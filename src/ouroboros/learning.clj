@@ -219,7 +219,8 @@
                               (count history))
                            0)
      :recent-learnings (->> history
-                           (sort-by :learning/created >)
+                           (sort-by :learning/created)
+                           (reverse)
                            (take 5)
                            (map :learning/title))}))
 

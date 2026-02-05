@@ -20,7 +20,8 @@
    [ouroboros.confirmation :as confirmation]
    [ouroboros.eca_approval_bridge :as eca-approval]
    [ouroboros.resolver-registry :as registry]
-   [ouroboros.learning :as learning])
+   [ouroboros.learning :as learning]
+   [ouroboros.learning.lean-canvas :as canvas])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -96,9 +97,9 @@
   (telemetry/emit! {:event :chat/command :command cmd :chat-id chat-id})
   (case cmd
     :start (send-message! adapter chat-id
-                          "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation")
+                          "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary")
     :help (send-message! adapter chat-id
-                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve dangerous operation\n/deny <id> <reason> - Reject operation\n\nJust type naturally to chat with ECA!")
+                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve dangerous operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n\nJust type naturally to chat with ECA!")
     :clear (do (clear-session! chat-id)
                (send-message! adapter chat-id "✓ Conversation cleared"))
     :status (let [result (tool-registry/call-tool :system/status {})]
@@ -109,6 +110,52 @@
              (send-message! adapter chat-id
                             (str "*Available Tools*\n\n"
                                  (str/join "\n" (map :tool/name tools)))))
+    :build (if-let [[subcmd & project-parts] (str/split (or args "") #"\s+" 2)]
+             (let [project-name (str/join " " project-parts)]
+               (case subcmd
+                 "canvas" (if (str/blank? project-name)
+                           (send-message! adapter chat-id "⚠️ Usage: /build canvas <project-name>")
+                           (let [canvas-session (canvas/start-canvas-session! chat-id project-name)
+                                 prompt (canvas/get-next-prompt canvas-session)]
+                             ;; Enter canvas mode
+                             (swap! chat-sessions assoc-in [chat-id :context :canvas/session] (:session prompt))
+                             (swap! chat-sessions assoc-in [chat-id :context :canvas/mode] true)
+                             (send-markdown! adapter chat-id (:message prompt))))
+                 (send-message! adapter chat-id (str "Unknown build command: " subcmd))))
+             (send-message! adapter chat-id "*Build Commands*\n\n/build canvas <name> - Create Lean Canvas\n/build help - Show help"))
+    :learn (if-let [[topic & insight-parts] (str/split (or args "") #"\s+" 2)]
+             (let [insight (str/join " " insight-parts)]
+               (if (str/blank? insight)
+                 (send-message! adapter chat-id "⚠️ Usage: /learn <topic> <insight>")
+                 (do (learning/save-insight! chat-id
+                       {:title (str "Learning: " topic)
+                        :insights [insight]
+                        :pattern (str "user-learning-" (str/replace topic #"\s+" "-"))
+                        :category "user-insights"
+                        :tags #{topic "learning"}})
+                     (send-message! adapter chat-id (str "✓ Learning saved: " topic)))))
+             (send-message! adapter chat-id "*Learning Commands*\n\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary"))
+    :recall (if-not (str/blank? args)
+              (let [learnings (learning/recall-by-pattern chat-id args)]
+                (if (seq learnings)
+                  (send-markdown! adapter chat-id
+                    (str "*📚 Learnings matching \"" args "\"*\n\n"
+                         (str/join "\n---\n"
+                           (map (fn [l]
+                                  (str "**" (:learning/title l) "**\n"
+                                       (str/join "\n" (map #(str "• " %) (:learning/insights l)))))
+                                (take 5 learnings)))))
+                  (send-message! adapter chat-id "No learnings found for that pattern.")))
+              (send-message! adapter chat-id "⚠️ Usage: /recall <pattern>"))
+    :wisdom (let [stats (learning/get-user-stats chat-id)]
+              (send-markdown! adapter chat-id
+                (str "*🧠 Your Wisdom Summary*\n\n"
+                     "Total learnings: " (:total-learnings stats) "\n"
+                     "Applications: " (:total-applications stats) "\n"
+                     "Avg confidence: " (:average-confidence stats) "/5\n\n"
+                     "Recent learnings:\n"
+                     (str/join "\n" (map #(str "• " %) (:recent-learnings stats))) "\n\n"
+                     "Use /learn to save insights, /recall to find them.")))
     :confirm (if-let [[prefix id] (str/split (or args "") #"\s+" 2)]
                (if (= prefix "eca-")
                  ;; Handle ECA approval
@@ -195,13 +242,53 @@
             (update-session! chat-id :assistant error-msg)
             (send-message! adapter chat-id error-msg)))))))
 
+(defn- handle-canvas-message
+  "Handle message when user is in canvas-building mode"
+  [adapter chat-id user-name text]
+  (let [session (get-session chat-id)
+        canvas-session (get-in session [:context :canvas/session])
+        text-normalized (str/trim text)
+        cancel? (= "cancel" (str/lower-case text-normalized))]
+    (if canvas-session
+      (if cancel?
+        (do
+          ;; Cancel canvas building
+          (swap! chat-sessions update-in [chat-id :context] dissoc :canvas/session :canvas/mode)
+          (send-message! adapter chat-id "🗑️ Canvas building cancelled. All progress lost."))
+        (let [result (canvas/process-response! canvas-session text)]
+          ;; Update session with new canvas state
+          (swap! chat-sessions assoc-in [chat-id :context :canvas/session] (:session result))
+          
+          (if (:complete? result)
+            (do
+              ;; Canvas complete - show summary and exit canvas mode
+              (swap! chat-sessions update-in [chat-id :context] dissoc :canvas/session :canvas/mode)
+              (let [summary (canvas/get-canvas-summary (:session result))]
+                (send-markdown! adapter chat-id
+                  (str (:message result) "\n\n"
+                       "📊 *Canvas Summary*\n"
+                       "Project: " (:canvas/project-name summary) "\n"
+                       "Completed: " (:canvas/completed-blocks summary) "/" (:canvas/total-blocks summary) " blocks\n"
+                       "Canvas ID: " (:canvas/id summary) "\n\n"
+                       "Each block has been saved as a learning insight.\n"
+                       "Use /recall lean-canvas to review later."))))
+            ;; Continue with next prompt
+            (send-markdown! adapter chat-id (:message result)))))
+      ;; No canvas session - treat as normal message
+      (handle-natural-message adapter chat-id user-name text))))
+
 (defn make-message-handler [adapter]
   (fn [{:keys [chat-id user-id user-name text] :as message}]
     (telemetry/emit! {:event :chat/receive :platform (:message/platform message)})
-
-    (if-let [[cmd args] (extract-command text)]
-      (handle-command adapter chat-id user-name cmd args)
-      (handle-natural-message adapter chat-id user-name text))))
+    
+    ;; Check if session is in canvas mode
+    (let [session (get-session chat-id)
+          canvas-mode? (get-in session [:context :canvas/mode])]
+      (if canvas-mode?
+        (handle-canvas-message adapter chat-id user-name text)
+        (if-let [[cmd args] (extract-command text)]
+          (handle-command adapter chat-id user-name cmd args)
+          (handle-natural-message adapter chat-id user-name text))))))
 
 ;; ============================================================================
 ;; Router
