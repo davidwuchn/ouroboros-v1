@@ -14,7 +14,7 @@
    [ouroboros.engine :as engine]
    ;; For resolver-based tool registration
    [ouroboros.history]
-   [ouroboros.memory])
+   [ouroboros.memory] [ouroboros.webux])
   (:import [java.time Instant]))
 
 ;; ============================================================================

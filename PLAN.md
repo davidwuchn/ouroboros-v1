@@ -238,7 +238,7 @@ All core integration complete. Remaining polish tracked above.
 All items completed. See [CHANGELOG.md](CHANGELOG.md).
 
 ### 4. Web UX Platform Initiative — 📋 Current Focus
-- [ ] Phase 1: Foundation (Project scaffolding, basic builders)
+- [-] Phase 1: Foundation (Project scaffolding ✅, basic builders 1/4)
 - [ ] Phase 2: Interactive Builders (Rich canvas, real-time updates)
 - [ ] Phase 3: Collaboration (Multi-user, comments, versioning)
 - [ ] Phase 4: Wisdom & AI (Integrated chat, learning insights)
@@ -306,10 +306,10 @@ Agent executes chained tools, exfiltrates data, locks user out
 ### Implementation Phases (10 weeks)
 
 #### Phase 1: Foundation (Week 1-2)
-- Extend Fulcro router with project/builder routes
-- Project data model and basic builder UI
-- Backend resolvers for projects and builder sessions
-- Single-user persistence
+- [x] Extend Fulcro router with project/builder routes (projects, project detail, empathy builder routes added)
+- [x] Project data model and basic builder UI (webux.clj data model, projects UI, empathy builder UI)
+- [x] Backend resolvers for projects and builder sessions (webux.clj resolvers registered)
+- [x] Single-user persistence (memory system per instance)
 
 #### Phase 2: Interactive Builders (Week 3-4)
 - Rich canvas components (drag-and-drop, visual editors)
@@ -347,10 +347,10 @@ Agent executes chained tools, exfiltrates data, locks user out
 - **Wisdom Application** - Frequency of learning insight reuse
 
 ### First Steps (Next 48 hours)
-1. Create project scaffolding (new UI pages for builder/chat/wisdom)
-2. Extend existing dashboard with Projects page
-3. Build static empathy map builder with backend integration
-4. Update navigation and routing
+1. ✅ Create project scaffolding (builder pages created, chat/wisdom pending)
+2. ✅ Extend existing dashboard with Projects page (added to router)
+3. ✅ Build static empathy map builder with backend integration
+4. ✅ Update navigation and routing (root.cljs updated)
 
 **Impact**: Creates virtuous cycle where teams build better products using structured methodology, every interaction generates wisdom, and success patterns propagate across the organization.
 
