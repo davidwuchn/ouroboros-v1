@@ -11,7 +11,10 @@
    [com.wsscode.pathom3.connect.indexes :as pci]
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.resolver-registry :as registry]
-   [ouroboros.engine :as engine])
+   [ouroboros.engine :as engine]
+   ;; For resolver-based tool registration
+   [ouroboros.history]
+   [ouroboros.memory])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -64,8 +67,38 @@
   []
   (reset! query-env (create-env))
   ;; Register tools after query env is ready
+  ;; Use resolver-based tool registration (replaces tool_defs.clj)
+  (when-let [register-resolver-tools (resolve 'ouroboros.tool-registry/register-all-resolver-tools!)]
+    ;; Map resolvers to tools first
+    (when-let [register-mapping (resolve 'ouroboros.tool-registry/register-resolver-tool!)]
+      ;; Git tools
+      (register-mapping #'ouroboros.history/git-commits :git/commits
+        {:description "Get recent git commits from repository history"
+         :unique? true :category :git :safe? true})
+      (register-mapping #'ouroboros.history/git-status :git/status
+        {:description "Get git repository status"
+         :unique? true :category :git :safe? true})
+      
+      ;; Memory tools
+      (register-mapping #'ouroboros.memory/memory-get :memory/get
+        {:description "Get value from persistent memory"
+         :unique? true :category :memory :safe? true})
+      (register-mapping #'ouroboros.memory/memory-save! :memory/set
+        {:description "Save value to persistent memory"
+         :unique? true :category :memory :safe? true})
+      
+      ;; System tools (defined in this namespace)
+      (register-mapping #'system-status-resolver :system/status
+        {:description "Get current system status"
+         :unique? true :category :system :safe? true}))
+    
+    ;; Register all mapped tools
+    (register-resolver-tools))
+  
+  ;; Also register traditional tools from tool_defs for backward compatibility
   (when-let [register-tools (resolve 'ouroboros.tool-defs/register-all-tools!)]
     (register-tools))
+  
   (println "Query environment initialized"))
 
 (defn q

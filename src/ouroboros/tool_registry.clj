@@ -17,6 +17,7 @@
    (call-tool :my/tool {:x \"hello\"} :session-123)  ; With safety context"
   (:require
    [clojure.string :as str]
+   [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.tool-sandbox :as sandbox]
    [ouroboros.tool-allowlist :as allowlist]
@@ -282,6 +283,80 @@
   (let [subject (allowlist/get-chat-session-key platform platform-id user-id)]
     (allowlist/create! subject level)
     subject))
+
+;; ============================================================================
+;; Resolver-Based Tool Registration (NEW - eliminates wrapper functions)
+;; ============================================================================
+
+(defonce ^:private resolver-tool-map (atom {}))
+
+(defn- resolver-name->keyword
+  "Convert resolver var name to namespaced keyword"
+  [resolver-var]
+  (let [m (meta resolver-var)
+        ns-str (str (:ns m))
+        name-str (str (:name m))]
+    (keyword (str/replace ns-str #"ouroboros\\." "") name-str)))
+
+(defn- pco-input->tool-params
+  "Convert Pathom ::pco/input to tool parameter schema"
+  [input-spec]
+  (into {} (for [attr (or input-spec [])]
+             (let [k (if (vector? attr) (first attr) attr)
+                   type-info (when (vector? attr) (second attr))]
+               [(keyword (name k))
+                {:type (or (:type type-info) :any)
+                 :description (:description type-info)
+                 :required (not (:optional? type-info false))}]))))
+
+(defn register-resolver-tool!
+  "Map a resolver to a tool name for later registration
+   
+   Usage:
+     (register-resolver-tool! #'git-commits :git/commits
+       {:description \"Get recent commits\"
+        :unique? true
+        :category :git})"
+  [resolver-var tool-name attrs]
+  (swap! resolver-tool-map assoc resolver-var
+         (merge {:tool/name tool-name
+                 :tool/resolver resolver-var}
+                attrs)))
+
+(defn register-all-resolver-tools!
+  "Register all mapped resolvers as tools
+   
+   Call this after all resolvers are loaded and mapped."
+  []
+  (doseq [[resolver-var mapping] @resolver-tool-map]
+    (let [tool-name (:tool/name mapping)
+          resolver-kw (resolver-name->keyword resolver-var)
+          input-spec (::pco/input (meta resolver-var))
+          output-spec (::pco/output (meta resolver-var))
+          doc (:doc (meta resolver-var))]
+      
+      (register-tool!
+       tool-name
+       {:description (or (:description mapping) doc (str "Tool: " tool-name))
+        :parameters (pco-input->tool-params input-spec)
+        :fn (fn [args]
+              ;; Execute via Pathom
+              (let [query (if output-spec
+                            [{resolver-kw output-spec}]
+                            [resolver-kw])
+                    resolved ((resolve 'ouroboros.query/q) query)]
+                (get resolved resolver-kw)))
+        :unique? (:unique? mapping false)
+        :category (:category mapping (keyword (namespace tool-name)))
+        :safe? (:safe? mapping true)
+        :resolver resolver-kw})))
+  
+  (println (str "✓ Registered " (count @resolver-tool-map) " tools from resolvers")))
+
+(defn clear-resolver-mappings!
+  "Clear all resolver tool mappings"
+  []
+  (reset! resolver-tool-map {}))
 
 ;; ============================================================================
 ;; Safety Statistics
