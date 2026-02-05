@@ -18,7 +18,7 @@
 **Why ECA?**
 - 10+ LLM providers (Anthropic, OpenAI, Copilot, Ollama, Deepseek)
 - Editor-grade tool calling and context management
-- Battle-tested with 613+ stars, v0.97.7
+- Battle-tested with 613+ stars, v0.98.1
 - JSON-RPC 2.0 standard protocol
 
 **Delegated to ECA:**

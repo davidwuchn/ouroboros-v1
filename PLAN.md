@@ -24,12 +24,12 @@
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
-## ECA Integration Strategy
+## ECA Integration Strategy ✅
 
 ### Why ECA?
 
 ECA (Editor Code Assistant) is a battle-tested Clojure-based AI coding assistant:
-- **613 stars**, 37 forks, v0.97.7 (near 1.0)
+- **613 stars**, 37 forks, v0.98.1 (near 1.0)
 - Editor plugins for Emacs, VSCode, Vim, IntelliJ
 - **10+ LLM providers** (Anthropic, OpenAI, Copilot, Ollama, Deepseek, etc.)
 - MCP client with HTTP/SSE/stdio transport
@@ -200,7 +200,7 @@ ECA continues or aborts
 
 | Risk | Mitigation |
 |------|------------|
-| ECA dependency | Version pinning, fallback to internal AI |
+| ECA dependency | Version pinning, monitoring upstream releases |
 | Protocol changes | Test suite for protocol compatibility |
 | Tool approval latency | Async handling, timeout defaults |
 | No ECA binary | Docker image with embedded ECA |

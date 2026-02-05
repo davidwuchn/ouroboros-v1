@@ -8,7 +8,10 @@
    [ouroboros.frontend.ui.pages.dashboard :as dashboard]
    [ouroboros.frontend.ui.pages.telemetry :as telemetry]
    [ouroboros.frontend.ui.pages.users :as users]
-   [ouroboros.frontend.ui.pages.sessions :as sessions]))
+   [ouroboros.frontend.ui.pages.sessions :as sessions]
+   [ouroboros.frontend.ui.pages.projects :as projects]
+   [ouroboros.frontend.ui.pages.project-detail :as project-detail]
+   [ouroboros.frontend.ui.pages.empathy-builder :as empathy-builder]))
 
 ;; ============================================================================
 ;; Navigation Handler
@@ -28,7 +31,10 @@
    [dashboard/DashboardPage
     telemetry/TelemetryPage
     users/UsersPage
-    sessions/SessionsPage]})
+    sessions/SessionsPage
+    projects/ProjectsPage
+    project-detail/ProjectDetailPage
+    empathy-builder/EmpathyBuilderPage]})
 
 (def ui-main-router (comp/factory MainRouter))
 

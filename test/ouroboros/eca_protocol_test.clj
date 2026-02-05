@@ -5,7 +5,7 @@
    These tests validate JSON-RPC message formats, method names, and
    response handling without requiring actual ECA binary.
 
-   Protocol Version: ECA v0.97.7+
+   Protocol Version: ECA v0.98.1+
    JSON-RPC: 2.0"
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
@@ -17,7 +17,7 @@
 ;; Protocol Constants
 ;; ============================================================================
 
-(def eca-protocol-version "0.97.7")
+(def eca-protocol-version "0.98.1")
 (def json-rpc-version "2.0")
 
 ;; ECA Method Names (must match ECA binary)
