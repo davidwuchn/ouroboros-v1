@@ -4,9 +4,7 @@
    Supports: Telegram, Discord, Slack"
   (:require
    [ouroboros.chat :as chat]
-   [ouroboros.chat.telegram :as telegram]
-   [ouroboros.chat.slack :as slack]
-   [ouroboros.chat.discord :as discord]))
+   [ouroboros.chat.adapters :as adapters]))
 
 (defn chat-adapters
   "List registered chat adapters
@@ -34,7 +32,7 @@
    
    Usage: (chat-register-telegram! \"YOUR_BOT_TOKEN\")"
   [token]
-  (let [bot (telegram/make-bot token)]
+  (let [bot (adapters/telegram-bot token)]
     (chat/register-adapter! :telegram bot)
     {:status :registered :platform :telegram}))
 
@@ -43,7 +41,7 @@
    
    Usage: (chat-register-slack! \"xapp-...\" \"xoxb-...\")"
   [app-token bot-token]
-  (let [bot (slack/make-bot app-token bot-token)]
+  (let [bot (adapters/slack-bot app-token bot-token)]
     (chat/register-adapter! :slack bot)
     {:status :registered :platform :slack}))
 
@@ -52,7 +50,7 @@
    
    Usage: (chat-register-discord! \"YOUR_BOT_TOKEN\")"
   [token]
-  (let [bot (discord/make-bot token)]
+  (let [bot (adapters/discord-bot token)]
     (chat/register-adapter! :discord bot)
     {:status :registered :platform :discord}))
 

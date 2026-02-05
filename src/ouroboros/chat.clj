@@ -285,10 +285,10 @@
 
 (comment
   ;; Usage
-  (require '[ouroboros.chat.telegram :as telegram])
+  (require '[ouroboros.chat.adapters :as adapters])
 
   ;; Create and register adapter
-  (def tg-bot (telegram/make-bot "YOUR_BOT_TOKEN"))
+  (def tg-bot (adapters/telegram-bot "YOUR_BOT_TOKEN"))
   (register-adapter! :tg tg-bot)
 
   ;; Start all adapters

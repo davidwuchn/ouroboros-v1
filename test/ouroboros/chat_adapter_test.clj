@@ -6,9 +6,7 @@
    [clojure.test :refer [deftest is testing use-fixtures]]
    [ouroboros.chat :as chat]
    [ouroboros.chat.protocol :as chatp]
-   [ouroboros.chat.telegram :as telegram]
-   [ouroboros.chat.discord :as discord]
-   [ouroboros.chat.slack :as slack]
+   [ouroboros.chat.adapters :as adapters]
    [ouroboros.eca_approval_bridge :as eca-approval] ; Ensure ECA approval bridge is loaded
    [ouroboros.tool-registry :as tool-registry]))
 
@@ -57,7 +55,7 @@
     (println "\n[TEST] ChatAdapter protocol compliance")
 
     ;; Telegram
-    (let [tg-bot (telegram/make-bot "fake-token")]
+    (let [tg-bot (adapters/telegram-bot "fake-token")]
       (is (satisfies? chatp/ChatAdapter tg-bot)
           "Telegram bot should satisfy ChatAdapter")
       (is (ifn? chatp/start!)
@@ -68,7 +66,7 @@
           "Telegram should implement send-message! (MultiFn)"))
 
     ;; Discord
-    (let [discord-bot (discord/make-bot "fake-token")]
+    (let [discord-bot (adapters/discord-bot "fake-token")]
       (is (satisfies? chatp/ChatAdapter discord-bot)
           "Discord bot should satisfy ChatAdapter")
       (is (ifn? chatp/start!)
@@ -77,7 +75,7 @@
           "Discord should implement stop! (MultiFn)"))
 
     ;; Slack
-    (let [slack-bot (slack/make-bot "xapp-fake" "xoxb-fake")]
+    (let [slack-bot (adapters/slack-bot "xapp-fake" "xoxb-fake")]
       (is (satisfies? chatp/ChatAdapter slack-bot)
           "Slack bot should satisfy ChatAdapter")
       (is (ifn? chatp/start!)
