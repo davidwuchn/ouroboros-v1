@@ -21,6 +21,9 @@
    [ouroboros.eca_approval_bridge :as eca-approval]
    [ouroboros.resolver-registry :as registry]
    [ouroboros.learning :as learning]
+   [ouroboros.learning.empathy-map :as empathy]
+   [ouroboros.learning.value-proposition :as vp]
+   [ouroboros.learning.mvp-planning :as mvp]
    [ouroboros.learning.lean-canvas :as canvas])
   (:import [java.time Instant]))
 
@@ -97,9 +100,9 @@
   (telemetry/emit! {:event :chat/command :command cmd :chat-id chat-id})
   (case cmd
     :start (send-message! adapter chat-id
-                          "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary")
+                          "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build empathy <persona> - Empathy Map\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary")
     :help (send-message! adapter chat-id
-                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve dangerous operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n\nJust type naturally to chat with ECA!")
+                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve dangerous operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build empathy <persona> - Empathy Map\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n\nJust type naturally to chat with ECA!")
     :clear (do (clear-session! chat-id)
                (send-message! adapter chat-id "✓ Conversation cleared"))
     :status (let [result (tool-registry/call-tool :system/status {})]
@@ -121,8 +124,29 @@
                              (swap! chat-sessions assoc-in [chat-id :context :canvas/session] (:session prompt))
                              (swap! chat-sessions assoc-in [chat-id :context :canvas/mode] true)
                              (send-markdown! adapter chat-id (:message prompt))))
+                 "empathy" (if (str/blank? project-name)
+                            (send-message! adapter chat-id "⚠️ Usage: /build empathy <persona-name>")
+                            (let [empathy-session (empathy/start-empathy-session! chat-id project-name)
+                                  prompt (empathy/get-next-prompt empathy-session)]
+                              (swap! chat-sessions assoc-in [chat-id :context :empathy/session] (:session prompt))
+                              (swap! chat-sessions assoc-in [chat-id :context :empathy/mode] true)
+                              (send-markdown! adapter chat-id (:message prompt))))
+                 "valueprop" (if (str/blank? project-name)
+                              (send-message! adapter chat-id "⚠️ Usage: /build valueprop <project-name>")
+                              (let [vp-session (vp/start-vp-session! chat-id project-name)
+                                    prompt (vp/get-next-prompt vp-session)]
+                                (swap! chat-sessions assoc-in [chat-id :context :vp/session] (:session prompt))
+                                (swap! chat-sessions assoc-in [chat-id :context :vp/mode] true)
+                                (send-markdown! adapter chat-id (:message prompt))))
+                 "mvp" (if (str/blank? project-name)
+                         (send-message! adapter chat-id "⚠️ Usage: /build mvp <project-name>")
+                         (let [mvp-session (mvp/start-mvp-session! chat-id project-name)
+                               prompt (mvp/get-next-prompt mvp-session)]
+                           (swap! chat-sessions assoc-in [chat-id :context :mvp/session] (:session prompt))
+                           (swap! chat-sessions assoc-in [chat-id :context :mvp/mode] true)
+                           (send-markdown! adapter chat-id (:message prompt))))
                  (send-message! adapter chat-id (str "Unknown build command: " subcmd))))
-             (send-message! adapter chat-id "*Build Commands*\n\n/build canvas <name> - Create Lean Canvas\n/build help - Show help"))
+             (send-message! adapter chat-id "*Build Commands*\n\n/build canvas <name> - Create Lean Canvas\n/build empathy <persona> - Empathy Map\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/build help - Show help"))
     :learn (if-let [[topic & insight-parts] (str/split (or args "") #"\s+" 2)]
              (let [insight (str/join " " insight-parts)]
                (if (str/blank? insight)
@@ -277,18 +301,136 @@
       ;; No canvas session - treat as normal message
       (handle-natural-message adapter chat-id user-name text))))
 
+;; ============================================================================
+;; Builder Mode Handlers
+;; ============================================================================
+
+(defn- handle-empathy-message
+  "Handle message when user is in empathy mapping mode"
+  [adapter chat-id user-name text]
+  (let [session (get-session chat-id)
+        empathy-session (get-in session [:context :empathy/session])
+        text-normalized (str/trim text)
+        cancel? (= "cancel" (str/lower-case text-normalized))]
+    (if empathy-session
+      (if cancel?
+        (do
+          ;; Cancel empathy building
+          (swap! chat-sessions update-in [chat-id :context] dissoc :empathy/session :empathy/mode)
+          (send-message! adapter chat-id "🗑️ Empathy mapping cancelled. All progress lost."))
+        (let [result (empathy/process-response! empathy-session text)]
+          ;; Update session with new empathy state
+          (swap! chat-sessions assoc-in [chat-id :context :empathy/session] (:session result))
+          
+          (if (:complete? result)
+            (do
+              ;; Empathy map complete - show summary and exit mode
+              (swap! chat-sessions update-in [chat-id :context] dissoc :empathy/session :empathy/mode)
+              (let [summary (empathy/get-empathy-summary (:session result))]
+                (send-markdown! adapter chat-id
+                  (str (:message result) "\n\n"
+                       "🧠 *Empathy Map Summary*\n"
+                       "Persona: " (:empathy/persona-name summary) "\n"
+                       "Completed: " (:empathy/completed-sections summary) "/" (:empathy/total-sections summary) " sections\n"
+                       "Empathy ID: " (:empathy/id summary) "\n\n"
+                       "Each section has been saved as a learning insight.\n"
+                       "Use /recall empathy- to review later.\n\n"
+                       "Next step: Use /build valueprop to create a Value Proposition Canvas."))))
+            ;; Continue with next prompt
+            (send-markdown! adapter chat-id (:message result)))))
+      ;; No empathy session - treat as normal message
+      (handle-natural-message adapter chat-id user-name text))))
+
+(defn- handle-vp-message
+  "Handle message when user is in value proposition mode"
+  [adapter chat-id user-name text]
+  (let [session (get-session chat-id)
+        vp-session (get-in session [:context :vp/session])
+        text-normalized (str/trim text)
+        cancel? (= "cancel" (str/lower-case text-normalized))]
+    (if vp-session
+      (if cancel?
+        (do
+          ;; Cancel VP building
+          (swap! chat-sessions update-in [chat-id :context] dissoc :vp/session :vp/mode)
+          (send-message! adapter chat-id "🗑️ Value Proposition cancelled. All progress lost."))
+        (let [result (vp/process-response! vp-session text)]
+          ;; Update session with new VP state
+          (swap! chat-sessions assoc-in [chat-id :context :vp/session] (:session result))
+          
+          (if (:complete? result)
+            (do
+              ;; VP complete - show summary and exit mode
+              (swap! chat-sessions update-in [chat-id :context] dissoc :vp/session :vp/mode)
+              (let [summary (vp/get-vp-summary (:session result))]
+                (send-markdown! adapter chat-id
+                  (str (:message result) "\n\n"
+                       "🎯 *Value Proposition Summary*\n"
+                       "Project: " (:vp/project-name summary) "\n"
+                       "Completed: " (:vp/completed-sections summary) "/" (:vp/total-sections summary) " sections\n"
+                       "VP ID: " (:vp/id summary) "\n\n"
+                       "Each section has been saved as a learning insight.\n"
+                       "Use /recall value-prop- to review later.\n\n"
+                       "Next step: Use /build mvp to create an MVP plan."))))
+            ;; Continue with next prompt
+            (send-markdown! adapter chat-id (:message result)))))
+      ;; No VP session - treat as normal message
+      (handle-natural-message adapter chat-id user-name text))))
+
+(defn- handle-mvp-message
+  "Handle message when user is in MVP planning mode"
+  [adapter chat-id user-name text]
+  (let [session (get-session chat-id)
+        mvp-session (get-in session [:context :mvp/session])
+        text-normalized (str/trim text)
+        cancel? (= "cancel" (str/lower-case text-normalized))]
+    (if mvp-session
+      (if cancel?
+        (do
+          ;; Cancel MVP building
+          (swap! chat-sessions update-in [chat-id :context] dissoc :mvp/session :mvp/mode)
+          (send-message! adapter chat-id "🗑️ MVP planning cancelled. All progress lost."))
+        (let [result (mvp/process-response! mvp-session text)]
+          ;; Update session with new MVP state
+          (swap! chat-sessions assoc-in [chat-id :context :mvp/session] (:session result))
+          
+          (if (:complete? result)
+            (do
+              ;; MVP complete - show summary and exit mode
+              (swap! chat-sessions update-in [chat-id :context] dissoc :mvp/session :mvp/mode)
+              (let [summary (mvp/get-mvp-summary (:session result))]
+                (send-markdown! adapter chat-id
+                  (str (:message result) "\n\n"
+                       "🚀 *MVP Planning Summary*\n"
+                       "Project: " (:mvp/project-name summary) "\n"
+                       "Completed: " (:mvp/completed-sections summary) "/" (:mvp/total-sections summary) " sections\n"
+                       "MVP ID: " (:mvp/id summary) "\n\n"
+                       "Each section has been saved as a learning insight.\n"
+                       "Use /recall mvp- to review later.\n\n"
+                       "Next step: Use /build canvas to create a Lean Canvas."))))
+            ;; Continue with next prompt
+            (send-markdown! adapter chat-id (:message result)))))
+      ;; No MVP session - treat as normal message
+      (handle-natural-message adapter chat-id user-name text))))
+
 (defn make-message-handler [adapter]
   (fn [{:keys [chat-id user-id user-name text] :as message}]
     (telemetry/emit! {:event :chat/receive :platform (:message/platform message)})
     
-    ;; Check if session is in canvas mode
+    ;; Check if session is in any builder mode
     (let [session (get-session chat-id)
-          canvas-mode? (get-in session [:context :canvas/mode])]
-      (if canvas-mode?
-        (handle-canvas-message adapter chat-id user-name text)
-        (if-let [[cmd args] (extract-command text)]
-          (handle-command adapter chat-id user-name cmd args)
-          (handle-natural-message adapter chat-id user-name text))))))
+          canvas-mode? (get-in session [:context :canvas/mode])
+          empathy-mode? (get-in session [:context :empathy/mode])
+          vp-mode? (get-in session [:context :vp/mode])
+          mvp-mode? (get-in session [:context :mvp/mode])]
+      (cond
+        canvas-mode? (handle-canvas-message adapter chat-id user-name text)
+        empathy-mode? (handle-empathy-message adapter chat-id user-name text)
+        vp-mode? (handle-vp-message adapter chat-id user-name text)
+        mvp-mode? (handle-mvp-message adapter chat-id user-name text)
+        :else (if-let [[cmd args] (extract-command text)]
+                (handle-command adapter chat-id user-name cmd args)
+                (handle-natural-message adapter chat-id user-name text))))))
 
 ;; ============================================================================
 ;; Router

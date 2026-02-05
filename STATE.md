@@ -211,15 +211,16 @@ In REPL:
 - ✅ **ECA Integration** — JSON-RPC client with callback system, auto-start
 - ✅ **Interface Updates** — Lazy-loaded APIs for learning operations
 - 🔄 **Approval Bridge Integration** — Educational messages for tool approvals (partial)
-- 🔄 **Chat Commands** — `/learn`, `/recall`, `/wisdom` commands (pending)
-- 🔄 **Progressive Disclosure** — Depth manager for utility→understanding→wisdom (pending)
+- ✅ **Chat Commands** — `/learn`, `/recall`, `/wisdom`, `/build canvas|empathy|valueprop|mvp` commands (ready)
+- ◐ **Progressive Disclosure** — Depth manager for utility→understanding→wisdom (partial: stage suggestions)
+- ✅ **Product Development Flywheel** — Empathy Map → Value Proposition → MVP → Lean Canvas with learning integration
 
 **Decommissioned**:
 - ✗ MCP server (functionality delegated to ECA)
 - ✗ Internal AI/agent system (delegated to ECA)
 - ✗ Skill system (replaced by learning flywheel)
 
-**Next Phase**: Complete approval bridge integration, add chat commands, implement progressive disclosure in chat handler.
+**Next Phase**: Complete approval bridge integration, enhance progressive disclosure with wisdom levels, add product builder orchestration.
 
 ## Shared Components
 
