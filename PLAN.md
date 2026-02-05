@@ -239,7 +239,7 @@ All items completed. See [CHANGELOG.md](CHANGELOG.md).
 
 ### 4. Web UX Platform Initiative — 📋 Current Focus
 - [-] Phase 1: Foundation (Project scaffolding ✅, basic builders 4/4)
-- [ ] Phase 2: Interactive Builders (Rich canvas, real-time updates)
+- [-] Phase 2: Interactive Builders (Rich canvas, real-time updates)
 - [ ] Phase 3: Collaboration (Multi-user, comments, versioning)
 - [ ] Phase 4: Wisdom & AI (Integrated chat, learning insights)
 - [ ] Phase 5: Polish & Scale (Performance, offline, API)
@@ -312,10 +312,10 @@ Agent executes chained tools, exfiltrates data, locks user out
 - [x] Single-user persistence (memory system per instance)
 
 #### Phase 2: Interactive Builders (Week 3-4)
-- Rich canvas components (drag-and-drop, visual editors)
-- Real-time updates via WebSocket
-- Validation, guidance, export functionality
-- Mobile responsive layouts
+- [ ] Rich canvas components (drag-and-drop, visual editors)
+- [-] Real-time updates via WebSocket (backend broadcasting complete)
+- [ ] Validation, guidance, export functionality
+- [ ] Mobile responsive layouts
 
 #### Phase 3: Collaboration (Week 5-6)
 - Multi-user presence and live editing

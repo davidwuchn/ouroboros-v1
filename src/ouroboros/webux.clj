@@ -190,6 +190,10 @@
                     (let [sessions (or sessions {})]
                       (assoc sessions session-id session))))
     
+    ;; Broadcast via WebSocket if available
+    (when-let [broadcast-fn (resolve 'ouroboros.websocket/broadcast-builder-session!)]
+      (broadcast-fn session-id session-data))
+    
     (telemetry/emit! {:event :webux/session-started
                       :user-id user-id
                       :session-id session-id
@@ -210,6 +214,10 @@
                                     :session/data data
                                     :session/updated-at (str (java.time.Instant/now))))
                       sessions)))
+    
+    ;; Broadcast via WebSocket if available
+    (when-let [broadcast-fn (resolve 'ouroboros.websocket/broadcast-builder-session!)]
+      (broadcast-fn session-id data))
     
     (telemetry/emit! {:event :webux/session-updated
                       :user-id user-id
@@ -233,6 +241,11 @@
                                     :session/completed-at completed-at
                                     :session/updated-at completed-at))
                       sessions)))
+    
+    ;; Broadcast updated session data
+    (when-let [session (get (memory/get-value key) session-id)]
+      (when-let [broadcast-fn (resolve 'ouroboros.websocket/broadcast-builder-session!)]
+        (broadcast-fn session-id (:session/data session))))
     
     (telemetry/emit! {:event :webux/session-completed
                       :user-id user-id

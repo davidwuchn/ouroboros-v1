@@ -56,6 +56,15 @@
         (catch Exception e
           (println "WebSocket send error for client" id ":" (.getMessage e)))))))
 
+(defn broadcast-builder-session!
+  "Broadcast builder session update to subscribed clients"
+  [session-id data]
+  (broadcast-to! (keyword (str "builder-session/" session-id))
+                 {:type :builder-session/update
+                  :session-id session-id
+                  :data data
+                  :timestamp (System/currentTimeMillis)}))
+
 ;; ============================================================================
 ;; Message Handling
 ;; ============================================================================
