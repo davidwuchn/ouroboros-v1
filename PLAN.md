@@ -14,8 +14,9 @@
 - ✓ **Educational Approval** - Tool approvals with risk explanations, best practices  
 - ✓ **Interface Integration** - Lazy-loaded APIs for all learning operations
 - ◐ **Approval Bridge Integration** - Educational messages for tool approvals (partial)
-- ◐ **Chat Commands** - `/learn`, `/recall`, `/wisdom` commands (pending)
-- ◐ **Progressive Disclosure** - Depth manager for utility→understanding→wisdom (pending)
+- ✅ **Chat Commands** - `/learn`, `/recall`, `/wisdom`, `/build canvas|empathy|valueprop|mvp` commands (ready)
+- ◐ **Progressive Disclosure** - Depth manager for utility→understanding→wisdom (partial: stage suggestions)
+- ✅ **Product Development Flywheel** - Empathy Map → Value Proposition → MVP → Lean Canvas with learning integration
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
@@ -50,7 +51,7 @@ ECA (Editor Code Assistant) is a battle-tested Clojure-based AI coding assistant
 │  │                                                          │    │
 │  │  ┌──────────────────────────────────────────────────┐   │    │
 │  │  │ Ouroboros Tools (Git, Memory, HTTP, Knowledge)    │   │    │
-│  │  │ ← Exposed to ECA via MCP Server (optional)       │   │    │
+│  │  │ ← Exposed to ECA via direct integration          │   │    │
 │  │  └──────────────────────────────────────────────────┘   │    │
 │  │                                                          │    │
 │  │  ┌──────────────────────────────────────────────────┐   │    │
@@ -107,9 +108,9 @@ ECA (Editor Code Assistant) is a battle-tested Clojure-based AI coding assistant
 |-----------|-------------|--------|
 | **Chat Adapters** | Telegram, Discord, Slack, WebSocket | ✅ Existing |
 | **Memory System** | Persistent conversation context, JSONL storage | ✅ Existing |
-| **Tool Bridge** | Forward tool calls to chat for approval | 🔄 New |
-| **ECA Protocol Client** | JSON-RPC communication with ECA | 🔄 New |
-| **MCP Server** | Expose Ouroboros tools to ECA | ⚠️ Existing |
+| **Tool Approval Bridge** | Forward tool calls to chat for approval | ✅ Done |
+| **ECA Protocol Client** | JSON-RPC communication with ECA | ✅ Done |
+| **Web UX Platform** | Interactive product development workspace with learning flywheel | 📋 New |
 | **Dashboard** | Web UI for monitoring | ✅ Existing |
 
 ### What ECA Provides (Delegated)
@@ -163,98 +164,34 @@ Ouroboros → ECA: chat/toolCallApprove (or Reject)
 ECA continues or aborts
 ```
 
-### MCP Server Strategy (Bidirectional Tool Access)
 
-**Problem**: ECA has file/grep/edit tools, but lacks git/memory/telemetry capabilities.
 
-**Solution**: Ouroboros runs MCP server exposing **unique tools only**.
+### ECA Integration Status
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Tool Architecture                      │
-├─────────────────────────────────────────────────────────┤
-│                                                           │
-│  ECA Built-in Tools          Ouroboros Unique Tools      │
-│  ──────────────────          ───────────────────────     │
-│  • file/read                 • git/commits               │
-│  • file/write                • git/status                │
-│  • file/edit                 • git/diff                  │
-│  • grep                      • memory/get                │
-│  • find                      • memory/set                │
-│  • shell/exec                • telemetry/events          │
-│                              • openapi/bootstrap         │
-│                                                           │
-│         ▲                              ▲                 │
-│         │                              │                 │
-│    ECA uses                    ECA connects via MCP      │
-│    (built-in)                  (http://localhost:3000)   │
-│                                                           │
-└─────────────────────────────────────────────────────────┘
-```
+#### ✅ Phase 1: ECA Protocol Client (Completed)
+- ✅ Create `ouroboros.eca-client` namespace
+- ✅ Implement JSON-RPC message framing (Content-Length header)
+- ✅ Implement initialize handshake
+- ✅ Implement chat/prompt with response parsing
+- ✅ Start/stop ECA process lifecycle
 
-**Flow**:
-1. User (via Telegram): "Show me recent commits"
-2. Ouroboros → ECA (JSON-RPC): chat/prompt
-3. ECA → LLM: Process request
-4. LLM decides: Need git/commits tool
-5. ECA → Ouroboros MCP Server: git/commits (MCP call)
-6. Ouroboros executes git log
-7. Ouroboros → ECA: Results
-8. ECA → Ouroboros: chat/content-received
-9. Ouroboros → Telegram: "Recent commits: ..."
+#### ◐ Phase 2: Tool Approval Bridge (Partial)
+- ✅ Implement chat/toolCallApprove handler
+- ✅ Forward approval requests to chat platforms
+- ✅ Implement approval/rejection callbacks
+- ✅ Handle timeout (auto-reject for safety)
+- ◐ Test with dangerous tools (file/write, shell/exec)
 
-**Why MCP for this?**
-- ECA is already an MCP client (standard protocol)
-- Clean separation: JSON-RPC for chat control, MCP for tool access
-- Generic: Other MCP clients (Claude Desktop, Continue) can also use Ouroboros tools
+#### ✗ Phase 3: MCP Server (Decommissioned)
+- MCP functionality delegated to ECA
+- Ouroboros focuses on unique capabilities via direct integration
 
-### Implementation Phases
-
-#### Phase 1: ECA Protocol Client (Week 1)
-- [ ] Create `ouroboros.eca-client` namespace
-- [ ] Implement JSON-RPC message framing (Content-Length header)
-- [ ] Implement initialize handshake
-- [ ] Implement chat/prompt with response parsing
-- [ ] Start/stop ECA process lifecycle
-
-#### Phase 2: Tool Approval Bridge (Week 2)
-- [ ] Implement chat/toolCallApprove handler
-- [ ] Forward approval requests to chat platforms
-- [ ] Implement approval/rejection callbacks
-- [ ] Handle timeout (auto-reject for safety)
-- [ ] Test with dangerous tools (file/write, shell/exec)
-
-### Phase 3: MCP Server Refinement ✅ COMPLETE
-- [x] Refactor MCP server to expose ONLY Ouroboros-unique tools
-      - Git operations (commits, status, diff, log)
-      - Persistent memory (get, set, keys, delete)
-      - Telemetry (events, stats, clear)
-      - OpenAPI client generation (bootstrap, call, list)
-      - System introspection (status, report)
-      - EQL queries (query/eql)
-- [x] Add `:unique?` metadata to tool definitions for filtering
-- [x] Update tool registry to preserve metadata
-- [x] Create comprehensive MCP integration tests (16 tests, 107 assertions)
-- [x] Verify tool categorization (5 categories: git, memory, openapi, query, system)
-- [x] Test ECA → MCP → Ouroboros flow simulation
-- [ ] Configure ECA to connect to Ouroboros MCP server
-- [ ] Add authentication (API key) for external MCP clients
-- [ ] Add security: localhost-only by default, rate limiting
-- [ ] Document MCP server setup for external clients (Claude Desktop, Continue, Cline)
-- [ ] Handle MCP connection lifecycle (start, stop, health checks)
-
-**Why keep MCP?**
-- ECA (MCP client) gets access to Ouroboros unique capabilities (git, memory, telemetry)
-- Generic integration point for other MCP clients (Claude Desktop, Continue, Cline)
-- Standard protocol (loose coupling) vs JSON-RPC (tight coupling for chat)
-- Clear separation: JSON-RPC for chat platforms, MCP for AI tool clients
-
-#### Phase 4: Polish & Cleanup (Week 4)
-- [ ] Remove internal LLM/AI code (delegated to ECA)
-- [ ] Update interface.clj to use ECA client
-- [ ] Update documentation
-- [ ] End-to-end integration tests
-- [ ] Release notes
+#### ◐ Phase 4: Polish & Integration (In Progress)
+- ✅ Remove internal LLM/AI code (delegated to ECA)
+- ✅ Update interface.clj to use ECA client
+- ◐ Update documentation
+- ◐ End-to-end integration tests
+- ◐ Release notes
 
 ### What Gets Removed/Deprecated
 
@@ -265,7 +202,7 @@ ECA continues or aborts
 | `ouroboros.tool-defs` (partial) | Redundant file/* tools | ECA file tools |
 | `ouroboros.schema` | Schema validation | ECA validation |
 
-**Note**: Tool-defs for git/*, memory/*, telemetry/*, openapi/* remain — these are Ouroboros-unique capabilities exposed via MCP server.
+
 
 ### Risk Assessment
 
@@ -296,11 +233,11 @@ ECA continues or aborts
 
 ## Immediate Priorities
 
-### 1. ECA Integration ✅ IN PROGRESS
-- [ ] Phase 1: ECA Protocol Client
-- [ ] Phase 2: Tool Approval Bridge
-- [ ] Phase 3: MCP Bridge (optional)
-- [ ] Phase 4: Polish & Cleanup
+### 1. ECA Integration ✅ LARGELY COMPLETE
+- ✅ Phase 1: ECA Protocol Client (Done)
+- ◐ Phase 2: Tool Approval Bridge (Partial: approval bridge integration)
+- ✗ Phase 3: MCP Bridge (Decommissioned)
+- ◐ Phase 4: Polish & Integration (In progress: docs, tests, release notes)
 
 ### 2. Test Coverage
 - [x] Chat adapter tests (protocol compliance)
@@ -464,8 +401,7 @@ The following are now delegated to ECA:
 
 Ouroboros focuses on:
 - [ ] **Tool Approval Bridge** — Forward tool calls to chat platforms for approval
-- [ ] **MCP Server** — Expose Ouroboros tools to ECA
-- [ ] **Chat Platform Integration** — Telegram, Discord, Slack, WebSocket
+- [x] **Chat Platform Integration** — Telegram, Discord, Slack, WebSocket (Done)
 
 ### Observability (P2) 📊 PRODUCTION READINESS
 - [ ] **Metrics export** — Prometheus/OpenTelemetry format for monitoring systems.
@@ -526,13 +462,6 @@ These are now handled by ECA:
 - [x] Multi-agent coordination — Use ECA's MCP capabilities
 - [x] Local model support — Use ECA's Ollama integration
 
-### Protocol Completeness (MCP)
-- [x] **MCP Tools** ✅ COMPLETE — Exposed via `ouroboros.mcp`
-- [ ] **MCP Resources** — Expose contextual data sources (files, git history) as resources.
-- [ ] **MCP Prompts** — Templated workflows for common AI-assisted tasks.
-- [ ] **MCP Sampling** — Let AI request additional context from the server.
-- [ ] **MCP Roots** — Support for project/workspace root directory management.
-
 ## Completed Recently
 
 | Date | Achievement |
@@ -556,17 +485,15 @@ These are now handled by ECA:
 |----------|---------|--------|--------|--------|
 | **P0** | **ECA Protocol Client** | Medium | 🔴 Critical | ✅ Done |
 | **P0** | **Tool Approval Bridge** | Medium | 🔴 Critical | ✅ Done |
-| **P1** | **MCP Server Refinement** | Medium | 🟡 High | ✅ Done |
-| **P1** | **Chat Adapter → ECA routing** | Medium | 🔴 High | 📋 Next |
+| **P0** | **Tool chaining limits** | Low | 🔴 High | ✅ Done |
+| **P0** | **Quarantine external content** | Medium | 🔴 High | ✅ Done |
 | **P1** | **Web UX Platform** | High | 🟡 High | 📋 Next |
-| P1 | Tool chaining limits | Low | 🔴 High | ✅ Done |
-| P1 | Quarantine external content | Medium | 🔴 High | ✅ Done |
-| P1 | MCP Authentication | Medium | 🟡 Medium | 📋 Next |
-| P1 | Model fallback | Medium | 🟢 Low | 📋 Later |
-| P2 | Streaming responses | Medium | 🟡 Medium | 📋 Later |
-| P2 | Metrics export | Low | 🟢 Low | 📋 Later |
-| P3 | Context-aware selection | High | 🟢 Low | 📋 Later |
-| P3 | Plugin system | High | 🟢 Low | 📋 Later |
+| **P1** | **Chat Adapter → ECA integration** | Medium | 🔴 High | ✅ Done |
+| **P1** | **Approval bridge completion** | Medium | 🟡 Medium | 📋 Next |
+| **P2** | **Streaming responses** | Medium | 🟡 Medium | 📋 Later |
+| **P2** | **Metrics export** | Low | 🟢 Low | 📋 Later |
+| **P3** | **Context-aware selection** | High | 🟢 Low | 📋 Later |
+| **P3** | **Plugin system** | High | 🟢 Low | 📋 Later |
 
 ### Features Removed (Delegated to ECA)
 
@@ -587,9 +514,8 @@ These are now handled by ECA:
 | Dashboard | Web UI for monitoring system health |
 | **Web UX Platform** | **Interactive product development workspace with learning flywheel** |
 | Telemetry | Ouroboros-specific observability (event tracking, metrics) |
-| **MCP Server** | **Expose unique tools (git, memory, telemetry) to ECA + external MCP clients** |
-| Git Tools | Repository operations (commits, status, diff, log) |
-| OpenAPI Client | Dynamic API client generation from OpenAPI specs |
+| Git Tools | Repository operations (commits, status, diff, log) - via direct ECA integration |
+| OpenAPI Client | Dynamic API client generation from OpenAPI specs - via direct ECA integration |
 
 ## How to Contribute
 
