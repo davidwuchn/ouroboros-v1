@@ -139,7 +139,7 @@
 ;; ============================================================================
 
 (def mcp-tools (lazy-fn 'ouroboros.interface.mcp 'mcp-tools))
-(def mcp-start! (lazy-fn 'ouroroboros.interface.mcp 'mcp-start!))
+(def mcp-start! (lazy-fn 'ouroboros.interface.mcp 'mcp-start!))
 (def mcp-stop! (lazy-fn 'ouroboros.interface.mcp 'mcp-stop!))
 (def mcp-status (lazy-fn 'ouroboros.interface.mcp 'mcp-status))
 (def mcp-invoke! (lazy-fn 'ouroboros.interface.mcp 'mcp-invoke!))
@@ -395,7 +395,7 @@
   ;; Lazy loading demo
   ;; First call loads the namespace
   (remember :test-key "test-value")
-  
+
   ;; Check what's loaded
   @loaded-namespaces
 

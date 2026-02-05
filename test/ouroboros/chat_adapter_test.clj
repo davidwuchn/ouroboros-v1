@@ -9,6 +9,7 @@
    [ouroboros.chat.telegram :as telegram]
    [ouroboros.chat.discord :as discord]
    [ouroboros.chat.slack :as slack]
+   [ouroboros.eca_approval_bridge :as eca-approval] ; Ensure ECA approval bridge is loaded
    [ouroboros.tool-registry :as tool-registry]))
 
 ;; ============================================================================

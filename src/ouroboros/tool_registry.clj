@@ -40,12 +40,15 @@
    - spec: Map with:
      - :description - Human-readable description
      - :parameters - Parameter schema for the tool
-     - :fn - Implementation function (params -> result)"
-  [tool-name {:keys [description parameters fn]}]
+     - :fn - Implementation function (params -> result)
+     - :unique? - (optional) Whether tool is unique to Ouroboros (for MCP filtering)"
+  [tool-name {:keys [description parameters fn unique?] :as spec}]
   (swap! registry-atom assoc tool-name
          {:description description
           :parameters parameters
-          :fn fn})
+          :fn fn
+          :unique? unique?
+          :spec spec})  ; Store full spec for metadata access
   (println (str "✓ Tool registered: " tool-name)))
 
 (defn unregister-tool!
@@ -66,10 +69,12 @@
 (defn list-tools
   "List all available tools with metadata (excluding implementation)"
   []
-  (map (fn [[name {:keys [description parameters]}]]
+  (map (fn [[name {:keys [description parameters unique? spec]}]]
          {:tool/name name
           :tool/description description
-          :tool/parameters parameters})
+          :tool/parameters parameters
+          :tool/unique? unique?
+          :tool/spec spec})
        @registry-atom))
 
 (defn get-tool

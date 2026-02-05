@@ -5,17 +5,18 @@
    - ChatAdapter protocol for platform abstraction
    - Message routing to handlers
    - Session management (conversation history)
-   - Tool filtering for chat safety
+   - ECA integration for AI responses
+   - Tool approval bridge for dangerous operations
 
-   DEPRECATED NOTE: This namespace uses ouroboros.agent for AI responses.
-   AI functionality will be delegated to ECA in a future version."
+   AI functionality is delegated to ECA (Editor Code Assistant).
+   See: https://github.com/editor-code-assistant/eca"
   (:require
    [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.tool-registry :as tool-registry]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.memory :as memory]
-   [ouroboros.agent :as agent]
+   [ouroboros.eca-client :as eca]
    [ouroboros.confirmation :as confirmation]
    [ouroboros.eca_approval_bridge :as eca-approval]
    [ouroboros.resolver-registry :as registry])
@@ -94,9 +95,9 @@
   (telemetry/emit! {:event :chat/command :command cmd :chat-id chat-id})
   (case cmd
     :start (send-message! adapter chat-id
-                          "🐍 Ouroboros Assistant ready!\n\n⚠️  AI responses use deprecated internal agent.\nUse ECA for production: https://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/confirm - Approve operation\n/deny - Reject operation")
+                          "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation")
     :help (send-message! adapter chat-id
-                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve dangerous operation (use ECA id for ECA tools)\n/deny <id> <reason> - Reject operation\n\n*ECA Tool Approval:*\nWhen ECA requests tool approval, you'll receive an `eca-*` ID. Use `/confirm eca-xxx` to approve or `/deny eca-xxx reason` to deny.\n\nJust type naturally to chat!")
+                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve dangerous operation\n/deny <id> <reason> - Reject operation\n\nJust type naturally to chat with ECA!")
     :clear (do (clear-session! chat-id)
                (send-message! adapter chat-id "✓ Conversation cleared"))
     :status (let [result (tool-registry/call-tool :system/status {})]
@@ -115,7 +116,7 @@
                      :approved (send-message! adapter chat-id
                                               (str "✓ ECA Tool Approved: " (:tool result) "\nSending to ECA..."))
                      :error (send-message! adapter chat-id
-                                          (str "⚠️ " (:reason result)))))
+                                           (str "⚠️ " (:reason result)))))
                  ;; Handle internal confirmation
                  (let [result (confirmation/approve! chat-id :approved-by user-name)]
                    (case (:status result)
@@ -141,26 +142,57 @@
     (send-message! adapter chat-id (str "Unknown command: " (name cmd)))))
 
 (defn- handle-natural-message
+  "Handle natural language message via ECA
+
+   Flow:
+   1. Store user message in session
+   2. Send to ECA via chat-prompt
+   3. Store and forward ECA response to chat
+
+   Note: Conversation history is maintained by ECA, we just track
+   for display purposes in Ouroboros."
   [adapter chat-id user-name text]
   (telemetry/emit! {:event :chat/message :chat-id chat-id :user user-name})
 
+  ;; Store user message
   (update-session! chat-id :user text)
 
-  (let [session (get-session chat-id)
-        history (:history session)
-        ;; DEPRECATED: Using internal agent - will be replaced with ECA
-        result (agent/generate-chat-response text history :session-id chat-id)]
+  ;; Check if ECA is running
+  (let [eca-status (eca/status)]
+    (if-not (:running eca-status)
+      (let [error-msg (str "⚠️  ECA is not running.\n\n"
+                           "Please start ECA first:\n"
+                           "(require '[ouroboros.interface :as iface])\n"
+                           "(iface/eca-start!)\n\n"
+                           "Or set ECA_PATH environment variable.")]
+        (telemetry/emit! {:event :chat/eca-not-running})
+        (send-message! adapter chat-id error-msg))
 
-    (if (:error result)
-      (let [error-response (str "⚠️  AI response error.\n\n"
-                                  "Internal agent is deprecated.\n"
-                                  "Install ECA for production: https://github.com/editor-code-assistant/eca\n\n"
-                                  "Error: " (:response result))]
-        (update-session! chat-id :assistant error-response)
-        (send-message! adapter chat-id error-response))
-      (let [response (:response result)]
-        (update-session! chat-id :assistant response)
-        (send-message! adapter chat-id response)))))
+      ;; Send to ECA
+      (let [result (eca/chat-prompt text)]
+        (case (:status result)
+          :success
+          (let [response (get-in result [:response :result :content]
+                                 (str "ECA: " (pr-str (:response result))))]
+            (update-session! chat-id :assistant response)
+            (send-message! adapter chat-id response))
+
+          :error
+          (let [error-msg (str "⚠️  ECA error: "
+                               (or (:error result) "Unknown error")
+                               "\n\n"
+                               "Message: " (:message result))]
+            (telemetry/emit! {:event :chat/eca-error
+                              :error (:error result)})
+            (update-session! chat-id :assistant error-msg)
+            (send-message! adapter chat-id error-msg))
+
+          ;; Timeout or other issues
+          (let [error-msg (str "⚠️  ECA request failed: "
+                               (pr-str result))]
+            (telemetry/emit! {:event :chat/eca-failed})
+            (update-session! chat-id :assistant error-msg)
+            (send-message! adapter chat-id error-msg)))))))
 
 (defn make-message-handler [adapter]
   (fn [{:keys [chat-id user-id user-name text] :as message}]
@@ -180,9 +212,42 @@
   (swap! active-adapters assoc platform adapter)
   (println (str "✓ Chat adapter registered: " platform)))
 
+(defn- setup-eca-approval-bridge!
+  "Wire ECA approval bridge to chat adapter
+   
+   Allows tool approval requests to be forwarded to chat platforms.
+   Silently skips if ECA approval bridge is not available."
+  [adapter]
+  (try
+    (eca-approval/set-adapter!
+     {:forward-approval-request
+      (fn [confirmation-id message tool-name arguments]
+        ;; Forward to all active sessions on this platform
+        (doseq [[chat-id _session] @chat-sessions]
+          (try
+            (send-markdown! adapter chat-id message)
+            (telemetry/emit! {:event :chat/approval-forwarded
+                              :chat-id chat-id
+                              :confirmation-id confirmation-id})
+            (catch Exception e
+              (telemetry/emit! {:event :chat/approval-forward-error
+                                :chat-id chat-id
+                                :error (.getMessage e)})))))})
+    (telemetry/emit! {:event :chat/eca-approval-wired})
+    (catch IllegalStateException e
+      ;; ECA approval bridge function not bound - skip silently
+      (telemetry/emit! {:event :chat/eca-approval-skipped
+                        :reason "ECA approval bridge not available"}))
+    (catch Exception e
+      (telemetry/emit! {:event :chat/eca-approval-error
+                        :error (.getMessage e)}))))
+
 (defn start-all! []
   (doseq [[platform adapter] @active-adapters]
     (let [handler (make-message-handler adapter)]
+      ;; Wire ECA approval bridge to this adapter
+      (setup-eca-approval-bridge! adapter)
+      
       (start! adapter handler)
       (println (str "✓ Chat adapter started: " platform)))))
 

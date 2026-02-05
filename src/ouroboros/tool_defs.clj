@@ -88,6 +88,59 @@
   (q query))
 
 ;; ============================================================================
+;; Tool Categorization
+;; ============================================================================
+
+(def ouroboros-unique-tools
+  "Tools that are unique to Ouroboros (not in ECA)
+   
+   These should be exposed via MCP for ECA to use.
+   
+   Categories:
+   - git/*        → Git repository operations
+   - memory/*     → Persistent cross-session memory
+   - telemetry/*  → Observability and metrics
+   - openapi/*    → Dynamic API client generation
+   - system/*     → System introspection
+   - query/*      → EQL queries"
+  #{:git/commits
+    :git/status
+    :memory/get
+    :memory/set
+    :telemetry/events
+    :telemetry/stats
+    :openapi/bootstrap
+    :openapi/call
+    :system/status
+    :system/report
+    :query/eql})
+
+(def eca-redundant-tools
+  "Tools that ECA already has built-in
+   
+   These should NOT be exposed via MCP to avoid duplication.
+   
+   ECA built-in tools:
+   - file/read, file/write, file/edit, file/search, file/list
+   - http/get, http/post
+   - grep, find"
+  #{:file/read
+    :file/search
+    :file/list
+    :http/get})
+
+(defn unique-tool?
+  "Check if tool should be exposed via MCP"
+  [tool-name]
+  (contains? ouroboros-unique-tools tool-name))
+
+(defn tool-category
+  "Get tool category for documentation/filtering"
+  [tool-name]
+  (let [ns (namespace tool-name)]
+    (keyword ns "category")))
+
+;; ============================================================================
 ;; Tool Registration
 ;; ============================================================================
 
@@ -96,72 +149,85 @@
   {:system/status
    {:description "Get current system status"
     :parameters {}
-    :fn system-status-tool}
+    :fn system-status-tool
+    :unique? true}
 
    :system/report
    {:description "Get full system report"
     :parameters {}
-    :fn system-report-tool}
+    :fn system-report-tool
+    :unique? true}
 
    :git/commits
    {:description "Get recent git commits"
     :parameters {:n {:type :int :description "Number of commits" :default 5}}
-    :fn git-commits-tool}
+    :fn git-commits-tool
+    :unique? true}
 
    :git/status
    {:description "Get git repository status"
     :parameters {}
-    :fn git-status-tool}
+    :fn git-status-tool
+    :unique? true}
 
    :file/read
-   {:description "Read file contents"
+   {:description "Read file contents (ECA has built-in file/read, use for internal queries only)"
     :parameters {:path {:type :string :description "File path" :required true}
                  :lines {:type :int :description "Max lines to read" :default 100}}
-    :fn file-read-tool}
+    :fn file-read-tool
+    :unique? false}
 
    :file/search
-   {:description "Search files by pattern"
+   {:description "Search files by pattern (ECA has built-in grep/find, use for internal queries only)"
     :parameters {:pattern {:type :string :description "Glob pattern" :required true}}
-    :fn file-search-tool}
+    :fn file-search-tool
+    :unique? false}
 
    :file/list
-   {:description "List files in directory"
+   {:description "List files in directory (ECA has built-in file/list, use for internal queries only)"
     :parameters {:dir {:type :string :description "Directory path" :default "."}}
-    :fn file-list-tool}
+    :fn file-list-tool
+    :unique? false}
 
    :memory/get
    {:description "Get value from memory"
     :parameters {:key {:type :keyword :description "Memory key" :required true}}
-    :fn memory-get-tool}
+    :fn memory-get-tool
+    :unique? true}
 
    :memory/set
    {:description "Set value in memory"
     :parameters {:key {:type :keyword :description "Memory key" :required true}
                  :value {:type :any :description "Value to store" :required true}}
-    :fn memory-set-tool}
+    :fn memory-set-tool
+    :unique? true}
 
    :http/get
-   {:description "Make HTTP GET request"
+   {:description "Make HTTP GET request (ECA has built-in http capabilities, use for internal queries only)"
     :parameters {:url {:type :string :description "URL to fetch" :required true}}
-    :fn http-get-tool}
+    :fn http-get-tool
+    :unique? false}
 
    :openapi/bootstrap
    {:description "Bootstrap OpenAPI client from spec"
     :parameters {:name {:type :keyword :description "Client name" :required true}
                  :spec-url {:type :string :description "OpenAPI spec URL" :required true}}
-    :fn openapi-bootstrap-tool}
+    :fn openapi-bootstrap-tool
+    :unique? true}
 
    :openapi/call
    {:description "Call OpenAPI operation"
     :parameters {:client {:type :keyword :description "Client name" :required true}
                  :operation {:type :keyword :description "Operation ID" :required true}
                  :params {:type :map :description "Operation parameters" :default {}}}
-    :fn openapi-call-tool}
+    :fn openapi-call-tool
+    :unique? true}
 
    :query/eql
    {:description "Execute arbitrary EQL query"
     :parameters {:query {:type :vector :description "EQL query" :required true}}
-    :fn query-eql-tool}})
+    :fn query-eql-tool
+    :unique? true}})
 
 (defn register-all-tools!
   "Register all built-in tools with the registry
@@ -179,12 +245,40 @@
     (registry/register-tool! tool-name spec)))
 
 ;; ============================================================================
+;; Resolver-Based Tool Migration (NEW)
+;; ============================================================================
+
+;; Instead of defining separate tools that call resolvers via EQL,
+;; we can map resolvers directly to tools using tool-resolver.
+;; This eliminates the duplication between tool definitions and resolvers.
+;;
+;; Migration example (add to comment block below to test):
+;;   (require '[ouroboros.tool-resolver :as tr])
+;;
+;;   ;; Map resolvers to tools
+;;   (tr/def-resolver-tool! #'ouroboros.history/git-commits :git/commits
+;;     {:description "Get recent git commits"
+;;      :unique? true
+;;      :category :git})
+;;
+;;   (tr/register-all-resolver-tools!)
+;;
+;; This approach:
+;; - Keeps Pathom resolvers clean (no tool metadata in resolver def)
+;; - Maps resolvers to tools via separate registry
+;; - Eliminates duplication between tool fns and resolver fns
+;; - Single source of truth: resolver defines behavior, tool mapping defines AI exposure
+
+;; ============================================================================
 ;; Exports
 ;; ============================================================================
 
 (comment
-  ;; Register all tools
+  ;; OLD: Register separate tool definitions (current approach)
   (register-all-tools!)
+
+  ;; NEW: Register tools from resolvers (migration target)
+  ;; (register-resolver-tools!)
 
   ;; Check registered
   (registry/list-tools)

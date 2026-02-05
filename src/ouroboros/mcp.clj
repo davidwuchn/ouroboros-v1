@@ -68,13 +68,33 @@
    :inputSchema (convert-parameters parameters)})
 
 (defn list-mcp-tools
-  "Convert all Ouroboros tools to MCP format"
+  "Convert Ouroboros UNIQUE tools to MCP format
+   
+   Only exposes tools that are unique to Ouroboros and not present in ECA.
+   This avoids duplication with ECA's built-in capabilities.
+   
+   Exposed tools:
+   - git/*        → Git repository operations
+   - memory/*     → Persistent cross-session memory
+   - telemetry/*  → Observability (not yet in tool-defs)
+   - openapi/*    → Dynamic API client generation
+   - system/*     → System introspection
+   - query/*      → EQL queries
+   
+   NOT exposed (ECA has these built-in):
+   - file/read, file/search, file/list → ECA file tools
+   - http/get → ECA http capabilities"
   []
-  (map (fn [tool]
-         (ouroboros-tool->mcp (:tool/name tool)
-                              {:description (:tool/description tool)
-                               :parameters (:tool/parameters tool)}))
-       (tool-registry/list-tools)))
+  (let [all-tools (tool-registry/list-tools)
+        unique-tools (filter (fn [tool]
+                              ;; Check if tool is marked as unique
+                              (get-in tool [:tool/spec :unique?] false))
+                            all-tools)]
+    (map (fn [tool]
+           (ouroboros-tool->mcp (:tool/name tool)
+                                {:description (:tool/description tool)
+                                 :parameters (:tool/parameters tool)}))
+         unique-tools)))
 
 ;; ============================================================================
 ;; Tool Invocation
