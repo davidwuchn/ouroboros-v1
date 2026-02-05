@@ -1,7 +1,7 @@
 # PLAN.md
 
 > Next steps and future directions for Ouroboros.
-> Last Updated: 2026-02-05
+> Last Updated: 2026-02-06
 
 ## Summary of External Project Analysis
 
@@ -40,6 +40,7 @@ See detailed analysis sections below for specific recommendations.
 | Progressive Disclosure | ✅ Done | Builder stage suggestions, contextual help |
 | Product Development Flywheel | ✅ Done | Empathy→ValueProp→MVP→Canvas |
 | Web UX Platform | ✅ Done | 5 phases: canvas, collaboration, wisdom, analytics, embed |
+| Clojure Code Quality Automation | ◐ Partial | clj-kondo linting in CI, 52 unused binding warnings to clean up |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
@@ -244,24 +245,35 @@ ECA continues or aborts
 
 ## Immediate Priorities
 
-### 1. ECA Integration — ✅ Done
-All core integration complete. Remaining polish tracked above.
+### 1. Production Readiness (P1)
+- **Container Isolation** — OS-level container isolation for ECA execution
+- **Per-Channel Isolation** — Filesystem isolation per chat channel/platform  
+- **Metrics export** — Prometheus/OpenTelemetry format for monitoring
+- **Streaming responses** — Wire ECA streaming to chat platforms
+- **Protocol compatibility tests** — Ensure Ouroboros works with ECA versions
+- **Config unification** — Single config for Ouroboros + ECA settings
 
 ### 2. Test Coverage
 - [x] Chat adapter tests (protocol compliance)
-- [x] Tool execution tests (all 13 tools)
+- [x] Tool execution tests (all 13 tools)  
 - [x] Error handling tests (boundary conditions)
-- [ ] Integration tests (full chat flow with ECA) — **Next**
+- [ ] **Integration tests** — Full chat flow with ECA (remaining)
 
-### 3. Infrastructure Hardening — ✅ Done
-All items completed. See [CHANGELOG.md](CHANGELOG.md).
+### 3. Observability & Performance (P2)
+- **Structured logging** — JSON format with correlation IDs
+- **Distributed tracing** — Trace tool calls across system
+- **Audit logging** — Compliance-ready logs of AI actions
+- **Query caching** — Pathom resolver caching
+- **Connection pooling** — HTTP client pooling
+- **Memory optimization** — Event buffer sizing, lazy loading
 
-### 4. Web UX Platform Initiative — 📋 Current Focus
-- [-] Phase 1: Foundation (Project scaffolding ✅, basic builders 4/4)
-- [-] Phase 2: Interactive Builders (Rich canvas, real-time updates)
-- [ ] Phase 3: Collaboration (Multi-user, comments, versioning)
-- [ ] Phase 4: Wisdom & AI (Integrated chat, learning insights)
-- [ ] Phase 5: Polish & Scale (Performance, offline, API)
+### 4. Developer Experience (P2)
+- **Clojure code quality automation** — clj-kondo linting, cljfmt formatting
+- **REPL-driven debugging guide** — Document patterns for interactive development
+- **Custom tool development tutorial** — SDK for third-party tool authors
+- **Tool testing framework** — Built-in testing utilities
+
+**Note:** Web UX Platform is complete (all 5 phases). ECA Integration core is complete. Infrastructure hardening and P0 security features are complete.
 
 ## Security Architecture (New - Feb 2025)
 
@@ -707,7 +719,9 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 - Async message queues for better concurrency
 - Easier testing with mock bus
 
-### Heartbeat / Proactive Scheduling (P1) 📋 NEW
+**Status**: 📋 Deferred to P3 — Current architecture works with 3 adapters; add when scaling to 5+ platforms or experiencing backpressure issues.
+
+### Heartbeat / Proactive Scheduling (P3) 📋 Deferred
 **Current**: Reactive only - responds to user messages.
 **Gap**: No proactive background task execution.
 **Nanobot Approach**: `HeartbeatService` wakes agent every 30 minutes:
@@ -720,7 +734,9 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 - File-based trigger mechanism
 - Configurable intervals per channel
 
-### Cron Service (P1) 📋 NEW
+**Status**: 📋 Deferred to P3 — No concrete use case yet. Implement when users request reminders, scheduled reports, or background health checks.
+
+### Cron Service (P3) 📋 Deferred
 **Current**: No native scheduling capability.
 **Gap**: Users cannot schedule recurring tasks.
 **Nanobot Approach**: Built-in cron with CLI:
@@ -735,7 +751,9 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 - JSON persistence with state tracking
 - Integration with chat platforms for notifications
 
-### Per-Channel Session Persistence (P1) 📋 NEW
+**Status**: 📋 Deferred to P3 — Depends on Heartbeat/Scheduling. No recurring task requirements identified.
+
+### Per-Channel Session Persistence (P2) 📋 NEW
 **Current**: Memory system with EDN/JSONL but limited session isolation.
 **Gap**: No per-channel JSONL files with automatic compaction.
 **Nanobot Approach**: Sessions stored as JSONL files:
@@ -747,6 +765,8 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 - Per-channel JSONL files
 - Automatic compaction/summarization
 - Configurable retention policies
+
+**Status**: 📋 P2 — Enhancement to existing memory system. Current EDN/JSONL works; implement when scaling to high-volume channels or needing automatic compaction.
 
 ### Ultra-Lightweight Philosophy (P2) 📋 NEW
 **Current**: 60+ files, feature-rich but complex.
@@ -765,27 +785,48 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 
 ## Implementation Priority Matrix
 
+**P0** = Critical security & core functionality (completed)  
+**P1** = High-impact production readiness  
+**P2** = Medium-impact improvements  
+**P3** = Nice-to-have & future expansion
+
 | Priority | Feature | Effort | Impact | Status |
 |----------|---------|--------|--------|--------|
 | **P0** | ECA Protocol Client | Medium | 🔴 Critical | ✅ Done |
 | **P0** | Tool Approval Bridge | Medium | 🔴 Critical | ✅ Done |
 | **P0** | Tool chaining limits | Low | 🔴 High | ✅ Done |
 | **P0** | Quarantine external content | Medium | 🔴 High | ✅ Done |
-| **P1** | Message Bus Architecture | High | 🔴 High | 📋 **NEW** |
-| **P1** | Container Isolation | High | 🔴 High | 📋 **NEW** |
-| **P1** | Per-Channel Isolation | Medium | 🟡 High | 📋 **NEW** |
-| **P1** | Heartbeat/Proactive Scheduling | Medium | 🟡 High | 📋 **NEW** |
-| **P1** | Cron Service | Medium | 🟡 High | 📋 **NEW** |
-| **P1** | Per-Channel Session Persistence | Medium | 🟡 High | 📋 **NEW** |
-| **P1** | **Web UX Platform** | High | 🟡 High | ✅ **DONE** |
-| **P1** | Chat Adapter → ECA integration | Medium | 🔴 High | ✅ Done |
-| **P1** | Approval bridge completion | Medium | 🟡 Medium | ✅ Done |
-| **P2** | Streaming responses | Medium | 🟡 Medium | 📋 Planned |
-| **P2** | Metrics export | Low | 🟢 Low | 📋 Planned |
-| **P2** | Ultra-Lightweight Core | High | 🟢 Low | 📋 **NEW** |
-| **P2** | Minimal Configuration | Low | 🟢 Low | 📋 **NEW** |
+| **P1** | Container Isolation | High | 🔴 Critical | 📋 NEW |
+| **P1** | Per-Channel Isolation | Medium | 🔴 High | 📋 NEW |
+| **P1** | Metrics export | Low | 🟡 High | 📋 Planned |
+| **P1** | Streaming responses | Medium | 🟡 High | 📋 Planned |
+| **P1** | Protocol compatibility tests | Low | 🟡 High | 📋 Planned |
+| **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
+| **P2** | Per-Channel Session Persistence | Medium | 🟡 Medium | 📋 NEW |
+| **P2** | Structured logging | Low | 🟡 Medium | 📋 Planned |
+| **P2** | Distributed tracing | Medium | 🟡 Medium | 📋 Planned |
+| **P2** | Audit logging | Low | 🟡 Medium | 📋 Planned |
+| **P2** | Query caching | Low | 🟡 Medium | 📋 Planned |
+| **P2** | Connection pooling | Low | 🟡 Medium | 📋 Planned |
+| **P2** | Memory optimization | Low | 🟡 Medium | 📋 Planned |
+| **P2** | Ultra-Lightweight Core | High | 🟢 Low | 📋 NEW |
+| **P2** | Minimal Configuration | Low | 🟢 Low | 📋 NEW |
+| **P2** | Clojure code quality automation | Low | 🟢 Low | 📋 Planned |
+| **P2** | REPL-driven debugging guide | Low | 🟢 Low | 📋 Planned |
+| **P2** | Custom tool development tutorial | Medium | 🟢 Low | 📋 Planned |
+| **P2** | Tool testing framework | Medium | 🟢 Low | 📋 Planned |
+| **P3** | Message Bus Architecture | High | 🟢 Low | 📋 Deferred |
+| **P3** | Heartbeat/Proactive Scheduling | Medium | 🟢 Low | 📋 Deferred |
+| **P3** | Cron Service | Medium | 🟢 Low | 📋 Deferred |
 | **P3** | Context-aware selection | High | 🟢 Low | 📋 Planned |
 | **P3** | Plugin system | High | 🟢 Low | 📋 Planned |
+| **P3** | Tool usage heatmaps | Low | 🟢 Low | 📋 Planned |
+| **P3** | Latency percentiles | Low | 🟢 Low | 📋 Planned |
+| **P3** | Additional chat platforms | Medium | 🟢 Low | 📋 Planned |
+| **P3** | Voice integration | High | 🟢 Low | 📋 Planned |
+| **P3** | Multi-modal support | High | 🟢 Low | 📋 Planned |
+| **P3** | Message formatting | Low | 🟢 Low | 📋 Planned |
+| **P3** | Fallback mode | Medium | 🟢 Low | 📋 Planned |
 
 ### Features Removed (Delegated to ECA)
 
