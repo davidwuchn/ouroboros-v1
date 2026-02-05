@@ -420,7 +420,7 @@
     ;; Register this session for ECA approval forwarding
     ;; This ensures approval requests can be sent to active chat sessions
     (try
-      (eca-approval/register-session! chat-id)
+      (eca-approval/register-session! chat-id user-name)
       (catch Exception _
         ;; Silently ignore if approval bridge not available
         nil))

@@ -5,10 +5,8 @@
   (:require
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing use-fixtures]]
-   [ouroboros.telemetry :as telemetry]))
-
-;; Load the bridge namespace dynamically
-(require '[ouroboros.eca-approval-bridge :as bridge])
+   [ouroboros.telemetry :as telemetry]
+   [ouroboros.eca_approval_bridge :as bridge]))
 
 ;; Disable telemetry during tests
 (use-fixtures :once
@@ -65,7 +63,7 @@
                     :tool {:name "sudo" :arguments {:command "rm -rf /"}}})]
       (is (= :blocked (:status result)))
       (is (= "sudo" (:tool result)))
-      (:reason result)))))
+      (is (:reason result)))))
 
 (deftest approval-lifecycle
   (testing "Full approval flow"
@@ -98,7 +96,7 @@
       (let [deny-result (bridge/deny-confirmation! confirmation-id "Too dangerous" :denied-by "admin")]
         (is (= :denied (:status deny-result)))
         (is (= "req-flow-2" (:eca-id deny-result)))
-        (is (= "Too dangerous" (:reason deny-result))))))
+        (is (= "Too dangerous" (:reason deny-result)))))))
 
 (deftest chat-command-processing
   (testing "/confirm processing"
@@ -120,7 +118,7 @@
       ;; Process /deny command
       (let [result (bridge/process-chat-deny! "chat-123" confirmation-id "Too risky" "user")]
         (is (= :denied (:status result)))
-        (is (= "Too risky" (:reason result))))))
+        (is (= "Too risky" (:reason result)))))))
 
 (deftest status
   (testing "Bridge status"

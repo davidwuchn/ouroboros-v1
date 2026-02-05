@@ -177,12 +177,13 @@ ECA continues or aborts
 | 1: ECA Protocol Client | ✅ Done | JSON-RPC, handshake, lifecycle |
 | 2: Tool Approval Bridge | ✅ Done | Forward to chat, callbacks, timeouts |
 | 3: MCP Server | ✗ Removed | Delegated to ECA |
-| 4: Polish & Integration | ◐ Partial | Docs, tests, release notes |
+| 4: Polish & Integration | ✅ Done | Docs, tests, release notes |
 
-**Remaining:**
-- [ ] End-to-end integration tests
-- [ ] Release notes
-- [ ] Protocol compatibility tests
+**Completed:**
+- [x] End-to-end integration tests (12 tests)
+- [x] Release notes (CHANGELOG.md updated)
+- [x] Protocol compatibility tests (18 tests)
+- [x] User ID tracking from sessions (TODO fixed)
 
 ### What Gets Removed/Deprecated
 

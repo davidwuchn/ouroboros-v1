@@ -46,6 +46,7 @@
          :confirmation-to-eca {}     ; Map confirmation ID → ECA request ID
          :adapter nil                ; Chat adapter for forwarding
          :active-sessions #{}        ; Set of active chat session IDs
+         :session-users {}           ; Map chat-id → user-id (for learning attribution)
          :pending-approvals {}       ; Track approvals in flight
          :timeout-ms 120000          ; 2 minute default timeout
          :eca-callbacks-registered? false}))
@@ -130,7 +131,7 @@
       (and (str/includes? tool "write")
            (not (str/includes? tool "read"))) :confirmation-required
       ;; Safe tools
-      :else :safe))
+      :else :safe)))
 
 (defn eca-tool-description
   "Generate human-readable description of ECA tool call"
@@ -264,10 +265,15 @@
 (defn register-session!
   "Register an active chat session for approval forwarding
 
-   Usage: (register-session! chat-id)"
-  [chat-id]
-  (swap! state update :active-sessions conj chat-id)
-  (telemetry/emit! {:event :eca-approval/session-registered :chat-id chat-id}))
+   Usage: (register-session! chat-id)
+          (register-session! chat-id user-id) - with user attribution"
+  ([chat-id]
+   (register-session! chat-id nil))
+  ([chat-id user-id]
+   (swap! state update :active-sessions conj chat-id)
+   (when user-id
+     (swap! state assoc-in [:session-users chat-id] user-id))
+   (telemetry/emit! {:event :eca-approval/session-registered :chat-id chat-id :user-id user-id})))
 
 (defn unregister-session!
   "Unregister a chat session
@@ -275,6 +281,7 @@
    Usage: (unregister-session! chat-id)"
   [chat-id]
   (swap! state update :active-sessions disj chat-id)
+  (swap! state update :session-users dissoc chat-id)
   (telemetry/emit! {:event :eca-approval/session-unregistered :chat-id chat-id}))
 
 (defn forward-to-chat-platform!
@@ -310,14 +317,18 @@
                                   :error (.getMessage e)}))))
 
           ;; Create learning opportunity for user
-          (let [learning (edu/create-learning-from-approval
-                          "default-user"  ;; TODO: Get actual user ID from session
+          ;; Use first active session's user, or "unknown-user" if not tracked
+          (let [first-session (first active-sessions)
+                user-id (get-in @state [:session-users first-session] "unknown-user")
+                learning (edu/create-learning-from-approval
+                          user-id
                           tool-name
                           arguments
                           (:risk enhanced))]
             (telemetry/emit! {:event :educational-approval/learning-created
                               :confirmation-id confirmation-id
                               :tool tool-name
+                              :user-id user-id
                               :learning-title (:title learning)})))
 
         ;; No active sessions - log warning
@@ -327,17 +338,17 @@
                             :tool tool-name})
           (println "⚠️  No active chat sessions to forward approval request")
           (println "    Confirmation ID:" confirmation-id)
-          (println "    Tool:" tool-name))))))
+          (println "    Tool:" tool-name)))))
 
-(defn- send-to-session!
-  "Send approval request to a specific chat session"
-  [adapter chat-id message]
-  (try
-    (chatp/send-markdown! adapter chat-id message)
-    (catch Exception e
-      (telemetry/emit! {:event :eca-approval/send-error
-                        :chat-id chat-id
-                        :error (.getMessage e)}))))
+  (defn- send-to-session!
+    "Send approval request to a specific chat session"
+    [adapter chat-id message]
+    (try
+      (chatp/send-markdown! adapter chat-id message)
+      (catch Exception e
+        (telemetry/emit! {:event :eca-approval/send-error
+                          :chat-id chat-id
+                          :error (.getMessage e)})))))
 
 ;; ============================================================================
 ;; Approval Callback (from chat system)
@@ -485,7 +496,8 @@
   []
   {:pending-count (count (pending-approvals))
    :timeout-ms (:timeout-ms @state)
-   :adapter-set? (some? (:adapter @state))})
+   :adapter-set? (some? (:adapter @state))
+   :active-sessions (:active-sessions @state)})
 
 ;; ============================================================================
 ;; Integration with Chat /confirm and /deny Commands
@@ -512,8 +524,6 @@
       (deny-confirmation! confirmation-id reason :denied-by user-name)
       {:status :error :reason "Invalid confirmation ID format"})
     {:status :error :reason "Missing confirmation ID"}))
-
-)
 ;; ============================================================================
 ;; Comments / Examples
 ;; ============================================================================
@@ -521,9 +531,9 @@
 (comment
   ;; Handle tool call from ECA
   (handle-tool-call-approve
-    {:id "req-123"
-     :tool {:name "file/write"
-            :arguments {:path "README.md" :content "# Hello"}}})
+   {:id "req-123"
+    :tool {:name "file/write"
+           :arguments {:path "README.md" :content "# Hello"}}})
 
   ;; Process chat confirmation
   (process-chat-confirm! "tg-123" "eca-req-123" "admin")

@@ -4,6 +4,35 @@
 
 ## [Unreleased]
 
+### ECA Integration — Architecture Shift
+
+- `XXXXXXX` ⚒ λ Add ECA Integration - Editor Code Assistant protocol
+  - JSON-RPC 2.0 protocol client for ECA binary communication
+  - Tool approval bridge for dangerous operations
+  - Session management with user tracking
+  - Educational approval messages with learning opportunities
+  - Protocol compatibility tests (18 tests)
+  - Integration tests (12 tests)
+  - ECA client tests (5 tests)
+  
+**Why ECA?**
+- 10+ LLM providers (Anthropic, OpenAI, Copilot, Ollama, Deepseek)
+- Editor-grade tool calling and context management
+- Battle-tested with 613+ stars, v0.97.7
+- JSON-RPC 2.0 standard protocol
+
+**Delegated to ECA:**
+- LLM routing and provider management
+- Tool engine (filesystem, grep, completion)
+- Context management (repoMap, file indexing)
+- Chat interface (streaming, diffs)
+
+**Retained in Ouroboros:**
+- Chat platform adapters (Telegram, Discord, Slack)
+- Memory system (cross-session persistence)
+- Tool approval bridge (chat-platform UX)
+- Learning memory (wisdom building)
+
 ### System Complete — 22 commits, 4 phases
 
 ---
