@@ -45,6 +45,7 @@
   (atom {:eca-to-confirmation-id {}  ; Map ECA request ID → confirmation ID
          :confirmation-to-eca {}     ; Map confirmation ID → ECA request ID
          :adapter nil                ; Chat adapter for forwarding
+         :active-sessions #{}        ; Set of active chat session IDs
          :pending-approvals {}       ; Track approvals in flight
          :timeout-ms 120000          ; 2 minute default timeout
          :eca-callbacks-registered? false}))
@@ -260,6 +261,22 @@
   (when-not (:eca-callbacks-registered? @state)
     (register-eca-callbacks!)))
 
+(defn register-session!
+  "Register an active chat session for approval forwarding
+
+   Usage: (register-session! chat-id)"
+  [chat-id]
+  (swap! state update :active-sessions conj chat-id)
+  (telemetry/emit! {:event :eca-approval/session-registered :chat-id chat-id}))
+
+(defn unregister-session!
+  "Unregister a chat session
+
+   Usage: (unregister-session! chat-id)"
+  [chat-id]
+  (swap! state update :active-sessions disj chat-id)
+  (telemetry/emit! {:event :eca-approval/session-unregistered :chat-id chat-id}))
+
 (defn forward-to-chat-platform!
   "Forward approval request to chat platform with educational content
 
@@ -267,32 +284,50 @@
    Includes risk assessment, best practices, and learning opportunities."
   [confirmation-id description tool-name arguments]
   (let [adapter (:adapter @state)
+        active-sessions (:active-sessions @state)
         ;; Get educational enhancement
         enhanced (edu/enhance-approval-message tool-name arguments)
         ;; Replace {id} placeholder with actual confirmation ID
         message (str/replace (:message enhanced) "{id}" confirmation-id)]
     (when adapter
-      ;; Forward to all active chat sessions
-      (telemetry/emit! {:event :eca-approval/forwarding-to-chat
-                        :confirmation-id confirmation-id
-                        :tool tool-name
-                        :risk (:risk enhanced)
-                        :learning-opportunity (:learning-opportunity enhanced)
-                        :adapter adapter})
-      ;; The adapter should handle routing to active sessions
-      (when-let [forward-fn (:forward-approval-request adapter)]
+      (if (seq active-sessions)
+        ;; Forward to all active chat sessions
         (do
-          (forward-fn confirmation-id message tool-name arguments)
+          (telemetry/emit! {:event :eca-approval/forwarding-to-chat
+                            :confirmation-id confirmation-id
+                            :tool tool-name
+                            :risk (:risk enhanced)
+                            :learning-opportunity (:learning-opportunity enhanced)
+                            :session-count (count active-sessions)})
+
+          ;; Send to each active session
+          (doseq [chat-id active-sessions]
+            (try
+              (chatp/send-markdown! adapter chat-id message)
+              (catch Exception e
+                (telemetry/emit! {:event :eca-approval/send-error
+                                  :chat-id chat-id
+                                  :error (.getMessage e)}))))
+
           ;; Create learning opportunity for user
           (let [learning (edu/create-learning-from-approval
-                          "default-user"  ;; TODO: Get actual user ID
+                          "default-user"  ;; TODO: Get actual user ID from session
                           tool-name
                           arguments
                           (:risk enhanced))]
             (telemetry/emit! {:event :educational-approval/learning-created
                               :confirmation-id confirmation-id
                               :tool tool-name
-                              :learning-title (:title learning)})))))))
+                              :learning-title (:title learning)})))
+
+        ;; No active sessions - log warning
+        (do
+          (telemetry/emit! {:event :eca-approval/no-active-sessions
+                            :confirmation-id confirmation-id
+                            :tool tool-name})
+          (println "⚠️  No active chat sessions to forward approval request")
+          (println "    Confirmation ID:" confirmation-id)
+          (println "    Tool:" tool-name))))))
 
 (defn- send-to-session!
   "Send approval request to a specific chat session"
@@ -377,7 +412,18 @@
                           :reason reason
                           :denied-by denied-by})
 
-        ;; TODO: Send rejection back to ECA via eca-client
+        ;; Send rejection back to ECA
+        (try
+          (eca-client/reject-tool! {:tool (:tool approval)
+                                    :reason reason})
+          (telemetry/emit! {:event :eca-approval/sent-rejection-to-eca
+                            :eca-id eca-id
+                            :confirmation-id confirmation-id})
+          (catch Exception e
+            (telemetry/emit! {:event :eca-approval/eca-reject-error
+                              :eca-id eca-id
+                              :error (.getMessage e)})))
+
         {:status :denied
          :eca-id eca-id
          :confirmation-id confirmation-id

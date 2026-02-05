@@ -17,7 +17,7 @@
 | Learning Memory System | ✅ Done | Store/recall insights, patterns, wisdom |
 | Educational Approval | ✅ Done | Tool approvals with risk explanations |
 | Interface Integration | ✅ Done | Lazy-loaded APIs for learning |
-| Approval Bridge Integration | ◐ Partial | Educational messages for approvals |
+| Approval Bridge Integration | ✅ Done | Educational messages for approvals |
 | Chat Commands | ✅ Done | `/learn`, `/recall`, `/wisdom`, `/build` |
 | Progressive Disclosure | ◐ Partial | Stage suggestions implemented |
 | Product Development Flywheel | ✅ Done | Empathy→ValueProp→MVP→Canvas |
@@ -474,7 +474,7 @@ These are now handled by ECA:
 | **P0** | Quarantine external content | Medium | 🔴 High | ✅ Done |
 | **P1** | **Web UX Platform** | High | 🟡 High | 📋 **Current** |
 | **P1** | Chat Adapter → ECA integration | Medium | 🔴 High | ✅ Done |
-| **P1** | Approval bridge completion | Medium | 🟡 Medium | ◐ Partial |
+| **P1** | Approval bridge completion | Medium | 🟡 Medium | ✅ Done |
 | **P2** | Streaming responses | Medium | 🟡 Medium | 📋 Planned |
 | **P2** | Metrics export | Low | 🟢 Low | 📋 Planned |
 | **P3** | Context-aware selection | High | 🟢 Low | 📋 Planned |

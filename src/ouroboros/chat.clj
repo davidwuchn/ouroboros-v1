@@ -417,6 +417,14 @@
   (fn [{:keys [chat-id user-id user-name text] :as message}]
     (telemetry/emit! {:event :chat/receive :platform (:message/platform message)})
     
+    ;; Register this session for ECA approval forwarding
+    ;; This ensures approval requests can be sent to active chat sessions
+    (try
+      (eca-approval/register-session! chat-id)
+      (catch Exception _
+        ;; Silently ignore if approval bridge not available
+        nil))
+    
     ;; Check if session is in any builder mode
     (let [session (get-session chat-id)
           canvas-mode? (get-in session [:context :canvas/mode])
