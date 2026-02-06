@@ -157,7 +157,7 @@
     {:total-insights (count learnings)
      :categories (into {} (map (fn [[k v]] [k (count v)]) by-category))
      :patterns (into {} (map (fn [[k v]] [k (count v)]) by-pattern))
-     :recent-insights (take 5 (sort-by :learning/created-at > learnings))}))
+     :recent-insights (take 5 (reverse (sort-by :learning/created learnings)))}))
 
 (defn find-similar-projects
   "Find projects similar to current context"

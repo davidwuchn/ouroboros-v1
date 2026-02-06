@@ -986,6 +986,79 @@ The ECA client emits telemetry for observability:
 
 **Key Insight:** Separate test execution environments based on dependencies—Babashka for lightweight tasks, JVM Clojure for full-stack features.
 
+### 2026-02: Field Name Consistency and Sorting Patterns
+
+**Problem:** Test failures revealed field name mismatches and incorrect sorting logic across modules.
+
+**Issue 1: Wisdom Engine Field Mismatch**
+- `wisdom.clj` used `:learning/created-at` but learning records store `:learning/created`
+- `sort-by :learning/created-at >` failed with `ClassCastException: String cannot be cast to Number`
+
+**Fix:**
+```clojure
+;; Before - wrong field name and comparator
+:recent-insights (take 5 (sort-by :learning/created-at > learnings))
+
+;; After - correct field name and reverse sort
+:recent-insights (take 5 (reverse (sort-by :learning/created learnings)))
+```
+
+**Issue 2: Analytics Dashboard String Sorting**
+- `analytics.clj` used `sort-by :project/updated-at >` on ISO timestamp strings
+- Strings cannot be compared with `>` operator
+
+**Fix:**
+```clojure
+;; Before - invalid comparator for strings
+:recent-activity (take 5 (sort-by :project/updated-at > projects))
+
+;; After - reverse sort for chronological order
+:recent-activity (take 5 (reverse (sort-by :project/updated-at projects)))
+```
+
+**Issue 3: Empathy Map Completion Logic**
+- Analytics calculated 6 sections but empathy map has 7 sections (`:pains` and `:gains` separate)
+- Tests expected 6 sections, 33% completion for 2/6, but should be 2/7 = 28%
+
+**Fix:**
+```clojure
+;; Before - combined pains-gains, wrong section count
+(let [sections [:persona :think-feel :hear :see :say-do :pains-gains]]
+
+;; After - separate pains and gains, correct section count  
+(let [sections [:persona :think-feel :hear :see :say-do :pains :gains]]
+```
+
+**Key Insights:**
+1. **Field Name Audit:** Verify field names across namespaces (e.g., `:learning/created` vs `:learning/created-at`)
+2. **String Sorting:** Use `(reverse (sort-by ...))` for descending order of strings, not `>` comparator
+3. **Schema Alignment:** Keep data models in sync between modules (empathy map sections count)
+4. **Test Protection:** When merging test results, select only numeric keys to avoid `ClassCastException`
+
+### 2026-02: Fulcro Inspect Compatibility
+
+**Problem:** Shadow-CLJS build failed with Fulcro inspect version incompatibility warning.
+
+**Issue:** `com.fulcrologic.fulcro.inspect.preload` caused errors in newer Fulcro versions.
+
+**Solution:** Remove automatic preload, add conditional loading based on `goog.DEBUG`.
+
+**Implementation:**
+```clojure
+;; shadow-cljs.edn - remove preloads
+:devtools {:after-load ouroboros.frontend.client/refresh}  ;; removed preloads
+
+;; client.cljs - conditional debug mode
+:dev {:compiler-options {:closure-defines {goog.DEBUG true}}}
+:release {:compiler-options {:closure-defines {goog.DEBUG false}}}
+
+;; Optionally load inspect only in development
+(when ^boolean goog.DEBUG
+  (try (require '[com.fulcrologic.fulcro.inspect.tool :as inspect]) ...))
+```
+
+**Key Insight:** Development tools should be opt-in and version-agnostic; use feature flags for compatibility.
+
 ---
 
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)

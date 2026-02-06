@@ -16,11 +16,14 @@
   (println "NOTE: Running with JVM Clojure (deps.edn)")
   (println "      Some tests use http-kit WebSocket server\n")
   
-  (let [results (apply merge-with +
-                       (map t/run-tests
+  (let [test-results (map t/run-tests
                             ['ouroboros.webux-test
                              'ouroboros.wisdom-test
-                             'ouroboros.analytics-test]))]
+                             'ouroboros.analytics-test])
+        results (reduce (fn [acc r]
+                          (merge-with + acc (select-keys r [:test :pass :fail :error])))
+                        {:test 0 :pass 0 :fail 0 :error 0}
+                        test-results)]
     (println "\n========================================")
     (println "  WebUX Test Results")
     (println "========================================")

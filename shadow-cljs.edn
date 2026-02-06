@@ -14,12 +14,13 @@
 
    :modules    {:main {:init-fn ouroboros.frontend.client/init}}
 
-   :devtools   {:after-load ouroboros.frontend.client/refresh
-                :preloads   [com.fulcrologic.fulcro.inspect.preload]}
+   :devtools   {:after-load ouroboros.frontend.client/refresh}
 
    :dev        {:compiler-options
-                {:external-config {:fulcro {:html-source-annotations? true}}}}
+                {:external-config {:fulcro {:html-source-annotations? true}}
+                 :closure-defines {goog.DEBUG true}}}
 
    :release    {:compiler-options
                 {:optimizations :advanced
-                 :elide-asserts true}}}}}
+                 :elide-asserts true
+                 :closure-defines {goog.DEBUG false}}}}}}

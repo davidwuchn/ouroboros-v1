@@ -65,19 +65,19 @@
    - :user-id - Project owner (required)
    - :name - Project name (required, non-empty)
    - :description - Optional project description"
-  [{:keys [user-id name description]}]
+  [{:keys [user-id description] project-name :name}]
   {::pco/output [:project/id :project/name :project/status]}
   ;; Validation
   (when (nil? user-id)
     (throw (ex-info "user-id is required" {:param :user-id})))
-  (when (str/blank? name)
+  (when (str/blank? project-name)
     (throw (ex-info "name is required and cannot be blank" {:param :name})))
   
-  (let [project-id (generate-project-id user-id name)
+  (let [project-id (generate-project-id user-id project-name)
         project {:project/id project-id
-                 :project/name name
+                 :project/name project-name
                  :project/description (or description "")
-                 :project/owner (name user-id)
+                 :project/owner (clojure.core/name user-id)
                  :project/status :draft
                  :project/created-at (str (java.time.Instant/now))
                  :project/updated-at (str (java.time.Instant/now))}
@@ -91,13 +91,13 @@
     
     ;; Save as learning insight
     (learning/save-insight! user-id
-                            {:title (str "Started project: " name)
-                             :insights [(str "Created new project: " name)]
+                            {:title (str "Started project: " project-name)
+                             :insights [(str "Created new project: " project-name)]
                              :pattern "project-creation"
                              :category "product-development"
                              :tags #{"project" "creation"}
                              :examples [{:project-id project-id
-                                         :name name}]})
+                                         :name project-name}]})
     
     (telemetry/emit! {:event :webux/project-created
                       :user-id user-id

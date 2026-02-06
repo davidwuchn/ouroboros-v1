@@ -29,7 +29,7 @@
   [canvas-data canvas-type]
   (case canvas-type
     :empathy-map
-    (let [sections [:persona :think-feel :hear :see :say-do :pains-gains]
+    (let [sections [:persona :think-feel :hear :see :say-do :pains :gains]
           completed (count (filter #(get-in canvas-data [:empathy/sections %]) sections))]
       {:completed completed
        :total (count sections)
@@ -273,7 +273,7 @@
      :dashboard/active-sessions (count (filter #(= (:session/state %) :active) sessions))
      :dashboard/completed-sessions (count (filter #(= (:session/state %) :completed) sessions))
      :dashboard/total-insights (count learnings)
-     :dashboard/recent-activity (take 5 (sort-by :project/updated-at > projects))
+     :dashboard/recent-activity (take 5 (reverse (sort-by :project/updated-at projects)))
 
      ;; Progress across all projects
      :dashboard/overall-progress

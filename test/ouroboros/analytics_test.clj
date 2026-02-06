@@ -14,20 +14,20 @@
     (let [empty-data {:empathy/sections {}}
           result (analytics/calculate-completion empty-data :empathy-map)]
       (is (= 0 (:completed result)))
-      (is (= 6 (:total result)))
+      (is (= 7 (:total result)))
       (is (= 0 (:percentage result))))
     
     (let [partial-data {:empathy/sections {:persona "Dev"
                                            :pains "Slow"}}
           result (analytics/calculate-completion partial-data :empathy-map)]
       (is (= 2 (:completed result)))
-      (is (= 33 (:percentage result))))
+      (is (= 28 (:percentage result))))
     
     (let [complete-data {:empathy/sections {:persona "X" :think-feel "X"
                                             :hear "X" :see "X"
-                                            :say-do "X" :pains-gains "X"}}
+                                            :say-do "X" :pains "X" :gains "X"}}
           result (analytics/calculate-completion complete-data :empathy-map)]
-      (is (= 6 (:completed result)))
+      (is (= 7 (:completed result)))
       (is (= 100 (:percentage result))))))
 
 (deftest calculate-completion-canvas-test
