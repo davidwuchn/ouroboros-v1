@@ -15,25 +15,25 @@
 
 (m/defmutation handle-load-error [{:keys [page-id error-message]}]
   (action [{:keys [state]}]
-    (swap! state assoc-in [:page/error page-id] error-message)))
+          (swap! state assoc-in [:page/error page-id] error-message)))
 
 (m/defmutation clear-page-error [{:keys [page-id]}]
   (action [{:keys [state]}]
-    (swap! state update :page/error dissoc page-id)))
+          (swap! state update :page/error dissoc page-id)))
 
 (m/defmutation add-telemetry-event [{:keys [event]}]
   (action [{:keys [state]}]
     ;; Add new event to the beginning of the list
-    (swap! state update-in [:page/id :telemetry :telemetry/events]
-           (fn [events]
-             (let [new-events (vec (cons event (take 49 events)))]
-               new-events)))
+          (swap! state update-in [:page/id :telemetry :telemetry/events]
+                 (fn [events]
+                   (let [new-events (vec (cons event (take 49 events)))]
+                     new-events)))
     ;; Update stats
-    (swap! state update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
-    (when (= :tool/invoke (:event event))
-      (swap! state update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0)))
-    (when (false? (:success? event))
-      (swap! state update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0)))))
+          (swap! state update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
+          (when (= :tool/invoke (:event event))
+            (swap! state update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0)))
+          (when (false? (:success? event))
+            (swap! state update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0)))))
 
 ;; ============================================================================
 ;; Loading Skeleton
@@ -41,28 +41,28 @@
 
 (defn telemetry-loading []
   (dom/div
-    (dom/h1 "Telemetry")
-    (dom/div {:className "metrics-grid mb-3"}
-      (repeat 4
-        (dom/div :.metric-card
-          (dom/div {:className "skeleton-text"
-                    :style {:width "60px" :height "2.5rem" :margin "0 auto"}})
-          (dom/div {:className "skeleton-text"
-                    :style {:width "100px" :margin "0.5rem auto 0"}}))))
-    (ui/card {:title "Error Rate"}
-      (dom/div {:className "skeleton-text" :style {:width "80px"}}))
-    (ui/card {:title "Recent Events"}
-      (dom/div {:className "skeleton-table"}
-        (repeat 5
-          (dom/div {:className "skeleton-row"
-                    :style {:display "flex"
-                            :gap "1rem"
-                            :padding "0.75rem 0"
-                            :borderBottom "1px solid var(--color-border)"}}
-            (dom/div {:className "skeleton-text" :style {:width "120px"}})
-            (dom/div {:className "skeleton-text" :style {:width "100px"}})
-            (dom/div {:className "skeleton-text" :style {:width "80px"}})
-            (dom/div {:className "skeleton-text" :style {:width "60px"}}))))))))
+   (dom/h1 "Telemetry")
+   (dom/div {:className "metrics-grid mb-3"}
+            (repeat 4
+                    (dom/div :.metric-card
+                             (dom/div {:className "skeleton-text"
+                                       :style {:width "60px" :height "2.5rem" :margin "0 auto"}})
+                             (dom/div {:className "skeleton-text"
+                                       :style {:width "100px" :margin "0.5rem auto 0"}}))))
+   (ui/card {:title "Error Rate"}
+            (dom/div {:className "skeleton-text" :style {:width "80px"}}))
+   (ui/card {:title "Recent Events"}
+            (dom/div {:className "skeleton-table"}
+                     (repeat 5
+                             (dom/div {:className "skeleton-row"
+                                       :style {:display "flex"
+                                               :gap "1rem"
+                                               :padding "0.75rem 0"
+                                               :borderBottom "1px solid var(--color-border)"}}
+                                      (dom/div {:className "skeleton-text" :style {:width "120px"}})
+                                      (dom/div {:className "skeleton-text" :style {:width "100px"}})
+                                      (dom/div {:className "skeleton-text" :style {:width "80px"}})
+                                      (dom/div {:className "skeleton-text" :style {:width "60px"}})))))))
 
 ;; ============================================================================
 ;; Event Table
@@ -91,13 +91,13 @@
                             (if (nil? v)
                               "-"
                               (ui/status-badge
-                                {:ok? v
-                                 :text (if v "Success" "Failed")})))}]
+                               {:ok? v
+                                :text (if v "Success" "Failed")})))}]
         rows (map event-row events)]
     (ui/data-table
-      {:columns columns
-       :rows rows
-       :empty-message "No telemetry events"})))
+     {:columns columns
+      :rows rows
+      :empty-message "No telemetry events"})))
 
 ;; ============================================================================
 ;; Event Entity
@@ -117,9 +117,9 @@
   {:query [:connected?]
    :ident (fn [] [:component/id :connection-indicator])}
   (dom/div {:className (str "connection-indicator-inline " (if connected? "connected" "disconnected"))}
-    (dom/span :.connection-dot)
-    (dom/span :.connection-label
-      (if connected? "Live" "Offline"))))
+           (dom/span :.connection-dot)
+           (dom/span :.connection-label
+                     (if connected? "Live" "Offline"))))
 
 ;; ============================================================================
 ;; Main Telemetry Page
@@ -146,14 +146,14 @@
    :route-segment ["telemetry"]
    :will-enter (fn [app route-params]
                  (dr/route-deferred [:page/id :telemetry]
-                   (fn []
-                     (df/load! app [:page/id :telemetry] TelemetryPage
-                       {:marker :telemetry
-                        :post-mutation `dr/target-ready
-                        :post-mutation-params {:target [:page/id :telemetry]}
-                        :fallback `handle-load-error
-                        :fallback-params {:page-id :telemetry
-                                          :error-message "Failed to load telemetry data"}}))))
+                                    (fn []
+                                      (df/load! app [:page/id :telemetry] TelemetryPage
+                                                {:marker :telemetry
+                                                 :post-mutation `dr/target-ready
+                                                 :post-mutation-params {:target [:page/id :telemetry]}
+                                                 :fallback `handle-load-error
+                                                 :fallback-params {:page-id :telemetry
+                                                                   :error-message "Failed to load telemetry data"}}))))
    :component-did-mount
    (fn [this]
      ;; Hook into WebSocket to receive real-time events
@@ -163,7 +163,7 @@
                (when (= :telemetry/event (:type message))
                  (comp/transact! this `[(add-telemetry-event {:event ~(:data message)})]))
                (original-handler message)))))
-   
+
    :component-will-unmount
    (fn [this]
      ;; Clean up WebSocket handler
@@ -175,52 +175,52 @@
     (cond
       error-msg
       (ui/error-state
-        {:message error-msg
-         :on-retry #(do
-                      (comp/transact! this `[(clear-page-error {:page-id :telemetry})])
-                      (df/load! this [:page/id :telemetry] TelemetryPage
-                        {:marker :telemetry
-                         :fallback `handle-load-error
-                         :fallback-params {:page-id :telemetry
-                                           :error-message "Failed to load telemetry data"}}))})
+       {:message error-msg
+        :on-retry #(do
+                     (comp/transact! this `[(clear-page-error {:page-id :telemetry})])
+                     (df/load! this [:page/id :telemetry] TelemetryPage
+                               {:marker :telemetry
+                                :fallback `handle-load-error
+                                :fallback-params {:page-id :telemetry
+                                                  :error-message "Failed to load telemetry data"}}))})
 
       loading?
       (telemetry-loading)
 
       :else
       (dom/div
-        (dom/div {:className "flex items-center justify-between"}
-          (dom/h1 "Telemetry")
-          (ui/connection-status {:connected? ws-connected?}))
+       (dom/div {:className "flex items-center justify-between"}
+                (dom/h1 "Telemetry")
+                (ui/connection-status {:connected? ws-connected?}))
 
         ;; Stats Overview
-        (dom/div {:className "metrics-grid mb-3"}
-          (ui/metric-card
-            {:value (or total-events 0)
-             :label "Total Events"})
-          (ui/metric-card
-            {:value (or tool-invocations 0)
-             :label "Tool Invocations"})
-          (ui/metric-card
-            {:value (or query-executions 0)
-             :label "Query Executions"})
-          (ui/metric-card
-            {:value (or errors 0)
-             :label "Errors"
-             :className (when (> (or errors 0) 0) "text-warning")}))
+       (dom/div {:className "metrics-grid mb-3"}
+                (ui/metric-card
+                 {:value (or total-events 0)
+                  :label "Total Events"})
+                (ui/metric-card
+                 {:value (or tool-invocations 0)
+                  :label "Tool Invocations"})
+                (ui/metric-card
+                 {:value (or query-executions 0)
+                  :label "Query Executions"})
+                (ui/metric-card
+                 {:value (or errors 0)
+                  :label "Errors"
+                  :className (when (> (or errors 0) 0) "text-warning")}))
 
         ;; Error Rate
-        (when error-rate
-          (ui/card {:title "Error Rate"}
-            (dom/div
-              (str (Math/round (* 100 error-rate)) "%"))))
+       (when error-rate
+         (ui/card {:title "Error Rate"}
+                  (dom/div
+                   (str (Math/round (* 100 error-rate)) "%"))))
 
         ;; Recent Events
-        (ui/card {:title "Recent Events"
-                  :actions (when ws-connected?
-                             (dom/span {:className "live-badge"} "● LIVE"))}
-          (if (seq events)
-            (event-table events)
-            (ui/empty-state
-              {:icon "Telemetry"
-               :message "No telemetry events recorded"}))))))))
+       (ui/card {:title "Recent Events"
+                 :actions (when ws-connected?
+                            (dom/span {:className "live-badge"} "● LIVE"))}
+                (if (seq events)
+                  (event-table events)
+                  (ui/empty-state
+                   {:icon "Telemetry"
+                    :message "No telemetry events recorded"})))))))

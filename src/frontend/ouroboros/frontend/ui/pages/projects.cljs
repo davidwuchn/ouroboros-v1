@@ -1,6 +1,7 @@
 (ns ouroboros.frontend.ui.pages.projects
   "Projects management page - Web UX Platform"
   (:require
+   [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]

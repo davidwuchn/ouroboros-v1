@@ -14,12 +14,12 @@
 
 (m/defmutation handle-load-error [{:keys [page-id error-message]}]
   (action [{:keys [state]}]
-    (swap! state assoc-in [:page/error page-id] error-message))
+          (swap! state assoc-in [:page/error page-id] error-message))
   (remote [env] true))
 
 (m/defmutation clear-page-error [{:keys [page-id]}]
   (action [{:keys [state]}]
-    (swap! state update :page/error dissoc page-id)))
+          (swap! state update :page/error dissoc page-id)))
 
 ;; ============================================================================
 ;; Loading Skeleton
@@ -27,42 +27,42 @@
 
 (defn users-loading []
   (dom/div
-    (dom/h1 "Users")
+   (dom/h1 "Users")
     ;; Stats skeleton
-    (dom/div {:className "metrics-grid mb-3"}
-      (repeat 2
-        (dom/div :.metric-card
-          (dom/div {:className "skeleton-text"
-                    :style {:width "60px" :height "2.5rem" :margin "0 auto"}})
-          (dom/div {:className "skeleton-text"
-                    :style {:width "100px" :margin "0.5rem auto 0"}}))))
+   (dom/div {:className "metrics-grid mb-3"}
+            (repeat 2
+                    (dom/div :.metric-card
+                             (dom/div {:className "skeleton-text"
+                                       :style {:width "60px" :height "2.5rem" :margin "0 auto"}})
+                             (dom/div {:className "skeleton-text"
+                                       :style {:width "100px" :margin "0.5rem auto 0"}}))))
     ;; Table skeleton
-    (ui/card {:title "Registered Users"}
-      (dom/div {:className "skeleton-table"}
+   (ui/card {:title "Registered Users"}
+            (dom/div {:className "skeleton-table"}
         ;; Header
-        (dom/div {:className "skeleton-row"
-                  :style {:display "flex"
-                          :gap "1rem"
-                          :padding "0.75rem 0"
-                          :borderBottom "2px solid var(--color-border)"
-                          :marginBottom "0.5rem"}}
-          (dom/div {:className "skeleton-text" :style {:width "100px" :fontWeight "bold"}})
-          (dom/div {:className "skeleton-text" :style {:width "80px" :fontWeight "bold"}})
-          (dom/div {:className "skeleton-text" :style {:width "60px" :fontWeight "bold"}})
-          (dom/div {:className "skeleton-text" :style {:width "120px" :fontWeight "bold"}})
-          (dom/div {:className "skeleton-text" :style {:width "120px" :fontWeight "bold"}}))
+                     (dom/div {:className "skeleton-row"
+                               :style {:display "flex"
+                                       :gap "1rem"
+                                       :padding "0.75rem 0"
+                                       :borderBottom "2px solid var(--color-border)"
+                                       :marginBottom "0.5rem"}}
+                              (dom/div {:className "skeleton-text" :style {:width "100px" :fontWeight "bold"}})
+                              (dom/div {:className "skeleton-text" :style {:width "80px" :fontWeight "bold"}})
+                              (dom/div {:className "skeleton-text" :style {:width "60px" :fontWeight "bold"}})
+                              (dom/div {:className "skeleton-text" :style {:width "120px" :fontWeight "bold"}})
+                              (dom/div {:className "skeleton-text" :style {:width "120px" :fontWeight "bold"}}))
         ;; Rows
-        (repeat 5
-          (dom/div {:className "skeleton-row"
-                    :style {:display "flex"
-                            :gap "1rem"
-                            :padding "0.75rem 0"
-                            :borderBottom "1px solid var(--color-border)"}}
-            (dom/div {:className "skeleton-text" :style {:width "100px"}})
-            (dom/div {:className "skeleton-text" :style {:width "80px"}})
-            (dom/div {:className "skeleton-text" :style {:width "60px"}})
-            (dom/div {:className "skeleton-text" :style {:width "120px"}})
-            (dom/div {:className "skeleton-text" :style {:width "120px"}}))))))))
+                     (repeat 5
+                             (dom/div {:className "skeleton-row"
+                                       :style {:display "flex"
+                                               :gap "1rem"
+                                               :padding "0.75rem 0"
+                                               :borderBottom "1px solid var(--color-border)"}}
+                                      (dom/div {:className "skeleton-text" :style {:width "100px"}})
+                                      (dom/div {:className "skeleton-text" :style {:width "80px"}})
+                                      (dom/div {:className "skeleton-text" :style {:width "60px"}})
+                                      (dom/div {:className "skeleton-text" :style {:width "120px"}})
+                                      (dom/div {:className "skeleton-text" :style {:width "120px"}})))))))
 
 ;; ============================================================================
 ;; User Entity
@@ -89,11 +89,11 @@
                   :label "Role"
                   :format (fn [v _]
                             (dom/span
-                              {:className (str "badge "
+                             {:className (str "badge "
                                               (case v
                                                 :admin "badge-primary"
                                                 "badge-secondary"))}
-                              (name v)))}
+                             (name v)))}
                  {:key :created-at :label "Created"}
                  {:key :last-active :label "Last Active"}]
         rows (map (fn [u]
@@ -104,9 +104,9 @@
                      :last-active (:user/last-active u)})
                   users)]
     (ui/data-table
-      {:columns columns
-       :rows rows
-       :empty-message "No users registered"})))
+     {:columns columns
+      :rows rows
+      :empty-message "No users registered"})))
 
 ;; ============================================================================
 ;; Main Users Page
@@ -125,49 +125,49 @@
    :route-segment ["users"]
    :will-enter (fn [app route-params]
                  (dr/route-deferred [:page/id :users]
-                   (fn []
-                     (df/load! app [:page/id :users] UsersPage
-                       {:marker :users
-                        :post-mutation `dr/target-ready
-                        :post-mutation-params {:target [:page/id :users]}
-                        :fallback `handle-load-error
-                        :fallback-params {:page-id :users
-                                          :error-message "Failed to load users data"}}))))}
+                                    (fn []
+                                      (df/load! app [:page/id :users] UsersPage
+                                                {:marker :users
+                                                 :post-mutation `dr/target-ready
+                                                 :post-mutation-params {:target [:page/id :users]}
+                                                 :fallback `handle-load-error
+                                                 :fallback-params {:page-id :users
+                                                                   :error-message "Failed to load users data"}}))))}
 
   (let [loading? (df/loading? (get props [df/marker-table :users]))
         error-msg (get-in props [:page/error :users])]
     (cond
       error-msg
       (ui/error-state
-        {:message error-msg
-         :on-retry #(do
-                      (comp/transact! this `[(clear-page-error {:page-id :users})])
-                      (df/load! this [:page/id :users] UsersPage
-                        {:marker :users
-                         :fallback `handle-load-error
-                         :fallback-params {:page-id :users
-                                           :error-message "Failed to load users data"}}))})
+       {:message error-msg
+        :on-retry #(do
+                     (comp/transact! this `[(clear-page-error {:page-id :users})])
+                     (df/load! this [:page/id :users] UsersPage
+                               {:marker :users
+                                :fallback `handle-load-error
+                                :fallback-params {:page-id :users
+                                                  :error-message "Failed to load users data"}}))})
 
       loading?
       (users-loading)
 
       :else
       (dom/div
-        (dom/h1 "Users")
+       (dom/h1 "Users")
 
         ;; Stats
-        (dom/div {:className "metrics-grid mb-3"}
-          (ui/metric-card
-            {:value (or user-count 0)
-             :label "Total Users"})
-          (ui/metric-card
-            {:value (or admin-count 0)
-             :label "Admins"}))
+       (dom/div {:className "metrics-grid mb-3"}
+                (ui/metric-card
+                 {:value (or user-count 0)
+                  :label "Total Users"})
+                (ui/metric-card
+                 {:value (or admin-count 0)
+                  :label "Admins"}))
 
         ;; Users Table
-        (ui/card {:title "Registered Users"}
-          (if (seq users)
-            (user-table users)
-            (ui/empty-state
-              {:icon "Users"
-               :message "No users registered yet"}))))))))
+       (ui/card {:title "Registered Users"}
+                (if (seq users)
+                  (user-table users)
+                  (ui/empty-state
+                   {:icon "Users"
+                    :message "No users registered yet"})))))))

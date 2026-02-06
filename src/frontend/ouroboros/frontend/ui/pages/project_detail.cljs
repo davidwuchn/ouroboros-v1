@@ -44,18 +44,18 @@
   (let [{:keys [key name description icon sections route]} builder]
     (ui/card {:title (str icon " " name)
               :className (str "builder-card builder-" (name key))}
-      (dom/div :.builder-description description)
-      (dom/div :.builder-sections
-        (dom/span :.sections-label (str (count sections) " sections:"))
-        (dom/ul :.sections-list
-          (map #(dom/li {:key %} %) (take 4 sections))
-          (when (> (count sections) 4)
-            (dom/li (str "+" (- (count sections) 4) " more...")))))
-      (dom/div :.builder-actions
-        (ui/button
-          {:on-click #(dr/change-route! this ["project" {:project-id project-id} route])
-           :variant :primary}
-          "Start Building")))))
+             (dom/div :.builder-description description)
+             (dom/div :.builder-sections
+                      (dom/span :.sections-label (str (count sections) " sections:"))
+                      (dom/ul :.sections-list
+                              (map #(dom/li {:key %} %) (take 4 sections))
+                              (when (> (count sections) 4)
+                                (dom/li (str "+" (- (count sections) 4) " more...")))))
+             (dom/div :.builder-actions
+                      (ui/button
+                       {:on-click #(dr/change-route! this ["project" {:project-id project-id} route])
+                        :variant :primary}
+                       "Start Building")))))
 
 (def ui-builder-card (comp/factory BuilderCard {:keyfn #(-> % :builder :key)}))
 
@@ -69,11 +69,11 @@
   {:query [:session/id :session/type :session/state :session/updated-at]
    :ident :session/id}
   (dom/div :.session-item
-    (dom/div :.session-info
-      (dom/span :.session-type (name type))
-      (dom/span :.session-state (name state)))
-    (dom/div :.session-meta
-      (dom/span :.session-updated updated-at))))
+           (dom/div :.session-info
+                    (dom/span :.session-type (name type))
+                    (dom/span :.session-state (name state)))
+           (dom/div :.session-meta
+                    (dom/span :.session-updated updated-at))))
 
 (def ui-session-item (comp/factory SessionItem {:keyfn :session/id}))
 
@@ -83,8 +83,8 @@
 
 (defsc ProjectDetailPage
   "Project detail page with builder selection"
-  [this {:keys [project/id project/name project/description project/status 
-                project/sessions ui/builders] :as props}]
+  [this {:keys [project/id project/name project/description project/status
+                project/sessions] :as props}]
   {:query         [:project/id :project/name :project/description :project/status
                    {:project/sessions (comp/get-query SessionItem)}
                    [df/marker-table :project-detail]]
@@ -92,39 +92,39 @@
    :route-segment ["project" :project-id]
    :will-enter    (fn [app {:keys [project-id]}]
                     (dr/route-deferred [:page/id :project-detail]
-                      (fn []
-                        (df/load! app [:page/id :project-detail] ProjectDetailPage
-                          {:marker :project-detail
-                           :params {:project-id project-id}
-                           :post-mutation `dr/target-ready
-                           :post-mutation-params {:target [:page/id :project-detail]}}))))}
-  
+                                       (fn []
+                                         (df/load! app [:page/id :project-detail] ProjectDetailPage
+                                                   {:marker :project-detail
+                                                    :params {:project-id project-id}
+                                                    :post-mutation `dr/target-ready
+                                                    :post-mutation-params {:target [:page/id :project-detail]}}))))}
+
   (let [loading? (df/loading? (get props [df/marker-table :project-detail]))]
     (if loading?
       (dom/div :.loading "Loading project...")
       (dom/div :.project-detail-page
         ;; Header
-        (dom/div :.project-header
-          (dom/h1 name)
-          (dom/span :.project-status-badge (name status))
-          (when description
-            (dom/p :.project-description description)))
-        
+               (dom/div :.project-header
+                        (dom/h1 name)
+                        (dom/span :.project-status-badge (name status))
+                        (when description
+                          (dom/p :.project-description description)))
+
         ;; Builder Selection
-        (dom/h2 "Choose a Builder")
-        (dom/div :.builders-grid
-          (map #(ui-builder-card {:builder % :project-id id}) builder-types))
-        
+               (dom/h2 "Choose a Builder")
+               (dom/div :.builders-grid
+                        (map #(ui-builder-card {:builder % :project-id id}) builder-types))
+
         ;; Active Sessions
-        (when (seq sessions)
-          (dom/div :.sessions-section
-            (dom/h2 "Active Sessions")
-            (dom/div :.sessions-list
-              (map ui-session-item sessions))))
-        
+               (when (seq sessions)
+                 (dom/div :.sessions-section
+                          (dom/h2 "Active Sessions")
+                          (dom/div :.sessions-list
+                                   (map ui-session-item sessions))))
+
         ;; Navigation
-        (dom/div :.project-actions
-          (ui/button
-            {:on-click #(dr/change-route! this ["projects"])
-             :variant :secondary}
-            "← Back to Projects"))))))
+               (dom/div :.project-actions
+                        (ui/button
+                         {:on-click #(dr/change-route! this ["projects"])
+                          :variant :secondary}
+                         "← Back to Projects"))))))

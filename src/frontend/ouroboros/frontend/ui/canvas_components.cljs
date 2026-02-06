@@ -107,33 +107,34 @@
 
 (defsc CanvasSection
   "A section of the canvas with header and drop zone"
-  [this {:section/keys [key title description items editable? on-add-item] :as props}]
+  [this {:section/keys [key title description items editable?] :as props}]
   {:query [:section/key :section/title :section/description
            {:section/items (comp/get-query StickyNote)}
            :section/editable?]
    :ident (fn [] [:section/key (:section/key props)])}
-  (dom/div
-   {:className (str "canvas-section canvas-section-" (name key))
-    :data-section key}
-    ;; Section Header
-   (dom/div :.canvas-section-header
-            (dom/h3 :.canvas-section-title title)
-            (when description
-              (dom/p :.canvas-section-description description)))
-    ;; Drop Zone
-   (dom/div
-    {:className "canvas-section-content"
-     :data-drop-zone key}
-    (if (seq items)
-      (map ui-sticky-note items)
-      (dom/div :.canvas-section-empty "Drop items here or click + to add")))
-    ;; Add Button
-   (when editable?
-     (dom/div :.canvas-section-actions
-              (dom/button
-               {:className "btn btn-sm btn-add"
-                :onClick #(on-add-item key)}
-               "+ Add Note")))))
+  (let [on-add-item (comp/computed this :on-add-item)]
+    (dom/div
+     {:className (str "canvas-section canvas-section-" (name key))
+      :data-section key}
+     ;; Section Header
+     (dom/div :.canvas-section-header
+              (dom/h3 :.canvas-section-title title)
+              (when description
+                (dom/p :.canvas-section-description description)))
+     ;; Drop Zone
+     (dom/div
+      {:className "canvas-section-content"
+       :data-drop-zone key}
+      (if (seq items)
+        (map ui-sticky-note items)
+        (dom/div :.canvas-section-empty "Drop items here or click + to add")))
+     ;; Add Button
+     (when editable?
+       (dom/div :.canvas-section-actions
+                (dom/button
+                 {:className "btn btn-sm btn-add"
+                  :onClick #(when on-add-item (on-add-item key))}
+                 "+ Add Note"))))))
 
 (def ui-canvas-section (comp/factory CanvasSection {:keyfn :section/key}))
 
@@ -159,62 +160,63 @@
 
 (defsc EmpathyMapCanvas
   "Visual empathy map with 2x3 grid layout"
-  [this {:keys [sections items on-item-move on-item-add on-item-update] :as props}]
+  [this {:keys [canvas/sections canvas/items] :as props}]
   {:query [{:canvas/sections (comp/get-query CanvasSection)}
            {:canvas/items (comp/get-query StickyNote)}]}
-  (dom/div :.empathy-map-canvas
-    ;; Grid Layout
-           (dom/div :.empathy-map-grid
-      ;; Persona (full width top)
-                    (let [persona-section (first (filter #(= (:section/key %) :persona) sections))]
-                      (when persona-section
-                        (dom/div :.empathy-section-persona
-                                 (ui-canvas-section (assoc persona-section
-                                                           :section/items (filter #(= (:item/section %) :persona) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+  (let [on-item-add (comp/computed this :on-item-add)]
+    (dom/div :.empathy-map-canvas
+             ;; Grid Layout
+             (dom/div :.empathy-map-grid
+                      ;; Persona (full width top)
+                      (let [persona-section (first (filter #(= (:section/key %) :persona) sections))]
+                        (when persona-section
+                          (dom/div :.empathy-section-persona
+                                   (ui-canvas-section (comp/computed (assoc persona-section
+                                                                            :section/items (filter #(= (:item/section %) :persona) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-      ;; Think & Feel (left, large)
-                    (let [think-feel (first (filter #(= (:section/key %) :think-feel) sections))]
-                      (when think-feel
-                        (dom/div :.empathy-section-think-feel
-                                 (ui-canvas-section (assoc think-feel
-                                                           :section/items (filter #(= (:item/section %) :think-feel) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+                      ;; Think & Feel (left, large)
+                      (let [think-feel (first (filter #(= (:section/key %) :think-feel) sections))]
+                        (when think-feel
+                          (dom/div :.empathy-section-think-feel
+                                   (ui-canvas-section (comp/computed (assoc think-feel
+                                                                            :section/items (filter #(= (:item/section %) :think-feel) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-      ;; Center column (Hear, See, Say & Do)
-                    (dom/div :.empathy-center-column
-                             (let [hear (first (filter #(= (:section/key %) :hear) sections))
-                                   see (first (filter #(= (:section/key %) :see) sections))
-                                   say-do (first (filter #(= (:section/key %) :say-do) sections))]
-                               (when hear
-                                 (dom/div :.empathy-section-hear
-                                          (ui-canvas-section (assoc hear
-                                                                    :section/items (filter #(= (:item/section %) :hear) items)
-                                                                    :section/editable? true
-                                                                    :on-add-item on-item-add))))
-                               (when see
-                                 (dom/div :.empathy-section-see
-                                          (ui-canvas-section (assoc see
-                                                                    :section/items (filter #(= (:item/section %) :see) items)
-                                                                    :section/editable? true
-                                                                    :on-add-item on-item-add))))
-                               (when say-do
-                                 (dom/div :.empathy-section-say-do
-                                          (ui-canvas-section (assoc say-do
-                                                                    :section/items (filter #(= (:item/section %) :say-do) items)
-                                                                    :section/editable? true
-                                                                    :on-add-item on-item-add))))))
+                      ;; Center column (Hear, See, Say & Do)
+                      (dom/div :.empathy-center-column
+                               (let [hear (first (filter #(= (:section/key %) :hear) sections))
+                                     see (first (filter #(= (:section/key %) :see) sections))
+                                     say-do (first (filter #(= (:section/key %) :say-do) sections))]
+                                 (when hear
+                                   (dom/div :.empathy-section-hear
+                                            (ui-canvas-section (comp/computed (assoc hear
+                                                                                     :section/items (filter #(= (:item/section %) :hear) items)
+                                                                                     :section/editable? true)
+                                                                              {:on-add-item on-item-add}))))
+                                 (when see
+                                   (dom/div :.empathy-section-see
+                                            (ui-canvas-section (comp/computed (assoc see
+                                                                                     :section/items (filter #(= (:item/section %) :see) items)
+                                                                                     :section/editable? true)
+                                                                              {:on-add-item on-item-add}))))
+                                 (when say-do
+                                   (dom/div :.empathy-section-say-do
+                                            (ui-canvas-section (comp/computed (assoc say-do
+                                                                                     :section/items (filter #(= (:item/section %) :say-do) items)
+                                                                                     :section/editable? true)
+                                                                              {:on-add-item on-item-add}))))))
 
-      ;; Pains & Gains (right)
-                    (let [pains-gains (first (filter #(= (:section/key %) :pains-gains) sections))]
-                      (when pains-gains
-                        (dom/div :.empathy-section-pains-gains
-                                 (ui-canvas-section (assoc pains-gains
-                                                           :section/items (filter #(= (:item/section %) :pains-gains) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))))
+                      ;; Pains & Gains (right)
+                      (let [pains-gains (first (filter #(= (:section/key %) :pains-gains) sections))]
+                        (when pains-gains
+                          (dom/div :.empathy-section-pains-gains
+                                   (ui-canvas-section (comp/computed (assoc pains-gains
+                                                                            :section/items (filter #(= (:item/section %) :pains-gains) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add}))))))))
 
   ;; Legend
   (dom/div :.empathy-map-legend
@@ -259,87 +261,88 @@
 
 (defsc LeanCanvas
   "Visual Lean Canvas with business model layout"
-  [this {:keys [sections items on-item-add] :as props}]
+  [this {:keys [canvas/sections canvas/items] :as props}]
   {:query [{:canvas/sections (comp/get-query CanvasSection)}
            {:canvas/items (comp/get-query StickyNote)}]}
-  (dom/div :.lean-canvas-container
-           (dom/div :.lean-canvas-grid
-      ;; Row 1: Problems, Solution, UVP, Unfair Advantage
-                    (let [problems (first (filter #(= (:section/key %) :problems) sections))]
-                      (when problems
-                        (dom/div :.canvas-box.canvas-problems
-                                 (ui-canvas-section (assoc problems
-                                                           :section/items (filter #(= (:item/section %) :problems) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+  (let [on-item-add (comp/computed this :on-item-add)]
+    (dom/div :.lean-canvas-container
+             (dom/div :.lean-canvas-grid
+                      ;; Row 1: Problems, Solution, UVP, Unfair Advantage
+                      (let [problems (first (filter #(= (:section/key %) :problems) sections))]
+                        (when problems
+                          (dom/div :.canvas-box.canvas-problems
+                                   (ui-canvas-section (comp/computed (assoc problems
+                                                                            :section/items (filter #(= (:item/section %) :problems) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-                    (let [solution (first (filter #(= (:section/key %) :solution) sections))]
-                      (when solution
-                        (dom/div :.canvas-box.canvas-solution
-                                 (ui-canvas-section (assoc solution
-                                                           :section/items (filter #(= (:item/section %) :solution) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+                      (let [solution (first (filter #(= (:section/key %) :solution) sections))]
+                        (when solution
+                          (dom/div :.canvas-box.canvas-solution
+                                   (ui-canvas-section (comp/computed (assoc solution
+                                                                            :section/items (filter #(= (:item/section %) :solution) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-                    (let [uvp (first (filter #(= (:section/key %) :uvp) sections))]
-                      (when uvp
-                        (dom/div :.canvas-box.canvas-uvp
-                                 (ui-canvas-section (assoc uvp
-                                                           :section/items (filter #(= (:item/section %) :uvp) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+                      (let [uvp (first (filter #(= (:section/key %) :uvp) sections))]
+                        (when uvp
+                          (dom/div :.canvas-box.canvas-uvp
+                                   (ui-canvas-section (comp/computed (assoc uvp
+                                                                            :section/items (filter #(= (:item/section %) :uvp) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-                    (let [unfair (first (filter #(= (:section/key %) :unfair-advantage) sections))]
-                      (when unfair
-                        (dom/div :.canvas-box.canvas-unfair-advantage
-                                 (ui-canvas-section (assoc unfair
-                                                           :section/items (filter #(= (:item/section %) :unfair-advantage) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+                      (let [unfair (first (filter #(= (:section/key %) :unfair-advantage) sections))]
+                        (when unfair
+                          (dom/div :.canvas-box.canvas-unfair-advantage
+                                   (ui-canvas-section (comp/computed (assoc unfair
+                                                                            :section/items (filter #(= (:item/section %) :unfair-advantage) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-      ;; Row 2: Customer Segments, Key Metrics, Channels
-                    (let [segments (first (filter #(= (:section/key %) :customer-segments) sections))]
-                      (when segments
-                        (dom/div :.canvas-box.canvas-customer-segments
-                                 (ui-canvas-section (assoc segments
-                                                           :section/items (filter #(= (:item/section %) :customer-segments) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+                      ;; Row 2: Customer Segments, Key Metrics, Channels
+                      (let [segments (first (filter #(= (:section/key %) :customer-segments) sections))]
+                        (when segments
+                          (dom/div :.canvas-box.canvas-customer-segments
+                                   (ui-canvas-section (comp/computed (assoc segments
+                                                                            :section/items (filter #(= (:item/section %) :customer-segments) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-                    (let [metrics (first (filter #(= (:section/key %) :key-metrics) sections))]
-                      (when metrics
-                        (dom/div :.canvas-box.canvas-key-metrics
-                                 (ui-canvas-section (assoc metrics
-                                                           :section/items (filter #(= (:item/section %) :key-metrics) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+                      (let [metrics (first (filter #(= (:section/key %) :key-metrics) sections))]
+                        (when metrics
+                          (dom/div :.canvas-box.canvas-key-metrics
+                                   (ui-canvas-section (comp/computed (assoc metrics
+                                                                            :section/items (filter #(= (:item/section %) :key-metrics) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-                    (let [channels (first (filter #(= (:section/key %) :channels) sections))]
-                      (when channels
-                        (dom/div :.canvas-box.canvas-channels
-                                 (ui-canvas-section (assoc channels
-                                                           :section/items (filter #(= (:item/section %) :channels) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+                      (let [channels (first (filter #(= (:section/key %) :channels) sections))]
+                        (when channels
+                          (dom/div :.canvas-box.canvas-channels
+                                   (ui-canvas-section (comp/computed (assoc channels
+                                                                            :section/items (filter #(= (:item/section %) :channels) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-      ;; Row 3: Cost Structure, Revenue Streams (full width split)
-                    (let [costs (first (filter #(= (:section/key %) :cost-structure) sections))]
-                      (when costs
-                        (dom/div :.canvas-box.canvas-cost-structure
-                                 (ui-canvas-section (assoc costs
-                                                           :section/items (filter #(= (:item/section %) :cost-structure) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add)))))
+                      ;; Row 3: Cost Structure, Revenue Streams (full width split)
+                      (let [costs (first (filter #(= (:section/key %) :cost-structure) sections))]
+                        (when costs
+                          (dom/div :.canvas-box.canvas-cost-structure
+                                   (ui-canvas-section (comp/computed (assoc costs
+                                                                            :section/items (filter #(= (:item/section %) :cost-structure) items)
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))
 
-                    (let [revenue (first (filter #(= (:section/key %) :revenue-streams) sections))]
-                      (when revenue
-                        (dom/div :.canvas-box.canvas-revenue-streams
-                                 (ui-canvas-section (assoc revenue
-                                                           :section/items (filter #(= (:item/section %) :revenue-streams) items)
-                                                           :section/editable? true
-                                                           :on-add-item on-item-add))))))))
+                      (let [revenue (first (filter #(= (:section/key %) :revenue-streams) sections))]
+                        (when revenue
+                          (dom/div :.canvas-box.canvas-revenue-streams
+                                   (ui-canvas-section (comp/computed (assoc revenue
+                                                                            :section/items (filter #(= (:item/section %) :revenue-streams) items)
+                                                                            :section/editable? true
+                                                                            {:on-add-item on-item-add}))))))))))
 
-;; ============================================================================
+                                                                     ;; ============================================================================
 ;; Connection Lines (SVG)
 ;; ============================================================================
 
@@ -411,10 +414,10 @@
                      "▶ Present"))
            (dom/div :.canvas-toolbar-group
                     (dom/button
-                     {:className "btn btn-sm"}
-                     :onClick on-clear
-                     :disabled (not can-undo?)
-                     :title "Undo"
+                     {:className "btn btn-sm"
+                      :onClick on-clear
+                      :disabled (not can-undo?)
+                      :title "Undo"}
                      "↩ Undo")
                     (dom/button
                      {:className "btn btn-sm"
