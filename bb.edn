@@ -203,15 +203,14 @@
              (fs/delete-if-exists backend-log)
              (fs/delete-if-exists frontend-log)
              
-             ;; Start backend
-             (println "[START] Starting backend (Clojure)...")
-             (println "        Log: tail -f" backend-log)
-             (let [backend-process (-> (p/process
-                                         ["clojure" "-M" "-m" "ouroboros.dashboard"]
-                                         {:out backend-log
-                                          :err :out
-                                          :shutdown p/destroy-tree})
-                                       (p/start))]
+              ;; Start backend
+              (println "[START] Starting backend (Clojure)...")
+              (println "        Log: tail -f" backend-log)
+              (let [backend-process (p/process
+                                      ["clojure" "-M" "-m" "ouroboros.dashboard"]
+                                      {:out backend-log
+                                       :err :out
+                                       :shutdown (fn [p] (p/destroy-tree p))})]
                
                ;; Wait for backend to be ready
                (println "[WAIT] Waiting for backend to be ready...")
@@ -224,13 +223,12 @@
                (println "        This may take a minute for first compile...")
                (println "")
                
-               (let [frontend-process (-> (p/process
-                                            ["npx" "shadow-cljs" "watch" "dashboard"
-                                             "--config-merge" (str "{:dev-http {" frontend-port " \"resources/public\"}}")]
-                                            {:out frontend-log
-                                             :err :out
-                                             :shutdown p/destroy-tree})
-                                          (p/start))]
+                (let [frontend-process (p/process
+                                         ["npx" "shadow-cljs" "watch" "dashboard"
+                                          "--config-merge" (str "{:dev-http {" frontend-port " \"resources/public\"}}")]
+                                         {:out frontend-log
+                                          :err :out
+                                          :shutdown (fn [p] (p/destroy-tree p))})]
                  
                  ;; Show banner
                  (Thread/sleep 2000)
