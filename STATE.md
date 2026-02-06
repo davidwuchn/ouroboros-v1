@@ -10,6 +10,7 @@
 | Query | ✅ Active | Pathom EQL interface exposed |
 | Interface | ✅ Ready | Unified boot/shutdown via `ouroboros.interface` |
 | nREPL | ✅ Port 8888 | Auto-boots system on connect |
+| Process Runner | ✅ Active | Tmux-based process management for dev workflow |
 | History | ✅ Active | Git resolvers for commits, status, branches |
 | Introspection | ✅ Active | Engine queries its own statechart |
 | Memory | ✅ Active | Cross-session persistence via EDN |
@@ -95,6 +96,13 @@
 (iface/telemetry-stats)
 (iface/q [{:telemetry/events [:event/id :event/timestamp :event]}])
 (iface/q [:telemetry/total-events :telemetry/tool-invocations])
+
+;; Process management
+(require '[ouroboros.process-runner :as pr])
+(pr/start! "webserver" "python -m http.server 8080")
+(pr/status "webserver")
+(pr/logs "webserver" :follow? true)
+(pr/stop! "webserver")
 
 
 

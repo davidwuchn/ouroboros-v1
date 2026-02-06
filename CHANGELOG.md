@@ -48,6 +48,29 @@
 - Tool approval bridge (chat-platform UX)
 - Learning memory (wisdom building)
 
+### Process-Runner Migration — Unified Dev Workflow
+
+- `[commit-hash]` ⚒ λ Migrate all long-running tasks to process-runner system
+  - `ouroboros.process-runner` Clojure namespace for tmux session management
+  - All `bb.edn` dev tasks (`dev`, `dev:backend`, `dev:frontend`, etc.) use process-runner
+  - Health checks for backend readiness before starting frontend
+  - Session isolation with `proc-` prefix naming convention
+  - Full interactive control: attach, logs, status, send commands
+  - Clean shutdown hooks and proper cleanup
+  
+**Updated Tasks:**
+- `bb dev` - Full stack with health checks (proc-ouroboros-backend, proc-ouroboros-frontend)
+- `bb dashboard` - Dashboard server (proc-dashboard)
+- `bb frontend:dev` - Frontend dev server (proc-frontend-dev)
+- `bb frontend:server` - Shadow-CLJS server (proc-frontend-server)
+- `bb process` - CLI interface to process-runner (start, stop, status, logs, attach, send)
+
+**Key Benefits:**
+- Consistent process management across all development tasks
+- Interactive debugging via tmux session attachment
+- Session persistence across terminal disconnections
+- Centralized log viewing and process control
+
 ### System Complete — 22 commits, 4 phases
 
 ---

@@ -163,29 +163,71 @@ AI/LLM capabilities are delegated to ECA (Editor Code Assistant):
 
 - **Never use `nohup + &` together** in `shell_command` for long-running processes. The `shell_command` tool blocks until completion; backgrounding with `&` may cause the process to be orphaned or the tool to timeout incorrectly. Use appropriate service managers (systemd, docker, screen/tmux) instead.
 
-#### Working Solution: Process Runner Script
+#### Integrated Solution: Ouroboros Process Runner
 
-For scripts that need to start long-running processes via `shell_command`, use tmux for full interactive control:
+All long-running processes are managed via `ouroboros.process-runner` (tmux-based session management) integrated into `bb.edn` tasks.
 
-```bash
-#!/bin/bash
-# process-runner.sh - Start/manage long-running processes with tmux
+**Clojure API:**
+```clojure
+(require '[ouroboros.process-runner :as pr])
 
-# Start process in detached tmux session
-tmux new-session -s "proc-webserver" -d "python -m http.server 8081"
+;; Start process in tmux session
+(pr/start! "webserver" "python -m http.server 8080")
 
-# Control commands:
-tmux attach -t "proc-webserver"        # Interactive attachment
-tmux send-keys -t "proc-webserver" "ls" Enter  # Send input
-tmux capture-pane -t "proc-webserver" -p      # View output
-tmux kill-session -t "proc-webserver"         # Stop process
+;; Check status
+(pr/status "webserver")
+
+;; View logs
+(pr/logs "webserver" :follow? true)
+
+;; Send input
+(pr/send! "webserver" "ls")
+
+;; Stop process
+(pr/stop! "webserver")
 ```
 
-**Why it works:** tmux creates detached sessions that persist independently. The wrapper script exits immediately, satisfying `shell_command`'s synchronous expectation while the process continues running.
+**CLI Interface via `bb.edn`:**
+```bash
+# Process management
+bb process start webserver "python -m http.server 8080"
+bb process status webserver
+bb process logs webserver -f
+bb process attach webserver
+bb process send webserver "ls"
+bb process stop webserver
+bb process list
+bb process check     # Verify tmux installation
+```
 
-**Full implementation:** See `scripts/process-runner.sh` for complete process management with start/stop/status/logs/attach/send commands.
+**Development Workflow Tasks (all use process-runner):**
+```bash
+bb dev           # Full stack with health checks
+bb dev:backend   # Backend only (proc-ouroboros-backend)
+bb dev:frontend  # Frontend only (proc-ouroboros-frontend)
+bb dev:stop      # Stop all dev processes
+bb dev:logs      # View dev logs
+bb dashboard     # Dashboard server (proc-dashboard)
+bb frontend:dev  # Frontend dev server (proc-frontend-dev)
+bb frontend:server # Shadow-CLJS server (proc-frontend-server)
+```
 
-**Prerequisite:** tmux must be installed. Run `./scripts/process-runner.sh check` to verify installation.
+**Session Naming Convention:**
+- `proc-ouroboros-backend` - Backend dashboard server
+- `proc-ouroboros-frontend` - Frontend dev server
+- `proc-dashboard` - Dashboard-only sessions
+- `proc-frontend-dev` - Frontend development sessions
+- `proc-frontend-server` - Shadow-CLJS server sessions
+
+**Key Benefits:**
+1. **Consistent Management**: Single API for all long-running processes
+2. **Interactive Control**: Attach to sessions for real-time interaction
+3. **Session Isolation**: Processes run in isolated tmux sessions
+4. **Health Integration**: Backend health checks before starting frontend
+5. **Clean Shutdown**: Proper cleanup on Ctrl+C via shutdown hooks
+6. **Log Centralization**: Unified log viewing across all processes
+
+**Prerequisite:** tmux must be installed. Run `bb process check` to verify installation.
 
 ---
 
@@ -205,6 +247,7 @@ Current focus: 5-phase product development flywheel (Empathy→Value Prop→MVP�
 | `ouroboros.offline-sync` | Queue, conflict resolution |
 | `ouroboros.embed` | iframe/SDK for third-party integration |
 | `ouroboros.interface` | Unified boot/query/shutdown API |
+| `ouroboros.process-runner` | Tmux-based process management for dev workflow |
 
 ### Common REPL Commands
 ```clojure
@@ -224,6 +267,12 @@ Current focus: 5-phase product development flywheel (Empathy→Value Prop→MVP�
 ;; Analytics
 (require '[ouroboros.analytics :as analytics])
 (analytics/project-progress :project-id :user-id)
+
+;; Process management
+(require '[ouroboros.process-runner :as pr])
+(pr/start! "webserver" "python -m http.server 8080")
+(pr/status "webserver")
+(pr/logs "webserver" :follow? true)
 ```
 
 ### Architecture Decisions
@@ -232,6 +281,7 @@ Current focus: 5-phase product development flywheel (Empathy→Value Prop→MVP�
 - **Web UX**: Fulcro/ClojureScript frontend, Pathom/EQL backend
 - **Chat**: Protocol-based adapters (Telegram HTTP, Discord/Slack WebSocket)
 - **Statecharts**: Engine (∅) manages system lifecycle with formal state machine
+- **Process Management**: Tmux-based process runner for all long-running dev tasks
 
 ### Testing
 ```bash

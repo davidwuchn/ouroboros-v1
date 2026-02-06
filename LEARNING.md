@@ -457,6 +457,92 @@ tmux kill-session -t "proc-$name"         # Stop process
 
 **Key Insight:** `tmux` is already recommended in AGENTS.md as an appropriate service manager. By wrapping it in a script that exits quickly, we get the best of both worlds: `shell_command` compatibility with full interactive control.
 
+### 21. Process-Runner Integration in Development Workflow
+
+**Problem:** Development workflow tasks (`bb dev`, `bb dev:backend`, etc.) used ad-hoc process management with `p/process` and manual cleanup, lacking consistency and interactive control.
+
+**Solution:** Migrate all long-running development tasks to use the unified `ouroboros.process-runner` system with tmux session management.
+
+**Implementation in `bb.edn`:**
+```clojure
+;; Process runner CLI interface
+process
+{:doc "Manage long-running processes with tmux (start, stop, status, logs, etc.)"
+ :requires ([ouroboros.process-runner])
+ :task (apply ouroboros.process-runner/-main *command-line-args*)}
+
+;; Full dev stack with health checks
+dev
+{:doc "Start full dev stack with health checks and tmux session management"
+ :requires ([ouroboros.process-runner :as pr])
+ :task (do
+         ;; Start backend in tmux session
+         (pr/start! "ouroboros-backend" "clojure -M -m ouroboros.dashboard")
+         
+         ;; Wait for backend health endpoint
+         (wait-for-backend 30)
+         
+         ;; Start frontend in separate tmux session
+         (pr/start! "ouroboros-frontend" "npx shadow-cljs watch dashboard")
+         
+         ;; Cleanup on shutdown
+         (.addShutdownHook (Runtime/getRuntime)
+           (Thread. (fn [] (cleanup)))))}  ; Uses pr/stop!
+```
+
+**Individual Task Migration:**
+```clojure
+dev:backend    → pr/start! "ouroboros-backend" "clojure -M -m ouroboros.dashboard"
+dev:frontend   → pr/start! "ouroboros-frontend" "npx shadow-cljs watch dashboard"
+dev:stop       → pr/stop! for both sessions
+dev:logs       → pr/logs with :follow? true
+dashboard      → pr/start! "dashboard" "clojure -M -m ouroboros.dashboard"
+frontend:dev   → pr/start! "frontend-dev" "npx shadow-cljs watch dashboard"
+frontend:server → pr/start! "frontend-server" "npx shadow-cljs server"
+```
+
+**Session Naming Convention:**
+- `proc-ouroboros-backend` - Backend dashboard server
+- `proc-ouroboros-frontend` - Frontend dev server
+- `proc-dashboard` - Dashboard-only sessions
+- `proc-frontend-dev` - Frontend development sessions
+- `proc-frontend-server` - Shadow-CLJS server sessions
+
+**Key Benefits:**
+1. **Consistent Management**: All processes use same API (`start!`, `stop!`, `logs`, `status`)
+2. **Interactive Control**: Attach to any session with `bb process attach <name>`
+3. **Session Isolation**: Each process in isolated tmux session with `proc-` prefix
+4. **Health Integration**: Backend health checks before starting frontend
+5. **Clean Shutdown**: Proper cleanup on Ctrl+C via shutdown hooks
+6. **Log Centralization**: Unified log viewing via `bb process logs` or `bb dev:logs`
+
+**Critical Fixes Applied:**
+1. **Babashka EDN regex literals**: Replaced `#"already exists"` with `(re-pattern "already exists")`
+2. **Task formatting**: Fixed comment/task separation lines causing parsing issues
+3. **Task discovery**: All tasks properly appear in `bb tasks` output
+
+**Usage Examples:**
+```bash
+# Full stack with health checks
+bb dev
+
+# Individual components
+bb dev:backend
+bb dev:frontend
+bb frontend:dev
+bb dashboard
+
+# Process management
+bb process list
+bb process logs ouroboros-backend -f
+bb process attach ouroboros-frontend
+
+# Stop everything
+bb dev:stop
+```
+
+**Key Insight:** Unify all process management through a single abstraction (`ouroboros.process-runner`) to ensure consistency, interactive control, and proper lifecycle management across development workflows.
+
 ---
 
 ## Anti-Patterns
