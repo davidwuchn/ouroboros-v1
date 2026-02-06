@@ -40,11 +40,11 @@
 ;; ============================================================================
 
 (defn metric-skeleton [{:keys [key]}]
-  (dom/div {:key key :className "metric-card"}
-           (dom/div :.metric-value
-                    (dom/div {:className "skeleton-text"
-                              :style {:width "40px" :height "2.5rem"}}))
-           (dom/div {:className "skeleton-text"
+  (dom/div {:className "metric-card"}
+            (dom/div {:key key :className "metric-value"}
+                     (dom/div {:className "skeleton-text"
+                               :style {:width "40px" :height "2.5rem"}}))
+            (dom/div {:className "skeleton-text"
                       :style {:width "80px" :margin "0 auto"}})))
 
 (defn card-skeleton [{:keys [title metric-count]}]
