@@ -25,7 +25,7 @@
 ;; Default Backends
 ;; ============================================================================
 
-(defonce ^:private memory-store (tp/memory-backend :max-events 1000))
+(defonce memory-store (tp/memory-backend :max-events 1000))
 
 (defn init!
   "Initialize telemetry with default backends

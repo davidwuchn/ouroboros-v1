@@ -46,7 +46,7 @@
 ;; Runtime Instance
 ;; ============================================================================
 
-(defonce ^:private system-instance (atom nil))
+(defonce system-instance (atom nil))
 
 (defn create-session
   "Create a new statechart session for the system"

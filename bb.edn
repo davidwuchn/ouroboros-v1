@@ -175,11 +175,19 @@
                                               (flush)
                                               (recur (dec retries))))))
                
-               cleanup (fn []
+               cleanup (fn [backend-process frontend-process]
                          (println "")
                          (println "[STOP] Stopping dev stack...")
-                         (try (shell "pkill -f 'ouroboros.dashboard'") (catch Exception _ nil))
-                         (try (shell "pkill -f 'shadow-cljs'") (catch Exception _ nil))
+                         (when backend-process
+                           (try
+                             (p/destroy-tree backend-process)
+                             (println "       Backend stopped")
+                             (catch Exception _ nil)))
+                         (when frontend-process
+                           (try
+                             (p/destroy-tree frontend-process)
+                             (println "       Frontend stopped")
+                             (catch Exception _ nil)))
                          (Thread/sleep 500)
                          (println "[OK] Cleanup complete"))]
              
@@ -198,10 +206,12 @@
              ;; Start backend
              (println "[START] Starting backend (Clojure)...")
              (println "        Log: tail -f" backend-log)
-             (let [backend-process (p/process
-                                     ["clojure" "-M" "-m" "ouroboros.dashboard"]
-                                     {:out backend-log
-                                      :err :out})]
+             (let [backend-process (-> (p/process
+                                         ["clojure" "-M" "-m" "ouroboros.dashboard"]
+                                         {:out backend-log
+                                          :err :out
+                                          :shutdown p/destroy-tree})
+                                       (p/start))]
                
                ;; Wait for backend to be ready
                (println "[WAIT] Waiting for backend to be ready...")
@@ -214,11 +224,13 @@
                (println "        This may take a minute for first compile...")
                (println "")
                
-               (let [frontend-process (p/process
-                                        ["npx" "shadow-cljs" "watch" "dashboard"
-                                         "--config-merge" (str "{:dev-http {" frontend-port " \"resources/public\"}}")]
-                                        {:out frontend-log
-                                         :err :out})]
+               (let [frontend-process (-> (p/process
+                                            ["npx" "shadow-cljs" "watch" "dashboard"
+                                             "--config-merge" (str "{:dev-http {" frontend-port " \"resources/public\"}}")]
+                                            {:out frontend-log
+                                             :err :out
+                                             :shutdown p/destroy-tree})
+                                          (p/start))]
                  
                  ;; Show banner
                  (Thread/sleep 2000)
@@ -231,14 +243,14 @@
                  ;; Add shutdown hook
                  (.addShutdownHook
                    (Runtime/getRuntime)
-                   (Thread. (fn [] (cleanup))))
+                   (Thread. (fn [] (cleanup backend-process frontend-process))))
                  
                  ;; Keep process alive until interrupted
                  (println "")
                  (try
                    (deref (promise))  ;; Block forever until Ctrl+C
                    (catch InterruptedException _
-                     nil))
+                     (cleanup backend-process frontend-process)))
                  
                  (println "")
                  (println "Dev stack exited."))))}

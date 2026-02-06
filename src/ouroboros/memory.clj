@@ -22,9 +22,9 @@
   "Path to memory storage file"
   "memory.edn")
 
-(defonce ^:private memory-store
-  ;; In-memory store, persisted to disk
-  (atom {}))
+(defonce memory-store
+   ;; In-memory store, persisted to disk
+   (atom {}))
 
 ;; Debounced write state
 (defonce ^:private pending-write? (atom false))

@@ -49,9 +49,9 @@
 ;; ============================================================================
 
 (defn- generate-project-id
-  [user-id name]
+  [user-id project-name]
   (str (name user-id) "/project-" 
-       (str/replace (str/lower-case name) #"[^a-z0-9]+" "-")
+       (str/replace (str/lower-case project-name) #"[^a-z0-9]+" "-")
        "-" (System/currentTimeMillis)))
 
 (defn- projects-key

@@ -17,7 +17,7 @@
 ;; Git Command Interface
 ;; ============================================================================
 
-(defn- git
+(defn git
   "Run git command, return trimmed output"
   [& args]
   (-> (apply sh "git" args)
