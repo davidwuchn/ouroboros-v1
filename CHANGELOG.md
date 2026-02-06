@@ -50,7 +50,7 @@
 
 ### Process-Runner Migration — Unified Dev Workflow
 
-- `[commit-hash]` ⚒ λ Migrate all long-running tasks to process-runner system
+- `7b8c333` ⚒ λ Migrate all long-running tasks to process-runner system
   - `ouroboros.process-runner` Clojure namespace for tmux session management
   - All `bb.edn` dev tasks (`dev`, `dev:backend`, `dev:frontend`, etc.) use process-runner
   - Health checks for backend readiness before starting frontend
@@ -71,7 +71,7 @@
 - Session persistence across terminal disconnections
 - Centralized log viewing and process control
 
-### System Complete — 22 commits, 4 phases
+### System Complete — 23 commits, 4 phases
 
 ---
 
