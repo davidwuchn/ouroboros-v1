@@ -92,8 +92,8 @@
 (defn metric-card
    "Display a metric with label"
    [{:keys [value label className key]}]
-   (dom/div {:className (str "metric-card " className)}
-            (dom/div {:className (str "metric-value " className) :key key} value)
+   (dom/div {:className (str "metric-card " className) :key key}
+            (dom/div {:className (str "metric-value " className)} value)
             (dom/div :.metric-label label)))
 
 (defn card

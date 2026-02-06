@@ -39,21 +39,20 @@
 ;; Loading Skeleton Components
 ;; ============================================================================
 
-(defn metric-skeleton []
-  (dom/div :.metric-card
+(defn metric-skeleton [{:keys [key]}]
+  (dom/div {:key key :className "metric-card"}
            (dom/div :.metric-value
                     (dom/div {:className "skeleton-text"
                               :style {:width "40px" :height "2.5rem"}}))
            (dom/div {:className "skeleton-text"
-                     :style {:width "80px" :margin "0 auto"}})))
+                      :style {:width "80px" :margin "0 auto"}})))
 
 (defn card-skeleton [{:keys [title metric-count]}]
-  (ui/card {:title title}
-           (dom/div :.metrics-grid
-                    (map (fn [i]
-                           (dom/div {:key (str "skeleton-" i)}
-                                    (metric-skeleton)))
-                         (range metric-count)))))
+   (ui/card {:title title}
+            (dom/div :.metrics-grid
+                     (map-indexed (fn [i _]
+                                      (metric-skeleton {:key (str "skeleton-" i)}))
+                                   (range metric-count)))))
 
 (defn dashboard-loading []
   (dom/div
