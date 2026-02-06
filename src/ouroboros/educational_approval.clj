@@ -202,7 +202,8 @@
   [tool-name arguments]
   (case tool-name
     "file/write" (let [path (get arguments :path "unknown")
-                       content-preview (subs (or (get arguments :content) "") 0 100)]
+                       content-str (or (get arguments :content) "")
+                       content-preview (subs content-str 0 (min 100 (count content-str)))]
                    (format "```\nPath: %s\nPreview: %s...\n```" path content-preview))
     
     "file/delete" (format "```\nPath: %s\n```" (get arguments :path "unknown"))
@@ -213,9 +214,13 @@
     
     "shell/exec" (format "```bash\n%s\n```" (get arguments :command "unknown"))
     
-    "bash" (format "```bash\n%s\n```" (subs (or (get arguments :code) "") 0 200))
-    
-    "cmd" (format "```cmd\n%s\n```" (subs (or (get arguments :code) "") 0 200))
+    "bash" (let [code-str (or (get arguments :code) "")
+                  code-preview (subs code-str 0 (min 200 (count code-str)))]
+              (format "```bash\n%s\n```" code-preview))
+
+    "cmd" (let [code-str (or (get arguments :code) "")
+                 code-preview (subs code-str 0 (min 200 (count code-str)))]
+             (format "```cmd\n%s\n```" code-preview))
     
     ;; Default
     (format "```json\n%s\n```" (pr-str arguments))))

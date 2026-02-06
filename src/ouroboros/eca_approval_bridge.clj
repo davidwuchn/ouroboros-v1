@@ -52,6 +52,23 @@
          :eca-callbacks-registered? false}))
 
 ;; ============================================================================
+;; State Management
+;; ============================================================================
+
+(defn reset-bridge-state!
+  "Reset bridge state for tests"
+  []
+  (reset! state {:eca-to-confirmation-id {}
+                 :confirmation-to-eca {}
+                 :adapter nil
+                 :active-sessions #{}
+                 :session-users {}
+                 :pending-approvals {}
+                 :timeout-ms 120000
+                 :eca-callbacks-registered? false})
+  nil)
+
+;; ============================================================================
 ;; ECA Callback Registration
 ;; ============================================================================
 
@@ -307,13 +324,12 @@
                             :learning-opportunity (:learning-opportunity enhanced)
                             :session-count (count active-sessions)})
 
-          ;; Send to each active session
-          (doseq [chat-id active-sessions]
+          ;; Use adapter's forward-approval-request method
+          (when-let [forward-fn (:forward-approval-request adapter)]
             (try
-              (chatp/send-markdown! adapter chat-id message)
+              (forward-fn confirmation-id message tool-name arguments)
               (catch Exception e
                 (telemetry/emit! {:event :eca-approval/send-error
-                                  :chat-id chat-id
                                   :error (.getMessage e)}))))
 
           ;; Create learning opportunity for user
@@ -338,17 +354,7 @@
                             :tool tool-name})
           (println "⚠️  No active chat sessions to forward approval request")
           (println "    Confirmation ID:" confirmation-id)
-          (println "    Tool:" tool-name)))))
-
-  (defn- send-to-session!
-    "Send approval request to a specific chat session"
-    [adapter chat-id message]
-    (try
-      (chatp/send-markdown! adapter chat-id message)
-      (catch Exception e
-        (telemetry/emit! {:event :eca-approval/send-error
-                          :chat-id chat-id
-                          :error (.getMessage e)})))))
+          (println "    Tool:" tool-name))))))
 
 ;; ============================================================================
 ;; Approval Callback (from chat system)
@@ -456,23 +462,20 @@
 
    Call this periodically to auto-reject stale approvals."
   []
-  (let [now (System/currentTimeMillis)]
-    (doseq [[confirmation-id approval] @state]
+  (let [now (System/currentTimeMillis)
+        pending (:pending-approvals @state)]
+    (doseq [[confirmation-id approval] pending]
       (when (and (= :pending (:status approval))
                  (let [elapsed (- now (:requested-at approval))
                        timeout (:timeout-ms approval 120000)]
-                   (>= elapsed timeout))))
-      ;; For each expired approval
-      (let [approval (get-in @state [:pending-approvals confirmation-id])]
-        (when (and approval
-                   (= :pending (:status approval)))
-          (let [eca-id (:eca-id approval)]
-            (telemetry/emit! {:event :eca-approval/auto-rejected-timeout
-                              :eca-id eca-id
-                              :confirmation-id confirmation-id
-                              :tool (:tool approval)})
-            ;; Auto-reject
-            (deny-confirmation! confirmation-id "Timeout - auto-rejected"))))))
+                   (>= elapsed timeout)))
+        (let [eca-id (:eca-id approval)]
+          (telemetry/emit! {:event :eca-approval/auto-rejected-timeout
+                            :eca-id eca-id
+                            :confirmation-id confirmation-id
+                            :tool (:tool approval)})
+          ;; Auto-reject
+          (deny-confirmation! confirmation-id "Timeout - auto-rejected")))))
 
   {:status :cleaned})
 

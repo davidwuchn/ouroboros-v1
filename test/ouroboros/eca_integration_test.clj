@@ -23,10 +23,7 @@
                      :pending-requests {}
                      :request-id 0})
   ;; Reset bridge state via public functions
-  (bridge/unregister-eca-callbacks!)
-  (when-let [sessions (not-empty (:active-sessions (bridge/status)))]
-    (doseq [chat-id sessions]
-      (bridge/unregister-session! chat-id))))
+  (bridge/reset-bridge-state!))
 
 (use-fixtures :each
   (fn [test-fn]
