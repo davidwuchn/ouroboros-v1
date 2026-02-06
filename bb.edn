@@ -136,6 +136,151 @@
                 (println "  bb download https://example.com/file.zip -c 32"))))}
 
    ;; ==========================================================================
+   ;; Dev Workflow Tasks
+   ;; ==========================================================================
+
+  dev
+  {:doc "Start full dev stack: backend + frontend (Ctrl+C to stop both)"
+   :requires ([babashka.process :as p]
+              [babashka.fs :as fs])
+   :task (let [backend-port 8080
+               frontend-port 8081
+               backend-log "/tmp/ouroboros-backend.log"
+               frontend-log "/tmp/ouroboros-frontend.log"
+               health-url (str "http://localhost:" backend-port "/health")
+               
+               print-banner (fn []
+                              (println "")
+                              (println "=== OUROBOROS DEV STACK ===")
+                              (println "")
+                              (println "Backend:   http://localhost:8080  (API + WebSocket)")
+                              (println "Frontend:  http://localhost:8081  (Shadow-CLJS dev)")
+                              (println "Shadow UI: http://localhost:9630  (Build status)")
+                              (println ""))
+               
+               wait-for-backend (fn [retries]
+                                  (Thread/sleep 500)
+                                  (let [ready? (try
+                                                 (-> (slurp health-url)
+                                                     (str/includes? "ok"))
+                                                 (catch Exception _
+                                                   false))]
+                                    (cond
+                                      ready? (println "[OK] Backend ready!")
+                                      (<= retries 0) (do
+                                                       (println "[WARN] Backend health check timeout - continuing anyway")
+                                                       (println "       Check log: tail -f" backend-log))
+                                      :else (do
+                                              (print ".")
+                                              (flush)
+                                              (recur (dec retries))))))
+               
+               cleanup (fn [backend frontend]
+                         (println "")
+                         (println "[STOP] Stopping dev stack...")
+                         (when backend
+                           (try
+                             (.destroyForcibly backend)
+                             (println "       Backend stopped")
+                             (catch Exception _ nil)))
+                         (when frontend
+                           (try
+                             (.destroyForcibly frontend)
+                             (println "       Frontend stopped")
+                             (catch Exception _ nil)))
+                         (Thread/sleep 500)
+                         (println "[OK] Cleanup complete"))]
+             
+             (println "[START] Starting Ouroboros dev stack...")
+             (println "")
+             
+             ;; Kill any existing processes
+             (try (shell "pkill -f 'ouroboros.dashboard'") (catch Exception _ nil))
+             (try (shell "pkill -f 'shadow-cljs'") (catch Exception _ nil))
+             (Thread/sleep 1000)
+             
+             ;; Clean up old log files
+             (fs/delete-if-exists backend-log)
+             (fs/delete-if-exists frontend-log)
+             
+             ;; Start backend
+             (println "[START] Starting backend (Clojure)...")
+             (println "        Log: tail -f" backend-log)
+             (let [backend-process (-> (p/process
+                                         ["clojure" "-M" "-m" "ouroboros.dashboard"]
+                                         {:out backend-log
+                                          :err :out
+                                          :shutdown p/destroy-tree})
+                                       (p/start))]
+               
+               ;; Wait for backend to be ready
+               (println "[WAIT] Waiting for backend to be ready...")
+               (wait-for-backend 30)
+               
+               ;; Start frontend
+               (println "")
+               (println "[START] Starting frontend (Shadow-CLJS)...")
+               (println "        Log: tail -f" frontend-log)
+               (println "        This may take a minute for first compile...")
+               (println "")
+               
+               (let [frontend-process (-> (p/process
+                                            ["npx" "shadow-cljs" "watch" "dashboard"
+                                             "--config-merge" (str "{:dev-http {" frontend-port " \"resources/public\"}}")]
+                                            {:out frontend-log
+                                             :err :out
+                                             :shutdown p/destroy-tree})
+                                          (p/start))]
+                 
+                 ;; Show banner
+                 (Thread/sleep 2000)
+                 (print-banner)
+                 
+                 ;; Wait for interrupt
+                 (println "Press Ctrl+C to stop both services")
+                 (println "")
+                 
+                 ;; Add shutdown hook
+                 (.addShutdownHook
+                   (Runtime/getRuntime)
+                   (Thread. (fn [] (cleanup backend-process frontend-process))))
+                 
+                 ;; Keep process alive
+                 (try
+                   (while (and (.isAlive backend-process)
+                               (.isAlive frontend-process))
+                     (Thread/sleep 1000))
+                   (catch InterruptedException _
+                     (cleanup backend-process frontend-process)))
+                 
+                 (println "")
+                 (println "Dev stack exited."))))}
+
+  dev:backend
+  {:doc "Start backend only (dashboard server)"
+   :task (do (println "[START] Starting backend on http://localhost:8080")
+             (println "        Press Ctrl+C to stop")
+             (shell "clojure -M -m ouroboros.dashboard"))}
+
+  dev:frontend
+  {:doc "Start frontend only (no backend required)"
+   :task (do (println "[START] Starting frontend dev server on http://localhost:8080")
+             (println "        Press Ctrl+C to stop")
+             (shell "npx shadow-cljs watch dashboard"))}
+
+  dev:stop
+  {:doc "Stop all dev processes (backend + frontend)"
+   :task (do (println "[STOP] Stopping all dev processes...")
+             (try (shell "pkill -f 'ouroboros.dashboard'") (catch Exception _ nil))
+             (try (shell "pkill -f 'shadow-cljs'") (catch Exception _ nil))
+             (Thread/sleep 500)
+             (println "[OK] All processes stopped"))}
+
+  dev:logs
+  {:doc "Tail all dev logs (backend + frontend)"
+   :task (shell "tail -f /tmp/ouroboros-backend.log /tmp/ouroboros-frontend.log 2>/dev/null || echo 'No logs yet. Start dev stack with: bb dev'")}
+
+   ;; ==========================================================================
    ;; Testing Tasks
    ;; ==========================================================================
 
