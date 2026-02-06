@@ -112,7 +112,7 @@
     (dom/h4 "Collaborators")
     (if (seq users)
       (dom/div :.presence-avatars
-        (map ui-user-avatar users)
+        (map #(when (:user/id %) (ui-user-avatar %)) users)
         (when (> (count users) 5)
           (dom/div :.presence-more
             (str "+" (- (count users) 5) " more"))))
@@ -148,13 +148,13 @@
 (defsc CursorOverlay
   "Overlay showing all remote cursors"
   [this {:keys [cursors]}]
-  (dom/div :.cursor-overlay
-    {:style {:position "absolute"
-             :top 0 :left 0
-             :width "100%" :height "100%"
-             :pointerEvents "none"
-             :zIndex 999}}
-    (map ui-remote-cursor cursors)))
+    (dom/div :.cursor-overlay
+      {:style {:position "absolute"
+               :top 0 :left 0
+               :width "100%" :height "100%"
+               :pointerEvents "none"
+               :zIndex 999}}
+      (map #(when (:user-id %) (ui-remote-cursor %)) cursors)))
 
 ;; ============================================================================
 ;; Comments System
@@ -189,7 +189,7 @@
         "Reply"))
     (when (seq replies)
       (dom/div :.comment-replies
-        (map ui-comment replies)))))
+        (map #(when (:comment/id %) (ui-comment %)) replies)))))
 
 (def ui-comment (comp/factory CommentItem {:keyfn :comment/id}))
 
@@ -206,7 +206,7 @@
           "×"))
       (dom/div :.comments-list
         (if (seq comments)
-          (map ui-comment comments)
+          (map #(when (:comment/id %) (ui-comment %)) comments)
           (dom/div :.comments-empty "No comments yet")))
       (dom/div :.comment-input-area
         (dom/textarea
@@ -299,7 +299,7 @@
       ;; Version list
       (dom/div :.version-list
         (if (seq versions)
-          (map ui-version versions)
+          (map #(when (:version/id %) (ui-version %)) versions)
           (dom/div :.versions-empty
             (dom/p "No versions yet")
             (dom/p "Create a snapshot to save your progress")))))))
@@ -344,7 +344,7 @@
       :comments
       (dom/div :.collab-tab-content
         (if (seq comments)
-          (map ui-comment comments)
+          (map #(when (:comment/id %) (ui-comment %)) comments)
           (dom/div :.collab-empty "No comments yet")))
       
       :versions

@@ -112,16 +112,17 @@
 
 (defsc WebUXStats
   "Web UX Platform statistics"
-  [this {:keys [webux/project-count webux/active-sessions-count 
+  [this {:keys [webux/project-count webux/active-sessions-count
                 webux/completed-sessions-count webux/learning-count]}]
   {:query [:webux/project-count :webux/active-sessions-count
            :webux/completed-sessions-count :webux/learning-count]
-   :ident (fn [] [:component/id :webux-stats])}
+   :ident (fn [] [:component/id :webux-stats])
+   :initial-state (fn [_] {})}
   (dom/div :.stats-grid
-    (ui/metric-card {:value (or project-count 0) :label "Projects"})
-    (ui/metric-card {:value (or active-sessions-count 0) :label "Active Sessions"})
-    (ui/metric-card {:value (or completed-sessions-count 0) :label "Completed"})
-    (ui/metric-card {:value (or learning-count 0) :label "Learnings"})))
+    (ui/metric-card {:key "projects" :value (or project-count 0) :label "Projects"})
+    (ui/metric-card {:key "active-sessions" :value (or active-sessions-count 0) :label "Active Sessions"})
+    (ui/metric-card {:key "completed" :value (or completed-sessions-count 0) :label "Completed"})
+    (ui/metric-card {:key "learnings" :value (or learning-count 0) :label "Learnings"})))
 
 (def ui-webux-stats (comp/factory WebUXStats))
 
@@ -168,6 +169,6 @@
         (dom/div :.loading "Loading projects...")
         (if (seq projects)
           (dom/div :.projects-grid
-            (map ui-project-card projects))
+            (map #(when (:project/id %) (ui-project-card %)) projects))
           (ui/empty-state {:icon "📁"
                            :message "No projects yet. Create your first project above!"}))))))

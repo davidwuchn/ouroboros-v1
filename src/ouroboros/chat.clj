@@ -515,21 +515,41 @@
 ;; ============================================================================
 
 (pco/defresolver chat-adapters [_]
-  {::pco/output [{:chat/adapters [:platform :running]}]}
+  {::pco/output [{:chat/adapters [:adapter/platform :adapter/running?]}]}
   {:chat/adapters (map (fn [[k v]]
-                         {:platform k
-                          :running (some? v)})
+                         {:adapter/platform k
+                          :adapter/running? (some? v)})
                        @active-adapters)})
 
 (pco/defresolver chat-sessions-resolver [_]
-  {::pco/output [{:chat/sessions [:chat-id :message-count]}]}
+  {::pco/output [{:chat/sessions [:chat/id :chat/message-count :chat/created-at :chat/platform :chat/running?]}]}
   {:chat/sessions (map (fn [[k v]]
-                         {:chat-id k
-                          :message-count (count (:history v))})
-                       @chat-sessions)})
+                        {:chat/id k
+                         :chat/message-count (count (:history v))
+                         :chat/created-at (:created-at v)
+                         :chat/platform (:platform v)
+                         :chat/running? (:running? v)})
+                      @chat-sessions)})
+
+(pco/defresolver page-sessions [_]
+  {::pco/output [:page/id :sessions
+                 {:chat/sessions [:chat/id :chat/message-count :chat/created-at :chat/platform :chat/running?]}
+                 {:chat/adapters [:adapter/platform :adapter/running?]}]}
+  {:page/id :sessions
+   :chat/sessions (map (fn [[k v]]
+                        {:chat/id k
+                         :chat/message-count (count (:history v))
+                         :chat/created-at (:created-at v)
+                         :chat/platform (:platform v)
+                         :chat/running? (:running? v)})
+                      @chat-sessions)
+   :chat/adapters (map (fn [[k v]]
+                        {:adapter/platform k
+                         :adapter/running? (some? v)})
+                      @active-adapters)})
 
 (def resolvers
-  [chat-adapters chat-sessions-resolver])
+  [chat-adapters chat-sessions-resolver page-sessions])
 
 (def mutations [])
 

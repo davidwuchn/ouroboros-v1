@@ -113,14 +113,14 @@
         ;; Builder Selection
                (dom/h2 "Choose a Builder")
                (dom/div :.builders-grid
-                        (map #(ui-builder-card {:builder % :project-id id}) builder-types))
+                        (map #(when (-> % :builder :key) (ui-builder-card {:builder % :project-id id})) builder-types))
 
         ;; Active Sessions
                (when (seq sessions)
                  (dom/div :.sessions-section
                           (dom/h2 "Active Sessions")
                           (dom/div :.sessions-list
-                                   (map ui-session-item sessions))))
+                                   (map #(when (:session/id %) (ui-session-item %)) sessions))))
 
         ;; Navigation
                (dom/div :.project-actions

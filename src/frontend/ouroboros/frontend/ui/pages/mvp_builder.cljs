@@ -153,7 +153,7 @@
           (dom/div :.builder-content
             ;; Current Input
             (when prompt
-              (ui/card {:title (str "Section " (inc (count completed-sections)) "/" total-sections)}
+              (ui/card {:key "current-section" :title (str "Section " (inc (count completed-sections)) "/" total-sections)}
                 (ui-mvp-input
                   {:prompt prompt
                    :hint hint
@@ -165,6 +165,6 @@
 
             ;; Completed Sections Summary
             (when (seq completed-sections)
-              (ui/card {:title "Completed Sections"}
+              (ui/card {:key "completed-sections" :title "Completed Sections"}
                 (dom/div :.completed-sections
-                  (map #(ui-mvp-section %) completed-sections))))))))))
+                  (map-indexed (fn [i section] (ui-mvp-section (assoc section :key (str "section-" i)))) completed-sections))))))))))

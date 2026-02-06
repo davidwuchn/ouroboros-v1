@@ -26,39 +26,41 @@
 
 (defn sessions-loading []
   (dom/div
-   (dom/h1 "Chat Sessions")
-    ;; Sessions table skeleton
-   (ui/card {:title "Active Sessions"}
-            (dom/div {:className "skeleton-table"}
-        ;; Header
-                     (dom/div {:className "skeleton-row"
-                               :style {:display "flex"
-                                       :gap "1rem"
-                                       :padding "0.75rem 0"
-                                       :borderBottom "2px solid var(--color-border)"
-                                       :marginBottom "0.5rem"}}
-                              (dom/div {:className "skeleton-text" :style {:width "200px" :fontWeight "bold"}})
-                              (dom/div {:className "skeleton-text" :style {:width "100px" :fontWeight "bold"}})
-                              (dom/div {:className "skeleton-text" :style {:width "80px" :fontWeight "bold"}})
-                              (dom/div {:className "skeleton-text" :style {:width "150px" :fontWeight "bold"}}))
-        ;; Rows
-                     (repeat 3
-                             (dom/div {:className "skeleton-row"
-                                       :style {:display "flex"
-                                               :gap "1rem"
-                                               :padding "0.75rem 0"
-                                               :borderBottom "1px solid var(--color-border)"}}
-                                      (dom/div {:className "skeleton-text" :style {:width "200px"}})
-                                      (dom/div {:className "skeleton-text" :style {:width "100px"}})
-                                      (dom/div {:className "skeleton-text" :style {:width "80px"}})
-                                      (dom/div {:className "skeleton-text" :style {:width "150px"}})))))
-    ;; Adapters skeleton
-   (ui/card {:title "Chat Adapters"}
-            (dom/div {:className "flex flex-col gap-2"}
-                     (repeat 3
-                             (dom/div {:className "flex items-center gap-2"}
-                                      (dom/div {:className "skeleton-text" :style {:width "12px" :height "12px" :borderRadius "50%"}})
-                                      (dom/div {:className "skeleton-text" :style {:width "120px"}})))))))
+    (dom/h1 "Chat Sessions")
+     ;; Sessions table skeleton
+    (ui/card {:key "active-sessions-loading" :title "Active Sessions"}
+             (dom/div {:className "skeleton-table"}
+         ;; Header
+                      (dom/div {:className "skeleton-row"
+                                :style {:display "flex"
+                                        :gap "1rem"
+                                        :padding "0.75rem 0"
+                                        :borderBottom "2px solid var(--color-border)"
+                                        :marginBottom "0.5rem"}}
+                               (dom/div {:className "skeleton-text" :style {:width "200px" :fontWeight "bold"}})
+                               (dom/div {:className "skeleton-text" :style {:width "100px" :fontWeight "bold"}})
+                               (dom/div {:className "skeleton-text" :style {:width "80px" :fontWeight "bold"}})
+                               (dom/div {:className "skeleton-text" :style {:width "150px" :fontWeight "bold"}}))
+         ;; Rows
+                      (map-indexed (fn [i _]
+                                     (dom/div {:key (str "skeleton-row-" i) :className "skeleton-row"
+                                               :style {:display "flex"
+                                                       :gap "1rem"
+                                                       :padding "0.75rem 0"
+                                                       :borderBottom "1px solid var(--color-border)"}}
+                                              (dom/div {:className "skeleton-text" :style {:width "200px"}})
+                                              (dom/div {:className "skeleton-text" :style {:width "100px"}})
+                                              (dom/div {:className "skeleton-text" :style {:width "80px"}})
+                                              (dom/div {:className "skeleton-text" :style {:width "150px"}}))))
+                                    (range 3))))
+      ;; Adapters skeleton
+    (ui/card {:key "adapters-loading" :title "Chat Adapters"}
+             (dom/div {:className "flex flex-col gap-2"}
+                      (map-indexed (fn [i _]
+                                     (dom/div {:key (str "adapter-skeleton-" i) :className "flex items-center gap-2"}
+                                              (dom/div {:className "skeleton-text" :style {:width "12px" :height "12px" :borderRadius "50%"}})
+                                              (dom/div {:className "skeleton-text" :style {:width "120px"}}))))
+                                    (range 3))))
 
 ;; ============================================================================
 ;; Chat Entities

@@ -125,9 +125,9 @@
      (dom/div
       {:className "canvas-section-content"
        :data-drop-zone key}
-      (if (seq items)
-        (map ui-sticky-note items)
-        (dom/div :.canvas-section-empty "Drop items here or click + to add")))
+       (if (seq items)
+         (map #(when (:item/id %) (ui-sticky-note %)) items)
+         (dom/div :.canvas-section-empty "Drop items here or click + to add")))
      ;; Add Button
      (when editable?
        (dom/div :.canvas-section-actions

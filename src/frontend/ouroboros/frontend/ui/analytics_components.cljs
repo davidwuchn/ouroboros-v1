@@ -86,7 +86,8 @@
            (dom/h4 "Completion Funnel")
            (dom/div :.funnel-container
                     (map (fn [stage-data]
-                           (ui-funnel-stage (assoc stage-data :width 100)))
+                           (when (:stage stage-data)
+                             (ui-funnel-stage (assoc stage-data :width 100))))
                          stages))))
 
 ;; ============================================================================
@@ -193,13 +194,13 @@
            (dom/div :.time-total
                     (dom/span :.time-label "Total Time:")
                     (dom/span :.time-value (time-display total-time)))
-           (dom/div :.time-by-stage
-                    (map (fn [stage]
-                           (dom/div :.time-stage
-                                    {:key (:stage/type stage)}
-                                    (dom/span :.stage-name (name (:stage/type stage)))
-                                    (dom/span :.stage-time (time-display (:stage/time stage)))))
-                         stages))))
+            (dom/div :.time-by-stage
+                     (map (fn [stage]
+                            (dom/div :.time-stage
+                                     {:key (:stage stage)}
+                                     (dom/span :.stage-name (name (:stage stage)))
+                                     (dom/span :.stage-time (time-display (:stage/time stage)))))
+                          stages))))
 
 ;; ============================================================================
 ;; Predictions
@@ -269,7 +270,7 @@
       ;; Stage breakdown
                     (dom/div :.analytics-card.wide
                              (dom/h4 "Stage Progress")
-                             (map ui-stage-progress
+                             (map #(when (:stage/type %) (ui-stage-progress %))
                                   [{:stage/type :empathy-map :stage/status :completed :stage/percentage 100}
                                    {:stage/type :value-proposition :stage/status :active :stage/percentage 60}
                                    {:stage/type :mvp-planning :stage/status :pending :stage/percentage 0}
@@ -290,12 +291,12 @@
                                :confidence 0.70
                                :message "Making good progress. Focus on completing value proposition and starting MVP planning."}))
 
-      ;; Time tracking
-                    (dom/div :.analytics-card
-                             (time-tracking-display
-                              {:total-time (* 5 24 60 60 1000)
-                               :stages [{:stage/type :empathy-map :stage/time (* 3 24 60 60 1000)}
-                                        {:stage/type :value-proposition :stage/time (* 2 24 60 60 1000)}]})))))
+       ;; Time tracking
+                     (dom/div :.analytics-card
+                              (time-tracking-display
+                               {:total-time (* 5 24 60 60 1000)
+                                :stages [{:stage :empathy-map :stage/time (* 3 24 60 60 1000)}
+                                         {:stage :value-proposition :stage/time (* 2 24 60 60 1000)}]})))))
 
 ;; ============================================================================
 ;; Export

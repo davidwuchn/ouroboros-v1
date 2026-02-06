@@ -89,7 +89,7 @@
         "×"))
     (dom/div :.template-grid
       (if (seq templates)
-        (map ui-template-card templates)
+        (map #(when (:template/key %) (ui-template-card %)) templates)
         (dom/div :.templates-empty
           "No templates available")))))
 
@@ -135,11 +135,11 @@
     (if loading?
       (dom/div :.insights-loading
         (ui/loading))
-      (if (seq insights)
-        (dom/div :.insights-list
-          (map ui-ai-insight insights))
-        (dom/div :.insights-empty
-          "No insights yet. Complete more of your canvas to get AI suggestions.")))))
+       (if (seq insights)
+         (dom/div :.insights-list
+           (map #(when (:insight/type %) (ui-ai-insight %)) insights))
+         (dom/div :.insights-empty
+           "No insights yet. Complete more of your canvas to get AI suggestions.")))))
 
 ;; ============================================================================
 ;; Learning Patterns
@@ -176,9 +176,10 @@
     (dom/div :.patterns-grid
       (if (seq categories)
         (map (fn [[cat cnt]]
-               (ui-pattern-card {:pattern/category cat
-                                :pattern/count cnt
-                                :pattern/recent? true}))
+               (when cat
+                 (ui-pattern-card {:pattern/category cat
+                                  :pattern/count cnt
+                                  :pattern/recent? true})))
              categories)
         (dom/div :.patterns-empty
           "Start building to see your patterns emerge!")))))
@@ -297,14 +298,14 @@
         (when (seq insights)
           (dom/div :.wisdom-section
             (dom/h4 "AI Insights")
-            (map ui-ai-insight insights)))
-        
+            (map #(when (:insight/type %) (ui-ai-insight %)) insights)))
+
         ;; Template quick access
         (when (seq templates)
           (dom/div :.wisdom-section
             (dom/h4 "Quick Start Templates")
             (dom/div :.template-mini-list
-              (take 3 (map ui-template-card templates)))))
+              (take 3 (map #(when (:template/key %) (ui-template-card %)) templates)))))
         
         ;; Generate context button
         (dom/div :.wisdom-actions

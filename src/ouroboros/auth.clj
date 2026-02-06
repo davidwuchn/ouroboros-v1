@@ -149,14 +149,24 @@
 ;; ============================================================================
 
 (pco/defresolver auth-users [_]
-  {::pco/output [{:auth/users [:user/id :user/name :user/platform :user/role]}]}
-  {:auth/users (map #(select-keys % [:user/id :user/name :user/platform :user/role])
+  {::pco/output [{:auth/users [:user/id :user/name :user/platform :user/role :user/created-at :user/last-active]}]}
+  {:auth/users (map #(select-keys % [:user/id :user/name :user/platform :user/role :user/created-at :user/last-active])
                     (vals @users))})
 
 (pco/defresolver auth-stats [_]
   {::pco/output [:auth/user-count :auth/admin-count]}
   {:auth/user-count (count @users)
    :auth/admin-count (count (filter #(= (:user/role %) :admin) (vals @users)))})
+
+(pco/defresolver page-users [_]
+  {::pco/output [:page/id :users
+                 :auth/user-count :auth/admin-count
+                 {:auth/users [:user/id :user/name :user/platform :user/role :user/created-at :user/last-active]}]}
+  {:page/id :users
+   :auth/user-count (count @users)
+   :auth/admin-count (count (filter #(= (:user/role %) :admin) (vals @users)))
+   :auth/users (map #(select-keys % [:user/id :user/name :user/platform :user/role :user/created-at :user/last-active])
+                    (vals @users))})
 
 (pco/defmutation auth-set-role! [{:keys [admin-token target-id role]}]
   {::pco/output [:status :message]}
@@ -171,7 +181,7 @@
 ;; ============================================================================
 
 (def resolvers
-  [auth-users auth-stats])
+  [auth-users auth-stats page-users])
 
 (def mutations
   [auth-set-role!])
