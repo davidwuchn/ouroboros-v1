@@ -280,7 +280,88 @@
              (println "")
              (println "Dev stack exited.")))}
 
-  dev:backend
+  dev:start
+  {:doc "Start full dev stack non‑blocking (starts both services, shows banner, exits)"
+   :requires ([ouroboros.process-runner :as pr])
+   :task (do
+           (println "[START] Starting Ouroboros dev stack (non‑blocking)...")
+           (println "")
+           
+           ;; Health check function
+           (let [health-url "http://localhost:8080/api/status"
+                 wait-for-backend (fn [retries]
+                                    (Thread/sleep 500)
+                                    (let [ready? (try
+                                                   (-> (slurp health-url)
+                                                       (str/includes? "healthy"))
+                                                   (catch Exception _
+                                                     false))]
+                                      (cond
+                                        ready? (println "[OK] Backend ready!")
+                                        (<= retries 0) (do
+                                                         (println "[WARN] Backend health check timeout - continuing anyway")
+                                                         (println "       Check logs: bb process logs ouroboros-backend -f")
+                                                         false)
+                                        :else (do
+                                                (print ".")
+                                                (flush)
+                                                (recur (dec retries))))))
+                 
+                 print-banner (fn []
+                                (println "")
+                                (println "=== OUROBOROS DEV STACK ===")
+                                (println "")
+                                (println "Backend:   http://localhost:8080  (API + WebSocket)")
+                                (println "Frontend:  http://localhost:8081  (Shadow-CLJS dev)")
+                                (println "Shadow UI: http://localhost:9630  (Build status)")
+                                (println ""))]
+
+             ;; Start backend (continue if already exists)
+             (try
+               (pr/start! "ouroboros-backend" "clojure -M -m ouroboros.dashboard")
+               (println "[OK] Backend started in tmux session: proc-ouroboros-backend")
+               (catch Exception e
+                 (when-not (re-find (re-pattern "already exists") (.getMessage e))
+                   (println "[ERROR] Failed to start backend:" (.getMessage e))
+                   (println "        If session already exists, run: bb dev:stop")
+                   (System/exit 1))
+                 (println "[INFO] Backend session already exists, continuing")))
+
+             ;; Wait for backend health
+             (println "")
+             (println "[WAIT] Waiting for backend to be ready...")
+             (wait-for-backend 30)
+
+             ;; Start frontend (continue if already exists)
+             (println "")
+             (println "[START] Starting frontend...")
+             (try
+               (pr/start! "ouroboros-frontend" "npx shadow-cljs watch dashboard")
+               (println "[OK] Frontend started in tmux session: proc-ouroboros-frontend")
+               (catch Exception e
+                 (when-not (re-find (re-pattern "already exists") (.getMessage e))
+                   (println "[ERROR] Failed to start frontend:" (.getMessage e))
+                   (println "        If session already exists, run: bb dev:stop")
+                   (System/exit 1))
+                 (println "[INFO] Frontend session already exists, continuing")))
+
+             ;; Show banner
+             (Thread/sleep 2000)
+             (print-banner)
+
+             (println "")
+             (println "✓ Dev stack started successfully!")
+             (println "")
+             (println "To interact:")
+             (println "  bb process attach ouroboros-backend    # Attach to backend interactively")
+             (println "  bb process attach ouroboros-frontend   # Attach to frontend interactively")
+             (println "  bb process logs ouroboros-backend -f   # Follow backend logs")
+             (println "  bb process logs ouroboros-frontend -f  # Follow frontend logs")
+             (println "  bb dev:logs                            # Show recent logs")
+             (println "  bb dev:stop                            # Stop both services")
+             (println "")))}
+
+dev:backend
   {:doc "Start backend only using process-runner"
    :requires ([ouroboros.process-runner :as pr])
    :task (do (println "[START] Starting backend in tmux session...")
