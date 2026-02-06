@@ -1,11 +1,52 @@
 .nrepl-port
 memory.edn
 .env
+.env.*
 *.log
+*.log.*
 .DS_Store
 .classpath
 .project
 .settings/
 target/
 .cpcache/
+
+# Clojure/ClojureScript tooling
 .clj-kondo/.cache/
+.clj-kondo/imports/
+.lsp/
+
+# Node.js / Shadow CLJS
+node_modules/
+package-lock.json
+yarn.lock
+*.lock
+.shadow-cljs/
+
+# Generated build output
+resources/public/js/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Editor backup files
+*.swp
+*.swo
+*~
+\#*#
+*.orig
+*.rej
+*.bak
+*.tmp
+*.temp
+
+# OS
+Thumbs.db
+._*
+ehthumbs.db
+*.pid
+*.socket
