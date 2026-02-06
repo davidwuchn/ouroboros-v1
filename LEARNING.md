@@ -310,6 +310,40 @@ rg "old-name" -r "new-name"
 
 **Note:** Only fall back to `grep` on systems where `rg` isn't available (rare).
 
+### 18. Shell Command Process Management
+
+**Problem:** Long-running processes started via `shell_command` with `nohup + &` can cause orphaned processes, timeout issues, and unpredictable behavior.
+
+**Solution:** Never combine `nohup` and `&` in `shell_command` calls. The tool blocks until completion; backgrounding defeats this mechanism. Use appropriate service managers instead:
+
+- **System services:** `systemd` for daemons
+- **Container orchestration:** `docker` with health checks
+- **Terminal multiplexers:** `screen` or `tmux` for interactive sessions
+- **Process supervisors:** `supervisord` for production process management
+
+**Example Anti-Pattern:**
+```bash
+# Wrong: orphaned process, tool timeout unpredictable
+nohup ./long-running-server > server.log 2>&1 &
+```
+
+**Example Solutions:**
+```bash
+# Use systemd service
+sudo systemctl start my-service
+
+# Use docker container
+docker run -d --name my-service my-image
+
+# Use screen/tmux session (interactive)
+screen -S mysession -d -m ./server
+
+# Use supervisor
+supervisorctl start my-service
+```
+
+**Key Insight:** The `shell_command` tool is designed for synchronous execution with clear lifecycle. For long-running processes, delegate to proper process management systems.
+
 ---
 
 ## Anti-Patterns

@@ -158,6 +158,10 @@ AI/LLM capabilities are delegated to ECA (Editor Code Assistant):
 
 **Why:** ECA provides 10+ LLM providers, editor-grade tools, and sophisticated context management. Ouroboros focuses on chat platform integration and unique capabilities.
 
+### Process Management
+
+- **Never use `nohup + &` together** in `shell_command` for long-running processes. The `shell_command` tool blocks until completion; backgrounding with `&` may cause the process to be orphaned or the tool to timeout incorrectly. Use appropriate service managers (systemd, docker, screen/tmux) instead.
+
 ---
 
 ## AI Assistant Quick Reference
