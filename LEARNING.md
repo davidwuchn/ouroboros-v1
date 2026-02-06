@@ -952,6 +952,40 @@ The ECA client emits telemetry for observability:
 
 **Key Insight:** Production code needs explicit resource management—cleanup, validation, and bounds checking.
 
+### 2026-02: Babashka vs JVM Test Separation
+
+**Problem:** WebUX Platform tests depend on JVM Clojure features (Pathom3 records, http-kit WebSocket) that Babashka's SCI cannot handle. The `bb test:webux` task was failing with "sci.impl.records.SciRecord cannot be cast to clojure.lang.IFn".
+
+**Solution:** Delegate WebUX test execution to JVM Clojure while maintaining the same `bb test:webux` command interface.
+
+**Implementation:**
+```clojure
+;; bb.edn - delegate to JVM Clojure
+:task (shell "clojure -M -e \"(load-file \\\"scripts/test_webux_jvm.clj\\\") (let [main (resolve 'scripts.test-webux-jvm/-main)] (main))\"")
+
+;; scripts/test_webux_jvm.clj - JVM test runner
+(ns scripts.test-webux-jvm
+  (:require [clojure.test :as t]
+            [ouroboros.webux-test]
+            [ouroboros.wisdom-test]
+            [ouroboros.analytics-test]))
+```
+
+**Key Changes:**
+1. Updated `bb.edn` `test:webux` task to call JVM Clojure
+2. Added `scripts/test_webux_jvm.clj` runner with proper namespace loading  
+3. Added `scripts` to `deps.edn` `:paths` for classpath access
+4. Removed attempt to run Pathom3 mutations via Babashka SCI
+
+**Why SCI fails:**
+- Pathom3 mutations create records that must implement `IFn` (function interface)
+- SCI records don't implement `IFn` like JVM Clojure records
+- http-kit WebSocket dependencies require JVM, not Babashka
+
+**Result:** `bb test:webux` now runs WebUX Platform tests with JVM Clojure, while `bb test` continues to run Babashka-compatible tests.
+
+**Key Insight:** Separate test execution environments based on dependencies—Babashka for lightweight tasks, JVM Clojure for full-stack features.
+
 ---
 
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
