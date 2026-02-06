@@ -183,31 +183,29 @@
   "Auto-start configured chat bots from environment"
   []
   (require '[ouroboros.chat :as chat])
-  (require '[ouroboros.chat.telegram :as telegram])
-  (require '[ouroboros.chat.slack :as slack])
-  (require '[ouroboros.chat.discord :as discord])
+  (require '[ouroboros.chat.adapters])
 
   ;; Telegram
   (when-let [token (get-config [:chat :telegram :token])]
-    (let [bot ((resolve 'telegram/make-bot) token)]
+    (let [bot ((resolve 'ouroboros.chat.adapters/telegram-bot) token)]
       ((resolve 'chat/register-adapter!) :telegram bot)
       (println "✓ Telegram bot registered")))
 
   ;; Slack
   (when-let [app-token (get-config [:chat :slack :app-token])]
     (when-let [bot-token (get-config [:chat :slack :bot-token])]
-      (let [bot ((resolve 'slack/make-bot) app-token bot-token)]
+      (let [bot ((resolve 'ouroboros.chat.adapters/slack-bot) app-token bot-token)]
         ((resolve 'chat/register-adapter!) :slack bot)
         (println "✓ Slack bot registered"))))
 
   ;; Discord
   (when-let [token (get-config [:chat :discord :token])]
-    (let [bot ((resolve 'discord/make-bot) token)]
+    (let [bot ((resolve 'ouroboros.chat.adapters/discord-bot) token)]
       ((resolve 'chat/register-adapter!) :discord bot)
       (println "✓ Discord bot registered")))
 
   ;; Start all registered
-  (when (seq @(resolve 'chat/active-adapters))
+  (when (seq @@(resolve 'chat/active-adapters))
     ((resolve 'chat/start-all!))
     (println "✓ All chat bots started")))
 
