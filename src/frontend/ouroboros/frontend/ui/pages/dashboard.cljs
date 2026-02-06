@@ -59,14 +59,10 @@
   (dom/div
    (dom/h1 "Dashboard")
    (dom/div {:className "metrics-grid mb-3"}
-            ^{:key "loading-system"}
-            (card-skeleton {:title "System Status" :metric-count 2})
-            ^{:key "loading-telemetry"}
-            (card-skeleton {:title "Telemetry" :metric-count 3})
-            ^{:key "loading-users"}
-            (card-skeleton {:title "Users" :metric-count 2})
-            ^{:key "loading-sessions"}
-            (card-skeleton {:title "Sessions" :metric-count 1}))
+             (card-skeleton {:key "loading-system" :title "System Status" :metric-count 2})
+             (card-skeleton {:key "loading-telemetry" :title "Telemetry" :metric-count 3})
+             (card-skeleton {:key "loading-users" :title "Users" :metric-count 2})
+             (card-skeleton {:key "loading-sessions" :title "Sessions" :metric-count 1}))
    (ui/card {:title "System Info"}
             (dom/div :.skeleton-text {:style {:height "60px"}}))))
 
@@ -79,10 +75,11 @@
   [{:keys [healthy? current-state]}]
   (ui/card {:title "System Status"}
            (dom/div :.metrics-grid
-                    (ui/metric-card
-                     {:value (if healthy? "✓" "✗")
-                      :label "Healthy"
-                      :className (if healthy? "text-success" "text-error")})
+                     (ui/metric-card
+                      {:key "healthy"
+                       :value (if healthy? "✓" "✗")
+                       :label "Healthy"
+                       :className (if healthy? "text-success" "text-error")})
                     (when current-state
                       (ui/metric-card
                        {:value (count (:state current-state))
@@ -93,14 +90,17 @@
   [{:keys [total-events tool-invocations errors]}]
   (ui/card {:title "Telemetry"}
            (dom/div :.metrics-grid
+                     (ui/metric-card
+                      {:key "total-events"
+                       :value (or total-events 0)
+                       :label "Total Events"})
+                     (ui/metric-card
+                      {:key "tool-invocations"
+                       :value (or tool-invocations 0)
+                       :label "Tool Invocations"})
                     (ui/metric-card
-                     {:value (or total-events 0)
-                      :label "Total Events"})
-                    (ui/metric-card
-                     {:value (or tool-invocations 0)
-                      :label "Tool Invocations"})
-                    (ui/metric-card
-                     {:value (or errors 0)
+                     {:key "errors"
+                      :value (or errors 0)
                       :label "Errors"
                       :className (when (> errors 0) "text-warning")}))))
 
@@ -186,26 +186,26 @@
       (dom/div
        (dom/h1 "Dashboard")
 
-       (dom/div {:className "metrics-grid mb-3"}
-                ^{:key "system-health"}
-                (system-health-card
-                 {:healthy? healthy?
-                  :current-state current-state})
-
-                ^{:key "telemetry"}
-                (telemetry-summary-card
-                 {:total-events total-events
-                  :tool-invocations tool-invocations
-                  :errors errors})
-
-                ^{:key "users"}
-                (users-summary-card
-                 {:user-count user-count
-                  :admin-count admin-count})
-
-                ^{:key "sessions"}
-                (sessions-summary-card
-                 {:session-count session-count}))
+        (dom/div {:className "metrics-grid mb-3"}
+                 (system-health-card
+                  {:key "system-health"
+                   :healthy? healthy?
+                   :current-state current-state})
+ 
+                 (telemetry-summary-card
+                  {:key "telemetry"
+                   :total-events total-events
+                   :tool-invocations tool-invocations
+                   :errors errors})
+ 
+                 (users-summary-card
+                  {:key "users"
+                   :user-count user-count
+                   :admin-count admin-count})
+ 
+                 (sessions-summary-card
+                  {:key "sessions"
+                   :session-count session-count}))
 
        (when meta
          (ui/card {:title "System Info"}

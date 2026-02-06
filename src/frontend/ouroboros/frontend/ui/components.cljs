@@ -90,23 +90,23 @@
 ;; ============================================================================
 
 (defn metric-card
-  "Display a metric with label"
-  [{:keys [value label className]}]
-  (dom/div :.metric-card
-           (dom/div {:className (str "metric-value " className)} value)
-           (dom/div :.metric-label label)))
+   "Display a metric with label"
+   [{:keys [value label className key]}]
+   (dom/div {:className (str "metric-card " className)}
+            (dom/div {:className (str "metric-value " className) :key key} value)
+            (dom/div :.metric-label label)))
 
 (defn card
-  "Card container with optional title"
-  [{:keys [title className actions]} & children]
-  (dom/div {:className (str "card " className)}
-           (when (or title actions)
-             (dom/div :.card-header
-                      (when title
-                        (dom/h2 :.card-title title))
-                      (when actions
-                        (dom/div :.card-actions actions))))
-           children))
+   "Card container with optional title"
+   [{:keys [title className actions key]} & children]
+   (dom/div {:className (str "card " className) :key key}
+            (when (or title actions)
+              (dom/div :.card-header
+                       (when title
+                         (dom/h2 :.card-title title))
+                       (when actions
+                         (dom/div :.card-actions actions))))
+            children))
 
 ;; ============================================================================
 ;; Status Components
