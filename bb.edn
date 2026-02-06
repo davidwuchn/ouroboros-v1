@@ -321,41 +321,7 @@
 
   test:webux
   {:doc "Run WebUX Platform tests (requires Clojure, not Babashka)"
-   :requires ([clojure.test :as t])
-   :task (do (println "\n========================================")
-             (println "  Running WebUX Platform Tests")
-             (println "========================================")
-             (println "NOTE: These tests require Clojure (deps.edn)")
-             (println "      Some tests use http-kit WebSocket server\n")
-              (require 'ouroboros.webux-test)
-              (require 'ouroboros.wisdom-test)
-              (require 'ouroboros.analytics-test)
-              ;; These require WebSocket/HTTP-kit:
-              ;; (require 'ouroboros.collaboration-test)
-              ;; (require 'ouroboros.offline-sync-test)
-              ;; (require 'ouroboros.embed-test)
-              (let [sum-results (fn [results]
-                                  {:test (apply + (map :test results))
-                                   :pass (apply + (map :pass results))
-                                   :fail (apply + (map :fail results))
-                                   :error (apply + (map :error results))})
-                    results (sum-results
-                             [(t/run-tests 'ouroboros.webux-test)
-                              (t/run-tests 'ouroboros.wisdom-test)
-                              (t/run-tests 'ouroboros.analytics-test)])]
-               (println "\n========================================")
-               (println "  WebUX Test Results")
-               (println "========================================")
-               (println (str "  Tests: " (:test results)))
-               (println (str "  Assertions: " (:pass results)))
-               (println (str "  Failures: " (:fail results)))
-               (println (str "  Errors: " (:error results)))
-               (when (and (zero? (:fail results))
-                          (zero? (:error results)))
-                 (println "\n  ALL WEBUX TESTS PASSED!"))
-               (System/exit (if (and (zero? (:fail results))
-                                     (zero? (:error results)))
-                              0 1))))}
+   :task (shell "clojure -M -e \"(load-file \\\"scripts/test_webux_jvm.clj\\\") (let [main (resolve 'scripts.test-webux-jvm/-main)] (main))\"")}
 
   test:eca
   {:doc "Run ECA integration tests (requires ECA binary installed)"

@@ -1,4 +1,4 @@
-{:paths ["src" "test" "src/frontend"]
+{:paths ["src" "test" "src/frontend" "scripts"]
 
  :deps {;; Backend
         com.fulcrologic/statecharts                   {:mvn/version "1.2.25"}
