@@ -2,7 +2,7 @@
 
 > What was discovered. Patterns, principles, and insights from building Ouroboros.
 
----
+
 
 ## Architecture Evolution
 
@@ -636,6 +636,23 @@ When adapters need protocols but shouldn't depend on the whole namespace:
     (throw (ex-info "Path required" {:type :validation-error})))
   (slurp path))
 ```
+
+### Orphaned Processes After Tmux Kill
+
+**Problem:** `tmux kill-session` sends SIGHUP to processes in the session, but some processes (Java/Clojure, Python with signal handlers) may ignore SIGHUP or not propagate it to child processes, leaving orphaned processes still running on ports.
+
+**Example:** After `bb dev:stop`, backend Java process remained alive on port 8080, requiring manual `kill -15`.
+
+**Solution:** Enhance process-runner to send SIGTERM/SIGKILL directly to the process group before killing the tmux session, or ensure commands are wrapped in a script that traps signals.
+
+**Implementation idea:**
+```bash
+# Before tmux kill-session, find and kill process group
+pkill -TERM -t "proc-$name"  # Kill by terminal
+# Or store PID when starting and kill by PID
+```
+
+**Workaround:** For now, manually check for orphaned processes with `lsof -ti:PORT` after stopping sessions.
 
 ---
 
