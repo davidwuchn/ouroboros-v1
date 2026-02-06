@@ -26,6 +26,10 @@
   ;; In-memory store, persisted to disk
   (atom {}))
 
+;; Debounced write state
+(defonce ^:private pending-write? (atom false))
+(defonce ^:private write-delay-ms 100)
+
 (defn- load-memory
   "Load memory from disk"
   []
@@ -38,8 +42,8 @@
         (reset! memory-store {})))
     (reset! memory-store {})))
 
-(defn- save-memory
-  "Save memory to disk"
+(defn- save-memory-now
+  "Save memory to disk immediately"
   []
   (try
     (spit memory-file (pr-str @memory-store))
@@ -47,6 +51,20 @@
     (catch Exception e
       (println "⚠ Failed to save memory:" (.getMessage e))
       false)))
+
+(defn- save-memory
+  "Save memory to disk with debouncing - batches rapid updates"
+  []
+  (when (compare-and-set! pending-write? false true)
+    (future
+      (Thread/sleep write-delay-ms)
+      (save-memory-now)
+      (reset! pending-write? false))))
+
+(defn save-now!
+  "Force immediate save to disk (blocks until complete)"
+  []
+  (save-memory-now))
 
 ;; ============================================================================
 ;; Memory Operations
@@ -116,9 +134,9 @@
 (pco/defresolver memory-all [_]
   {::pco/output [{:memory/all [:memory/key :memory/value]}]}
   {:memory/all (map (fn [[k v]]
-                       {:memory/key k
-                        :memory/value v})
-                     @memory-store)})
+                      {:memory/key k
+                       :memory/value v})
+                    @memory-store)})
 
 (pco/defresolver memory-get [{:keys [memory/key]}]
   {::pco/input [:memory/key]
@@ -177,7 +195,7 @@
   (get-all)
   (delete-value! :test)
   (clear-memory!)
-  
+
   ;; Via Pathom
   (require '[ouroboros.query :as q])
   (q/q [:memory/keys])

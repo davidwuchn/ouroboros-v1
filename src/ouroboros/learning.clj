@@ -61,14 +61,28 @@
 
 (defonce ^:private learning-index (atom {}))
 
+(defn- rebuild-index!
+  "Rebuild learning index from all learning records in memory"
+  []
+  (let [all-learnings (->> (memory/get-all)
+                           (filter (fn [[k _]]
+                                     (and (namespace k)
+                                          (str/starts-with? (namespace k) "learning"))))
+                           (map val))
+        index (->> all-learnings
+                   (group-by :learning/user)
+                   (map (fn [[user learnings]]
+                          [(keyword user) (mapv :learning/id learnings)]))
+                   (into {}))]
+    (reset! learning-index index)))
+
 (defn init!
-  "Initialize learning system"
+  "Initialize learning system - rebuilds index from actual memory state"
   []
   (try
-    ;; Load existing learnings from memory
-    (when-let [learnings (memory/get-value :learning/index)]
-      (reset! learning-index learnings))
-    (telemetry/emit! {:event :learning/init})
+    (rebuild-index!)
+    (telemetry/emit! {:event :learning/init
+                      :indexed-users (count @learning-index)})
     (catch Exception e
       (telemetry/emit! {:event :learning/init-error
                         :error (.getMessage e)})
@@ -219,10 +233,10 @@
                               (count history))
                            0)
      :recent-learnings (->> history
-                           (sort-by :learning/created)
-                           (reverse)
-                           (take 5)
-                           (map :learning/title))}))
+                            (sort-by :learning/created)
+                            (reverse)
+                            (take 5)
+                            (map :learning/title))}))
 
 (defn detect-gaps
   "Detect learning gaps based on application patterns"
@@ -250,12 +264,12 @@
         insights [(str "Error: " error-type)
                   (str "Fix: " fix-explanation)]]
     (save-insight! user-id
-      {:title title
-       :insights insights
-       :pattern pattern
-       :category "errors/fixes"
-       :tags #{error-type "fix" "debugging"}
-       :examples [{:context context}]})))
+                   {:title title
+                    :insights insights
+                    :pattern pattern
+                    :category "errors/fixes"
+                    :tags #{error-type "fix" "debugging"}
+                    :examples [{:context context}]})))
 
 (defn create-from-explanation
   "Create a learning record from an explanation"
@@ -268,12 +282,12 @@
                      :deep 4
                      3)]
     (save-insight! user-id
-      {:title title
-       :insights [explanation]
-       :pattern pattern
-       :category "understanding"
-       :tags #{topic "explanation" "learning"}
-       :confidence confidence})))
+                   {:title title
+                    :insights [explanation]
+                    :pattern pattern
+                    :category "understanding"
+                    :tags #{topic "explanation" "learning"}
+                    :confidence confidence})))
 
 ;; ============================================================================
 ;; Pathom Integration
@@ -308,9 +322,9 @@
 (pco/defmutation learning-save! [{:keys [user/id title insights pattern]}]
   {::pco/output [:learning/id :learning/title :learning/created]}
   (let [record (save-insight! id
-                {:title title
-                 :insights insights
-                 :pattern pattern})]
+                              {:title title
+                               :insights insights
+                               :pattern pattern})]
     {:learning/id (:learning/id record)
      :learning/title (:learning/title record)
      :learning/created (:learning/created record)}))
@@ -336,12 +350,12 @@
 
   ;; Save a learning
   (learning/save-insight! :alex
-    {:title "Sequence Types Safety"
-     :insights ["Sequence operations require integer multipliers"
-                "Type hints prevent runtime errors"]
-     :pattern "sequence-type-mismatch"
-     :category "python/types"
-     :tags #{"python" "types" "sequences"}})
+                          {:title "Sequence Types Safety"
+                           :insights ["Sequence operations require integer multipliers"
+                                      "Type hints prevent runtime errors"]
+                           :pattern "sequence-type-mismatch"
+                           :category "python/types"
+                           :tags #{"python" "types" "sequences"}})
 
   ;; Recall by pattern
   (learning/recall-by-pattern :alex "sequence")
@@ -351,9 +365,9 @@
 
   ;; Create from error
   (learning/create-from-error :alex
-    "TypeError: can't multiply sequence by non-int"
-    "Convert float to integer before multiplication"
-    "utils.py line 42")
+                              "TypeError: can't multiply sequence by non-int"
+                              "Convert float to integer before multiplication"
+                              "utils.py line 42")
 
   ;; Find related learnings
   (learning/find-related :alex "python"))

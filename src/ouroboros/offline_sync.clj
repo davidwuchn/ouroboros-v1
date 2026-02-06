@@ -44,7 +44,7 @@
          (fn [ops]
            (let [cutoff (- (System/currentTimeMillis) queue-retention-ms)]
              (filterv #(or (= (:op/status %) :pending)
-                          (> (:op/queued-at %) cutoff))
+                           (> (:op/queued-at %) cutoff))
                       ops)))))
 
 (defn queue-operation!
@@ -55,10 +55,10 @@
     (throw (ex-info "session-id is required" {:param :session-id})))
   (when (nil? operation-type)
     (throw (ex-info "operation-type is required" {:param :operation-type})))
-  
+
   ;; Compact old operations first
   (compact-queue! session-id)
-  
+
   (let [op-id (next-op-id)
         operation {:op/id op-id
                    :op/type operation-type
@@ -68,19 +68,19 @@
                    :op/status :pending
                    :op/attempts 0}
         key (queue-key session-id)]
-    
+
     ;; Add to in-memory queue
     (swap! operation-queues update session-id conj operation)
-    
+
     ;; Persist queue
     (memory/update! key
                     (fn [queue]
                       (conj (or queue []) operation)))
-    
+
     (telemetry/emit! {:event :offline/operation-queued
                       :session-id session-id
                       :op-type operation-type})
-    
+
     operation))
 
 (defn get-pending-operations
@@ -96,17 +96,17 @@
          update session-id
          (fn [ops]
            (mapv #(if (= (:op/id %) op-id)
-                   (assoc % :op/status :completed
-                          :op/completed-at (System/currentTimeMillis))
-                   %)
+                    (assoc % :op/status :completed
+                           :op/completed-at (System/currentTimeMillis))
+                    %)
                  ops)))
-  
+
   (let [key (queue-key session-id)]
     (memory/update! key
                     (fn [queue]
                       (mapv #(if (= (:op/id %) op-id)
-                              (assoc % :op/status :completed)
-                              %)
+                               (assoc % :op/status :completed)
+                               %)
                             (or queue []))))))
 
 (defn mark-operation-failed!
@@ -116,12 +116,12 @@
          update session-id
          (fn [ops]
            (mapv #(if (= (:op/id %) op-id)
-                   (assoc % :op/status :failed
-                          :op/error (str error)
-                          :op/failed-at (System/currentTimeMillis))
-                   %)
+                    (assoc % :op/status :failed
+                           :op/error (str error)
+                           :op/failed-at (System/currentTimeMillis))
+                    %)
                  ops)))
-  
+
   (telemetry/emit! {:event :offline/operation-failed
                     :session-id session-id
                     :op-id op-id
@@ -135,21 +135,20 @@
   "Detect conflicts between server and local state"
   [server-state local-state]
   (let [server-items (get server-state :canvas/items {})
-        local-items (get local-state :canvas/items {})
-        conflicts []]
-    
+        local-items (get local-state :canvas/items {})]
+
     ;; Check for concurrent edits on same items
-    (reduce (fn [conflicts [item-id local-item]]
+    (reduce (fn [acc [item-id local-item]]
               (if-let [server-item (get server-items item-id)]
                 (if (not= (:item/updated-at local-item)
-                         (:item/updated-at server-item))
-                  (conj conflicts {:conflict/type :concurrent-edit
-                                  :conflict/item-id item-id
-                                  :conflict/server server-item
-                                  :conflict/local local-item})
-                  conflicts)
-                conflicts))
-            conflicts
+                          (:item/updated-at server-item))
+                  (conj acc {:conflict/type :concurrent-edit
+                             :conflict/item-id item-id
+                             :conflict/server server-item
+                             :conflict/local local-item})
+                  acc)
+                acc))
+            []
             local-items)))
 
 (defn resolve-conflict
@@ -165,14 +164,14 @@
          :item (:conflict/local conflict)}
         {:resolution :use-server
          :item (:conflict/server conflict)}))
-    
+
     :merge
     {:resolution :merged
      :item (merge (:conflict/server conflict)
                   (:conflict/local conflict)
                   {:item/conflict-resolved? true
                    :item/updated-at (System/currentTimeMillis)})}
-    
+
     :manual
     {:resolution :needs-manual-resolution
      :conflict conflict}))
@@ -182,16 +181,16 @@
   [session-id server-state local-state & {:keys [strategy]}]
   (let [conflicts (detect-conflicts server-state local-state)
         resolutions (map #(resolve-conflict % :strategy strategy) conflicts)]
-    
+
     (when (seq conflicts)
       (telemetry/emit! {:event :offline/conflicts-detected
                         :session-id session-id
                         :conflict-count (count conflicts)}))
-    
+
     {:conflicts/count (count conflicts)
      :conflicts/resolutions resolutions
      :conflicts/resolved? (every? #(not= (:resolution %) :needs-manual-resolution)
-                                 resolutions)}))
+                                  resolutions)}))
 
 ;; ============================================================================
 ;; Session Persistence
@@ -206,13 +205,13 @@
                   :snapshot/saved-at (System/currentTimeMillis)
                   :snapshot/version 1}
         key (keyword (str "session-snapshot/" session-id))]
-    
+
     (memory/save-value! key snapshot)
-    
+
     (telemetry/emit! {:event :offline/session-saved
                       :session-id session-id
                       :user-id user-id})
-    
+
     snapshot))
 
 (defn load-session-state
@@ -235,45 +234,45 @@
    Returns {:synced [...] :failed [...] :conflicts [...]}"
   [session-id server-state-fn apply-fn]
   (let [pending (get-pending-operations session-id)
-        results {:synced [] :failed [] :conflicts []}]
-    
-    (doseq [op pending]
-      (try
-        ;; Fetch latest server state
-        (let [server-state (server-state-fn)
-              local-state (:op/data op)]
-          
-          ;; Check for conflicts
-          (if-let [conflicts (seq (detect-conflicts server-state local-state))]
-            ;; Handle conflicts
-            (let [resolution (resolve-all-conflicts! session-id server-state local-state)]
-              (if (:conflicts/resolved? resolution)
-                ;; Apply resolved state
-                (do
-                  (apply-fn (:conflicts/resolutions resolution))
-                  (mark-operation-complete! session-id (:op/id op))
-                  (update results :synced conj (:op/id op)))
-                ;; Needs manual resolution
-                (do
-                  (update results :conflicts conj conflicts)
-                  (mark-operation-failed! session-id (:op/id op) "Unresolved conflicts"))))
-            
-            ;; No conflicts, apply operation
-            (do
-              (apply-fn op)
-              (mark-operation-complete! session-id (:op/id op))
-              (update results :synced conj (:op/id op))))
-        
-        (catch Exception e
-          (mark-operation-failed! session-id (:op/id op) (.getMessage e))
-          (update results :failed conj {:op-id (:op/id op)
-                                       :error (.getMessage e)}))))
-    
+        results (reduce (fn [results op]
+                          (try
+                            ;; Fetch latest server state
+                            (let [server-state (server-state-fn)
+                                  local-state (:op/data op)]
+
+                              ;; Check for conflicts
+                              (if-let [conflicts (seq (detect-conflicts server-state local-state))]
+                                ;; Handle conflicts
+                                (let [resolution (resolve-all-conflicts! session-id server-state local-state)]
+                                  (if (:conflicts/resolved? resolution)
+                                    ;; Apply resolved state
+                                    (do
+                                      (apply-fn (:conflicts/resolutions resolution))
+                                      (mark-operation-complete! session-id (:op/id op))
+                                      (update results :synced conj (:op/id op)))
+                                    ;; Needs manual resolution
+                                    (do
+                                      (mark-operation-failed! session-id (:op/id op) "Unresolved conflicts")
+                                      (update results :conflicts conj conflicts))))
+
+                                ;; No conflicts, apply operation
+                                (do
+                                  (apply-fn op)
+                                  (mark-operation-complete! session-id (:op/id op))
+                                  (update results :synced conj (:op/id op)))))
+
+                            (catch Exception e
+                              (mark-operation-failed! session-id (:op/id op) (.getMessage e))
+                              (update results :failed conj {:op-id (:op/id op)}
+                                      :error (.getMessage e)))))
+                        {:synced [] :failed [] :conflicts []}
+                        pending)]
+
     (telemetry/emit! {:event :offline/sync-completed
                       :session-id session-id
                       :synced (count (:synced results))
                       :failed (count (:failed results))})
-    
+
     results))
 
 ;; ============================================================================
@@ -291,7 +290,7 @@
             :op/session-id session-id
             :op/applied-at (System/currentTimeMillis)
             :op/update-fn update-fn})
-    
+
     ;; Apply the update
     (update-fn)))
 
@@ -309,7 +308,7 @@
     (rollback-fn)
     ;; Remove from tracking
     (swap! optimistic-state dissoc key)
-    
+
     (telemetry/emit! {:event :offline/optimistic-rollback
                       :session-id session-id
                       :op-id operation-id})))
@@ -328,7 +327,7 @@
         saved (load-session-state id)]
     {:offline/pending-count (count pending)
      :offline/last-sync (when (seq pending)
-                         (:op/queued-at (first pending)))
+                          (:op/queued-at (first pending)))
      :offline/has-saved-session? (some? saved)}))
 
 (pco/defresolver pending-operations
@@ -379,22 +378,22 @@
 (comment
   ;; Queue operation while offline
   (queue-operation! :session-123 :add-note
-                   {:item/content "New idea" :item/section :problems}
-                   :user-id :user-456)
-  
+                    {:item/content "New idea" :item/section :problems}
+                    :user-id :user-456)
+
   ;; Check pending operations
   (get-pending-operations :session-123)
-  
+
   ;; Detect conflicts
   (detect-conflicts server-state local-state)
-  
+
   ;; Resolve conflicts
   (resolve-all-conflicts! :session-123 server-state local-state :strategy :last-write-wins)
-  
+
   ;; Save session for offline recovery
-  (save-session-state! :session-123 :user-456 {:canvas/items {...}})
-  
+  (save-session-state! :session-123 :user-456 {:canvas/items {"item-1" {:item/content "Test"}}})
+
   ;; Sync when back online
   (sync-session! :session-123
-                #(fetch-server-state :session-123)
-                #(apply-operation! %)))
+                 #(fetch-server-state :session-123)
+                 #(apply-operation! %)))
