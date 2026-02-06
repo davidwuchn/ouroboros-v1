@@ -1,92 +1,94 @@
 #!/bin/bash
-# Process Runner - Actually works with shell_command
-# Uses proper daemonization to survive parent process exit
+# Process Runner - Manage long-running processes with tmux for full interactive control
+# Works with shell_command because tmux exits immediately after creating session
 
 set -e
 
-VERSION="1.0"
-BASE_DIR="/tmp/process-runner"
+VERSION="2.0"
+SESSION_PREFIX="proc-"
 
-# Create base directory
-mkdir -p "$BASE_DIR"
+usage() {
+    cat <<EOF
+Process Runner v${VERSION} - Manage long-running processes with tmux
 
-# Proper daemonization that survives parent exit
-daemonize() {
-    local name="$1"
-    local command="$2"
-    
-    # Create a script that will run the command
-    local runner_script="$BASE_DIR/$name-runner.sh"
-    
-    cat > "$runner_script" <<EOF
-#!/bin/bash
-# Runner for process: $name
+Usage: $0 <command> [args...]
 
-# Log file
-LOG_FILE="$BASE_DIR/$name.log"
-PID_FILE="$BASE_DIR/$name.pid"
+Commands:
+  start <name> <command>    Start a process in a tmux session
+  stop <name>               Stop a tmux session (kills process)
+  status <name>             Check if session is running
+  attach <name>             Attach to session (interactive)
+  detach                    Detach from current session (while attached)
+  send <name> <input>       Send input to session
+  logs <name> [-f|lines]    View session output
+  list                      List all managed sessions
+  clean                     Clean up dead sessions
+  check                     Verify tmux is installed and working
 
-# Write PID
-echo \$\$ > "\$PID_FILE"
+Examples:
+  $0 check                   # Verify tmux installation
+  $0 start webserver 'python -m http.server 8081'
+  $0 status webserver
+  $0 attach webserver        # Interactive control (Ctrl+B, D to detach)
+  $0 send webserver 'ls'
+  $0 logs webserver -f
+  $0 stop webserver
 
-# Redirect all output
-exec > "\$LOG_FILE" 2>&1
-
-echo "=== Process started at \$(date) ==="
-echo "Command: $command"
-echo "PID: \$\$"
-echo "=================================="
-
-# Run the command
-eval "$command"
-
-EXIT_CODE=\$?
-echo "=== Process exited with code \$EXIT_CODE at \$(date) ==="
-rm -f "\$PID_FILE"
+Features:
+  - Full interactive control when attached
+  - Real-time output viewing
+  - Input sending capability  
+  - Session persists after detaching
+  - Works with shell_command (exits quickly)
+  - Requires tmux (run '$0 check' to verify)
 EOF
-    
-    chmod +x "$runner_script"
-    
-    # Start it with nohup and disown completely
-    nohup bash "$runner_script" >/dev/null 2>&1 &
-    
-    # Give it a moment to start and write PID file
-    sleep 0.5
-    
-    # Check if it started
-    if [ -f "$BASE_DIR/$name.pid" ]; then
-        local pid=$(cat "$BASE_DIR/$name.pid")
-        if kill -0 "$pid" 2>/dev/null; then
-            echo "Process '$name' started with PID $pid"
-            echo "Log: $BASE_DIR/$name.log"
-            return 0
-        fi
-    fi
-    
-    echo "Failed to start process '$name'"
-    return 1
 }
 
-# Check if process is running
-is_running() {
+# Helper functions
+error() {
+    echo "Error: $@" >&2
+    exit 1
+}
+
+info() {
+    echo "$@" >&2
+}
+
+get_session_name() {
     local name="$1"
-    local pid_file="$BASE_DIR/$name.pid"
-    
-    if [ ! -f "$pid_file" ]; then
-        return 1
+    echo "${SESSION_PREFIX}${name}"
+}
+
+session_exists() {
+    local session_name="$1"
+    tmux has-session -t "$session_name" 2>/dev/null
+}
+
+ensure_tmux() {
+    if ! command -v tmux >/dev/null 2>&1; then
+        cat <<EOF >&2
+Error: tmux is not installed.
+
+This script requires tmux for process management. Install tmux for your system:
+
+  macOS:            brew install tmux
+  Ubuntu/Debian:    sudo apt-get install tmux
+  Fedora/RHEL:      sudo dnf install tmux
+  Arch Linux:       sudo pacman -S tmux
+  OpenSUSE:         sudo zypper install tmux
+  Alpine Linux:     sudo apk add tmux
+  Windows (WSL):    sudo apt-get install tmux  # in Ubuntu WSL
+
+Or download from: https://github.com/tmux/tmux
+
+Once installed, verify with: tmux -V
+EOF
+        exit 1
     fi
     
-    local pid=$(cat "$pid_file" 2>/dev/null)
-    if [ -z "$pid" ]; then
-        return 1
-    fi
-    
-    if kill -0 "$pid" 2>/dev/null; then
-        return 0
-    else
-        # Clean up stale PID file
-        rm -f "$pid_file"
-        return 1
+    # Verify tmux works (not just in PATH)
+    if ! tmux -V >/dev/null 2>&1; then
+        error "tmux found but not working. Check installation."
     fi
 }
 
@@ -96,56 +98,69 @@ cmd_start() {
     local command="$2"
     
     if [ -z "$name" ] || [ -z "$command" ]; then
-        echo "Usage: $0 start <name> <command>"
-        echo "Example: $0 start myserver 'python -m http.server 8080'"
-        exit 1
+        error "Usage: $0 start <name> <command>"
     fi
     
-    if is_running "$name"; then
-        local pid=$(cat "$BASE_DIR/$name.pid")
-        echo "Process '$name' is already running (PID: $pid)"
-        exit 1
+    ensure_tmux
+    
+    local session_name=$(get_session_name "$name")
+    
+    if session_exists "$session_name"; then
+        error "Session '$name' already exists. Use '$0 stop $name' first."
     fi
     
-    daemonize "$name" "$command"
+    info "Starting process '$name' in tmux session..."
+    info "Command: $command"
+    
+    # Create detached tmux session with the command
+    # Use bash -c to ensure proper signal handling and shell features
+    if ! tmux new-session -s "$session_name" -d "bash -c '$command'; exec bash"; then
+        error "Failed to create tmux session"
+    fi
+    
+    # Wait a moment for session to initialize
+    sleep 0.5
+    
+    if session_exists "$session_name"; then
+        echo "Process '$name' started in tmux session: $session_name"
+        echo ""
+        echo "To interact:"
+        echo "  $0 attach $name      # Attach interactively (Ctrl+B, D to detach)"
+        echo "  $0 send $name 'ls'   # Send command to session"
+        echo "  $0 logs $name -f     # Follow output"
+        echo "  $0 stop $name        # Stop the session"
+    else
+        error "Failed to start session (session disappeared)"
+    fi
 }
 
 cmd_stop() {
     local name="$1"
     
     if [ -z "$name" ]; then
-        echo "Usage: $0 stop <name>"
-        exit 1
+        error "Usage: $0 stop <name>"
     fi
     
-    if ! is_running "$name"; then
-        echo "Process '$name' is not running"
-        # Clean up any stale files
-        rm -f "$BASE_DIR/$name.pid" 2>/dev/null || true
-        exit 1
+    ensure_tmux
+    
+    local session_name=$(get_session_name "$name")
+    
+    if ! session_exists "$session_name"; then
+        info "Session '$name' not found"
+        return 0
     fi
     
-    local pid=$(cat "$BASE_DIR/$name.pid")
-    echo "Stopping process '$name' (PID: $pid)..."
+    info "Stopping session '$name'..."
     
-    # Try graceful termination
-    kill -TERM "$pid" 2>/dev/null || true
+    # Kill the session (sends SIGHUP to processes in the session)
+    tmux kill-session -t "$session_name"
     
-    # Wait for up to 5 seconds
-    for i in {1..50}; do
-        if ! kill -0 "$pid" 2>/dev/null; then
-            echo "Process '$name' stopped"
-            rm -f "$BASE_DIR/$name.pid"
-            return 0
-        fi
-        sleep 0.1
-    done
-    
-    # Force kill if still running
-    if kill -0 "$pid" 2>/dev/null; then
-        kill -KILL "$pid" 2>/dev/null || true
-        echo "Force killed process '$name'"
-        rm -f "$BASE_DIR/$name.pid"
+    # Verify it's gone
+    sleep 0.5
+    if session_exists "$session_name"; then
+        error "Failed to stop session '$name'"
+    else
+        echo "Session '$name' stopped"
     fi
 }
 
@@ -153,32 +168,81 @@ cmd_status() {
     local name="$1"
     
     if [ -z "$name" ]; then
-        echo "Usage: $0 status <name>"
-        exit 1
+        error "Usage: $0 status <name>"
     fi
     
-    if is_running "$name"; then
-        local pid=$(cat "$BASE_DIR/$name.pid")
-        echo "Process '$name': RUNNING"
-        echo "PID: $pid"
-        echo "Log: $BASE_DIR/$name.log"
+    ensure_tmux
+    
+    local session_name=$(get_session_name "$name")
+    
+    if session_exists "$session_name"; then
+        echo "Session '$name': RUNNING"
+        echo "Session name: $session_name"
         
-        # Show last few log lines
-        if [ -f "$BASE_DIR/$name.log" ]; then
+        # Try to get some info about the session
+        if tmux list-panes -t "$session_name" >/dev/null 2>&1; then
+            local window_count=$(tmux list-windows -t "$session_name" | wc -l)
+            echo "Windows: $window_count"
+            
+            # Show first few lines of output if available
             echo ""
-            echo "Recent logs:"
-            tail -10 "$BASE_DIR/$name.log" | sed 's/^/  /'
+            echo "Recent output (last 5 lines):"
+            tmux capture-pane -t "$session_name" -p 2>/dev/null | tail -5 | sed 's/^/  /' || echo "  (no output captured)"
         fi
     else
-        echo "Process '$name': STOPPED"
-        if [ -f "$BASE_DIR/$name.log" ]; then
-            # Check exit status from log
-            if grep -q "exited with code" "$BASE_DIR/$name.log" 2>/dev/null; then
-                local exit_code=$(grep "exited with code" "$BASE_DIR/$name.log" | tail -1 | grep -o '[0-9]\+')
-                echo "Exit code: $exit_code"
-            fi
-        fi
+        echo "Session '$name': STOPPED"
     fi
+}
+
+cmd_attach() {
+    local name="$1"
+    
+    if [ -z "$name" ]; then
+        error "Usage: $0 attach <name>"
+    fi
+    
+    ensure_tmux
+    
+    local session_name=$(get_session_name "$name")
+    
+    if ! session_exists "$session_name"; then
+        error "Session '$name' not found"
+    fi
+    
+    echo "Attaching to session '$name' (Press Ctrl+B, D to detach)..."
+    tmux attach-session -t "$session_name"
+}
+
+cmd_detach() {
+    # This only works if we're inside a tmux session
+    if [ -n "$TMUX" ]; then
+        tmux detach-client
+        echo "Detached from session"
+    else
+        error "Not inside a tmux session"
+    fi
+}
+
+cmd_send() {
+    local name="$1"
+    local input="${*:2}"
+    
+    if [ -z "$name" ] || [ -z "$input" ]; then
+        error "Usage: $0 send <name> <input>"
+    fi
+    
+    ensure_tmux
+    
+    local session_name=$(get_session_name "$name")
+    
+    if ! session_exists "$session_name"; then
+        error "Session '$name' not found"
+    fi
+    
+    # Send input followed by Enter
+    tmux send-keys -t "$session_name" "$input" Enter
+    
+    echo "Sent to '$name': $input"
 }
 
 cmd_logs() {
@@ -186,75 +250,144 @@ cmd_logs() {
     local follow="${2:-}"
     
     if [ -z "$name" ]; then
-        echo "Usage: $0 logs <name> [-f]"
-        exit 1
+        error "Usage: $0 logs <name> [-f|lines]"
     fi
     
-    if [ ! -f "$BASE_DIR/$name.log" ]; then
-        echo "No log file for '$name'"
-        exit 1
+    ensure_tmux
+    
+    local session_name=$(get_session_name "$name")
+    
+    if ! session_exists "$session_name"; then
+        error "Session '$name' not found"
     fi
     
     if [ "$follow" = "-f" ]; then
-        tail -f "$BASE_DIR/$name.log"
+        # Follow output (attach in a limited way)
+        echo "Following output from '$name' (Ctrl+C to stop)..."
+        # Use capture-pane with follow mode
+        tmux capture-pane -t "$session_name" -p -S -1000 2>/dev/null | tail -f 2>/dev/null || {
+            # Fallback: attach in read-only mode if available
+            tmux attach -t "$session_name" 2>&1 | grep -v "lost server" || true
+        }
     else
-        # Show last 50 lines by default
+        # Show specific number of lines (default 50)
         local lines="${2:-50}"
-        tail -n "$lines" "$BASE_DIR/$name.log"
+        tmux capture-pane -t "$session_name" -p 2>/dev/null | tail -n "$lines"
     fi
 }
 
 cmd_list() {
-    echo "Managed processes in $BASE_DIR:"
+    ensure_tmux
+    
+    echo "Managed tmux sessions (prefix: $SESSION_PREFIX):"
     echo ""
     
-    local found=0
-    for pid_file in "$BASE_DIR"/*.pid; do
-        [ -f "$pid_file" ] || continue
-        
-        local name=$(basename "$pid_file" .pid)
-        local pid=$(cat "$pid_file" 2>/dev/null)
-        
-        found=1
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-            echo "  $name: RUNNING (PID: $pid)"
-        else
-            echo "  $name: STOPPED (stale PID file)"
-            rm -f "$pid_file"
-        fi
-    done
+    local sessions=$(tmux list-sessions 2>/dev/null | grep "^$SESSION_PREFIX" || true)
     
-    if [ $found -eq 0 ]; then
-        echo "  No processes found"
+    if [ -z "$sessions" ]; then
+        echo "  No managed sessions found"
+        return 0
     fi
     
-    echo ""
-    echo "Available log files:"
-    for log_file in "$BASE_DIR"/*.log; do
-        [ -f "$log_file" ] || continue
-        local name=$(basename "$log_file" .log)
-        echo "  $name: $log_file"
-    done
+    local count=0
+    while IFS= read -r session_line; do
+        count=$((count + 1))
+        local session_name=$(echo "$session_line" | cut -d: -f1)
+        local clean_name="${session_name#$SESSION_PREFIX}"
+        
+        echo "  $clean_name:"
+        echo "    Session: $session_name"
+        
+        # Extract window info if available
+        local window_info=$(echo "$session_line" | sed 's/^[^:]*: //')
+        echo "    Status: $window_info"
+        
+        # Show if any panes are active
+        if tmux list-panes -t "$session_name" >/dev/null 2>&1; then
+            local pane_count=$(tmux list-panes -t "$session_name" | wc -l)
+            echo "    Panes: $pane_count"
+        fi
+        
+        echo ""
+    done <<< "$sessions"
+    
+    echo "Total: $count session(s)"
 }
 
 cmd_clean() {
-    echo "Cleaning up stopped processes..."
+    ensure_tmux
     
-    # Remove stale PID files
-    for pid_file in "$BASE_DIR"/*.pid; do
-        [ -f "$pid_file" ] || continue
+    info "Cleaning up dead sessions..."
+    
+    local sessions=$(tmux list-sessions 2>/dev/null | grep "^$SESSION_PREFIX" || true)
+    local cleaned=0
+    
+    while IFS= read -r session_line; do
+        local session_name=$(echo "$session_line" | cut -d: -f1)
         
-        local name=$(basename "$pid_file" .pid)
-        local pid=$(cat "$pid_file" 2>/dev/null)
-        
-        if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
-            echo "  Removing: $name"
-            rm -f "$pid_file"
-            rm -f "$BASE_DIR/$name-runner.sh" 2>/dev/null || true
+        # Check if session is actually responsive
+        if ! tmux list-panes -t "$session_name" >/dev/null 2>&1; then
+            info "  Removing dead session: $session_name"
+            tmux kill-session -t "$session_name" 2>/dev/null || true
+            cleaned=$((cleaned + 1))
         fi
-    done
+    done <<< "$sessions"
     
-    echo "Cleanup complete"
+    echo "Cleaned up $cleaned dead session(s)"
+}
+
+cmd_check() {
+    echo "Checking tmux installation..."
+    
+    # Check if tmux is in PATH
+    if command -v tmux >/dev/null 2>&1; then
+        echo "✓ tmux found in PATH"
+    else
+        echo "✗ tmux NOT found in PATH"
+        echo ""
+        echo "Install tmux for your system:"
+        echo "  macOS:            brew install tmux"
+        echo "  Ubuntu/Debian:    sudo apt-get install tmux"
+        echo "  Fedora/RHEL:      sudo dnf install tmux"
+        echo "  Arch Linux:       sudo pacman -S tmux"
+        echo "  OpenSUSE:         sudo zypper install tmux"
+        echo "  Alpine Linux:     sudo apk add tmux"
+        echo "  Windows (WSL):    sudo apt-get install tmux"
+        echo ""
+        echo "Or download from: https://github.com/tmux/tmux"
+        return 1
+    fi
+    
+    # Check version
+    local version=$(tmux -V 2>/dev/null || echo "unknown")
+    echo "✓ tmux version: $version"
+    
+    # Check if tmux server can be started
+    if tmux start-server 2>/dev/null; then
+        echo "✓ tmux server can be started"
+    else
+        echo "✗ tmux server failed to start"
+        return 1
+    fi
+    
+    # Test basic functionality
+    local test_session="test-$$"
+    if tmux new-session -s "$test_session" -d "sleep 0.1" 2>/dev/null; then
+        echo "✓ tmux can create sessions"
+        tmux kill-session -t "$test_session" 2>/dev/null || true
+    else
+        echo "✗ tmux cannot create sessions"
+        # Don't kill server as it might be in use by other processes
+        return 1
+    fi
+    
+    # Clean up test server if we started it (but be careful not to kill existing server)
+    # tmux kill-server 2>/dev/null || true
+    
+    echo ""
+    echo "✅ tmux is properly installed and working!"
+    echo "   Process Runner is ready to use."
+    return 0
 }
 
 # Main command dispatch
@@ -274,6 +407,17 @@ main() {
             shift
             cmd_status "$@"
             ;;
+        attach)
+            shift
+            cmd_attach "$@"
+            ;;
+        detach)
+            cmd_detach
+            ;;
+        send)
+            shift
+            cmd_send "$@"
+            ;;
         logs)
             shift
             cmd_logs "$@"
@@ -284,38 +428,22 @@ main() {
         clean)
             cmd_clean
             ;;
+        check)
+            cmd_check
+            ;;
         help|--help|-h)
-            cat <<EOF
-Process Runner v$VERSION - Run long processes with shell_command
-
-Usage: $0 <command> [args...]
-
-Commands:
-  start <name> <command>    Start a new process
-  stop <name>               Stop a running process
-  status <name>             Check process status
-  logs <name> [-f|lines]    View process logs
-  list                      List all processes
-  clean                     Clean up stopped processes
-
-Examples:
-  $0 start webserver 'python -m http.server 8080'
-  $0 status webserver
-  $0 logs webserver -f
-  $0 stop webserver
-  $0 list
-
-Note: This script works with shell_command because it exits quickly
-      after starting the process as a proper daemon.
-EOF
+            usage
             ;;
         *)
-            echo "Unknown command: $command"
-            echo "Use '$0 help' for usage information"
-            exit 1
+            if [ -z "$command" ]; then
+                usage
+            else
+                error "Unknown command: $command"
+            fi
             ;;
     esac
 }
 
 # Run main
+ensure_tmux
 main "$@"

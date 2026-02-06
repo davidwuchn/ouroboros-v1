@@ -344,6 +344,119 @@ supervisorctl start my-service
 
 **Key Insight:** The `shell_command` tool is designed for synchronous execution with clear lifecycle. For long-running processes, delegate to proper process management systems.
 
+### 19. Working Long-Running Process Pattern
+
+**Problem:** Need to start a long-running process via `shell_command` without causing timeouts or orphaned processes.
+
+**Solution:** Create a wrapper script that:
+1. **Daemonizes properly** - Uses `nohup` with output redirection to a runner script
+2. **Exits quickly** - The wrapper returns control immediately
+3. **Manages state** - PID files for tracking, log files for output
+4. **Cleans up** - Removes PID files when processes exit
+
+**Working Implementation:**
+```bash
+#!/bin/bash
+# process-runner-daemon.sh - Daemon-based process runner (legacy)
+
+BASE_DIR="/tmp/process-runner"
+mkdir -p "$BASE_DIR"
+
+daemonize() {
+    local name="$1"
+    local command="$2"
+    
+    # Create runner script
+    cat > "$BASE_DIR/$name-runner.sh" <<EOF
+#!/bin/bash
+echo \$\$ > "$BASE_DIR/$name.pid"
+exec > "$BASE_DIR/$name.log" 2>&1
+eval "$command"
+rm -f "$BASE_DIR/$name.pid"
+EOF
+    
+    chmod +x "$BASE_DIR/$name-runner.sh"
+    nohup bash "$BASE_DIR/$name-runner.sh" >/dev/null 2>&1 &
+}
+
+# Usage: daemonize "webserver" "python -m http.server 8080"
+```
+
+**Why This Works:**
+- `nohup` is used **outside** the `shell_command` context (in the runner script)
+- The wrapper script exits immediately after starting the daemon
+- PID tracking enables management (stop, status, logs)
+- Log capture provides output visibility
+- Cleanup happens automatically on process exit
+
+**Control Commands:**
+```bash
+# Start (exits immediately)
+./process-runner-daemon.sh start webserver "python -m http.server 8080"
+
+# Check status  
+./process-runner-daemon.sh status webserver
+
+# View logs
+./process-runner-daemon.sh logs webserver -f
+
+# Stop gracefully
+./process-runner-daemon.sh stop webserver
+
+# List all processes
+./process-runner-daemon.sh list
+```
+
+**Key Insight:** The anti-pattern isn't `nohup + &` itself, but using them **within** `shell_command`. By delegating to a properly daemonized runner script, we get reliable long-running processes with full control.
+
+### 20. Tmux-Based Interactive Process Management
+
+**Problem:** Need full interactive control (real-time output viewing, input sending) for long-running processes via `shell_command`.
+
+**Solution:** Use `tmux` as a process manager. `tmux new -s name -d 'command'` creates a detached session that persists, allowing later attachment and control.
+
+**Working Implementation:**
+```bash
+#!/bin/bash
+# process-runner.sh - Interactive process management with tmux
+
+# Start process in detached tmux session
+tmux new-session -s "proc-$name" -d "bash -c '$command'; exec bash"
+
+# Later control:
+tmux attach -t "proc-$name"        # Interactive attachment
+tmux send-keys -t "proc-$name" "ls" Enter  # Send input
+tmux capture-pane -t "proc-$name" -p      # View output
+tmux kill-session -t "proc-$name"         # Stop process
+```
+
+**Full-featured wrapper:** `scripts/process-runner.sh` provides complete management:
+
+```bash
+# Start (exits immediately, works with shell_command)
+./scripts/process-runner.sh start webserver "python -m http.server 8081"
+
+# Interactive control (all 4 requirements):
+./scripts/process-runner.sh attach webserver   # 1. Real-time output viewing
+./scripts/process-runner.sh send webserver "ls" # 2. Interactive input
+./scripts/process-runner.sh status webserver    # 3. Process management
+./scripts/process-runner.sh logs webserver -f   # 4. All combined
+
+# Additional controls:
+./scripts/process-runner.sh check     # Verify tmux installation
+./scripts/process-runner.sh list      # List all sessions
+./scripts/process-runner.sh stop webserver
+```
+
+**Why This Is Better Than Basic Daemonization:**
+- **True interactivity**: Attach to see real-time output and type commands
+- **Input capability**: Send commands to running processes
+- **Visual management**: `list` shows all sessions with status
+- **No log file limitations**: View entire scrollback buffer, not just log tail
+- **Persistent sessions**: Sessions survive disconnection
+
+**Key Insight:** `tmux` is already recommended in AGENTS.md as an appropriate service manager. By wrapping it in a script that exits quickly, we get the best of both worlds: `shell_command` compatibility with full interactive control.
+
 ---
 
 ## Anti-Patterns

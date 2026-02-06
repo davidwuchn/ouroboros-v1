@@ -162,6 +162,30 @@ AI/LLM capabilities are delegated to ECA (Editor Code Assistant):
 
 - **Never use `nohup + &` together** in `shell_command` for long-running processes. The `shell_command` tool blocks until completion; backgrounding with `&` may cause the process to be orphaned or the tool to timeout incorrectly. Use appropriate service managers (systemd, docker, screen/tmux) instead.
 
+#### Working Solution: Process Runner Script
+
+For scripts that need to start long-running processes via `shell_command`, use tmux for full interactive control:
+
+```bash
+#!/bin/bash
+# process-runner.sh - Start/manage long-running processes with tmux
+
+# Start process in detached tmux session
+tmux new-session -s "proc-webserver" -d "python -m http.server 8081"
+
+# Control commands:
+tmux attach -t "proc-webserver"        # Interactive attachment
+tmux send-keys -t "proc-webserver" "ls" Enter  # Send input
+tmux capture-pane -t "proc-webserver" -p      # View output
+tmux kill-session -t "proc-webserver"         # Stop process
+```
+
+**Why it works:** tmux creates detached sessions that persist independently. The wrapper script exits immediately, satisfying `shell_command`'s synchronous expectation while the process continues running.
+
+**Full implementation:** See `scripts/process-runner.sh` for complete process management with start/stop/status/logs/attach/send commands.
+
+**Prerequisite:** tmux must be installed. Run `./scripts/process-runner.sh check` to verify installation.
+
 ---
 
 ## AI Assistant Quick Reference
