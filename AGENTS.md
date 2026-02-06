@@ -78,6 +78,7 @@ Use symbols in commit messages for searchable git history.
 ### Babashka
 - `bb tasks` - list all tasks
 - Avoid em-dashes (—), smart quotes in docstrings - use ASCII only
+- Prefer Babashka scripts over shell scripts for portability, error handling, and Clojure syntax consistency
 
 ### Quick Repairs
 - `clj-paren-repair <file>` - fix delimiters, format code
