@@ -245,6 +245,8 @@
    (let [actual-port (or port 8080)]
      (println (str "Starting dashboard server on port " actual-port "..."))
      ;; Initialize query environment
+     (require 'ouroboros.engine)
+     (ouroboros.engine/boot!)
      (require '[ouroboros.query :as q])
      ((resolve 'ouroboros.query/init!))
      ;; Register WebSocket telemetry listener
