@@ -5,20 +5,39 @@
    [com.fulcrologic.fulcro.dom :as dom]))
 
 ;; ============================================================================
+;; Button
+;; ============================================================================
+
+(defn button
+  "Button component"
+  [{:keys [on-click variant disabled className]} & children]
+  (let [variant-class (case variant
+                        :secondary "btn-secondary"
+                        :danger "btn-danger"
+                        "btn-primary")]
+    (apply dom/button
+     {:className (str "btn " variant-class " " className)
+      :disabled disabled
+      :onClick on-click}
+     children)))
+
+;; ============================================================================
 ;; Error Display Component
 ;; ============================================================================
 
-(defsc ErrorDisplay [this {:keys [message on-retry]}]
-  {:query [:message :on-retry]
+(defsc ErrorDisplay [this props]
+  {:query [:message]
    :ident (fn [] [:component/id :error-display])}
-  (dom/div :.error-state
-           (dom/div :.error-state-icon "⚠️")
-           (dom/div :.error-state-message message)
-           (when on-retry
-             (button
-              {:on-click on-retry
-               :variant :primary}
-              "Try Again"))))
+  (let [message (:message props)
+        retry-fn (:on-retry props)]
+    (dom/div :.error-state
+             (dom/div :.error-state-icon "⚠️")
+             (dom/div :.error-state-message message)
+             (when retry-fn
+               (button
+                {:on-click retry-fn
+                 :variant :primary}
+                "Try Again")))))
 
 ;; ============================================================================
 ;; Connection Status Component
@@ -116,15 +135,16 @@
 
 (defn error-state
   "Error state message with optional retry"
-  [{:keys [message on-retry]}]
-  (dom/div :.error-state
-           (dom/div :.error-state-icon "⚠️")
-           (dom/div :.error-state-message message)
-           (when on-retry
-             (button
-              {:on-click on-retry
-               :variant :primary}
-              "Try Again"))))
+  [{:keys [message] :as props}]
+  (let [retry-fn (:on-retry props)]
+    (dom/div :.error-state
+             (dom/div :.error-state-icon "⚠️")
+             (dom/div :.error-state-message message)
+             (when retry-fn
+               (button
+                {:on-click retry-fn
+                 :variant :primary}
+                "Try Again")))))
 
 ;; ============================================================================
 ;; Data Table
@@ -150,24 +170,7 @@
                                              (dom/td {:key key} (formatter value row))))
                                          columns)))
                           rows))))
-    (empty-state {:message (or empty-message "No data available")})))
-
-;; ============================================================================
-;; Button
-;; ============================================================================
-
-(defn button
-  "Button component"
-  [{:keys [on-click variant disabled className children]}]
-  (let [variant-class (case variant
-                        :secondary "btn-secondary"
-                        :danger "btn-danger"
-                        "btn-primary")]
-    (dom/button
-     {:className (str "btn " variant-class " " className)
-      :disabled disabled
-      :onClick on-click}
-     children)))
+     (empty-state {:message (or empty-message "No data available")})))
 
 ;; ============================================================================
 ;; Code Block

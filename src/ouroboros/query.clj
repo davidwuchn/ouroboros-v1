@@ -14,7 +14,11 @@
    [ouroboros.engine :as engine]
    ;; For resolver-based tool registration
    [ouroboros.history]
-   [ouroboros.memory] [ouroboros.webux])
+   [ouroboros.memory] [ouroboros.webux]
+   ;; Additional resolvers for page queries
+   [ouroboros.telemetry]
+   [ouroboros.auth]
+   [ouroboros.chat])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -40,9 +44,41 @@
                  :timestamp (str (Instant/now))
                  :engine "statecharts"}})
 
+;; ============================================================================
+;; Page Resolvers - Support for Fulcro page queries
+;; ============================================================================
+
+(pco/defresolver page-by-id
+  "Resolver for Fulcro page idents like [:page/id :dashboard]
+   
+   Delegates to other resolvers for actual data."
+  [{:keys [page/id] :as env}]
+  {::pco/input [:page/id]
+   ::pco/output [:system/healthy? :system/current-state :system/meta
+                 :telemetry/total-events :telemetry/tool-invocations :telemetry/errors
+                 :telemetry/query-executions :telemetry/error-rate
+                 :auth/user-count :auth/admin-count
+                 :chat/session-count
+                 ;; Fulcro client-side fields (return nil, handled on frontend)
+                 :ui.fulcro.client.data-fetch.load-markers/by-id
+                 :page/error]}
+  ;; Return a map with the page id - Pathom will resolve other fields
+  ;; using the existing global resolvers
+  {:page/id id
+   ;; Pre-fetch chat session count using resolve to avoid circular deps
+   :chat/session-count (try
+                         (when-let [get-count-var (resolve 'ouroboros.chat/get-session-count)]
+                           (@get-count-var))
+                         (catch Exception e
+                           (println "Warning: Could not get chat session count:" (.getMessage e))
+                           0))
+   ;; Client-side fields return nil
+   :ui.fulcro.client.data-fetch.load-markers/by-id nil
+   :page/error nil})
+
 ;; Register core resolvers
 (registry/register-resolvers!
-  [system-state system-status-resolver system-healthy system-meta])
+ [system-state system-status-resolver system-healthy system-meta page-by-id])
 
 ;; ============================================================================
 ;; Environment - The queryable interface
@@ -73,32 +109,32 @@
     (when-let [register-mapping (resolve 'ouroboros.tool-registry/register-resolver-tool!)]
       ;; Git tools
       (register-mapping #'ouroboros.history/git-commits :git/commits
-        {:description "Get recent git commits from repository history"
-         :unique? true :category :git :safe? true})
+                        {:description "Get recent git commits from repository history"
+                         :unique? true :category :git :safe? true})
       (register-mapping #'ouroboros.history/git-status :git/status
-        {:description "Get git repository status"
-         :unique? true :category :git :safe? true})
-      
+                        {:description "Get git repository status"
+                         :unique? true :category :git :safe? true})
+
       ;; Memory tools
       (register-mapping #'ouroboros.memory/memory-get :memory/get
-        {:description "Get value from persistent memory"
-         :unique? true :category :memory :safe? true})
+                        {:description "Get value from persistent memory"
+                         :unique? true :category :memory :safe? true})
       (register-mapping #'ouroboros.memory/memory-save! :memory/set
-        {:description "Save value to persistent memory"
-         :unique? true :category :memory :safe? true})
-      
+                        {:description "Save value to persistent memory"
+                         :unique? true :category :memory :safe? true})
+
       ;; System tools (defined in this namespace)
       (register-mapping #'system-status-resolver :system/status
-        {:description "Get current system status"
-         :unique? true :category :system :safe? true}))
-    
+                        {:description "Get current system status"
+                         :unique? true :category :system :safe? true}))
+
     ;; Register all mapped tools
     (register-resolver-tools))
-  
+
   ;; Also register traditional tools from tool_defs for backward compatibility
   (when-let [register-tools (resolve 'ouroboros.tool-defs/register-all-tools!)]
     (register-tools))
-  
+
   (println "Query environment initialized"))
 
 (defn q

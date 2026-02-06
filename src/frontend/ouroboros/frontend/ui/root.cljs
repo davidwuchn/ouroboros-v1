@@ -4,6 +4,7 @@
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+   [ouroboros.frontend.app :refer [app]]
    [ouroboros.frontend.ui.components :as ui]
    [ouroboros.frontend.ui.pages.dashboard :as dashboard]
    [ouroboros.frontend.ui.pages.telemetry :as telemetry]
@@ -21,9 +22,9 @@
 ;; ============================================================================
 
 (defn navigate-to
-  "Navigate to a route"
+  "Navigate to a route using the global app instance"
   [route]
-  (dr/change-route! comp/*app* [route]))
+  (dr/change-route! app [route]))
 
 ;; ============================================================================
 ;; Router
@@ -40,9 +41,10 @@
     empathy-builder/EmpathyBuilderPage
     value-prop-builder/ValuePropBuilderPage
     mvp-builder/MVPBuilderPage
-    lean-canvas-builder/LeanCanvasBuilderPage]})
+    lean-canvas-builder/LeanCanvasBuilderPage]
+   :ident (fn [] [:router/id :main-router])})
 
-(def ui-main-router (comp/factory MainRouter))
+(def ui-main-router (comp/factory MainRouter {:keyfn :router-id}))
 
 ;; ============================================================================
 ;; Root Component
@@ -51,15 +53,12 @@
 (defsc Root
   [this {:keys [main-router]}]
   {:query         [{:main-router (comp/get-query MainRouter)}]
-   :ident         (fn [] [:component/id :root])
-   :initial-state (fn [_] {:main-router (comp/get-initial-state MainRouter {})})}
-  
-  (let [active-route (some-> (dr/current-route this)
-                             first
-                             name)]
-    (dom/div :.app-container
-      (ui/navbar
-        {:active-route active-route
-         :on-navigate navigate-to})
-      (dom/main :.main-content
-        (ui-main-router main-router)))))
+   :initial-state (fn [_]
+                    {:main-router (comp/get-initial-state MainRouter {:router-id :main-router})})}
+
+  (dom/div :.app-container
+           (ui/navbar
+            {:active-route "dashboard"
+             :on-navigate navigate-to})
+           (dom/main :.main-content
+                     (ui-main-router main-router))))

@@ -25,7 +25,7 @@
   (:require
    [clojure.java.shell :as shell]
    [clojure.string :as str]
-   [babashka.fs :as fs]
+   [ouroboros.fs :as fs]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.tool-sandbox :as sandbox]))
 

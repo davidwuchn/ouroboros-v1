@@ -1,8 +1,21 @@
 (ns ouroboros.frontend.websocket
   "WebSocket client for real-time updates"
   (:require
-   [com.fulcrologic.fulcro.application :as app]
-   [com.fulcrologic.fulcro.algorithms.merge :as merge]))
+   [com.fulcrologic.fulcro.application :as app]))
+
+;; Forward declarations
+(declare connected? stop-ping-loop!)
+
+;; ============================================================================
+;; App State Reference
+;; ============================================================================
+
+(defonce app-state-atom (atom nil))
+
+(defn set-app-state-atom!
+  "Set the app state atom for merging data"
+  [state-atom]
+  (reset! app-state-atom state-atom))
 
 ;; ============================================================================
 ;; Connection State
@@ -24,7 +37,9 @@
 
 (defmethod handle-message :default
   [message]
-  (js/console.log "Unknown WebSocket message:" message))
+  (js/console.log "Unknown WebSocket message type:" (:type message))
+  (js/console.log "Full message keys:" (keys message))
+  (js/console.log "Full message:" (clj->js message)))
 
 (defmethod handle-message :connected
   [{:keys [client-id timestamp]}]
@@ -34,22 +49,15 @@
   [{:keys [data]}]
   (js/console.log "Telemetry event received:" data)
   ;; Merge into app state - add to events list
-  (when-let [app @app/app]
-    (merge/merge! app
-                  {:page/id :telemetry
-                   :telemetry/events [data]})))
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom update-in [:telemetry/events] (fnil conj []) data)))
 
 (defmethod handle-message :builder-session/update
   [{:keys [session-id data]}]
   (js/console.log "Builder session update received:" session-id data)
   ;; Merge into app state - update session data
-  (when-let [app @app/app]
-    ;; Find which builder page this belongs to and update its session/data
-    ;; For now, we'll update a global location; pages can watch this
-    (merge/merge! app
-                  {:page/id :builder-session-update
-                   :builder-session/id session-id
-                   :builder-session/data data})))
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in [:builder-session/data session-id] data)))
 
 (defmethod handle-message :pong
   [{:keys [timestamp]}]
@@ -61,17 +69,28 @@
 ;; ============================================================================
 
 (defn- get-ws-url
-  "Get WebSocket URL based on current location"
+  "Get WebSocket URL based on current location
+   
+   In development, Shadow-CLJS serves on port 8081 but WebSocket server is on 8080.
+   We detect this and use the correct port."
   []
   (let [protocol (if (= js/window.location.protocol "https:") "wss:" "ws:")
-        host js/window.location.host]
-    (str protocol "//" host "/ws")))
+        host js/window.location.host
+        port js/window.location.port]
+    (str protocol "//"
+         js/window.location.hostname
+         (if (= port "8081")
+           ":8080"  ; Development: Shadow-CLJS on 8081, API on 8080
+           (if (seq port) (str ":" port) ""))
+         "/ws")))
 
 (defn connect!
   "Establish WebSocket connection"
   []
   (when-not @ws-connection
     (try
+      ;; Mark that we're attempting a connection
+      (swap! reconnect-attempts inc)
       (let [ws (js/WebSocket. (get-ws-url))]
         (set! (.-onopen ws)
               (fn []
@@ -85,9 +104,22 @@
         (set! (.-onmessage ws)
               (fn [event]
                 (try
-                  (let [data (js->clj (js/JSON.parse (.-data event))
-                                      :keywordize-keys true)]
-                    (handle-message data))
+                  (let [json-data (.-data event)]
+                    (js/console.log "WebSocket raw JSON:" json-data)
+                    (let [parsed (js/JSON.parse json-data)]
+                      (js/console.log "WebSocket parsed JS object:" parsed)
+                      ;; Check if parsed is a JS object (not array)
+                      (if (and (object? parsed) (not (array? parsed)))
+                        (let [data (js->clj parsed :keywordize-keys true)
+                              ;; Ensure :type is a keyword for multimethod dispatch
+                              data (if (:type data)
+                                     (update data :type keyword)
+                                     data)]
+                          (js/console.log "WebSocket CLJS data:" data)
+                          (if (:type data)
+                            (handle-message data)
+                            (js/console.warn "WebSocket message missing :type:" data)))
+                        (js/console.warn "WebSocket received non-object message:" parsed))))
                   (catch js/Error e
                     (js/console.error "WebSocket message error:" e)))))
 
@@ -95,16 +127,18 @@
               (fn [event]
                 (js/console.log "WebSocket connection closed")
                 (reset! ws-connection nil)
-                ;; Attempt reconnection
-                (when (< @reconnect-attempts max-reconnect-attempts)
+                ;; Attempt reconnection if we were previously connected
+                (when (and (> @reconnect-attempts 0)
+                           (< @reconnect-attempts max-reconnect-attempts))
                   (swap! reconnect-attempts inc)
-                  (js/console.log "Attempting reconnect..." @reconnect-attempts "/" max-reconnect-attempts)
+                  (js/console.log "WebSocket reconnect attempt" @reconnect-attempts "/" max-reconnect-attempts)
                   (reset! reconnect-timeout
                           (js/setTimeout connect! reconnect-delay-ms)))))
 
         (set! (.-onerror ws)
               (fn [error]
-                (js/console.error "WebSocket error:" error)))
+                ;; Only log as warning - backend may not be running
+                (js/console.warn "WebSocket connection failed (backend may not be running)")))
 
         (reset! ws-connection ws))
       (catch js/Error e

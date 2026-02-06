@@ -2,8 +2,8 @@
   "Fulcro application configuration"
   (:require
    [com.fulcrologic.fulcro.application :as app]
+   [com.fulcrologic.fulcro.data-fetch :as df]
    [com.fulcrologic.fulcro.networking.http-remote :as http]
-   [com.fulcrologic.fulcro.algorithms.merge :as merge]
    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
@@ -14,8 +14,6 @@
   (app/fulcro-app
    {:remotes
     {:remote (http/fulcro-http-remote {:url "/api/eql"})}
-
-    :optimized-render! app/optimized-render!
 
     :global-error-action
     (fn [env error]
@@ -28,6 +26,8 @@
 (defn init-websocket!
   "Initialize WebSocket connection"
   []
+  ;; Pass the state atom to websocket namespace for data merging
+  (ws/set-app-state-atom! (::app/state-atom app))
   (ws/init!))
 
 (defn destroy-websocket!
@@ -42,11 +42,11 @@
 (defn merge!
   "Merge data into the app state"
   [data]
-  (merge/merge! app data))
+  (swap! (::app/state-atom app) merge data))
 
 (defn load!
   "Load data via EQL query"
   ([component]
-   (app/load! app component {}))
+   (df/load! app component {}))
   ([component params]
-   (app/load! app component params)))
+   (df/load! app component params)))

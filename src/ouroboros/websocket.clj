@@ -98,19 +98,28 @@
 ;; ============================================================================
 
 (defn websocket-handler
-  "WebSocket handler factory"
+  "WebSocket handler factory
+
+   Uses http-kit's with-channel. If the request is a WebSocket upgrade,
+   http-kit handles it. Otherwise, returns an error."
   [request]
   (httpkit/with-channel request channel
-    (let [id (add-connection! channel)]
-      (httpkit/on-close channel (fn [status]
-                                  (remove-connection! id)))
-      (httpkit/on-receive channel (fn [message]
-                                    (handle-message id message)))
-      ;; Send initial connection acknowledgment
-      (httpkit/send! channel (json/generate-string
-                              {:type :connected
-                               :client-id id
-                               :timestamp (System/currentTimeMillis)})))))
+    ;; channel is only non-nil for WebSocket requests
+    (if channel
+      (let [id (add-connection! channel)]
+        (httpkit/on-close channel (fn [status]
+                                    (remove-connection! id)))
+        (httpkit/on-receive channel (fn [message]
+                                      (handle-message id message)))
+        ;; Send initial connection acknowledgment
+        (httpkit/send! channel (json/generate-string
+                                {:type :connected
+                                 :client-id id
+                                 :timestamp (System/currentTimeMillis)})))
+      ;; Not a WebSocket request
+      {:status 400
+       :headers {"Content-Type" "text/plain"}
+       :body "Not a WebSocket request"})))
 
 ;; ============================================================================
 ;; Telemetry Integration

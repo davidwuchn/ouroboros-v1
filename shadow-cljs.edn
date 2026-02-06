@@ -2,7 +2,9 @@
 {:deps {:aliases [:frontend]}
 
  ;; Development HTTP server serves static files
- :dev-http {8080 "resources/public"}
+ ;; Proxy /api requests to backend on port 8080
+ :dev-http {8081 {:root "resources/public"
+                  :proxy-url "http://localhost:8080"}}
 
  :builds
  {:dashboard

@@ -7,7 +7,7 @@
    - :knowledge/content - file contents
    - :knowledge/project - project structure"
   (:require
-    [babashka.fs :as fs]
+    [ouroboros.fs :as fs]
     [clojure.string :as str]
     [com.wsscode.pathom3.connect.operation :as pco]
     [ouroboros.history :as history]

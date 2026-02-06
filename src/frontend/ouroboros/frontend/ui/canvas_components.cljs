@@ -51,7 +51,7 @@
   [this {:item/keys [id content color section position] :as props}]
   {:query [:item/id :item/content :item/color :item/section :item/position]
    :ident :item/id}
-  (let [is-editing? (comp/get-state this :editing? false)
+  (let [is-editing? (or (comp/get-state this :editing?) false)
         edit-content (or (comp/get-state this :edit-content) content)]
     (dom/div
      {:className (str "sticky-note sticky-note-" (or color "yellow"))
@@ -86,11 +86,11 @@
                                                  {:item-id id
                                                   :updates {:item/content edit-content}})])
                           (comp/set-state! this {:editing? false}))))})
-       (dom/div
-        {:className "sticky-note-content"
-         :onClick #(comp/set-state! this {:editing? true}
-                                    :edit-content content)}
-        (or content "Click to edit...")))
+        (dom/div
+         {:className "sticky-note-content"
+          :onClick #(comp/set-state! this {:editing? true
+                                           :edit-content content})}
+         (or content "Click to edit...")))
       ;; Actions
      (dom/div :.sticky-note-actions
               (dom/button
@@ -339,8 +339,8 @@
                           (dom/div :.canvas-box.canvas-revenue-streams
                                    (ui-canvas-section (comp/computed (assoc revenue
                                                                             :section/items (filter #(= (:item/section %) :revenue-streams) items)
-                                                                            :section/editable? true
-                                                                            {:on-add-item on-item-add}))))))))))
+                                                                            :section/editable? true)
+                                                                     {:on-add-item on-item-add})))))))))
 
                                                                      ;; ============================================================================
 ;; Connection Lines (SVG)

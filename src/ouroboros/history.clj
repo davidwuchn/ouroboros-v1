@@ -8,7 +8,7 @@
    - :git/branches - branch list
    - :git/status - working tree status"
   (:require
-   [babashka.process :refer [shell]]
+   [clojure.java.shell :refer [sh]]
    [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.resolver-registry :as registry]))
@@ -20,7 +20,7 @@
 (defn- git
   "Run git command, return trimmed output"
   [& args]
-  (-> (apply shell {:out :string :err :string} "git" args)
+  (-> (apply sh "git" args)
       :out
       str/trim))
 

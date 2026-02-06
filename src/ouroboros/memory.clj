@@ -9,7 +9,7 @@
   (:require
    [clojure.edn :as edn]
    [clojure.string :as str]
-   [babashka.fs :as fs]
+   [ouroboros.fs :as fs]
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.engine :as engine]
    [ouroboros.resolver-registry :as registry]))

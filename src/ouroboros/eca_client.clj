@@ -34,12 +34,13 @@
    (eca/chat-prompt \"Hello!\")
    (eca/stop!)"
   (:require
-   [babashka.process :as sh]
    [cheshire.core :as json]
    [clojure.string :as str]
+   [ouroboros.fs :as fs]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.resolver-registry :as registry])
-  (:import [java.io BufferedReader PrintWriter InputStreamReader]))
+  (:import [java.io BufferedReader PrintWriter InputStreamReader]
+           [java.lang ProcessBuilder]))
 
 ;; ============================================================================
 ;; State
@@ -97,8 +98,8 @@
   "Default ECA binary location"
   (cond
     (System/getenv "ECA_PATH") (System/getenv "ECA_PATH")
-    (babashka.fs/exists? "/usr/local/bin/eca") "/usr/local/bin/eca"
-    (babashka.fs/exists? (str (System/getProperty "user.home") "/.local/bin/eca"))
+    (fs/exists? "/usr/local/bin/eca") "/usr/local/bin/eca"
+    (fs/exists? (str (System/getProperty "user.home") "/.local/bin/eca"))
     (str (System/getProperty "user.home") "/.local/bin/eca")
     :else "eca"))
 
@@ -244,15 +245,13 @@
    (println "◈ Starting ECA client...")
    (println "  ECA path:" eca-path)
 
-   (when-not (babashka.fs/exists? eca-path)
+   (when-not (fs/exists? eca-path)
      (println "⚠️  ECA not found at:" eca-path)
      (println "   Download from: https://github.com/editor-code-assistant/eca/releases")
      (throw (ex-info "ECA binary not found" {:path eca-path})))
 
    (try
-     (let [proc (sh/process [eca-path "server"]
-                            {:out :pipe
-                             :err :pipe})
+     (let [proc (.start (ProcessBuilder. [eca-path "server"]))
            stdin-writer (PrintWriter. (.getOutputStream proc) true)
            stdout-reader (BufferedReader. (InputStreamReader. (.getInputStream proc)))]
 

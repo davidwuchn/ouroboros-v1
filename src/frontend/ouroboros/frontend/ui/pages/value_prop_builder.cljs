@@ -81,10 +81,12 @@
            :variant :primary
            :disabled (empty? (str/trim response))}
           "Submit")
-        (ui/button
-          {:on-click #(on-submit "skip")
-           :variant :secondary}
-          "Skip")))))
+       (ui/button
+         {:on-click #(on-submit "skip")
+          :variant :secondary}
+         "Skip")))))
+
+(def ui-value-prop-input (comp/factory ValuePropInput))
 
 ;; ============================================================================
 ;; Main Builder Page
@@ -152,7 +154,7 @@
             ;; Current Input
             (when prompt
               (ui/card {:title (str "Section " (inc (count completed-sections)) "/" total-sections)}
-                (value-prop-input
+                (ui-value-prop-input
                   {:prompt prompt
                    :hint hint
                    :on-submit (fn [response]
@@ -160,7 +162,7 @@
                                                         {:session-id (:session/id session-data)
                                                          :section-key (keyword (str "section-" current-section))
                                                          :response response})]))})))
-            
+
             ;; Completed Sections Summary
             (when (seq completed-sections)
               (ui/card {:title "Completed Sections"}

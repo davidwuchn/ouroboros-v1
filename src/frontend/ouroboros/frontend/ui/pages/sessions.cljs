@@ -14,8 +14,7 @@
 
 (m/defmutation handle-load-error [{:keys [page-id error-message]}]
   (action [{:keys [state]}]
-          (swap! state assoc-in [:page/error page-id] error-message))
-  (remote [env] true))
+          (swap! state assoc-in [:page/error page-id] error-message)))
 
 (m/defmutation clear-page-error [{:keys [page-id]}]
   (action [{:keys [state]}]
@@ -130,7 +129,7 @@
   {:query [{:chat/sessions (comp/get-query ChatSession)}
            {:chat/adapters (comp/get-query ChatAdapter)}
            [df/marker-table :sessions]
-           {:page/error (comp/get-query ui/ErrorDisplay)}]
+           :page/error]
    :ident (fn [] [:page/id :sessions])
    :route-segment ["sessions"]
    :will-enter (fn [app route-params]
@@ -148,15 +147,16 @@
         error-msg (get-in props [:page/error :sessions])]
     (cond
       error-msg
-      (ui/error-state
-       {:message error-msg
-        :on-retry #(do
-                     (comp/transact! this `[(clear-page-error {:page-id :sessions})])
-                     (df/load! this [:page/id :sessions] SessionsPage
-                               {:marker :sessions
-                                :fallback `handle-load-error
-                                :fallback-params {:page-id :sessions
-                                                  :error-message "Failed to load sessions data"}}))})
+      (let [retry-handler #(do
+                        (comp/transact! this `[(clear-page-error {:page-id :sessions})])
+                        (df/load! this [:page/id :sessions] SessionsPage
+                                  {:marker :sessions
+                                   :fallback `handle-load-error
+                                   :fallback-params {:page-id :sessions
+                                                     :error-message "Failed to load sessions data"}}))]
+        (ui/error-state
+         {:message error-msg
+          :on-retry retry-handler}))
 
       loading?
       (sessions-loading)

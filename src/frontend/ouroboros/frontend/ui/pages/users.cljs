@@ -14,8 +14,7 @@
 
 (m/defmutation handle-load-error [{:keys [page-id error-message]}]
   (action [{:keys [state]}]
-          (swap! state assoc-in [:page/error page-id] error-message))
-  (remote [env] true))
+          (swap! state assoc-in [:page/error page-id] error-message)))
 
 (m/defmutation clear-page-error [{:keys [page-id]}]
   (action [{:keys [state]}]
@@ -120,7 +119,7 @@
            :auth/admin-count
            {:auth/users (comp/get-query User)}
            [df/marker-table :users]
-           {:page/error (comp/get-query ui/ErrorDisplay)}]
+           :page/error]
    :ident (fn [] [:page/id :users])
    :route-segment ["users"]
    :will-enter (fn [app route-params]
@@ -138,15 +137,16 @@
         error-msg (get-in props [:page/error :users])]
     (cond
       error-msg
-      (ui/error-state
-       {:message error-msg
-        :on-retry #(do
-                     (comp/transact! this `[(clear-page-error {:page-id :users})])
-                     (df/load! this [:page/id :users] UsersPage
-                               {:marker :users
-                                :fallback `handle-load-error
-                                :fallback-params {:page-id :users
-                                                  :error-message "Failed to load users data"}}))})
+      (let [retry-handler #(do
+                             (comp/transact! this `[(clear-page-error {:page-id :users})])
+                             (df/load! this [:page/id :users] UsersPage
+                                       {:marker :users
+                                        :fallback `handle-load-error
+                                        :fallback-params {:page-id :users
+                                                          :error-message "Failed to load users data"}}))]
+        (ui/error-state
+         {:message error-msg
+          :on-retry retry-handler}))
 
       loading?
       (users-loading)

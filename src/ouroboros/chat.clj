@@ -62,6 +62,11 @@
   (swap! chat-sessions assoc-in [chat-id :history] [])
   {:status :cleared})
 
+(defn get-session-count
+  "Get the number of active chat sessions"
+  []
+  (count @chat-sessions))
+
 ;; ============================================================================
 ;; Tool Filtering for Chat Safety
 ;; ============================================================================
@@ -117,27 +122,27 @@
              (let [project-name (str/join " " project-parts)]
                (case subcmd
                  "canvas" (if (str/blank? project-name)
-                           (send-message! adapter chat-id "⚠️ Usage: /build canvas <project-name>")
-                           (let [canvas-session (canvas/start-canvas-session! chat-id project-name)
-                                 prompt (canvas/get-next-prompt canvas-session)]
+                            (send-message! adapter chat-id "⚠️ Usage: /build canvas <project-name>")
+                            (let [canvas-session (canvas/start-canvas-session! chat-id project-name)
+                                  prompt (canvas/get-next-prompt canvas-session)]
                              ;; Enter canvas mode
-                             (swap! chat-sessions assoc-in [chat-id :context :canvas/session] (:session prompt))
-                             (swap! chat-sessions assoc-in [chat-id :context :canvas/mode] true)
-                             (send-markdown! adapter chat-id (:message prompt))))
-                 "empathy" (if (str/blank? project-name)
-                            (send-message! adapter chat-id "⚠️ Usage: /build empathy <persona-name>")
-                            (let [empathy-session (empathy/start-empathy-session! chat-id project-name)
-                                  prompt (empathy/get-next-prompt empathy-session)]
-                              (swap! chat-sessions assoc-in [chat-id :context :empathy/session] (:session prompt))
-                              (swap! chat-sessions assoc-in [chat-id :context :empathy/mode] true)
+                              (swap! chat-sessions assoc-in [chat-id :context :canvas/session] (:session prompt))
+                              (swap! chat-sessions assoc-in [chat-id :context :canvas/mode] true)
                               (send-markdown! adapter chat-id (:message prompt))))
+                 "empathy" (if (str/blank? project-name)
+                             (send-message! adapter chat-id "⚠️ Usage: /build empathy <persona-name>")
+                             (let [empathy-session (empathy/start-empathy-session! chat-id project-name)
+                                   prompt (empathy/get-next-prompt empathy-session)]
+                               (swap! chat-sessions assoc-in [chat-id :context :empathy/session] (:session prompt))
+                               (swap! chat-sessions assoc-in [chat-id :context :empathy/mode] true)
+                               (send-markdown! adapter chat-id (:message prompt))))
                  "valueprop" (if (str/blank? project-name)
-                              (send-message! adapter chat-id "⚠️ Usage: /build valueprop <project-name>")
-                              (let [vp-session (vp/start-vp-session! chat-id project-name)
-                                    prompt (vp/get-next-prompt vp-session)]
-                                (swap! chat-sessions assoc-in [chat-id :context :vp/session] (:session prompt))
-                                (swap! chat-sessions assoc-in [chat-id :context :vp/mode] true)
-                                (send-markdown! adapter chat-id (:message prompt))))
+                               (send-message! adapter chat-id "⚠️ Usage: /build valueprop <project-name>")
+                               (let [vp-session (vp/start-vp-session! chat-id project-name)
+                                     prompt (vp/get-next-prompt vp-session)]
+                                 (swap! chat-sessions assoc-in [chat-id :context :vp/session] (:session prompt))
+                                 (swap! chat-sessions assoc-in [chat-id :context :vp/mode] true)
+                                 (send-markdown! adapter chat-id (:message prompt))))
                  "mvp" (if (str/blank? project-name)
                          (send-message! adapter chat-id "⚠️ Usage: /build mvp <project-name>")
                          (let [mvp-session (mvp/start-mvp-session! chat-id project-name)
@@ -152,34 +157,34 @@
                (if (str/blank? insight)
                  (send-message! adapter chat-id "⚠️ Usage: /learn <topic> <insight>")
                  (do (learning/save-insight! chat-id
-                       {:title (str "Learning: " topic)
-                        :insights [insight]
-                        :pattern (str "user-learning-" (str/replace topic #"\s+" "-"))
-                        :category "user-insights"
-                        :tags #{topic "learning"}})
+                                             {:title (str "Learning: " topic)
+                                              :insights [insight]
+                                              :pattern (str "user-learning-" (str/replace topic #"\s+" "-"))
+                                              :category "user-insights"
+                                              :tags #{topic "learning"}})
                      (send-message! adapter chat-id (str "✓ Learning saved: " topic)))))
              (send-message! adapter chat-id "*Learning Commands*\n\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary"))
     :recall (if-not (str/blank? args)
               (let [learnings (learning/recall-by-pattern chat-id args)]
                 (if (seq learnings)
                   (send-markdown! adapter chat-id
-                    (str "*📚 Learnings matching \"" args "\"*\n\n"
-                         (str/join "\n---\n"
-                           (map (fn [l]
-                                  (str "**" (:learning/title l) "**\n"
-                                       (str/join "\n" (map #(str "• " %) (:learning/insights l)))))
-                                (take 5 learnings)))))
+                                  (str "*📚 Learnings matching \"" args "\"*\n\n"
+                                       (str/join "\n---\n"
+                                                 (map (fn [l]
+                                                        (str "**" (:learning/title l) "**\n"
+                                                             (str/join "\n" (map #(str "• " %) (:learning/insights l)))))
+                                                      (take 5 learnings)))))
                   (send-message! adapter chat-id "No learnings found for that pattern.")))
               (send-message! adapter chat-id "⚠️ Usage: /recall <pattern>"))
     :wisdom (let [stats (learning/get-user-stats chat-id)]
               (send-markdown! adapter chat-id
-                (str "*🧠 Your Wisdom Summary*\n\n"
-                     "Total learnings: " (:total-learnings stats) "\n"
-                     "Applications: " (:total-applications stats) "\n"
-                     "Avg confidence: " (:average-confidence stats) "/5\n\n"
-                     "Recent learnings:\n"
-                     (str/join "\n" (map #(str "• " %) (:recent-learnings stats))) "\n\n"
-                     "Use /learn to save insights, /recall to find them.")))
+                              (str "*🧠 Your Wisdom Summary*\n\n"
+                                   "Total learnings: " (:total-learnings stats) "\n"
+                                   "Applications: " (:total-applications stats) "\n"
+                                   "Avg confidence: " (:average-confidence stats) "/5\n\n"
+                                   "Recent learnings:\n"
+                                   (str/join "\n" (map #(str "• " %) (:recent-learnings stats))) "\n\n"
+                                   "Use /learn to save insights, /recall to find them.")))
     :confirm (if-let [[prefix id] (str/split (or args "") #"\s+" 2)]
                (if (= prefix "eca-")
                  ;; Handle ECA approval
@@ -282,20 +287,20 @@
         (let [result (canvas/process-response! canvas-session text)]
           ;; Update session with new canvas state
           (swap! chat-sessions assoc-in [chat-id :context :canvas/session] (:session result))
-          
+
           (if (:complete? result)
             (do
               ;; Canvas complete - show summary and exit canvas mode
               (swap! chat-sessions update-in [chat-id :context] dissoc :canvas/session :canvas/mode)
               (let [summary (canvas/get-canvas-summary (:session result))]
                 (send-markdown! adapter chat-id
-                  (str (:message result) "\n\n"
-                       "📊 *Canvas Summary*\n"
-                       "Project: " (:canvas/project-name summary) "\n"
-                       "Completed: " (:canvas/completed-blocks summary) "/" (:canvas/total-blocks summary) " blocks\n"
-                       "Canvas ID: " (:canvas/id summary) "\n\n"
-                       "Each block has been saved as a learning insight.\n"
-                       "Use /recall lean-canvas to review later."))))
+                                (str (:message result) "\n\n"
+                                     "📊 *Canvas Summary*\n"
+                                     "Project: " (:canvas/project-name summary) "\n"
+                                     "Completed: " (:canvas/completed-blocks summary) "/" (:canvas/total-blocks summary) " blocks\n"
+                                     "Canvas ID: " (:canvas/id summary) "\n\n"
+                                     "Each block has been saved as a learning insight.\n"
+                                     "Use /recall lean-canvas to review later."))))
             ;; Continue with next prompt
             (send-markdown! adapter chat-id (:message result)))))
       ;; No canvas session - treat as normal message
@@ -321,21 +326,21 @@
         (let [result (empathy/process-response! empathy-session text)]
           ;; Update session with new empathy state
           (swap! chat-sessions assoc-in [chat-id :context :empathy/session] (:session result))
-          
+
           (if (:complete? result)
             (do
               ;; Empathy map complete - show summary and exit mode
               (swap! chat-sessions update-in [chat-id :context] dissoc :empathy/session :empathy/mode)
               (let [summary (empathy/get-empathy-summary (:session result))]
                 (send-markdown! adapter chat-id
-                  (str (:message result) "\n\n"
-                       "🧠 *Empathy Map Summary*\n"
-                       "Persona: " (:empathy/persona-name summary) "\n"
-                       "Completed: " (:empathy/completed-sections summary) "/" (:empathy/total-sections summary) " sections\n"
-                       "Empathy ID: " (:empathy/id summary) "\n\n"
-                       "Each section has been saved as a learning insight.\n"
-                       "Use /recall empathy- to review later.\n\n"
-                       "Next step: Use /build valueprop to create a Value Proposition Canvas."))))
+                                (str (:message result) "\n\n"
+                                     "🧠 *Empathy Map Summary*\n"
+                                     "Persona: " (:empathy/persona-name summary) "\n"
+                                     "Completed: " (:empathy/completed-sections summary) "/" (:empathy/total-sections summary) " sections\n"
+                                     "Empathy ID: " (:empathy/id summary) "\n\n"
+                                     "Each section has been saved as a learning insight.\n"
+                                     "Use /recall empathy- to review later.\n\n"
+                                     "Next step: Use /build valueprop to create a Value Proposition Canvas."))))
             ;; Continue with next prompt
             (send-markdown! adapter chat-id (:message result)))))
       ;; No empathy session - treat as normal message
@@ -357,21 +362,21 @@
         (let [result (vp/process-response! vp-session text)]
           ;; Update session with new VP state
           (swap! chat-sessions assoc-in [chat-id :context :vp/session] (:session result))
-          
+
           (if (:complete? result)
             (do
               ;; VP complete - show summary and exit mode
               (swap! chat-sessions update-in [chat-id :context] dissoc :vp/session :vp/mode)
               (let [summary (vp/get-vp-summary (:session result))]
                 (send-markdown! adapter chat-id
-                  (str (:message result) "\n\n"
-                       "🎯 *Value Proposition Summary*\n"
-                       "Project: " (:vp/project-name summary) "\n"
-                       "Completed: " (:vp/completed-sections summary) "/" (:vp/total-sections summary) " sections\n"
-                       "VP ID: " (:vp/id summary) "\n\n"
-                       "Each section has been saved as a learning insight.\n"
-                       "Use /recall value-prop- to review later.\n\n"
-                       "Next step: Use /build mvp to create an MVP plan."))))
+                                (str (:message result) "\n\n"
+                                     "🎯 *Value Proposition Summary*\n"
+                                     "Project: " (:vp/project-name summary) "\n"
+                                     "Completed: " (:vp/completed-sections summary) "/" (:vp/total-sections summary) " sections\n"
+                                     "VP ID: " (:vp/id summary) "\n\n"
+                                     "Each section has been saved as a learning insight.\n"
+                                     "Use /recall value-prop- to review later.\n\n"
+                                     "Next step: Use /build mvp to create an MVP plan."))))
             ;; Continue with next prompt
             (send-markdown! adapter chat-id (:message result)))))
       ;; No VP session - treat as normal message
@@ -393,21 +398,21 @@
         (let [result (mvp/process-response! mvp-session text)]
           ;; Update session with new MVP state
           (swap! chat-sessions assoc-in [chat-id :context :mvp/session] (:session result))
-          
+
           (if (:complete? result)
             (do
               ;; MVP complete - show summary and exit mode
               (swap! chat-sessions update-in [chat-id :context] dissoc :mvp/session :mvp/mode)
               (let [summary (mvp/get-mvp-summary (:session result))]
                 (send-markdown! adapter chat-id
-                  (str (:message result) "\n\n"
-                       "🚀 *MVP Planning Summary*\n"
-                       "Project: " (:mvp/project-name summary) "\n"
-                       "Completed: " (:mvp/completed-sections summary) "/" (:mvp/total-sections summary) " sections\n"
-                       "MVP ID: " (:mvp/id summary) "\n\n"
-                       "Each section has been saved as a learning insight.\n"
-                       "Use /recall mvp- to review later.\n\n"
-                       "Next step: Use /build canvas to create a Lean Canvas."))))
+                                (str (:message result) "\n\n"
+                                     "🚀 *MVP Planning Summary*\n"
+                                     "Project: " (:mvp/project-name summary) "\n"
+                                     "Completed: " (:mvp/completed-sections summary) "/" (:mvp/total-sections summary) " sections\n"
+                                     "MVP ID: " (:mvp/id summary) "\n\n"
+                                     "Each section has been saved as a learning insight.\n"
+                                     "Use /recall mvp- to review later.\n\n"
+                                     "Next step: Use /build canvas to create a Lean Canvas."))))
             ;; Continue with next prompt
             (send-markdown! adapter chat-id (:message result)))))
       ;; No MVP session - treat as normal message
@@ -416,7 +421,7 @@
 (defn make-message-handler [adapter]
   (fn [{:keys [chat-id user-id user-name text] :as message}]
     (telemetry/emit! {:event :chat/receive :platform (:message/platform message)})
-    
+
     ;; Register this session for ECA approval forwarding
     ;; This ensures approval requests can be sent to active chat sessions
     (try
@@ -424,7 +429,7 @@
       (catch Exception _
         ;; Silently ignore if approval bridge not available
         nil))
-    
+
     ;; Check if session is in any builder mode
     (let [session (get-session chat-id)
           canvas-mode? (get-in session [:context :canvas/mode])
@@ -495,7 +500,7 @@
     (let [handler (make-message-handler adapter)]
       ;; Wire ECA approval bridge to this adapter
       (setup-eca-approval-bridge! adapter)
-      
+
       (start! adapter handler)
       (println (str "✓ Chat adapter started: " platform)))))
 

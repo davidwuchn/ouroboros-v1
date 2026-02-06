@@ -141,7 +141,7 @@
            :telemetry/error-rate
            {:telemetry/events (comp/get-query TelemetryEvent)}
            [df/marker-table :telemetry]
-           {:page/error (comp/get-query ui/ErrorDisplay)}]
+           :page/error]
    :ident (fn [] [:page/id :telemetry])
    :route-segment ["telemetry"]
    :will-enter (fn [app route-params]
@@ -174,15 +174,16 @@
         ws-connected? (ws/connected?)]
     (cond
       error-msg
-      (ui/error-state
-       {:message error-msg
-        :on-retry #(do
-                     (comp/transact! this `[(clear-page-error {:page-id :telemetry})])
-                     (df/load! this [:page/id :telemetry] TelemetryPage
-                               {:marker :telemetry
-                                :fallback `handle-load-error
-                                :fallback-params {:page-id :telemetry
-                                                  :error-message "Failed to load telemetry data"}}))})
+      (let [retry-handler #(do
+                             (comp/transact! this `[(clear-page-error {:page-id :telemetry})])
+                             (df/load! this [:page/id :telemetry] TelemetryPage
+                                       {:marker :telemetry
+                                        :fallback `handle-load-error
+                                        :fallback-params {:page-id :telemetry
+                                                          :error-message "Failed to load telemetry data"}}))]
+        (ui/error-state
+         {:message error-msg
+          :on-retry retry-handler}))
 
       loading?
       (telemetry-loading)
