@@ -48,10 +48,9 @@
 
 (defn card-skeleton [{:keys [title metric-count]}]
    (ui/card {:key (str "skeleton-card-" title) :title title}
-            (dom/div :.metrics-grid {:key (str "skeleton-grid-" title)}
-                     (map-indexed (fn [i _]
-                                      (metric-skeleton {:key (str "skeleton-" title "-" i)}))
-                                   (range metric-count)))))
+            (apply dom/div {:key (str "skeleton-grid-" title) :className "metrics-grid"}
+                   (for [i (range metric-count)]
+                     (metric-skeleton {:key (str "skeleton-" title "-" i)})))))
 
 (defn dashboard-loading []
   (dom/div {:key "dashboard-loading"}

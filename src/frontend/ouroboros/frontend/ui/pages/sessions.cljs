@@ -42,25 +42,24 @@
                                (dom/div {:className "skeleton-text" :style {:width "80px" :fontWeight "bold"}})
                                (dom/div {:className "skeleton-text" :style {:width "150px" :fontWeight "bold"}}))
          ;; Rows
-                      (map-indexed (fn [i _]
-                                     (dom/div {:key (str "skeleton-row-" i) :className "skeleton-row"
-                                               :style {:display "flex"
-                                                       :gap "1rem"
-                                                       :padding "0.75rem 0"
-                                                       :borderBottom "1px solid var(--color-border)"}}
-                                              (dom/div {:className "skeleton-text" :style {:width "200px"}})
-                                              (dom/div {:className "skeleton-text" :style {:width "100px"}})
-                                              (dom/div {:className "skeleton-text" :style {:width "80px"}})
-                                              (dom/div {:className "skeleton-text" :style {:width "150px"}}))))
-                                    (range 3))))
+                      (apply dom/div
+                             (for [i (range 3)]
+                               (dom/div {:key (str "skeleton-row-" i) :className "skeleton-row"
+                                         :style {:display "flex"
+                                                 :gap "1rem"
+                                                 :padding "0.75rem 0"
+                                                 :borderBottom "1px solid var(--color-border)"}}
+                                        (dom/div {:className "skeleton-text" :style {:width "200px"}})
+                                        (dom/div {:className "skeleton-text" :style {:width "100px"}})
+                                        (dom/div {:className "skeleton-text" :style {:width "80px"}})
+                                        (dom/div {:className "skeleton-text" :style {:width "150px"}}))))))
       ;; Adapters skeleton
     (ui/card {:key "adapters-loading" :title "Chat Adapters"}
-             (dom/div {:className "flex flex-col gap-2"}
-                      (map-indexed (fn [i _]
-                                     (dom/div {:key (str "adapter-skeleton-" i) :className "flex items-center gap-2"}
-                                              (dom/div {:className "skeleton-text" :style {:width "12px" :height "12px" :borderRadius "50%"}})
-                                              (dom/div {:className "skeleton-text" :style {:width "120px"}}))))
-                                    (range 3))))
+             (apply dom/div {:className "flex flex-col gap-2"}
+                    (for [i (range 3)]
+                      (dom/div {:key (str "adapter-skeleton-" i) :className "flex items-center gap-2"}
+                               (dom/div {:className "skeleton-text" :style {:width "12px" :height "12px" :borderRadius "50%"}})
+                               (dom/div {:className "skeleton-text" :style {:width "120px"}})))))))
 
 ;; ============================================================================
 ;; Chat Entities
@@ -109,16 +108,15 @@
 (defn adapter-list
   "List of chat adapters"
   [adapters]
-  (dom/div
-   (map (fn [adapter]
-          (dom/div {:key (str (:adapter/platform adapter))
-                    :className "flex items-center gap-2 mb-2"}
-                   (ui/status-badge
-                    {:ok? (:adapter/running? adapter)
-                     :text (str (name (:adapter/platform adapter))
-                                " "
-                                (if (:adapter/running? adapter) "Running" "Stopped"))})))
-        adapters)))
+  (apply dom/div
+   (for [adapter adapters]
+     (dom/div {:key (str (:adapter/platform adapter))
+               :className "flex items-center gap-2 mb-2"}
+              (ui/status-badge
+               {:ok? (:adapter/running? adapter)
+                :text (str (name (:adapter/platform adapter))
+                           " "
+                           (if (:adapter/running? adapter) "Running" "Stopped"))})))))
 
 ;; ============================================================================
 ;; Main Sessions Page
@@ -165,17 +163,19 @@
 
       :else
       (dom/div
-       (dom/h1 "Chat Sessions")
+       (dom/h1 {:key "header"} "Chat Sessions")
 
         ;; Active Sessions
-       (ui/card {:title (str "Active Sessions (" (count sessions) ")")}
-                (if (seq sessions)
-                  (session-table sessions)
-                  (ui/empty-state
-                   {:icon "Chat"
-                    :message "No active chat sessions"})))
+       (dom/div {:key "sessions-table"}
+         (ui/card {:title (str "Active Sessions (" (count sessions) ")")}
+                  (if (seq sessions)
+                    (session-table sessions)
+                    (ui/empty-state
+                     {:icon "Chat"
+                      :message "No active chat sessions"}))))
 
         ;; Adapters
-       (when (seq adapters)
-         (ui/card {:title "Chat Adapters"}
-                  (adapter-list adapters)))))))
+       (dom/div {:key "adapters"}
+         (when (seq adapters)
+           (ui/card {:title "Chat Adapters"}
+                    (adapter-list adapters))))))))

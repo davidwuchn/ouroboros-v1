@@ -168,7 +168,8 @@
       (if loading?
         (dom/div :.loading "Loading projects...")
         (if (seq projects)
-          (dom/div :.projects-grid
-            (map #(when (:project/id %) (ui-project-card %)) projects))
+          (apply dom/div {:className "projects-grid"}
+            (for [p projects :when (:project/id p)]
+              (ui-project-card p)))
           (ui/empty-state {:icon "📁"
                            :message "No projects yet. Create your first project above!"}))))))

@@ -28,13 +28,13 @@
   (dom/div
    (dom/h1 "Users")
     ;; Stats skeleton
-   (dom/div {:className "metrics-grid mb-3"}
-            (repeat 2
-                    (dom/div :.metric-card
-                             (dom/div {:className "skeleton-text"
-                                       :style {:width "60px" :height "2.5rem" :margin "0 auto"}})
-                             (dom/div {:className "skeleton-text"
-                                       :style {:width "100px" :margin "0.5rem auto 0"}}))))
+   (apply dom/div {:className "metrics-grid mb-3"}
+          (for [i (range 2)]
+            (dom/div {:key (str "skeleton-metric-" i) :className "metric-card"}
+                     (dom/div {:className "skeleton-text"
+                               :style {:width "60px" :height "2.5rem" :margin "0 auto"}})
+                     (dom/div {:className "skeleton-text"
+                               :style {:width "100px" :margin "0.5rem auto 0"}}))))
     ;; Table skeleton
    (ui/card {:title "Registered Users"}
             (dom/div {:className "skeleton-table"}
@@ -51,17 +51,19 @@
                               (dom/div {:className "skeleton-text" :style {:width "120px" :fontWeight "bold"}})
                               (dom/div {:className "skeleton-text" :style {:width "120px" :fontWeight "bold"}}))
         ;; Rows
-                     (repeat 5
-                             (dom/div {:className "skeleton-row"
-                                       :style {:display "flex"
-                                               :gap "1rem"
-                                               :padding "0.75rem 0"
-                                               :borderBottom "1px solid var(--color-border)"}}
-                                      (dom/div {:className "skeleton-text" :style {:width "100px"}})
-                                      (dom/div {:className "skeleton-text" :style {:width "80px"}})
-                                      (dom/div {:className "skeleton-text" :style {:width "60px"}})
-                                      (dom/div {:className "skeleton-text" :style {:width "120px"}})
-                                      (dom/div {:className "skeleton-text" :style {:width "120px"}})))))))
+                     (apply dom/div
+                            (for [i (range 5)]
+                              (dom/div {:key (str "skeleton-row-" i)
+                                        :className "skeleton-row"
+                                        :style {:display "flex"
+                                                :gap "1rem"
+                                                :padding "0.75rem 0"
+                                                :borderBottom "1px solid var(--color-border)"}}
+                                       (dom/div {:className "skeleton-text" :style {:width "100px"}})
+                                       (dom/div {:className "skeleton-text" :style {:width "80px"}})
+                                       (dom/div {:className "skeleton-text" :style {:width "60px"}})
+                                       (dom/div {:className "skeleton-text" :style {:width "120px"}})
+                                       (dom/div {:className "skeleton-text" :style {:width "120px"}}))))))))
 
 ;; ============================================================================
 ;; User Entity
@@ -96,7 +98,8 @@
                  {:key :created-at :label "Created"}
                  {:key :last-active :label "Last Active"}]
         rows (map (fn [u]
-                    {:name (:user/name u)
+                    {:id (or (:user/id u) (str (hash u)))
+                     :name (:user/name u)
                      :platform (name (:user/platform u))
                      :role (:user/role u)
                      :created-at (:user/created-at u)
@@ -153,21 +156,24 @@
 
       :else
       (dom/div
-       (dom/h1 "Users")
+       (dom/h1 {:key "header"} "Users")
 
         ;; Stats
-       (dom/div {:className "metrics-grid mb-3"}
-                (ui/metric-card
-                 {:value (or user-count 0)
-                  :label "Total Users"})
-                (ui/metric-card
-                 {:value (or admin-count 0)
-                  :label "Admins"}))
+       (dom/div {:key "stats" :className "metrics-grid mb-3"}
+                (dom/div {:key "total-users"}
+                  (ui/metric-card
+                   {:value (or user-count 0)
+                    :label "Total Users"}))
+                (dom/div {:key "admins"}
+                  (ui/metric-card
+                   {:value (or admin-count 0)
+                    :label "Admins"})))
 
         ;; Users Table
-       (ui/card {:title "Registered Users"}
-                (if (seq users)
-                  (user-table users)
-                  (ui/empty-state
-                   {:icon "Users"
-                    :message "No users registered yet"})))))))
+       (dom/div {:key "users-table"}
+         (ui/card {:title "Registered Users"}
+                  (if (seq users)
+                    (user-table users)
+                    (ui/empty-state
+                     {:icon "Users"
+                      :message "No users registered yet"}))))))))
