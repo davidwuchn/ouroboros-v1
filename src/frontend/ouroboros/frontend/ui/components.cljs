@@ -158,18 +158,16 @@
              (dom/table :.data-table
                         (dom/thead
                          (dom/tr
-                          (map #(dom/th {:key (:key %)} (:label %)) columns)))
+                          (for [col columns]
+                            (dom/th {:key (:key col)} (:label col)))))
                         (dom/tbody
-                         (map-indexed
-                          (fn [idx row]
-                            (dom/tr {:key idx}
-                                    (map (fn [col]
-                                           (let [key (:key col)
-                                                 value (get row key)
-                                                 formatter (:format col identity)]
-                                             (dom/td {:key key} (formatter value row))))
-                                         columns)))
-                          rows))))
+                         (for [[idx row] (map-indexed vector rows)]
+                           (dom/tr {:key (or (:id row) idx)}
+                                   (for [col columns]
+                                     (let [key (:key col)
+                                           value (get row key)
+                                           formatter (:format col identity)]
+                                       (dom/td {:key key} (formatter value row)))))))))
      (empty-state {:message (or empty-message "No data available")})))
 
 ;; ============================================================================

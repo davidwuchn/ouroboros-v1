@@ -42,27 +42,28 @@
 (defn telemetry-loading []
   (dom/div
     (dom/h1 "Telemetry")
-    (dom/div {:key "metrics-grid" :className "metrics-grid mb-3"}
-             (repeat 4
-                     (dom/div :.metric-card
-                              (dom/div {:className "skeleton-text"
-                                        :style {:width "60px" :height "2.5rem" :margin "0 auto"}})
-                              (dom/div {:className "skeleton-text"
-                                        :style {:width "100px" :margin "0.5rem auto 0"}}))))
-    (ui/card {:key "error-rate" :title "Error Rate"}
+    (dom/div {:className "metrics-grid mb-3"}
+             (for [i (range 4)]
+               (dom/div {:key (str "skeleton-metric-" i) :className "metric-card"}
+                        (dom/div {:className "skeleton-text"
+                                  :style {:width "60px" :height "2.5rem" :margin "0 auto"}})
+                        (dom/div {:className "skeleton-text"
+                                  :style {:width "100px" :margin "0.5rem auto 0"}}))))
+    (ui/card {:title "Error Rate"}
              (dom/div {:className "skeleton-text" :style {:width "80px"}}))
-    (ui/card {:key "recent-events" :title "Recent Events"}
+    (ui/card {:title "Recent Events"}
              (dom/div {:className "skeleton-table"}
-                      (repeat 5
-                              (dom/div {:className "skeleton-row"
-                                        :style {:display "flex"
-                                                :gap "1rem"
-                                                :padding "0.75rem 0"
-                                                :borderBottom "1px solid var(--color-border)"}}
-                                       (dom/div {:className "skeleton-text" :style {:width "120px"}})
-                                       (dom/div {:className "skeleton-text" :style {:width "100px"}})
-                                       (dom/div {:className "skeleton-text" :style {:width "80px"}})
-                                       (dom/div {:className "skeleton-text" :style {:width "60px"}})))))))
+                      (for [i (range 5)]
+                        (dom/div {:key (str "skeleton-row-" i)
+                                  :className "skeleton-row"
+                                  :style {:display "flex"
+                                          :gap "1rem"
+                                          :padding "0.75rem 0"
+                                          :borderBottom "1px solid var(--color-border)"}}
+                                 (dom/div {:className "skeleton-text" :style {:width "120px"}})
+                                 (dom/div {:className "skeleton-text" :style {:width "100px"}})
+                                 (dom/div {:className "skeleton-text" :style {:width "80px"}})
+                                 (dom/div {:className "skeleton-text" :style {:width "60px"}})))))))
 
 ;; ============================================================================
 ;; Event Table
@@ -71,7 +72,8 @@
 (defn event-row
   "Format an event for display"
   [event]
-  {:timestamp (:event/timestamp event)
+  {:id (or (:event/id event) (str (hash event)))
+   :timestamp (:event/timestamp event)
    :event-type (name (or (:event event) :unknown))
    :tool (:tool event)
    :duration (when-let [ms (:duration-ms event)]

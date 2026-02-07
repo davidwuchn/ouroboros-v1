@@ -111,7 +111,14 @@
                             (/ (count (filter #(false? (:success? %)) telemetry-data))
                                (count telemetry-data) 0.01)
                             0)
-     :telemetry/events (vec telemetry-data)
+     :telemetry/events (mapv (fn [evt]
+                              {:event/id (or (:event/id evt) (str (hash evt)))
+                               :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
+                               :event (:event evt)
+                               :tool (:tool evt)
+                               :duration-ms (:duration-ms evt)
+                               :success? (:success? evt)})
+                            telemetry-data)
      ;; Auth data
      :auth/user-count (:user-count auth-data 0)
      :auth/admin-count (:admin-count auth-data 0)
