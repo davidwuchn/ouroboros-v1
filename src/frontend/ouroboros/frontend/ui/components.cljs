@@ -99,7 +99,7 @@
 (defn card
    "Card container with optional title"
    [{:keys [title className actions key]} & children]
-   (dom/div {:className (str "card " className) :key key}
+   (apply dom/div {:className (str "card " className) :key key}
             (when (or title actions)
               (dom/div :.card-header
                        (when title
@@ -157,12 +157,12 @@
     (dom/div :.table-container
              (dom/table :.data-table
                         (dom/thead
-                         (dom/tr
+                         (apply dom/tr
                           (for [col columns]
                             (dom/th {:key (:key col)} (:label col)))))
-                        (dom/tbody
+                        (apply dom/tbody
                          (for [[idx row] (map-indexed vector rows)]
-                           (dom/tr {:key (or (:id row) idx)}
+                           (apply dom/tr {:key (or (:id row) idx)}
                                    (for [col columns]
                                      (let [key (:key col)
                                            value (get row key)

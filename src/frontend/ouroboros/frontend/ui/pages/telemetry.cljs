@@ -42,7 +42,7 @@
 (defn telemetry-loading []
   (dom/div
     (dom/h1 "Telemetry")
-    (dom/div {:className "metrics-grid mb-3"}
+    (apply dom/div {:className "metrics-grid mb-3"}
              (for [i (range 4)]
                (dom/div {:key (str "skeleton-metric-" i) :className "metric-card"}
                         (dom/div {:className "skeleton-text"
@@ -52,7 +52,7 @@
     (ui/card {:title "Error Rate"}
              (dom/div {:className "skeleton-text" :style {:width "80px"}}))
     (ui/card {:title "Recent Events"}
-             (dom/div {:className "skeleton-table"}
+             (apply dom/div {:className "skeleton-table"}
                       (for [i (range 5)]
                         (dom/div {:key (str "skeleton-row-" i)
                                   :className "skeleton-row"
@@ -191,43 +191,45 @@
       (telemetry-loading)
 
       :else
-      (dom/div {:key "telemetry-content"}
+      (dom/div
        (dom/div {:key "header" :className "flex items-center justify-between"}
                 (dom/h1 "Telemetry")
                 (ui/connection-status {:connected? ws-connected?}))
 
         ;; Stats Overview
        (dom/div {:key "stats-grid" :className "metrics-grid mb-3"}
-                (ui/metric-card
-                 {:key "total-events"
-                  :value (or total-events 0)
-                  :label "Total Events"})
-                (ui/metric-card
-                 {:key "tool-invocations"
-                  :value (or tool-invocations 0)
-                  :label "Tool Invocations"})
-                (ui/metric-card
-                 {:key "query-executions"
-                  :value (or query-executions 0)
-                  :label "Query Executions"})
-                (ui/metric-card
-                 {:key "errors"
-                  :value (or errors 0)
-                  :label "Errors"
-                  :className (when (> (or errors 0) 0) "text-warning")}))
+                (dom/div {:key "total-events"}
+                  (ui/metric-card
+                   {:value (or total-events 0)
+                    :label "Total Events"}))
+                (dom/div {:key "tool-invocations"}
+                  (ui/metric-card
+                   {:value (or tool-invocations 0)
+                    :label "Tool Invocations"}))
+                (dom/div {:key "query-executions"}
+                  (ui/metric-card
+                   {:value (or query-executions 0)
+                    :label "Query Executions"}))
+                (dom/div {:key "errors"}
+                  (ui/metric-card
+                   {:value (or errors 0)
+                    :label "Errors"
+                    :className (when (> (or errors 0) 0) "text-warning")})))
 
         ;; Error Rate
-       (when error-rate
-         (ui/card {:key "error-rate" :title "Error Rate"}
-                  (dom/div
-                   (str (Math/round (* 100 error-rate)) "%"))))
+       (dom/div {:key "error-rate-section"}
+         (when error-rate
+           (ui/card {:title "Error Rate"}
+                    (dom/div
+                     (str (Math/round (* 100 error-rate)) "%")))))
 
         ;; Recent Events
-       (ui/card {:key "recent-events" :title "Recent Events"
-                 :actions (when ws-connected?
-                            (dom/span {:className "live-badge"} "● LIVE"))}
-                (if (seq events)
-                  (event-table events)
-                  (ui/empty-state
-                   {:icon "Telemetry"
-                    :message "No telemetry events recorded"})))))))
+       (dom/div {:key "recent-events-section"}
+         (ui/card {:title "Recent Events"
+                   :actions (when ws-connected?
+                              (dom/span {:className "live-badge"} "● LIVE"))}
+                  (if (seq events)
+                    (event-table events)
+                    (ui/empty-state
+                     {:icon "Telemetry"
+                      :message "No telemetry events recorded"}))))))))
