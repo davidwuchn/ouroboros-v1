@@ -32,31 +32,17 @@
    "Access-Control-Allow-Methods" "GET, POST, OPTIONS"
    "Access-Control-Allow-Headers" "Content-Type, Authorization"})
 
+(defn- parse-transit
+  "Try to parse body as Transit+JSON. Returns nil if parsing fails."
+  [body]
+  (try
+    (let [in (ByteArrayInputStream. (.getBytes body "UTF-8"))
+          reader (transit/reader in :json)]
+      (transit/read reader))
+    (catch Exception _
+      nil)))
+
 (defn- keywordize-eql
-  "Recursively convert EQL-like strings to keywords
-   Converts 'system/healthy?' or ':system/healthy?' to :system/healthy?"
-  [x]
-  (cond
-    (string? x)
-    (let [;; Handle strings that start with : (from Transit/JSON encoding)
-          clean-str (if (str/starts-with? x ":")
-                      (subs x 1)
-                      x)]
-      (if (re-matches #"[a-zA-Z0-9_\-?]+(/[a-zA-Z0-9_\-?]+)*" clean-str)
-        (keyword clean-str)
-        x))
-
-    (sequential? x)
-    (vec (map keywordize-eql x))
-
-    (map? x)
-    (reduce-kv (fn [m k v]
-                 (assoc m (keywordize-eql k) (keywordize-eql v)))
-               {} x)
-
-    :else x))
-
-(defn keywordize-eql
   "Recursively convert EQL-like strings to keywords
    Converts 'system/healthy?' or ':system/healthy?' to :system/healthy?"
   [x]
@@ -79,69 +65,7 @@
 
     :else x))
 
-(defn parse-eql
-  "Parse EQL from request body (supports JSON and Transit)"
-  [body]
-  (try
-    (if-let [transit-data (parse-transit body)]
-      (let [query (keywordize-eql transit-data)]
-        (println "Parsed Transit EQL:" query)
-        query)
-      ;; Fall back to JSON - use raw parsing to avoid Cheshire keyword auto-parsing
-      (let [parsed (cheshire.core/parse-string body true)]
-        (println "Raw JSON parsed:" parsed)
-        (keywordize-eql parsed)))
-    (catch Exception e
-      (println "Failed to parse EQL body:" (.getMessage e))
-      nil)))
-
-(defn parse-eql
-  "Parse EQL from request body (supports JSON and Transit)"
-  [body]
-  (try
-    (if-let [transit-data (parse-transit body)]
-      (let [query (or (:query transit-data)
-                      (:com.wsscode.pathom3.interface.eql/query transit-data)
-                      (first (filter sequential? transit-data))
-                      transit-data)]
-        (println "Parsed Transit EQL:" query)
-        query)
-      ;; Fall back to JSON
-      (let [parsed (json/parse-string body)
-            keywordized (keywordize-eql parsed)]
-        (println "Parsed JSON EQL:" keywordized)
-        (or (:query keywordized)
-            (first (filter sequential? keywordized))
-            keywordized)))
-    (catch Exception e
-      (println "Failed to parse EQL body:" (.getMessage e))
-      nil)))
-
-(defn keywordize-eql
-  "Recursively convert EQL-like strings to keywords
-   Converts 'system/healthy?' or ':system/healthy?' to :system/healthy?"
-  [x]
-  (cond
-    (string? x)
-    (let [;; Handle strings that start with : (from Transit/JSON encoding)
-          clean-str (if (str/starts-with? x ":")
-                      (subs x 1)
-                      x)]
-      (if (re-matches #"[a-zA-Z0-9_\-?]+(/[a-zA-Z0-9_\-?]+)*" clean-str)
-        (keyword clean-str)
-        x))
-
-    (sequential? x)
-    (vec (map keywordize-eql x))
-
-    (map? x)
-    (reduce-kv (fn [m k v]
-                 (assoc m (keywordize-eql k) (keywordize-eql v)))
-               {} x)
-
-    :else x))
-
-(defn parse-eql
+(defn- parse-eql
   "Parse EQL from request body (supports JSON and Transit)"
   [body]
   (try

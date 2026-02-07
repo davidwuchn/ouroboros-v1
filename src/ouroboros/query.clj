@@ -51,27 +51,27 @@
 (pco/defresolver page-by-id
   "Resolver for Fulcro page idents like [:page/id :dashboard]
     
-   Handles Fulcro ident-based queries."
-  [{:keys [page/id] :as env}]
-  {::pco/input [{:page/id [:page/id]}]
-   ::pco/output [{:page/id [:page/id
-                            :system/healthy?
-                            :system/current-state
-                            :system/meta
-                            :telemetry/total-events
-                            :telemetry/tool-invocations
-                            :telemetry/errors
-                            :telemetry/query-executions
-                            :telemetry/error-rate
-                            {:telemetry/events [:event/id :event/timestamp :event :tool :duration-ms :success?]}
-                            :auth/user-count
-                            :auth/admin-count
-                            {:auth/users [:user/id :user/name :user/platform :user/role :user/created-at :user/last-active]}
-                            :chat/session-count
-                            {:chat/sessions [:chat/id :chat/message-count :chat/created-at :chat/platform :chat/running?]}
-                            {:chat/adapters [:adapter/platform :adapter/running?]}
-                            :ui.fulcro.client.data-fetch.load-markers/by-id
-                            :page/error]}]}
+   Handles Fulcro ident-based queries by using :page/id as input."
+  [{:page/keys [id]}]
+  {::pco/input [:page/id]
+   ::pco/output [:page/id
+                 :system/healthy?
+                 :system/current-state
+                 :system/meta
+                 :telemetry/total-events
+                 :telemetry/tool-invocations
+                 :telemetry/errors
+                 :telemetry/query-executions
+                 :telemetry/error-rate
+                 :telemetry/events
+                 :auth/user-count
+                 :auth/admin-count
+                 :auth/users
+                 :chat/session-count
+                 :chat/sessions
+                 :chat/adapters
+                 :ui.fulcro.client.data-fetch.load-markers/by-id
+                 :page/error]}
   (let [ ;; Get telemetry data if needed
         telemetry-data (when (or (= id :telemetry)
                                  (= id :dashboard))
@@ -96,44 +96,48 @@
                         {:session-count (count sessions)
                          :sessions sessions})
                       (catch Exception e {:session-count 0 :sessions []})))]
-    {:page/id {:page/id id
-               :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
-                                    (catch Exception e false))
-               :system/current-state (try ((resolve 'ouroboros.engine/current-state))
-                                         (catch Exception e nil))
-               :system/meta {:version "0.1.0"}
-               ;; Telemetry data
-               :telemetry/total-events (count telemetry-data)
-               :telemetry/tool-invocations (count (filter #(= :tool/invoke (:event %)) telemetry-data))
-               :telemetry/query-executions (count (filter #(= :query/execute (:event %)) telemetry-data))
-               :telemetry/errors (count (filter #(false? (:success? %)) telemetry-data))
-               :telemetry/error-rate (if (seq telemetry-data)
-                                      (/ (count (filter #(false? (:success? %)) telemetry-data))
-                                         (count telemetry-data) 0.01)
-                                      0)
-               :telemetry/events (vec telemetry-data)
-               ;; Auth data
-               :auth/user-count (:user-count auth-data 0)
-               :auth/admin-count (:admin-count auth-data 0)
-               :auth/users (mapv #(select-keys % [:user/id :user/name :user/platform :user/role :user/created-at :user/last-active])
-                                 (:users auth-data []))
-               ;; Chat data
-               :chat/session-count (:session-count chat-data 0)
-               :chat/sessions (mapv (fn [[k v]]
-                                      {:chat/id k
-                                       :chat/message-count (count (:history v))
-                                       :chat/created-at (:created-at v)
-                                       :chat/platform (:platform v)
-                                       :chat/running? (:running? v)})
-                                     (:sessions chat-data []))
-               :chat/adapters (mapv (fn [[k v]]
-                                      {:adapter/platform k
-                                       :adapter/running? (some? v)})
-                                     (try @(resolve 'ouroboros.chat/active-adapters)
-                                       (catch Exception e {})))
-               ;; Client-side fields
-               :ui.fulcro.client.data-fetch.load-markers/by-id nil
-               :page/error nil}}))
+    {:page/id id
+     :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
+                          (catch Exception e false))
+     :system/current-state (try ((resolve 'ouroboros.engine/current-state))
+                               (catch Exception e nil))
+     :system/meta {:version "0.1.0"}
+     ;; Telemetry data
+     :telemetry/total-events (count telemetry-data)
+     :telemetry/tool-invocations (count (filter #(= :tool/invoke (:event %)) telemetry-data))
+     :telemetry/query-executions (count (filter #(= :query/execute (:event %)) telemetry-data))
+     :telemetry/errors (count (filter #(false? (:success? %)) telemetry-data))
+     :telemetry/error-rate (if (seq telemetry-data)
+                            (/ (count (filter #(false? (:success? %)) telemetry-data))
+                               (count telemetry-data) 0.01)
+                            0)
+     :telemetry/events (vec telemetry-data)
+     ;; Auth data
+     :auth/user-count (:user-count auth-data 0)
+     :auth/admin-count (:admin-count auth-data 0)
+     :auth/users (mapv #(select-keys % [:user/id :user/name :user/platform :user/role :user/created-at :user/last-active])
+                       (:users auth-data []))
+     ;; Chat data
+     :chat/session-count (:session-count chat-data 0)
+     :chat/sessions (mapv (fn [[k v]]
+                            {:chat/id k
+                             :chat/message-count (count (:history v))
+                             :chat/created-at (:created-at v)
+                             :chat/platform (:platform v)
+                             :chat/running? (:running? v)})
+                          (:sessions chat-data []))
+     :chat/adapters (mapv (fn [[k v]]
+                            {:adapter/platform k
+                             :adapter/running? (some? v)})
+                          (try 
+                            (let [adapters-var (resolve 'ouroboros.chat/active-adapters)]
+                              (if adapters-var
+                                @(deref adapters-var)
+                                {}))
+                            (catch Exception e {})))
+     ;; Client-side fields
+     :ui.fulcro.client.data-fetch.load-markers/by-id nil
+     :page/error nil}))
 
 ;; Register core resolvers
 (registry/register-resolvers!
