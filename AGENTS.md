@@ -80,6 +80,20 @@ Use symbols in commit messages for searchable git history.
 - Avoid em-dashes (—), smart quotes in docstrings - use ASCII only
 - Prefer Babashka scripts over shell scripts for portability, error handling, and Clojure syntax consistency
 
+### Clojure Code Evaluation (brepl)
+- **ALWAYS use heredoc pattern** - Eliminates quoting issues and works for all cases
+- **Syntax**: `brepl "$(cat <<'EOF'\n(your code)\nEOF\n)"`
+- **Important**: Use `<<'EOF'` (with quotes) not `<<EOF` to prevent shell variable expansion
+- **Multi-line example**:
+  ```bash
+  brepl "$(cat <<'EOF'
+  (require '[clojure.string :as str])
+  (str/join ", " ["a" "b" "c"])
+  EOF
+  )"
+  ```
+- **Why heredoc**: Consistent pattern, no quoting errors, easy to extend, no shell interpretation issues
+
 ### Quick Repairs
 - `clj-paren-repair <file>` - fix delimiters, format code
 - `clj-kondo --lint src` - lint for errors
@@ -250,6 +264,18 @@ Current focus: 5-phase product development flywheel (Empathy→Value Prop→MVP�
 | `ouroboros.process-runner` | Tmux-based process management for dev workflow |
 
 ### Common REPL Commands
+
+**Note**: When using brepl, **ALWAYS use the heredoc pattern**:
+```bash
+brepl "$(cat <<'EOF'
+(require '[ouroboros.interface :as iface])
+(iface/boot!)                    ; Start system
+(iface/q [:system/status])        ; Check health
+(iface/q [:webux/project-count])  ; Get stats
+EOF
+)"
+```
+
 ```clojure
 (require '[ouroboros.interface :as iface])
 (iface/boot!)                    ; Start system
@@ -298,6 +324,14 @@ bb test:webux    # WebUX tests (requires Clojure, not Babashka)
 | PLAN.md | Future roadmap, architecture decisions |
 | LEARNING.md | Discovered patterns, insights |
 | CHANGELOG.md | Commit history |
+
+### Tools
+| Tool | Purpose |
+|------|---------|
+| `brepl` | Clojure REPL evaluation - **ALWAYS use heredoc pattern** |
+| `bb` | Babashka task runner |
+| `clj-paren-repair` | Fix delimiters and format Clojure files |
+| `clj-kondo` | Lint Clojure code |
 
 ---
 
