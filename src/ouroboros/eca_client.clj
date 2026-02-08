@@ -39,8 +39,8 @@
    [ouroboros.fs :as fs]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.resolver-registry :as registry])
-  (:import [java.io BufferedReader PrintWriter InputStreamReader]
-           [java.lang ProcessBuilder]))
+   (:import [java.io BufferedReader PrintWriter InputStreamReader]
+            [java.lang ProcessBuilder ProcessHandle]))
 
 ;; ============================================================================
 ;; State
@@ -189,7 +189,7 @@
 
     (swap! state assoc-in [:pending-requests id] response-promise)
 
-    (.println stdin (serialize-message message))
+    (.print stdin (serialize-message message))
     (.flush stdin)
 
     (telemetry/emit! {:event :eca/send-request
@@ -317,8 +317,12 @@
 (defn- initialize!
   "Send initialize handshake to ECA"
   [{}]
-  (let [;; Get process ID - use a stable identifier
-        process-id (long (hash (str (System/getProperty "user.name") (System/currentTimeMillis))))
+  (let [;; Get actual process ID for ECA liveness probe
+        process-id (try
+                     (.pid (java.lang.ProcessHandle/current))
+                     (catch Exception _
+                       ;; Fallback to hash if ProcessHandle not available (Java 8)
+                       (long (hash (str (System/getProperty "user.name") (System/currentTimeMillis))))))
         params {:process-id process-id
                 :client-info {:name "ouroboros"
                               :version "0.1.0"}
