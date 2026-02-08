@@ -297,12 +297,12 @@
 
 (defn clean!
   "Clean up dead tmux sessions.
-   
-   Returns:
-     number of sessions cleaned up
-   
-   Throws:
-     ex-info if tmux fails"
+    
+    Returns:
+      number of sessions cleaned up
+    
+    Throws:
+      ex-info if tmux fails"
   []
   (ensure-tmux)
   (let [sessions (list-sessions)
@@ -318,6 +318,189 @@
         (p/sh ["tmux" "kill-session" "-t" (:session-name session)])
         (catch Exception _ nil)))
     (count dead-sessions)))
+
+(defonce ^:private activity-timestamps (atom {}))
+
+(defn- update-activity!
+  [name]
+  (swap! activity-timestamps assoc name (System/currentTimeMillis)))
+
+(defn last-activity
+  "Get the last activity timestamp for a session.
+    
+    Args:
+      name - process name
+    
+    Returns:
+      epoch millis of last activity, or nil if never tracked"
+  [name]
+  (get @activity-timestamps name))
+
+(defn- capture-pane-content
+  "Get raw pane content from a tmux session.
+    
+    Args:
+      session-name - tmux session name
+    
+    Returns:
+      raw string content, or nil if failed"
+  [session-name]
+  (try
+    (let [result (p/sh ["tmux" "capture-pane" "-t" session-name "-p" "-S" "-100"])]
+      (when (= 0 (:exit result))
+        (:out result)))
+    (catch Exception _
+      nil)))
+
+(defn idle?
+  "Check if a terminal session appears idle (no recent output).
+    
+    Args:
+      name - process name
+      threshold-ms - idle threshold in ms (default 5000)
+    
+    Returns:
+      map with keys:
+        :idle? - boolean, true if no output since threshold
+        :last-activity - epoch millis of last activity
+        :has-output - boolean, whether output was captured"
+  ([name] (idle? name 5000))
+  ([name threshold-ms]
+   (ensure-tmux)
+   (let [session-name (get-session-name name)]
+     (if-not (session-exists? session-name)
+       {:idle? false :last-activity nil :has-output false :error "session not found"}
+       (let [content (capture-pane-content session-name)
+             has-output? (and content (not (str/blank? content)))
+             now (System/currentTimeMillis)
+             last-activity (or (last-activity name) now)
+             idle-threshold (+ last-activity threshold-ms)
+             idle? (and has-output? (<= now idle-threshold))]
+         {:idle? idle?
+          :last-activity last-activity
+          :has-output has-output?
+          :time-since-last-activity (when last-activity (- now last-activity))})))))
+
+(defn at-prompt?
+  "Check if the terminal is at a prompt state.
+    
+    Detects common shell prompts by pattern matching on the last line.
+    
+    Args:
+      name - process name
+      patterns - optional custom prompt patterns (default: common shell prompts)
+    
+    Returns:
+      map with keys:
+        :at-prompt? - boolean
+        :prompt-line - the detected prompt line, if any
+        :prompt-type - :bash :zsh :fish :unknown :none"
+  ([name] (at-prompt? name nil))
+   ([name custom-patterns]
+    (ensure-tmux)
+    (let [session-name (get-session-name name)]
+      (if-not (session-exists? session-name)
+        {:at-prompt? false :prompt-line nil :prompt-type :none :error "session not found"}
+        (let [content (capture-pane-content session-name)
+              lines (when content (str/split-lines content))
+              last-line (when (seq lines) (last lines))
+              default-patterns [#".*\$ *$"
+                               #".*❯ *$"
+                               #".*> *$"
+                               #".*➜.* *$"
+                               #".*λ.* *$"]
+              patterns (or custom-patterns default-patterns)
+              matched-pattern (when last-line (some #(when % true) (map #(re-find % last-line) patterns)))
+              prompt-type (cond
+                            (and last-line (re-find #".*\$ *$" last-line)) :bash
+                            (and last-line (re-find #".*❯ *$" last-line)) :zsh
+                            (and last-line (re-find #".* > *$" last-line)) :fish
+                            (and last-line (re-find #".*➜" last-line)) :git
+                            (and last-line (re-find #".*λ" last-line)) :plan9
+                            (and last-line (re-find #".*\]" last-line)) :posix
+                            :else :unknown)]
+          {:at-prompt? (and last-line matched-pattern)
+           :prompt-line last-line
+           :prompt-type (if last-line prompt-type :none)})))))
+
+(defn terminal-state
+  "Get terminal dimensions and cursor information.
+    
+    Args:
+      name - process name
+    
+    Returns:
+      map with keys:
+        :width - terminal width in columns
+        :height - terminal height in lines
+        :cursor-x - cursor x position (0-indexed)
+        :cursor-y - cursor y position (0-indexed)
+        :pane-id - tmux pane identifier"
+  [name]
+  (ensure-tmux)
+  (let [session-name (get-session-name name)]
+    (if-not (session-exists? session-name)
+      {:width nil :height nil :error "session not found"}
+       (try
+         (let [pane-result (p/sh ["tmux" "display-message" "-t" session-name "-p" "#{pane_width}x#{pane_height}"])
+               cursor-result (p/sh ["tmux" "display-message" "-t" session-name "-p" "#{cursor_x} #{cursor_y}"])
+               pane-id-result (p/sh ["tmux" "display-message" "-t" session-name "-p" "#{pane_id}"])]
+           (when (= 0 (:exit pane-result))
+             (let [[width height] (str/split (str/trim (:out pane-result)) #"x")]
+               (when width
+                 (merge {:width (Integer/parseInt width)
+                         :height (Integer/parseInt height)
+                         :pane-id (str/trim (:out pane-id-result))}
+                        (when (and (= 0 (:exit cursor-result)) (:out cursor-result))
+                          (let [[x y] (str/split (str/trim (:out cursor-result)) #" ")]
+                            (when (and x y)
+                              {:cursor-x (Integer/parseInt x)
+                               :cursor-y (Integer/parseInt y)}))))))))
+         (catch Exception e
+           {:error (.getMessage e)})))))
+
+(defn recent-output
+  "Get recent output from a session since a given timestamp.
+    
+    Args:
+      name - process name
+      since-ms - epoch millis to get output since (default: last known activity)
+    
+    Returns:
+      map with keys:
+        :lines - sequence of output lines
+        :new-activity - whether new output was detected"
+  ([name] (recent-output name nil))
+  ([name since-ms]
+   (ensure-tmux)
+   (let [session-name (get-session-name name)
+         since (or since-ms (last-activity name) 0)
+         content (capture-pane-content session-name)
+         lines (when content (str/split-lines content))]
+     {:lines (or lines [])
+      :new-activity (> (System/currentTimeMillis) since)})))
+
+(defn session-stats
+  "Get comprehensive session statistics.
+    
+    Args:
+      name - process name
+    
+    Returns:
+      map with all session introspection data"
+  [name]
+  (let [idle-data (idle? name)
+        prompt-data (at-prompt? name)
+        term-data (terminal-state name)
+        activity (last-activity name)]
+    {:name name
+     :session-name (get-session-name name)
+     :running? (:running? (status name))
+     :idle idle-data
+     :prompt prompt-data
+     :terminal term-data
+     :last-activity activity
+     :timestamp (System/currentTimeMillis)}))
 
 (defn check
   "Check tmux installation and basic functionality.
@@ -357,15 +540,15 @@
             (throw check-failed))))
       
       ;; Test basic functionality
-      (let [test-session (str "test-" (System/currentTimeMillis))]
-        (let [create-result (p/sh ["tmux" "new-session" "-s" test-session "-d" "sleep 0.1"])]
-          (if (= 0 (:exit create-result))
-            (do
-              (println "✓ tmux can create sessions")
-              (p/sh ["tmux" "kill-session" "-t" test-session]))
-            (do
-              (println "✗ tmux cannot create sessions")
-              (throw check-failed)))))
+      (let [test-session (str "test-" (System/currentTimeMillis))
+            create-result (p/sh ["tmux" "new-session" "-s" test-session "-d" "sleep 0.1"])]
+        (if (= 0 (:exit create-result))
+          (do
+            (println "✓ tmux can create sessions")
+            (p/sh ["tmux" "kill-session" "-t" test-session]))
+          (do
+            (println "✗ tmux cannot create sessions")
+            (throw check-failed))))
       
       (println)
       (println "✅ tmux is properly installed and working!")
@@ -380,17 +563,22 @@
 
 ;; CLI interface using babashka.cli
 (def dispatch
-  {"start"  {:args->opts [:name :command]}
-   "stop"   {:args->opts [:name]}
-   "status" {:args->opts [:name]}
-   "attach" {:args->opts [:name]}
-   "send"   {:args->opts [:name :input]}
-   "logs"   {:args->opts [:name]
-             :coerce {:follow? [:boolean]}
-             :alias {:f :follow?}}
-   "list"   {}
-   "clean"  {}
-   "check"  {}})
+  {"start"       {:args->opts [:name :command]}
+   "stop"        {:args->opts [:name]}
+   "status"      {:args->opts [:name]}
+   "attach"      {:args->opts [:name]}
+   "send"        {:args->opts [:name :input]}
+   "logs"        {:args->opts [:name]
+                  :coerce {:follow? [:boolean]}
+                  :alias {:f :follow?}}
+   "list"        {}
+   "clean"       {}
+   "check"       {}
+   "idle"        {:args->opts [:name]
+                  :coerce {:ms [:int :ms]}}
+   "prompt"      {:args->opts [:name]}
+   "terminal"    {:args->opts [:name]}
+   "stats"       {:args->opts [:name]}})
 
 (defn -main [& args]
   (if (empty? args)
@@ -399,25 +587,32 @@
       (println)
       (println "Usage: bb -m ouroboros.process-runner <command> [args...]")
       (println)
-      (println "Commands:")
-      (println "  start <name> <command>    Start a process in a tmux session")
-      (println "  stop <name>               Stop a tmux session (kills process)")
-      (println "  status <name>             Check if session is running")
-      (println "  attach <name>             Attach to session (interactive)")
-      (println "  send <name> <input>       Send input to session")
-      (println "  logs <name> [-f|lines]    View session output")
-      (println "  list                      List all managed sessions")
-      (println "  clean                     Clean up dead sessions")
-      (println "  check                     Verify tmux is installed and working")
-      (println)
-      (println "Examples:")
-      (println "  bb -m ouroboros.process-runner start webserver \"python -m http.server 8080\"")
-      (println "  bb -m ouroboros.process-runner status webserver")
-      (println "  bb -m ouroboros.process-runner attach webserver")
-      (println "  bb -m ouroboros.process-runner send webserver \"ls\"")
-      (println "  bb -m ouroboros.process-runner logs webserver -f")
-      (println "  bb -m ouroboros.process-runner stop webserver")
-      (System/exit 1))
+       (println "Commands:")
+       (println "  start <name> <command>    Start a process in a tmux session")
+       (println "  stop <name>               Stop a tmux session (kills process)")
+       (println "  status <name>             Check if session is running")
+       (println "  attach <name>             Attach to session (interactive)")
+       (println "  send <name> <input>       Send input to session")
+       (println "  logs <name> [-f|lines]    View session output")
+       (println "  list                      List all managed sessions")
+       (println "  clean                     Clean up dead sessions")
+       (println "  check                     Verify tmux is installed and working")
+       (println "  idle <name> [ms]          Check if session is idle (default 5000ms)")
+       (println "  prompt <name>             Check if terminal is at shell prompt")
+       (println "  terminal <name>            Get terminal dimensions and cursor")
+       (println "  stats <name>              Get comprehensive session statistics")
+       (println)
+       (println "Examples:")
+       (println "  bb -m ouroboros.process-runner start webserver \"python -m http.server 8080\"")
+       (println "  bb -m ouroboros.process-runner status webserver")
+       (println "  bb -m ouroboros.process-runner attach webserver")
+       (println "  bb -m ouroboros.process-runner send webserver \"ls\"")
+       (println "  bb -m ouroboros.process-runner logs webserver -f")
+       (println "  bb -m ouroboros.process-runner stop webserver")
+       (println "  bb -m ouroboros.process-runner idle webserver")
+       (println "  bb -m ouroboros.process-runner prompt webserver")
+       (println "  bb -m ouroboros.process-runner stats webserver")
+       (System/exit 1))
     (let [command (first args)
           rest-args (rest args)]
       (case command
@@ -462,9 +657,30 @@
                      (println "    Info:" (:info session))
                      (println)))
                  (println "  No managed sessions found"))
-        "clean" (let [cleaned (clean!)]
-                  (println "Cleaned up" cleaned "dead session(s)"))
-        "check" (check)
-        (do
+          "clean" (let [cleaned (clean!)]
+                    (println "Cleaned up" cleaned "dead session(s)"))
+          "check" (check)
+          "idle" (let [args rest-args
+                       name (first args)
+                       ms-arg (second args)
+                       ms (when (and ms-arg (re-matches #"\d+" ms-arg))
+                            (Integer/parseInt ms-arg))]
+                   (if name
+                     (pprint (idle? name (or ms 5000)))
+                     (do (println "Error: idle requires <name>")
+                         (System/exit 1))))
+         "prompt" (if (seq rest-args)
+                   (pprint (at-prompt? (first rest-args)))
+                   (do (println "Error: prompt requires <name>")
+                       (System/exit 1)))
+         "terminal" (if (seq rest-args)
+                     (pprint (terminal-state (first rest-args)))
+                     (do (println "Error: terminal requires <name>")
+                         (System/exit 1)))
+         "stats" (if (seq rest-args)
+                  (pprint (session-stats (first rest-args)))
+                  (do (println "Error: stats requires <name>")
+                      (System/exit 1)))
+         (do
           (println "Unknown command:" command)
           (System/exit 1))))))
