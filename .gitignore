@@ -50,3 +50,7 @@ Thumbs.db
 ehthumbs.db
 *.pid
 *.socket
+
+# Downloaded binaries
+scripts/eca
+*.zip

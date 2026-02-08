@@ -1323,6 +1323,102 @@ The ECA client emits telemetry for observability:
 
 ---
 
+### 2026-02: Auto-Downloading Dependencies with bb Tasks
+
+**Problem:** ECA integration tests required manual binary installation, creating friction for new developers.
+
+**Solution:** `bb test:eca` task auto-detects platform, downloads correct binary, extracts, and verifies.
+
+**Implementation:**
+```clojure
+;; bb.edn - test:eca task with auto-download
+:test:eca
+{:doc "Run ECA tests (auto-downloads binary if needed)"
+ :requires ([clojure.test :as t]
+            [babashka.fs :as fs]
+            [babashka.process :refer [shell]])
+ :task (let [;; Auto-detect platform
+             os-name (System/getProperty "os.name")
+             platform (cond (str/includes? os-name "Mac") "macos"
+                            (str/includes? os-name "Linux") "linux"
+                            :else "linux")
+             arch (let [a (System/getProperty "os.arch")]
+                    (cond (= a "aarch64") "aarch64"
+                          (= a "x86_64") "amd64"
+                          ...))
+             ;; Construct download URL
+             version "0.99.0"
+             download-url (str "https://github.com/.../eca-native-"
+                               platform "-" arch ".zip")
+             ;; Auto-download if missing
+             _ (when-not (fs/exists? "scripts/eca")
+                 (shell "bb" "download" download-url zip-file)
+                 (shell "unzip" "-o" zip-file "-d" "scripts")
+                 (fs/set-posix-file-permissions "scripts/eca" "rwxr-xr-x"))
+             ;; Run tests...
+             ] ... )}
+```
+
+**Key Insights:**
+1. **Platform Detection:** Use `System/getProperty` for OS/arch detection
+2. **Zip Extraction:** GitHub releases use `.zip` format, extract with `unzip`
+3. **Reuse download task:** Delegate to existing `bb download` task for resume/parallel support
+4. **No regex in EDN:** EDN config can't use `#"..."`, use `str/includes?` instead
+
+---
+
+### 2026-02: Debug Utilities Namespace Pattern
+
+**Problem:** Debugging ECA, system status, and tools required repetitive REPL commands across different namespaces.
+
+**Solution:** Centralized `ouroboros.debug` namespace with common debug functions.
+
+**Implementation:**
+```clojure
+;; src/ouroboros/debug.clj
+(ns ouroboros.debug
+  (:require [babashka.process :refer [shell]]
+            [babashka.fs :as fs]))
+
+(defn eca-status [] ...)
+(defn eca-check [] ...)  ; pretty-printed
+(defn eca-test-server [] ...)  ; test server mode
+(defn system-status [] ...)
+(defn tool-registry [] ...)
+(defn debug-menu [] ...)  ; show all commands
+```
+
+**BB Task Integration:**
+```clojure
+;; bb.edn - debug task
+:debug
+{:doc "Debug utilities - Usage: bb debug [eca|system|tools|menu]"
+ :requires ([ouroboros.debug :as dbg])
+ :task (case (first *command-line-args*)
+         ("eca" nil) (let [s (dbg/eca-status)] ...)
+         ("system") (dbg/system-status)
+         ("tools") (dbg/tool-registry)
+         ("menu") (dbg/debug-menu)
+         ... )}
+```
+
+**Usage:**
+```bash
+bb debug        # Quick ECA status
+bb debug eca    # Same
+bb debug system # System health
+bb debug tools  # List tools
+bb debug menu   # Show all commands
+```
+
+**Key Insights:**
+1. **Single source of truth:** One namespace for all debug utilities
+2. **Both REPL and CLI:** Same functions work in REPL and bb tasks
+3. **Lazy loading:** Use `resolve` for functions from other namespaces to avoid circular deps
+4. **Pretty output:** Box-drawing characters for human-readable reports
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*

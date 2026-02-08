@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+### Developer Experience — Debug & Auto-Download
+
+- `???????` ⚒ λ Add `bb debug` task and `ouroboros.debug` namespace
+  - `bb debug` — CLI access to ECA status, system health, tools
+  - `bb debug eca|system|tools|menu` — Subcommands for specific checks
+  - `ouroboros.debug/eca-status` — Programmatic ECA binary status
+  - `ouroboros.debug/eca-test-server` — Test ECA server mode
+  - `ouroboros.debug/system-status` — Check Ouroboros system health
+  - `ouroboros.debug/tool-registry` — List registered tools
+  - `ouroboros.debug/debug-menu` — Interactive debug command reference
+  
+- `???????` ⚒ λ Add auto-download to `bb test:eca`
+  - Auto-detects platform (macOS/Linux/Windows) and architecture (arm64/amd64)
+  - Downloads ECA binary from GitHub releases if missing
+  - Extracts ZIP, sets executable permissions, verifies with `--version`
+  - Re-downloads if binary is corrupted
+  - Zero-friction ECA testing: just run `bb test:eca`
+
 ### Web UX Platform — Complete (10 weeks, 5 phases)
 
 - `72ca366` ⚒ λ Add Web UX Platform - Full collaborative product development

@@ -812,7 +812,7 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 | **P2** | Ultra-Lightweight Core | High | 🟢 Low | 📋 NEW |
 | **P2** | Minimal Configuration | Low | 🟢 Low | 📋 NEW |
 | **P2** | Clojure code quality automation | Low | 🟢 Low | 📋 Planned |
-| **P2** | REPL-driven debugging guide | Low | 🟢 Low | 📋 Planned |
+| **P2** | ~~REPL-driven debugging guide~~ | Low | ✅ Done | Debug namespace (`ouroboros.debug`) + `bb debug` task created |
 | **P2** | Custom tool development tutorial | Medium | 🟢 Low | 📋 Planned |
 | **P2** | Tool testing framework | Medium | 🟢 Low | 📋 Planned |
 | **P3** | Message Bus Architecture | High | 🟢 Low | 📋 Deferred |

@@ -525,4 +525,44 @@ dev:backend
                  (println "\n  ALL ECA TESTS PASSED!"))
                (System/exit (if (and (zero? (:fail results))
                                      (zero? (:error results)))
-                              0 1))))}}}
+                              0 1))))}
+
+  debug
+  {:doc "Debug utilities for Ouroboros (eca, system, tools) - Usage: bb debug [eca|system|tools|menu]"
+   :requires ([ouroboros.debug :as dbg])
+   :task (let [command (first *command-line-args*)]
+           ;; Route to appropriate debug function
+           (case command
+             ("eca" nil) (let [status (dbg/eca-status)]
+                           (println "\n=== ECA Debug ===")
+                           (if (:exists? status)
+                             (do
+                               (println "✓ ECA binary found")
+                               (println "  Path:" (:path status))
+                               (println "  Version:" (:version status))
+                               (println "  Size:" (format "%.2f MB" (:size-mb status)))
+                               (println "\nTo test server mode:")
+                               (println "  (require '[ouroboros.debug :as dbg])")
+                               (println "  (dbg/eca-test-server)"))
+                             (do
+                               (println "✗ ECA binary not found at:" (:path status))
+                               (println "  Run: bb test:eca  to auto-download"))))
+             
+             ("system" "status") (dbg/system-status)
+             
+             ("tools") (dbg/tool-registry)
+             
+             ("menu" "help") (dbg/debug-menu)
+             
+             (do
+               (println (str "Unknown command: " command))
+               (println "\nUsage: bb debug [command]")
+               (println "\nCommands:")
+               (println "  eca       - Check ECA binary status (default)")
+               (println "  system    - Check system status")
+               (println "  tools     - List registered tools")
+               (println "  menu      - Show debug menu")
+               (println "\nOr open REPL for interactive debugging:")
+               (println "  bb repl")
+               (println "  => (require '[ouroboros.debug :as dbg])")
+               (println "  => (dbg/eca-check :verbose)"))))}}}

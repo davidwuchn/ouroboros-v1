@@ -104,6 +104,16 @@
 (pr/logs "webserver" :follow? true)
 (pr/stop! "webserver")
 
+;; Debug utilities
+(require '[ouroboros.debug :as dbg])
+(dbg/eca-check)           ; Check ECA binary status
+(dbg/eca-check :verbose)  ; Detailed status
+(dbg/eca-test-server)     ; Test ECA server mode
+(dbg/system-status)       ; Check system health
+(dbg/tool-registry)       ; List registered tools
+(dbg/resolver-info)       ; List Pathom resolvers
+(dbg/debug-menu)          ; Show debug menu
+
 
 
 ;; Chat queries
@@ -175,6 +185,18 @@ bb boot
 
 # Boot + nREPL
 bb nrepl
+
+# Debug utilities
+bb debug              # Check ECA binary status
+bb debug eca          # Same as above
+bb debug system       # Check system health
+bb debug tools        # List registered tools
+bb debug menu         # Show debug menu
+
+# Run tests
+bb test               # Run all core tests
+bb test:eca           # Run ECA tests (auto-downloads ECA if needed)
+bb test:webux         # Run WebUX tests (requires JVM Clojure)
 ```
 
 In REPL:
@@ -182,6 +204,11 @@ In REPL:
 (iface/q [:system/status])
 (iface/status)
 (iface/report)
+
+;; Debug utilities
+(require '[ouroboros.debug :as dbg])
+(dbg/eca-check)
+(dbg/eca-test-server)
 ```
 
 ## Git State
