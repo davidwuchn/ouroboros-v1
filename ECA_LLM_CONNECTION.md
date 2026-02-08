@@ -13,9 +13,9 @@
 | nREPL Environment | ⚠️ **JVM REQUIRED** | Babashka has Jackson issues, using JVM nREPL |
 | Basic Chat Testing | 🔄 **READY FOR TEST** | Initialization should now work |
 
-**Last Updated**: 2026-02-08  
-**Latest Fix**: `.println` → `.print` and real process ID for ECA liveness probe  
-**Current Focus**: Test ECA initialization and basic chat functionality
+**Last Updated**: 2026-02-08 (Completed)  
+**Latest Fix**: ECA protocol compliance - camelCase params, read-loop fix, init notification  
+**Current Status**: ECA initialization ✅ WORKING | Chat protocol ✅ WORKING | LLM auth 🔄 NEEDED
 
 ## **✅ FIXED: Telemetry Serialization Bug** 
 **Issue**: `com.fasterxml.jackson.core.JsonGenerationException: Cannot JSON encode object of class: class java.lang.ProcessImpl`
@@ -364,14 +364,15 @@ timeout 5 eca server 2>&1 | head -20
 | Test | Result | Notes |
 |------|--------|-------|
 | ✅ Step 1.5: Telemetry serialization | ✅ **FIXED** | No more `JsonGenerationException` for Process objects |
-| ✅ Step 2: Basic chat | 🔄 **READY FOR TEST** | ECA initialization fixes applied, ready for testing |
-| ✅ Step 3: Simple tool | 🔄 **READY FOR TEST** | ECA initialization fixes applied, ready for testing |
-| ✅ Step 4: brepl skill | 🔄 **READY FOR TEST** | ECA initialization fixes applied, ready for testing |
-| 🔄 Step 6: HTTP/1.1 | ⏳ **PENDING** | Provider already uses HTTP/1.1 (OpenRouter) |
+| ✅ Step 2: Basic chat | ✅ **WORKING** | Protocol fixed, receives notifications |
+| ✅ Step 3: Simple tool | 🔄 **NEEDS LLM AUTH** | ECA working, needs provider credentials |
+| ✅ Step 4: brepl skill | 🔄 **NEEDS LLM AUTH** | ECA working, needs provider credentials |
+| 🔄 Step 6: HTTP/1.1 | ✅ **CONFIGURED** | minimax provider configured |
 | ✅ Step 9: Network | ✅ **WORKS** | curl tests successful, provider connectivity OK |
-| ✅ ECA Init Timeout | ✅ **FIXED** | Protocol and PID fixes applied, initialization working |
+| ✅ ECA Init Timeout | ✅ **FIXED** | camelCase params, read-loop, init notification |
 | ✅ Provider Switch | ✅ **COMPLETE** | Using minimax/minimax-m2.1 |
 | ✅ nREPL Environment | ✅ **JVM ACTIVE** | Babashka nREPL has Jackson issues, using JVM nREPL |
+| ✅ Protocol Compliance | ✅ **FIXED** | camelCase params, proper handshake, content reading |
 
 ---
 
@@ -434,8 +435,17 @@ ECA connection issues occur
    - **Fix**: Changed `.println` to `.print` + use real PID via `ProcessHandle.current().pid()`
    - **Verification**: Manual JSON-RPC test confirms proper response
 
-4. **🔄 Provider Configuration**: minimax/minimax-m2.1 (primary)
+4. **✅ Protocol Compliance Fixed**: ECA JSON-RPC protocol now fully compliant
+   - **camelCase Parameters**: Changed from kebab-case to camelCase (processId, clientInfo, etc.)
+   - **Read-Loop Fix**: State now dereferenced inside future to avoid stale references
+   - **Char Array Conversion**: Fixed `(str chars)` → `(String. chars)` for proper string conversion
+   - **Initialized Notification**: Added required `initialized` notification after handshake
+   - **Content Reading**: Loop until all content-length bytes are read
+   - **Commit**: `f62a2ed` - ⚒ Fix ECA protocol compliance
+
+5. **🔄 Provider Configuration**: minimax/minimax-m2.1 (primary)
     - **Config**: `~/.config/eca/config.json` uses `defaultModel: "minimax/minimax-m2.1"`
+    - **Project Config**: `.eca/config.json` sets default model
     - **Alternative Providers**: OpenRouter/Claude Sonnet 4.5, DeepSeek also configured and available
 
 5. **⚠️ nREPL Environment**: Babashka nREPL has Jackson classloading issues
@@ -550,3 +560,93 @@ com.fasterxml.jackson.core.JsonGenerationException: Cannot JSON encode object of
   printf 'Content-Length: 58\r\n\r\n{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}' | eca server
   ```
 - **Status**: ✅ Fixed. ECA initialization should now succeed.
+
+### ◈ Lessons Learned from ECA Protocol Implementation (2026-02-08)
+
+#### Critical Protocol Requirements
+
+1. **camelCase Parameter Names** (Not kebab-case!)
+   - ECA protocol follows JSON conventions, using camelCase
+   - ❌ `:process-id` → ✅ `:processId`
+   - ❌ `:client-info` → ✅ `:clientInfo`
+   - ❌ `:workspace-folders` → ✅ `:workspaceFolders`
+   - ❌ `:chat-id` → ✅ `:chatId`
+   - **Location**: `src/ouroboros/eca_client.clj`
+   - **Impact**: Using kebab-case causes ECA to ignore parameters or fail silently
+
+2. **State Access in Futures**
+   - **Bug**: Capturing `@state` outside `future` creates stale state reference
+   - **Fix**: Dereference state inside the future loop on each iteration
+   ```clojure
+   ;; WRONG - captures stale state
+   (let [{:keys [stdout running]} @state]
+     (future
+       (when @running ...)))  ; running is a boolean, not atom!
+   
+   ;; CORRECT - reads fresh state each iteration
+   (future
+     (loop []
+       (let [{:keys [stdout running]} @state]
+         (when running ...))))
+   ```
+
+3. **Char Array to String Conversion**
+   - **Bug**: `(str chars)` on char-array returns object reference `[C@...`
+   - **Fix**: Use `(String. chars)` constructor
+   - **Impact**: JSON parsing fails with "Unrecognized token 'C'"
+
+4. **Initialized Notification**
+   - **Requirement**: Must send `initialized` notification after receiving initialize response
+   - **Protocol**: LSP/JSON-RPC requires this handshake completion
+   - **Without it**: ECA won't start processing chat/prompt requests
+
+5. **Content Reading Loop**
+   - **Issue**: `.read()` may not return all bytes in one call
+   - **Fix**: Loop until all `content-length` bytes are read
+   ```clojure
+   (loop [remaining content-length]
+     (when (> remaining 0)
+       (let [read-count (.read reader chars 0 remaining)]
+         (when (> read-count 0)
+           (.append sb chars 0 read-count)
+           (recur (- remaining read-count))))))
+   ```
+
+#### Testing Protocol
+
+**Manual ECA Test**:
+```bash
+# Test ECA directly
+(echo -e 'Content-Length: 58\r\n\r\n{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}'; sleep 2) | eca server
+
+# Expected response:
+# Content-Length: 266
+# {"jsonrpc":"2.0","id":1,"result":{"chatWelcomeMessage":"# Welcome to ECA!..."}}
+```
+
+**Ouroboros ECA Client Test**:
+```clojure
+(require '[ouroboros.eca-client :as eca])
+(eca/start! {:eca-path "/Users/davidwu/bin/eca"})
+;; Should see: ✓ ECA initialized
+
+(eca/chat-prompt "Say OK")
+;; Note: Requires properly configured LLM provider
+```
+
+#### ECA Configuration
+
+**Project-level config** (`.eca/config.json`):
+```json
+{
+  "defaultModel": "minimax/minimax-m2.1"
+}
+```
+
+**User-level config** (`~/.config/eca/config.json`):
+- Full provider configuration with API keys
+- See ECA documentation for complete setup
+
+#### Commits
+- `f62a2ed` - Fix ECA protocol compliance (camelCase, read-loop, init notification)
+- `c6f3279` - Set default ECA model to minimax/minimax-m2.1
