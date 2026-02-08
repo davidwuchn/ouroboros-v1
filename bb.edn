@@ -30,14 +30,43 @@
              (println "  Status: (iface/status)"))}
 
   nrepl
-  {:doc "Start nREPL on port 8888 with system pre-booted"
+  {:doc "Start nREPL on port 8888 in tmux session (auto-managed)"
+   :requires ([ouroboros.process-runner :as pr])
+   :task (let [session-name "nrepl"
+               port 8888]
+           (try
+             (pr/start! session-name "bb nrepl:server")
+             (println "[OK] nREPL started in tmux session: proc-nrepl")
+             (Thread/sleep 1000)
+             (catch Exception e
+               (when-not (str/includes? (.getMessage e) "already exists")
+                 (throw e))
+               (println "[INFO] nREPL session already exists")))
+           (println)
+           (println "=== nREPL Connection Info ===")
+           (println "  Port:     " port)
+           (println "  Host:     localhost")
+           (println "  Session:  proc-nrepl")
+           (println)
+           (println "Connect via:")
+           (println "  bb repl                 # Local REPL client")
+           (println "  bb process attach nrepl # Attach to session")
+           (println)
+           (println "Debug commands:")
+           (println "  (require '[ouroboros.debug :as dbg])")
+           (println "  (dbg/eca-check)")
+           (println "  (dbg/system-status)")
+           (println)
+           (println "Following logs (Ctrl+C to exit, nREPL keeps running)...")
+           (pr/logs session-name :follow? true))}
+
+  nrepl:server
+  {:doc "Internal: Start nREPL server (use 'bb nrepl' instead)"
    :requires ([babashka.nrepl.server :as nrepl]
               [ouroboros.interface :as iface])
    :task (do (println "Booting system...")
              (iface/boot!)
-             (println "Starting nREPL on port 8888...")
-             (println "  Pre-loaded: ouroboros.interface")
-             (println "  Try: (iface/q [:system/status])")
+             (println "nREPL server ready on port 8888")
              (nrepl/start-server! {:host "localhost"
                                    :port 8888})
              (deref (promise)))}
