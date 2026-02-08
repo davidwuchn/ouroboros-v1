@@ -146,12 +146,42 @@
 ;; Event Emission
 ;; ============================================================================
 
+(defn- sanitize-obj [obj]
+  "Convert non-serializable objects to strings for safe logging"
+  (cond
+    ;; Java objects that can't be serialized
+    (instance? java.lang.Process obj)
+    (str "<Process pid=" (.pid obj) ">")
+    
+    (instance? java.lang.Throwable obj)
+    {:type (str (class obj))
+     :message (.getMessage obj)
+     :cause (some-> obj .getCause sanitize-obj)}
+    
+    ;; Basic serializable types
+    (or (nil? obj) (string? obj) (number? obj) (boolean? obj) (keyword? obj) (symbol? obj))
+    obj
+    
+    ;; Collections - recurse
+    (map? obj)
+    (into {} (map (fn [[k v]] [(sanitize-obj k) (sanitize-obj v)]) obj))
+    
+    (coll? obj)
+    (mapv sanitize-obj obj)
+    
+    ;; Default: convert to string
+    :else
+    (try
+      (str obj)
+      (catch Exception _
+        (str "<" (class obj) ">")))))
+
 (defn emit!
   "Emit event to all active backends
 
    Usage: (emit! {:event :tool/invoke :tool :file/read})"
   [event-data]
-  (let [event (merge event-data
+  (let [event (merge (sanitize-obj event-data)
                      {:event/timestamp (str (Instant/now))})]
     (doseq [backend @active-backends]
       (emit-event! backend event))

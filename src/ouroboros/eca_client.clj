@@ -117,8 +117,41 @@
    :params params
    :id id})
 
+(defn- sanitize-for-json [obj]
+  "Convert non-JSON-serializable objects to strings"
+  (cond
+    ;; Java objects that can't be JSON serialized
+    (instance? java.lang.Process obj)
+    (str "<Process pid=" (.pid obj) ">")
+    
+    (instance? java.lang.Throwable obj)
+    {:type (str (class obj))
+     :message (.getMessage obj)}
+    
+    ;; Basic JSON types
+    (or (nil? obj) (string? obj) (number? obj) (boolean? obj) (keyword? obj))
+    obj
+    
+    ;; Collections - recurse
+    (map? obj)
+    (into {} (map (fn [[k v]] [(sanitize-for-json k) (sanitize-for-json v)]) obj))
+    
+    (sequential? obj)
+    (mapv sanitize-for-json obj)
+    
+    (set? obj)
+    (mapv sanitize-for-json (seq obj))
+    
+    ;; Default: convert to string
+    :else
+    (try
+      (str obj)
+      (catch Exception _
+        (str "<" (class obj) ">")))))
+
 (defn- serialize-message [message]
-  (let [json (json/generate-string message)
+  (let [safe-message (sanitize-for-json message)
+        json (json/generate-string safe-message)
         content-length (count json)]
     (str "Content-Length: " content-length "\r\n\r\n" json)))
 
@@ -149,7 +182,8 @@
 (defn- send-request! [method params]
   "Send a JSON-RPC request and wait for response"
   (let [{:keys [stdin running request-id pending-requests]} @state
-        id (swap! state update :request-id inc)
+        new-state (swap! state update :request-id inc)
+        id (:request-id new-state)
         message (make-jsonrpc-message method params id)
         response-promise (promise)]
 
@@ -251,7 +285,7 @@
      (throw (ex-info "ECA binary not found" {:path eca-path})))
 
    (try
-     (let [proc (.start (ProcessBuilder. [eca-path "server"]))
+      (let [proc (.start (ProcessBuilder. [eca-path "server"]))
            stdin-writer (PrintWriter. (.getOutputStream proc) true)
            stdout-reader (BufferedReader. (InputStreamReader. (.getInputStream proc)))]
 

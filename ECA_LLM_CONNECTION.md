@@ -1,5 +1,13 @@
 # ECA LLM Connection Debug Test Plan
 
+## **⚠️ NEW DISCOVERY: Telemetry Serialization Bug**
+**Primary Issue Found**: `com.fasterxml.jackson.core.JsonGenerationException: Cannot JSON encode object of class: class java.lang.ProcessImpl`
+
+This occurs when telemetry system tries to serialize Java Process objects as JSON. Fix telemetry first before proceeding with HTTP/2 debugging.
+
+**Location**: `src/ouroboros/eca_client.clj:281`
+**Impact**: ECA starts but crashes during telemetry events, preventing tool calls
+
 ## Step 1: Restart ECA with Debug Logging
 
 Stop your current ECA server and restart with debug logging:
@@ -11,6 +19,32 @@ pkill -f eca
 # Start with debug logging (capture to file)
 eca --log-level debug --verbose 2>&1 | tee ~/eca-debug-$(date +%Y%m%d-%H%M%S).log
 ```
+
+## Step 1.5: Check for Telemetry Serialization Issues
+
+Before testing chat, check if telemetry system is causing failures:
+
+```clojure
+;; In Clojure REPL with Ouroboros running
+(require '[ouroboros.eca-client :as eca])
+(require '[ouroboros.telemetry :as telemetry])
+
+;; Temporarily mute telemetry to isolate issue
+(def original-emit telemetry/emit!)
+(defn mute-emit! [& args] nil)
+(alter-var-root #'telemetry/emit! (constantly mute-emit!))
+
+;; Now try starting ECA
+(eca/start! {:eca-path "/path/to/eca"})
+```
+
+**Expected Result:** ECA should start without JSON serialization errors.
+
+**If this works:** The issue is telemetry serializing non-JSON-serializable objects (ProcessImpl).
+
+**Fix:** Update telemetry to filter or convert Java objects before JSON serialization.
+
+---
 
 ## Step 2: Basic Connection Test (No Tools)
 
@@ -185,10 +219,11 @@ Create this exact sequence in a fresh ECA chat:
 ```
 
 **Capture:**
-- Exact error message
+- Exact error message (especially JSON serialization errors)
 - Last 50 lines from debug log before error
 - Your ECA config (sanitized)
 - Your Java version: `java -version`
+- Whether telemetry is involved (Ouroboros integration)
 
 ---
 
@@ -198,8 +233,9 @@ After running these tests, gather this information:
 
 ### Basic Info
 ```bash
-# ECA version
+# ECA version and path
 eca --version
+which eca
 
 # Java version
 java -version
@@ -209,18 +245,23 @@ uname -a  # or systeminfo on Windows
 
 # Check config
 cat ~/.config/eca/config.json
+
+# Check for running ECA processes
+ps aux | grep -i eca | grep -v grep
 ```
 
 ### From Debug Log
 1. **Last request before error** (grep for "Sending body")
-2. **Error context** (20 lines before/after RST_STREAM)
+2. **Error context** (20 lines before/after RST_STREAM or serialization error)
 3. **Provider being used** (ANTHROPIC/OPENAI/etc tags)
 4. **Streaming events** (any SSE events received)
+5. **Telemetry events** (look for `[TELEMETRY]` tags in Ouroboros integration)
 
 ### Test Results Matrix
 
 | Test | Result | Notes |
 |------|--------|-------|
+| Step 1.5: Telemetry check | ✅/❌ | Critical for Ouroboros integration |
 | Step 2: Basic chat | ✅/❌ | |
 | Step 3: Simple tool | ✅/❌ | |
 | Step 4: brepl skill | ✅/❌ | |
@@ -232,7 +273,12 @@ cat ~/.config/eca/config.json
 ## Quick Diagnosis Flowchart
 
 ```
-RST_STREAM error occurs
+RST_STREAM or serialization error occurs
+    │
+    ├─> Error mentions "Cannot JSON encode object of class: class java.lang.ProcessImpl"?
+    │   ├─> YES: Telemetry serialization bug (Ouroboros-specific)
+    │   │       └─> Fix: Mute telemetry or filter Java objects before JSON serialization
+    │   └─> NO: Continue with standard diagnosis
     │
     ├─> Only with tool calls? 
     │   ├─> YES: Tool-specific issue
@@ -253,6 +299,28 @@ RST_STREAM error occurs
 
 ---
 
+## Ouroboros-Specific Configuration Notes
+
+**Common Issues with Ouroboros Integration:**
+
+1. **Path Mismatch**: Debug utilities expect ECA at `scripts/eca` but system may have it at `/Users/davidwu/bin/eca` or `/usr/local/bin/eca`
+   ```clojure
+   ;; Fix: Use explicit path
+   (eca/start! {:eca-path "/Users/davidwu/bin/eca"})
+   ```
+
+2. **Provider Restrictions**: Moonshot/Kimi API only allows coding agents (returns 403 for direct curl)
+   - Switch to DeepSeek or OpenRouter in ECA config
+   - Already configured with HTTP/1.1 in `~/.config/eca/config.json`
+
+3. **State Persistence**: ECA processes may stay running after crashes
+   ```bash
+   # Clean up
+   pkill -f eca
+   # Reset state in REPL
+   (reset! eca/state {:running false ...})
+   ```
+
 ## Expected Debug Log Output (Normal Case)
 
 When everything works, you should see:
@@ -270,6 +338,7 @@ When everything works, you should see:
 
 When it fails, you'll likely see:
 
+**Standard ECA errors:**
 ```
 [DEBUG] [ANTHROPIC] [1234] Sending body: '{"model":"claude-3-5-sonnet...
 [DEBUG] [ANTHROPIC] [1234] message_start {...}
@@ -277,6 +346,12 @@ When it fails, you'll likely see:
 [WARN] [ANTHROPIC] Unexpected response status: XXX body: ...
 OR
 Exception: java.io.IOException: Received RST_STREAM: Protocol error
+```
+
+**Ouroboros telemetry serialization errors:**
+```
+[TELEMETRY] {:event :eca/start-error, :error "Cannot JSON encode object of class: class java.lang.ProcessImpl: Process[pid=1660, exitValue=\"not exited\"]"}
+com.fasterxml.jackson.core.JsonGenerationException: Cannot JSON encode object of class: class java.lang.ProcessImpl
 ```
 
 ---
@@ -302,3 +377,17 @@ Exception: java.io.IOException: Received RST_STREAM: Protocol error
 - Java HTTP client configuration issue
 - Try different Java version
 - Check for conflicting JVM args
+
+### If telemetry serialization error occurs:
+- **Immediate fix**: Temporarily mute telemetry in REPL:
+  ```clojure
+  (alter-var-root #'ouroboros.telemetry/emit! (constantly (fn [& _] nil)))
+  ```
+- **Short-term fix**: Update telemetry to filter Java objects:
+  ```clojure
+  (defn safe-emit! [event]
+    (let [clean-event (remove-process-objects event)]
+      (json/generate-string clean-event)))
+  ```
+- **Long-term fix**: Use serializable representations for Process objects
+- **Ouroboros-specific**: Check `src/ouroboros/eca_client.clj:281` for Process serialization
