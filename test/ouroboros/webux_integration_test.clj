@@ -44,7 +44,7 @@
       (is (map? create-result)
           "Create mutation should return a map")
 
-      (let [project (get-in create-result [:webux/create-project!])]
+      (let [project (get create-result 'ouroboros.webux/create-project!)]
         (is project "Should have created project")
         (is (:project/id project) "Project should have an ID")
         (is (= test-project-name (:project/name project))
@@ -103,7 +103,7 @@
                               :description "For testing builder sessions"})
                             [:project/id]}])
 
-          project-id (get-in create-result [:webux/create-project! :project/id])
+          project-id (get-in create-result ['ouroboros.webux/create-project! :project/id])
 
           ;; Start empathy map session
           session-result (query/q
@@ -116,7 +116,7 @@
       (is (map? session-result)
           "Session creation should return a map")
 
-      (let [session (get-in session-result [:webux/start-builder-session!])]
+      (let [session (get session-result 'ouroboros.webux/start-builder-session!)]
         (is session "Should have created session")
         (is (= :empathy-map (:session/type session))
             "Session type should be empathy-map")
@@ -153,7 +153,7 @@
               (is (map? complete-result)
                   "Complete mutation should return a map")
 
-              (let [completed-session (get-in complete-result [:webux/complete-builder-session!])]
+              (let [completed-session (get complete-result 'ouroboros.webux/complete-builder-session!)]
                 (is completed-session "Should have completed session")
                 (is (= :completed (:session/state completed-session))
                     "Session should be completed")
@@ -204,7 +204,7 @@
                                 :description "For error testing"})
                               [:project/id]}])
 
-            project-id (get-in create-result [:webux/create-project! :project/id])
+            project-id (get-in create-result ['ouroboros.webux/create-project! :project/id])
 
             ;; This should throw due to invalid builder type
             _ (query/q
