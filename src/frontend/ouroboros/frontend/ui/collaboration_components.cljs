@@ -210,7 +210,7 @@
           (dom/div :.comments-empty "No comments yet")))
       (dom/div :.comment-input-area
         (dom/textarea
-          {:value input-text
+          {:value (or input-text "")
            :onChange #(comp/set-state! this {:comment-input (.. % -target -value)})
            :placeholder "Add a comment..."
            :rows 3})
@@ -273,13 +273,13 @@
             (dom/div :.form-group
               (dom/label "Label")
               (dom/input
-                {:value snapshot-label
+                {:value (or snapshot-label "")
                  :onChange #(comp/set-state! this {:snapshot-label (.. % -target -value)})
                  :placeholder "e.g., Initial Draft"}))
             (dom/div :.form-group
               (dom/label "Description (optional)")
               (dom/textarea
-                {:value snapshot-desc
+                {:value (or snapshot-desc "")
                  :onChange #(comp/set-state! this {:snapshot-desc (.. % -target -value)})
                  :rows 3}))
             (dom/div :.modal-actions

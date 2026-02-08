@@ -7,6 +7,7 @@
    Uses resolver-registry to avoid circular dependencies.
    Resolvers register themselves; this namespace just aggregates them."
   (:require
+   [clojure.string :as str]
    [com.wsscode.pathom3.interface.eql :as p.eql]
    [com.wsscode.pathom3.connect.indexes :as pci]
    [com.wsscode.pathom3.connect.operation :as pco]
@@ -48,11 +49,40 @@
 ;; Page Resolvers - Support for Fulcro page queries
 ;; ============================================================================
 
+(defn- get-project-by-id
+  "Fetch a project by its ID from memory storage"
+  [project-id]
+  (when project-id
+    ;; Extract user-id from project-id (format: "user-id/project-name-timestamp")
+    (let [user-id (when-let [slash-idx (str/index-of project-id "/")]
+                    (keyword (subs project-id 0 slash-idx)))
+          key (when user-id (keyword (str "projects/" (name user-id))))
+          projects (when key 
+                     (try
+                       (require 'ouroboros.memory)
+                       ((resolve 'ouroboros.memory/get-value) key)
+                       (catch Exception _ nil)))]
+      (get projects project-id))))
+
+(defn- get-project-sessions
+  "Fetch sessions for a project"
+  [user-id project-id]
+  (when (and user-id project-id)
+    (let [key (keyword (str "builder-sessions/" (name user-id)))
+          sessions (try
+                     (require 'ouroboros.memory)
+                     ((resolve 'ouroboros.memory/get-value) key)
+                     (catch Exception _ nil))]
+      (->> (vals sessions)
+           (filter #(= (:session/project-id %) project-id))
+           (mapv #(select-keys % [:session/id :session/type :session/state :session/updated-at]))))))
+
 (pco/defresolver page-by-id
   "Resolver for Fulcro page idents like [:page/id :dashboard]
     
-   Handles Fulcro ident-based queries by using :page/id as input."
-  [{:page/keys [id]}]
+   Handles Fulcro ident-based queries by using :page/id as input.
+   For :project-detail pages, uses the :project-id from env (passed via params)."
+  [env {:page/keys [id]}]
   {::pco/input [:page/id]
    ::pco/output [:page/id
                  :system/healthy?
@@ -70,81 +100,148 @@
                  :chat/session-count
                  :chat/sessions
                  :chat/adapters
-                 :ui.fulcro.client.data-fetch.load-markers/by-id
-                 :page/error]}
-  (let [ ;; Get telemetry data if needed
-        telemetry-data (when (or (= id :telemetry)
-                                 (= id :dashboard))
-                         (try
-                           (require 'ouroboros.telemetry)
-                           ((resolve 'ouroboros.telemetry/get-events))
-                           (catch Exception e nil)))
-        ;; Get auth data if needed  
-        auth-data (when (or (= id :users) (= id :dashboard))
-                    (try
-                      (require 'ouroboros.auth)
-                      (let [users @(resolve 'ouroboros.auth/list-users)]
-                        {:users users
-                         :user-count (count users)
-                         :admin-count (count (filter #(= (:user/role %) :admin) users))})
-                      (catch Exception e {:users [] :user-count 0 :admin-count 0})))
-        ;; Get chat data if needed
-        chat-data (when (or (= id :sessions) (= id :dashboard))
-                    (try
-                      (require 'ouroboros.chat)
-                      (let [sessions @(resolve 'ouroboros.chat/active-sessions)]
-                        {:session-count (count sessions)
-                         :sessions sessions})
-                      (catch Exception e {:session-count 0 :sessions []})))]
-    {:page/id id
-     :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
-                          (catch Exception e false))
-     :system/current-state (try ((resolve 'ouroboros.engine/current-state))
-                               (catch Exception e nil))
-     :system/meta {:version "0.1.0"}
-     ;; Telemetry data
-     :telemetry/total-events (count telemetry-data)
-     :telemetry/tool-invocations (count (filter #(= :tool/invoke (:event %)) telemetry-data))
-     :telemetry/query-executions (count (filter #(= :query/execute (:event %)) telemetry-data))
-     :telemetry/errors (count (filter #(false? (:success? %)) telemetry-data))
-     :telemetry/error-rate (if (seq telemetry-data)
-                            (/ (count (filter #(false? (:success? %)) telemetry-data))
-                               (count telemetry-data) 0.01)
-                            0)
-     :telemetry/events (mapv (fn [evt]
-                              {:event/id (or (:event/id evt) (str (hash evt)))
-                               :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
-                               :event (:event evt)
-                               :tool (:tool evt)
-                               :duration-ms (:duration-ms evt)
-                               :success? (:success? evt)})
-                            telemetry-data)
-     ;; Auth data
-     :auth/user-count (:user-count auth-data 0)
-     :auth/admin-count (:admin-count auth-data 0)
-     :auth/users (mapv #(select-keys % [:user/id :user/name :user/platform :user/role :user/created-at :user/last-active])
-                       (:users auth-data []))
-     ;; Chat data
-     :chat/session-count (:session-count chat-data 0)
-     :chat/sessions (mapv (fn [[k v]]
-                            {:chat/id k
-                             :chat/message-count (count (:history v))
-                             :chat/created-at (:created-at v)
-                             :chat/platform (:platform v)
-                             :chat/running? (:running? v)})
-                          (:sessions chat-data []))
-     :chat/adapters (mapv (fn [[k v]]
-                            {:adapter/platform k
-                             :adapter/running? (some? v)})
-                          (try 
-                            (let [adapters-var (resolve 'ouroboros.chat/active-adapters)]
-                              (if adapters-var
-                                @(deref adapters-var)
-                                {}))
-                            (catch Exception e {})))
-     ;; Client-side fields
-     :ui.fulcro.client.data-fetch.load-markers/by-id nil
-     :page/error nil}))
+                 :project/id
+                 :project/name
+                 :project/description
+                 :project/status
+                 :project/sessions
+                  :empathy/session
+                 :empathy/notes
+                 :session/ui
+                 :session/data
+                  :lean-canvas/session
+                  :lean-canvas/notes
+                  :completed-responses
+                  :ui
+                  :ui.fulcro.client.data-fetch.load-markers/by-id
+                  :page/error]}
+  ;; Handle project-detail and builder pages specially
+  (cond
+    ;; Project detail page
+    (= id :project-detail)
+    (let [project-id (:project-id env)
+          project (get-project-by-id project-id)
+          ;; Extract user-id from project-id for sessions
+          user-id (when-let [slash-idx (and project-id (str/index-of project-id "/"))]
+                    (keyword (subs project-id 0 slash-idx)))
+          sessions (when project-id (get-project-sessions user-id project-id))]
+      {:page/id id
+       :project/id (or (:project/id project) project-id)
+       :project/name (or (:project/name project) "Unknown Project")
+       :project/description (or (:project/description project) "")
+       :project/status (or (:project/status project) :draft)
+       :project/sessions (or sessions [])
+       :ui.fulcro.client.data-fetch.load-markers/by-id nil
+       :page/error (when-not project "Project not found")})
+    
+    ;; Builder pages (empathy, value-prop, mvp, lean-canvas)
+    (#{:empathy-builder :value-prop-builder :mvp-builder :lean-canvas-builder} id)
+    (let [project-id (:project-id env)
+          project (get-project-by-id project-id)]
+      {:page/id id
+       :project/id (or (:project/id project) project-id)
+       :project/name (or (:project/name project) "Unknown Project")
+       ;; Empathy builder attributes
+       :empathy/session nil
+       :empathy/notes {}
+       ;; MVP/Value Prop builder attributes
+       :session/ui {:ui/current-section 0
+                    :ui/total-sections 6
+                    :ui/prompt nil
+                    :ui/hint nil
+                    :ui/completed-sections []
+                    :ui/complete? false}
+       :session/data {}
+       ;; Lean Canvas builder attributes
+       :lean-canvas/session nil
+       :lean-canvas/notes {}
+       ;; UI: return empty map - client pre-merge fills in defaults
+        :ui {}
+        :completed-responses []
+        :ui.fulcro.client.data-fetch.load-markers/by-id nil
+       :page/error (when-not project "Project not found")})
+    
+    ;; Other pages - use the existing logic
+    :else
+    (let [ ;; Get telemetry data if needed
+          telemetry-data (when (or (= id :telemetry)
+                                   (= id :dashboard))
+                           (try
+                             (require 'ouroboros.telemetry)
+                             ((resolve 'ouroboros.telemetry/get-events))
+                             (catch Exception e nil)))
+          ;; Get auth data if needed  
+          auth-data (when (or (= id :users) (= id :dashboard))
+                      (try
+                        (require 'ouroboros.auth)
+                        (let [users @(resolve 'ouroboros.auth/list-users)]
+                          {:users users
+                           :user-count (count users)
+                           :admin-count (count (filter #(= (:user/role %) :admin) users))})
+                        (catch Exception e {:users [] :user-count 0 :admin-count 0})))
+          ;; Get chat data if needed
+          chat-data (when (or (= id :sessions) (= id :dashboard))
+                      (try
+                        (require 'ouroboros.chat)
+                        (let [sessions @(resolve 'ouroboros.chat/active-sessions)]
+                          {:session-count (count sessions)
+                           :sessions sessions})
+                        (catch Exception e {:session-count 0 :sessions []})))]
+      {:page/id id
+       :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
+                            (catch Exception e false))
+       :system/current-state (try ((resolve 'ouroboros.engine/current-state))
+                                 (catch Exception e nil))
+       :system/meta {:version "0.1.0"}
+       ;; Telemetry data
+       :telemetry/total-events (count telemetry-data)
+       :telemetry/tool-invocations (count (filter #(= :tool/invoke (:event %)) telemetry-data))
+       :telemetry/query-executions (count (filter #(= :query/execute (:event %)) telemetry-data))
+       :telemetry/errors (count (filter #(false? (:success? %)) telemetry-data))
+       :telemetry/error-rate (if (seq telemetry-data)
+                              (/ (count (filter #(false? (:success? %)) telemetry-data))
+                                 (count telemetry-data) 0.01)
+                              0)
+       :telemetry/events (mapv (fn [evt]
+                                {:event/id (or (:event/id evt) (str (hash evt)))
+                                 :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
+                                 :event (:event evt)
+                                 :tool (:tool evt)
+                                 :duration-ms (:duration-ms evt)
+                                 :success? (:success? evt)})
+                              telemetry-data)
+       ;; Auth data
+       :auth/user-count (:user-count auth-data 0)
+       :auth/admin-count (:admin-count auth-data 0)
+       :auth/users (mapv #(select-keys % [:user/id :user/name :user/platform :user/role :user/created-at :user/last-active])
+                         (:users auth-data []))
+       ;; Chat data
+       :chat/session-count (:session-count chat-data 0)
+       :chat/sessions (mapv (fn [[k v]]
+                              {:chat/id k
+                               :chat/message-count (count (:history v))
+                               :chat/created-at (:created-at v)
+                               :chat/platform (:platform v)
+                               :chat/running? (:running? v)})
+                            (:sessions chat-data []))
+       :chat/adapters (mapv (fn [[k v]]
+                              {:adapter/platform k
+                               :adapter/running? (some? v)})
+                            (try 
+                              (let [adapters-var (resolve 'ouroboros.chat/active-adapters)]
+                                (if adapters-var
+                                  @(deref adapters-var)
+                                  {}))
+                              (catch Exception e {})))
+       ;; Project fields (empty for non-project pages)
+       :project/id nil
+       :project/name nil
+       :project/description nil
+       :project/status nil
+       :project/sessions []
+       ;; Client-side fields
+       :ui.fulcro.client.data-fetch.load-markers/by-id nil
+       :page/error nil})))
 
 ;; Register core resolvers
 (registry/register-resolvers!
@@ -212,10 +309,16 @@
 
    Usage: (q [:system/current-state])
           (q [:system/status])
-          (q [:system/healthy? :system/meta])"
-  [query]
-  (when-let [env @query-env]
-    (p.eql/process env query)))
+          (q [:system/healthy? :system/meta])
+          (q [{[:page/id :project-detail] [...]}] {:project-id \"...\"})"
+  ([query] (q query nil))
+  ([query params]
+   (when-let [env @query-env]
+     (let [;; Merge params into environment so resolvers can access them
+           env-with-params (if params
+                             (merge env params)
+                             env)]
+       (p.eql/process env-with-params query)))))
 
 (defn m
   "Execute a mutation on the system

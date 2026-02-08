@@ -244,7 +244,7 @@
       ;; Input
       (dom/div :.eca-input-area
         (dom/textarea
-          {:value input-text
+          {:value (or input-text "")
            :onChange #(comp/set-state! this {:chat-input (.. % -target -value)})
            :placeholder "Ask AI assistant..."
            :rows 2})

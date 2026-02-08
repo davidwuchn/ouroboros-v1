@@ -1,11 +1,24 @@
 (ns ouroboros.frontend.ui.pages.project-detail
   "Project detail page with builder selection"
   (:require
+   [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
    [com.fulcrologic.fulcro.data-fetch :as df]
    [ouroboros.frontend.ui.components :as ui]))
+
+;; Project IDs contain "/" (e.g. "demo-user/project-name-123")
+;; which breaks URL routing. Encode/decode for safe URL use.
+(defn encode-project-id
+  "Replace / with ~ for safe URL routing"
+  [project-id]
+  (str/replace (str project-id) "/" "~"))
+
+(defn decode-project-id
+  "Restore / from ~ in route params"
+  [encoded-id]
+  (str/replace (str encoded-id) "~" "/"))
 
 ;; ============================================================================
 ;; Builder Selection Component
@@ -41,9 +54,10 @@
 (defsc BuilderCard
   "Card for selecting a builder type"
   [this {:keys [builder project-id]}]
-  (let [{:keys [key name description icon sections route]} builder]
-    (ui/card {:title (str icon " " name)
-              :className (str "builder-card builder-" (name key))}
+  (let [{:keys [key description icon sections route]} builder
+        builder-name (:name builder)]
+    (ui/card {:title (str icon " " builder-name)
+              :className (str "builder-card builder-" (clojure.core/name key))}
              (dom/div :.builder-description description)
              (dom/div :.builder-sections
                       (dom/span :.sections-label (str (count sections) " sections:"))
@@ -52,8 +66,10 @@
                               (when (> (count sections) 4)
                                 (dom/li (str "+" (- (count sections) 4) " more...")))))
              (dom/div :.builder-actions
-                      (ui/button
-                       {:on-click #(dr/change-route! this ["project" {:project-id project-id} route])
+                       (ui/button
+                       {:on-click (fn []
+                                    (let [encoded-id (encode-project-id project-id)]
+                                      (dr/change-route! this ["project" encoded-id route])))
                         :variant :primary}
                        "Start Building")))))
 
@@ -70,8 +86,8 @@
    :ident :session/id}
   (dom/div :.session-item
            (dom/div :.session-info
-                    (dom/span :.session-type (name type))
-                    (dom/span :.session-state (name state)))
+                    (dom/span :.session-type (clojure.core/name type))
+                    (dom/span :.session-state (clojure.core/name state)))
            (dom/div :.session-meta
                     (dom/span :.session-updated updated-at))))
 
@@ -83,37 +99,40 @@
 
 (defsc ProjectDetailPage
   "Project detail page with builder selection"
-  [this {:keys [project/id project/name project/description project/status
+  [this {:keys [project/id project/description project/status
                 project/sessions] :as props}]
   {:query         [:project/id :project/name :project/description :project/status
                    {:project/sessions (comp/get-query SessionItem)}
                    [df/marker-table :project-detail]]
-   :ident         (fn [] [:page/id :project-detail])
-   :route-segment ["project" :project-id]
+    :ident         (fn [] [:page/id :project-detail])
+    :initial-state (fn [_] {})
+    :route-segment ["project" :project-id]
    :will-enter    (fn [app {:keys [project-id]}]
-                    (dr/route-deferred [:page/id :project-detail]
-                                       (fn []
-                                         (df/load! app [:page/id :project-detail] ProjectDetailPage
-                                                   {:marker :project-detail
-                                                    :params {:project-id project-id}
-                                                    :post-mutation `dr/target-ready
-                                                    :post-mutation-params {:target [:page/id :project-detail]}}))))}
+                     (let [decoded-id (decode-project-id (or project-id ""))]
+                      (dr/route-deferred [:page/id :project-detail]
+                                         (fn []
+                                           (df/load! app [:page/id :project-detail] ProjectDetailPage
+                                                     {:marker :project-detail
+                                                      :params {:project-id decoded-id}
+                                                      :post-mutation `dr/target-ready
+                                                      :post-mutation-params {:target [:page/id :project-detail]}})))))}
 
-  (let [loading? (df/loading? (get props [df/marker-table :project-detail]))]
+  (let [loading? (df/loading? (get props [df/marker-table :project-detail]))
+        project-name (:project/name props)]
     (if loading?
       (dom/div :.loading "Loading project...")
       (dom/div :.project-detail-page
         ;; Header
                (dom/div :.project-header
-                        (dom/h1 name)
-                        (dom/span :.project-status-badge (name status))
+                        (dom/h1 project-name)
+                        (dom/span :.project-status-badge (clojure.core/name (or status :draft)))
                         (when description
                           (dom/p :.project-description description)))
 
         ;; Builder Selection
                (dom/h2 "Choose a Builder")
                (dom/div :.builders-grid
-                        (map #(when (-> % :builder :key) (ui-builder-card {:builder % :project-id id})) builder-types))
+                        (map #(ui-builder-card {:builder % :project-id id}) builder-types))
 
         ;; Active Sessions
                (when (seq sessions)

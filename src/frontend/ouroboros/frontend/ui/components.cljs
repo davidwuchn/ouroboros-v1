@@ -26,8 +26,9 @@
 ;; ============================================================================
 
 (defsc ErrorDisplay [this props]
-  {:query [:message]
-   :ident (fn [] [:component/id :error-display])}
+   {:query [:message]
+    :ident (fn [] [:component/id :error-display])
+    :initial-state (fn [_] {:message nil})}
   (let [message (:message props)
         retry-fn (:on-retry props)]
     (dom/div :.error-state
@@ -56,26 +57,27 @@
 (defn navbar
   "Navigation bar component"
   [{:keys [active-route on-navigate]}]
-  (dom/nav :.navbar
-           (dom/a :.navbar-brand
-                  {:onClick #(on-navigate "dashboard")}
-                  "🐍 Ouroboros")
-           (dom/ul :.navbar-nav
-                   (dom/li (dom/a {:className (str "nav-link" (when (= active-route "dashboard") " active"))
-                                   :onClick #(on-navigate "dashboard")}
-                                  "Dashboard"))
-                   (dom/li (dom/a {:className (str "nav-link" (when (= active-route "projects") " active"))
-                                   :onClick #(on-navigate "projects")}
-                                  "Projects"))
-                   (dom/li (dom/a {:className (str "nav-link" (when (= active-route "telemetry") " active"))
-                                   :onClick #(on-navigate "telemetry")}
-                                  "Telemetry"))
-                   (dom/li (dom/a {:className (str "nav-link" (when (= active-route "users") " active"))
-                                   :onClick #(on-navigate "users")}
-                                  "Users"))
-                   (dom/li (dom/a {:className (str "nav-link" (when (= active-route "sessions") " active"))
-                                   :onClick #(on-navigate "sessions")}
-                                  "Sessions")))))
+  (let [is? (fn [& routes] (some #(= active-route %) routes))]
+    (dom/nav :.navbar
+             (dom/a :.navbar-brand
+                    {:onClick #(on-navigate "dashboard")}
+                    "🐍 Ouroboros")
+             (dom/ul :.navbar-nav
+                     (dom/li (dom/a {:className (str "nav-link" (when (is? "dashboard") " active"))
+                                     :onClick #(on-navigate "dashboard")}
+                                    "Dashboard"))
+                     (dom/li (dom/a {:className (str "nav-link" (when (is? "projects" "project") " active"))
+                                     :onClick #(on-navigate "projects")}
+                                    "Projects"))
+                     (dom/li (dom/a {:className (str "nav-link" (when (is? "telemetry") " active"))
+                                     :onClick #(on-navigate "telemetry")}
+                                    "Telemetry"))
+                     (dom/li (dom/a {:className (str "nav-link" (when (is? "users") " active"))
+                                     :onClick #(on-navigate "users")}
+                                    "Users"))
+                     (dom/li (dom/a {:className (str "nav-link" (when (is? "sessions") " active"))
+                                     :onClick #(on-navigate "sessions")}
+                                    "Sessions"))))))
 
 (defn main-layout
   "Main application layout"
@@ -150,6 +152,15 @@
 ;; Data Table
 ;; ============================================================================
 
+(defn- safe-render-value
+  "Ensure a value is safe to render in React (convert keywords/symbols to strings)"
+  [v]
+  (cond
+    (keyword? v) (name v)
+    (symbol? v) (str v)
+    (nil? v) ""
+    :else v))
+
 (defn data-table
   "Generic data table"
   [{:keys [columns rows empty-message]}]
@@ -159,15 +170,16 @@
                         (dom/thead
                          (apply dom/tr
                           (for [col columns]
-                            (dom/th {:key (:key col)} (:label col)))))
+                            (dom/th {:key (name (:key col))} (:label col)))))
                         (apply dom/tbody
                          (for [[idx row] (map-indexed vector rows)]
-                           (apply dom/tr {:key (or (:id row) idx)}
+                           (apply dom/tr {:key (str (or (:id row) idx))}
                                    (for [col columns]
                                      (let [key (:key col)
                                            value (get row key)
-                                           formatter (:format col identity)]
-                                       (dom/td {:key key} (formatter value row)))))))))
+                                           formatter (:format col identity)
+                                           rendered (formatter value row)]
+                                       (dom/td {:key (name key)} (safe-render-value rendered)))))))))
      (empty-state {:message (or empty-message "No data available")})))
 
 ;; ============================================================================

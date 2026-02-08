@@ -227,13 +227,13 @@
              (dom/p :.prediction-message message)
              (dom/div :.prediction-actions
                       (ui/button
-                       {:onClick #(js/alert "View recommendations")
-                        :variant :primary
-                        :children "View Recommendations"})
+                       {:on-click #(js/alert "View recommendations")
+                        :variant :primary}
+                       "View Recommendations")
                       (ui/button
-                       {:onClick #(js/alert "Dismissed")
-                        :variant :secondary
-                        :children "Dismiss"})))))
+                       {:on-click #(js/alert "Dismissed")
+                        :variant :secondary}
+                       "Dismiss")))))
 
 ;; ============================================================================
 ;; Analytics Dashboard
@@ -247,9 +247,9 @@
            (dom/div :.dashboard-header
                     (dom/h2 "📊 Project Analytics")
                     (ui/button
-                     {:onClick #(df/load! this [:component/id :analytics] AnalyticsDashboard)
-                      :variant :secondary
-                      :children "🔄 Refresh"}))
+                     {:on-click #(df/load! this [:component/id :analytics] AnalyticsDashboard)
+                      :variant :secondary}
+                     "🔄 Refresh"))
 
     ;; Grid layout
            (dom/div :.analytics-grid

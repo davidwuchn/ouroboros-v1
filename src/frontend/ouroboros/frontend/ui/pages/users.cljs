@@ -89,18 +89,20 @@
                  {:key :role
                   :label "Role"
                   :format (fn [v _]
-                            (dom/span
-                             {:className (str "badge "
-                                              (case v
-                                                :admin "badge-primary"
-                                                "badge-secondary"))}
-                             (name v)))}
+                            (if v
+                              (dom/span
+                               {:className (str "badge "
+                                                (case v
+                                                  :admin "badge-primary"
+                                                  "badge-secondary"))}
+                               (name v))
+                              "-"))}
                  {:key :created-at :label "Created"}
                  {:key :last-active :label "Last Active"}]
         rows (map (fn [u]
                     {:id (or (:user/id u) (str (hash u)))
                      :name (:user/name u)
-                     :platform (name (:user/platform u))
+                     :platform (if-let [p (:user/platform u)] (name p) "-")
                      :role (:user/role u)
                      :created-at (:user/created-at u)
                      :last-active (:user/last-active u)})
@@ -123,8 +125,9 @@
            {:auth/users (comp/get-query User)}
            [df/marker-table :users]
            :page/error]
-   :ident (fn [] [:page/id :users])
-   :route-segment ["users"]
+    :ident (fn [] [:page/id :users])
+    :initial-state (fn [_] {})
+    :route-segment ["users"]
    :will-enter (fn [app route-params]
                  (dr/route-deferred [:page/id :users]
                                     (fn []

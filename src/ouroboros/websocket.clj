@@ -40,7 +40,7 @@
   "Broadcast a message to all connected clients"
   [message]
   (doseq [[id {:keys [channel subscriptions]}] @connections]
-    (when (and channel (not (:closed? @channel)))
+    (when channel
       (try
         (httpkit/send! channel (json/generate-string message))
         (catch Exception e
@@ -50,7 +50,7 @@
   "Broadcast to specific subscription"
   [subscription-type message]
   (doseq [[id {:keys [channel subscriptions]}] @connections]
-    (when (and channel (not (:closed? @channel)) (contains? subscriptions subscription-type))
+    (when (and channel (contains? subscriptions subscription-type))
       (try
         (httpkit/send! channel (json/generate-string message))
         (catch Exception e

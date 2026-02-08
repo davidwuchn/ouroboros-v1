@@ -153,8 +153,9 @@
                    :chat/session-count
                    [df/marker-table :dashboard]
                    :page/error]
-   :ident         (fn [] [:page/id :dashboard])
-   :route-segment ["dashboard"]
+    :ident         (fn [] [:page/id :dashboard])
+    :initial-state (fn [_] {})
+    :route-segment ["dashboard"]
    :will-enter    (fn [app route-params]
                     (dr/route-deferred [:page/id :dashboard]
                                        (fn []

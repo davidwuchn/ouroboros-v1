@@ -329,12 +329,40 @@
      :webux/learning-count (count learnings)}))
 
 ;; ============================================================================
+;; Frontend Adapter Mutations
+;; ============================================================================
+;; These mutations match the Fulcro frontend mutation symbols and delegate
+;; to the core mutations. This allows the frontend to use its own mutation
+;; names while the backend handles the logic.
+
+(pco/defmutation frontend-create-project
+  "Frontend adapter for create-project mutation.
+   Maps frontend mutation symbol to backend create-project! logic."
+  [{:keys [name description]}]
+  {::pco/op-name 'ouroboros.frontend.ui.pages.projects/create-project
+   ::pco/output [:project/id :project/name :project/description :project/owner :project/status :project/created-at :project/updated-at]}
+  ;; Use demo-user since frontend doesn't send user-id yet
+  ;; In production, this would come from auth context
+  (create-project! {:user-id :demo-user :name name :description description}))
+
+(pco/defmutation frontend-delete-project
+  "Frontend adapter for delete-project mutation.
+   Maps frontend mutation symbol to backend delete-project! logic."
+  [{:keys [project-id]}]
+  {::pco/op-name 'ouroboros.frontend.ui.pages.projects/delete-project
+   ::pco/output [:project/id :project/deleted?]}
+  ;; Use demo-user since frontend doesn't send user-id yet
+  (delete-project! {:user-id :demo-user :project-id project-id}))
+
+;; ============================================================================
 ;; Registration
 ;; ============================================================================
 
 (def resolvers [page-user user-projects project-by-id project-sessions session-by-id webux-stats])
 (def mutations [create-project! update-project! delete-project!
-                start-builder-session! update-builder-session! complete-builder-session!])
+                start-builder-session! update-builder-session! complete-builder-session!
+                ;; Frontend adapters
+                frontend-create-project frontend-delete-project])
 
 (registry/register-resolvers! resolvers)
 (registry/register-mutations! mutations)

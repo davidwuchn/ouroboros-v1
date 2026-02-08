@@ -116,8 +116,9 @@
 ;; ============================================================================
 
 (defsc ConnectionIndicator [this {:keys [connected?]}]
-  {:query [:connected?]
-   :ident (fn [] [:component/id :connection-indicator])}
+   {:query [:connected?]
+    :ident (fn [] [:component/id :connection-indicator])
+    :initial-state (fn [_] {:connected? false})}
   (dom/div {:className (str "connection-indicator-inline " (if connected? "connected" "disconnected"))}
            (dom/span :.connection-dot)
            (dom/span :.connection-label
@@ -144,8 +145,9 @@
            {:telemetry/events (comp/get-query TelemetryEvent)}
            [df/marker-table :telemetry]
            :page/error]
-   :ident (fn [] [:page/id :telemetry])
-   :route-segment ["telemetry"]
+    :ident (fn [] [:page/id :telemetry])
+    :initial-state (fn [_] {})
+    :route-segment ["telemetry"]
    :will-enter (fn [app route-params]
                  (dr/route-deferred [:page/id :telemetry]
                                     (fn []

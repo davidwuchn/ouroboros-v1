@@ -130,8 +130,9 @@
            {:chat/adapters (comp/get-query ChatAdapter)}
            [df/marker-table :sessions]
            :page/error]
-   :ident (fn [] [:page/id :sessions])
-   :route-segment ["sessions"]
+    :ident (fn [] [:page/id :sessions])
+    :initial-state (fn [_] {})
+    :route-segment ["sessions"]
    :will-enter (fn [app route-params]
                  (dr/route-deferred [:page/id :sessions]
                                     (fn []

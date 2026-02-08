@@ -56,9 +56,12 @@
    :initial-state (fn [_]
                     {:main-router (comp/get-initial-state MainRouter {:router-id :main-router})})}
 
-  (dom/div :.app-container
-           (ui/navbar
-            {:active-route "dashboard"
-             :on-navigate navigate-to})
-           (dom/main :.main-content
-                     (ui-main-router main-router))))
+  (let [current-route (dr/current-route app)
+        ;; current-route is a vector like ["dashboard"] or ["projects"] or ["project" "id" "empathy"]
+        active-route (first current-route)]
+    (dom/div :.app-container
+             (ui/navbar
+              {:active-route (or active-route "dashboard")
+               :on-navigate navigate-to})
+             (dom/main :.main-content
+                       (ui-main-router main-router)))))

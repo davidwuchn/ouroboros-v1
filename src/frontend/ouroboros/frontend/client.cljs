@@ -9,11 +9,8 @@
 (defn ^:export init
   "Shadow-cljs entry point"
   []
-  ;; Set up initial state before mounting
-  (app/set-root! app root/Root {:initialize-state? true})
-  
-  ;; Mount the app (Fulcro 3.7+ handles React 18 internally)
-  (app/mount! app root/Root "app" {:initialize-state? false})
+  ;; Mount the app with initial state
+  (app/mount! app root/Root "app" {:initialize-state? true})
   
   ;; Navigate to dashboard after mount
   ;; Use requestAnimationFrame to ensure DOM and state are ready
