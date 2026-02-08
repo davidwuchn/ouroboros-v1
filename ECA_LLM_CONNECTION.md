@@ -9,7 +9,7 @@
 | JSON-RPC Protocol Bug | ✅ **FIXED** | `.println` added extra newline, causing Content-Length mismatch |
 | Process ID Issue | ✅ **FIXED** | ECA liveness probe needs real PID, now using `ProcessHandle.current().pid()` |
 | ECA Initialization Timeout | ✅ **RESOLVED** | Both protocol and PID fixes applied |
-| Provider Compatibility | 🔄 **UPDATED** | Moonshot → OpenRouter/Claude Sonnet 4.5 |
+| Provider Compatibility | 🔄 **UPDATED** | minimax/minimax-m2.1 (primary) |
 | nREPL Environment | ⚠️ **JVM REQUIRED** | Babashka has Jackson issues, using JVM nREPL |
 | Basic Chat Testing | 🔄 **READY FOR TEST** | Initialization should now work |
 
@@ -370,7 +370,7 @@ timeout 5 eca server 2>&1 | head -20
 | 🔄 Step 6: HTTP/1.1 | ⏳ **PENDING** | Provider already uses HTTP/1.1 (OpenRouter) |
 | ✅ Step 9: Network | ✅ **WORKS** | curl tests successful, provider connectivity OK |
 | ✅ ECA Init Timeout | ✅ **FIXED** | Protocol and PID fixes applied, initialization working |
-| ✅ Provider Switch | ✅ **COMPLETE** | Moonshot → OpenRouter/Claude Sonnet 4.5 |
+| ✅ Provider Switch | ✅ **COMPLETE** | Using minimax/minimax-m2.1 |
 | ✅ nREPL Environment | ✅ **JVM ACTIVE** | Babashka nREPL has Jackson issues, using JVM nREPL |
 
 ---
@@ -434,10 +434,9 @@ ECA connection issues occur
    - **Fix**: Changed `.println` to `.print` + use real PID via `ProcessHandle.current().pid()`
    - **Verification**: Manual JSON-RPC test confirms proper response
 
-4. **🔄 Provider Switched**: Moonshot/Kimi API returns 403 (coding agents only)
-   - **New Provider**: OpenRouter/Claude Sonnet 4.5
-   - **Config**: `~/.config/eca/config.json` updated with `defaultModel: "openrouter/anthropic/claude-sonnet-4.5"`
-   - **Alternative**: DeepSeek also configured and available
+4. **🔄 Provider Configuration**: minimax/minimax-m2.1 (primary)
+    - **Config**: `~/.config/eca/config.json` uses `defaultModel: "minimax/minimax-m2.1"`
+    - **Alternative Providers**: OpenRouter/Claude Sonnet 4.5, DeepSeek also configured and available
 
 5. **⚠️ nREPL Environment**: Babashka nREPL has Jackson classloading issues
    - **Issue**: `Unable to resolve classname: com.fasterxml.jackson.core.JsonGenerator`

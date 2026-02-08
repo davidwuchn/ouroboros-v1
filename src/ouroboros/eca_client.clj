@@ -170,10 +170,27 @@
   "Read and parse a JSON-RPC response"
   (let [content-length (read-response-header reader)]
     (when content-length
-      (let [chars (char-array content-length)
-            _ (.read reader chars 0 content-length)
-            json (str chars)]
-        (json/parse-string json true)))))
+      (let [sb (StringBuilder. content-length)]
+        (loop [remaining content-length]
+          (when (> remaining 0)
+            (let [chars (char-array remaining)
+                  read-count (.read reader chars 0 remaining)]
+              (cond
+                (neg? read-count)
+                (telemetry/emit! {:event :eca/read-eof
+                                  :expected remaining})
+
+                (pos? read-count)
+                (do (.append sb chars 0 read-count)
+                    (recur (- remaining read-count)))))))
+        (let [json (.toString sb)]
+          (try
+            (json/parse-string json true)
+            (catch Exception e
+              (telemetry/emit! {:event :eca/json-parse-error
+                                :error (.getMessage e)
+                                :content-preview (subs json 0 (min 100 (count json)))})
+              (throw e))))))))
 
 ;; ============================================================================
 ;; Request/Response Handling
@@ -197,6 +214,19 @@
                       :id id})
 
     response-promise))
+
+(defn- send-notification! [method params]
+  "Send a JSON-RPC notification (no response expected)"
+  (let [{:keys [stdin]} @state
+        message {:jsonrpc "2.0"
+                 :method method
+                 :params params}]
+
+    (.print stdin (serialize-message message))
+    (.flush stdin)
+
+    (telemetry/emit! {:event :eca/send-notification
+                      :method method})))
 
 (defn- handle-notification! [notification]
   "Handle incoming notification from ECA"
@@ -248,10 +278,10 @@
 
 (defn- read-loop! []
   "Background thread to read responses from ECA"
-  (let [{:keys [stdout running]} @state]
-    (future
-      (loop []
-        (when @running
+  (future
+    (loop []
+      (let [{:keys [stdout running]} @state]
+        (when running
           (let [response (try
                            (read-jsonrpc-response stdout)
                            (catch Exception e
@@ -323,11 +353,11 @@
                      (catch Exception _
                        ;; Fallback to hash if ProcessHandle not available (Java 8)
                        (long (hash (str (System/getProperty "user.name") (System/currentTimeMillis))))))
-        params {:process-id process-id
-                :client-info {:name "ouroboros"
+         params {:processId process-id
+                 :clientInfo {:name "ouroboros"
                               :version "0.1.0"}
-                :capabilities {}
-                :workspace-folders [{:uri (str "file://" (System/getProperty "user.dir"))
+                 :capabilities {}
+                 :workspaceFolders [{:uri (str "file://" (System/getProperty "user.dir"))
                                      :name "ouroboros"}]}
         response-promise (send-request! "initialize" params)
         timeout-ms 30000
@@ -349,7 +379,9 @@
                 (println "✗ ECA initialize error:" (:error response)))
               (do
                 (println "✓ ECA initialized")
-                (telemetry/emit! {:event :eca/initialized}))))
+                (telemetry/emit! {:event :eca/initialized})
+                ;; Send initialized notification to complete handshake
+                (send-notification! "initialized" {}))))
 
           ;; Timeout reached
           (> (- (System/currentTimeMillis) start-time) timeout-ms)
@@ -403,8 +435,8 @@
   (telemetry/emit! {:event :eca/chat-prompt
                     :message-length (count message)})
 
-  (let [params {:chat-id "default"
-                :prompt message
+  (let [params {:chatId "default"
+                :message message
                 :behavior "default"}
         response-promise (send-request! "chat/prompt" params)]
 
