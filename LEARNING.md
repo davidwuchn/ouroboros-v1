@@ -244,6 +244,18 @@ Mutations must be called with fully qualified symbols as registered.
 (keys (:com.wsscode.pathom3.connect.indexes/index-mutations @env))
 ```
 
+**Mutation Result Keys:** Pathom returns mutation results with symbol keys (not keywords). When querying mutations via `(q [{(mutation params) ...}])`, the result map will have a key like `ouroboros.webux/create-project!` (a symbol), not `:webux/create-project!` (a keyword).
+
+```clojure
+;; Query pattern
+(let [result (q `[{(webux/create-project! params) [:project/id]}])
+      ;; Extract using symbol key
+      project (get result 'ouroboros.webux/create-project!)]
+  ...)
+```
+
+**Why:** Pathom stores mutations in its index with fully qualified symbols as keys. The query processor preserves these symbols in the result map.
+
 ---
 
 ### 15. Tool-Centric AI

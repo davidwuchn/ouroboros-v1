@@ -50,7 +50,7 @@
 
 (defn- generate-project-id
   [user-id project-name]
-  (str (name user-id) "/project-" 
+  (str (name user-id) "/project-"
        (str/replace (str/lower-case project-name) #"[^a-z0-9]+" "-")
        "-" (System/currentTimeMillis)))
 
@@ -66,13 +66,13 @@
    - :name - Project name (required, non-empty)
    - :description - Optional project description"
   [{:keys [user-id description] project-name :name}]
-  {::pco/output [:project/id :project/name :project/status]}
+  {::pco/output [:project/id :project/name :project/description :project/owner :project/status :project/created-at :project/updated-at]}
   ;; Validation
   (when (nil? user-id)
     (throw (ex-info "user-id is required" {:param :user-id})))
   (when (str/blank? project-name)
     (throw (ex-info "name is required and cannot be blank" {:param :name})))
-  
+
   (let [project-id (generate-project-id user-id project-name)
         project {:project/id project-id
                  :project/name project-name
@@ -82,13 +82,13 @@
                  :project/created-at (str (java.time.Instant/now))
                  :project/updated-at (str (java.time.Instant/now))}
         key (projects-key user-id)]
-    
+
     ;; Store in memory
-    (memory/update! key 
+    (memory/update! key
                     (fn [projects]
                       (let [projects (or projects {})]
                         (assoc projects project-id project))))
-    
+
     ;; Save as learning insight
     (learning/save-insight! user-id
                             {:title (str "Started project: " project-name)
@@ -98,11 +98,11 @@
                              :tags #{"project" "creation"}
                              :examples [{:project-id project-id
                                          :name project-name}]})
-    
+
     (telemetry/emit! {:event :webux/project-created
                       :user-id user-id
                       :project-id project-id})
-    
+
     project))
 
 (pco/defmutation update-project!
@@ -111,18 +111,18 @@
   {::pco/output [:project/id :project/updated-at]}
   (let [key (projects-key user-id)]
     (memory/update! key
-                  (fn [projects]
-                    (if-let [project (get projects project-id)]
-                      (assoc projects project-id 
-                             (assoc (merge project updates)
-                                    :project/updated-at 
-                                    (str (java.time.Instant/now))))
-                      projects)))
-    
+                    (fn [projects]
+                      (if-let [project (get projects project-id)]
+                        (assoc projects project-id
+                               (assoc (merge project updates)
+                                      :project/updated-at
+                                      (str (java.time.Instant/now))))
+                        projects)))
+
     (telemetry/emit! {:event :webux/project-updated
                       :user-id user-id
                       :project-id project-id})
-    
+
     {:project/id project-id
      :project/updated-at (str (java.time.Instant/now))}))
 
@@ -132,48 +132,48 @@
   {::pco/output [:project/id :project/deleted?]}
   (let [key (projects-key user-id)]
     (memory/update! key
-                  (fn [projects]
-                    (dissoc projects project-id)))
-    
+                    (fn [projects]
+                      (dissoc projects project-id)))
+
     (telemetry/emit! {:event :webux/project-deleted
                       :user-id user-id
                       :project-id project-id})
-    
+
     {:project/id project-id
      :project/deleted? true}))
 
 (pco/defresolver page-user
-   "Get current user-id from page context (for demo purposes)
+  "Get current user-id from page context (for demo purposes)
     Maps page IDs to user IDs. In production, use auth/user-id from session."
-   [{:keys [page/id]}]
-   {::pco/input [:page/id]
-    ::pco/output [:user/id]}
+  [{:keys [page/id]}]
+  {::pco/input [:page/id]
+   ::pco/output [:user/id]}
    ;; Default to :demo-user for all pages in this demo
    ;; In production, this would derive from authentication session
-   {:user/id :demo-user})
+  {:user/id :demo-user})
 
 (pco/defresolver user-projects
-   "Get all projects for a user"
-   [input]
-   {::pco/input [:user/id]
-    ::pco/output [{:user/projects [:project/id :project/name :project/description
-                                   :project/status :project/created-at]}]}
-   (let [user-id (or (:user/id input) (:user-id input))
-         key (when user-id (projects-key user-id))
-         projects (if key (vals (or (memory/get-value key) {})) [])]
-     {:user/projects (vec projects)}))
+  "Get all projects for a user"
+  [input]
+  {::pco/input [:user/id]
+   ::pco/output [{:user/projects [:project/id :project/name :project/description
+                                  :project/status :project/created-at]}]}
+  (let [user-id (or (:user/id input) (:user-id input))
+        key (when user-id (projects-key user-id))
+        projects (if key (vals (or (memory/get-value key) {})) [])]
+    {:user/projects (vec projects)}))
 
 (pco/defresolver project-by-id
-   "Get a specific project by ID"
-   [input]
-   {::pco/input [:user/id :project/id]
-    ::pco/output [:project/id :project/name :project/description
-                  :project/status :project/owner :project/created-at]}
-   (let [user-id (or (:user/id input) (:user-id input))
-         project-id (or (:project/id input) (:project-id input))
-         key (when user-id (projects-key user-id))
-         projects (if key (or (memory/get-value key) {}) {})]
-     (get projects project-id)))
+  "Get a specific project by ID"
+  [input]
+  {::pco/input [:user/id :project/id]
+   ::pco/output [:project/id :project/name :project/description
+                 :project/status :project/owner :project/created-at]}
+  (let [user-id (or (:user/id input) (:user-id input))
+        project-id (or (:project/id input) (:project-id input))
+        key (when user-id (projects-key user-id))
+        projects (if key (or (memory/get-value key) {}) {})]
+    (get projects project-id)))
 
 ;; ============================================================================
 ;; Builder Session Operations
@@ -194,7 +194,7 @@
   {::pco/output [:session/id :session/type :session/state :session/data]}
   (when-not (contains? builder-types builder-type)
     (throw (ex-info "Invalid builder type" {:type builder-type :valid builder-types})))
-  
+
   (let [session-id (str project-id "/" (name builder-type) "-" (System/currentTimeMillis))
         session-data (case builder-type
                        :empathy-map (empathy/start-empathy-session! user-id "Persona")
@@ -210,21 +210,21 @@
                  :session/created-at (str (java.time.Instant/now))
                  :session/updated-at (str (java.time.Instant/now))}
         key (sessions-key user-id)]
-    
+
     (memory/update! key
-                  (fn [sessions]
-                    (let [sessions (or sessions {})]
-                      (assoc sessions session-id session))))
-    
+                    (fn [sessions]
+                      (let [sessions (or sessions {})]
+                        (assoc sessions session-id session))))
+
     ;; Broadcast via WebSocket if available
     (when-let [broadcast-fn (resolve 'ouroboros.websocket/broadcast-builder-session!)]
       (broadcast-fn session-id session-data))
-    
+
     (telemetry/emit! {:event :webux/session-started
                       :user-id user-id
                       :session-id session-id
                       :builder-type builder-type})
-    
+
     session))
 
 (pco/defmutation update-builder-session!
@@ -233,22 +233,22 @@
   {::pco/output [:session/id :session/updated-at]}
   (let [key (sessions-key user-id)]
     (memory/update! key
-                  (fn [sessions]
-                    (if-let [session (get sessions session-id)]
-                      (assoc sessions session-id
-                             (assoc session
-                                    :session/data data
-                                    :session/updated-at (str (java.time.Instant/now))))
-                      sessions)))
-    
+                    (fn [sessions]
+                      (if-let [session (get sessions session-id)]
+                        (assoc sessions session-id
+                               (assoc session
+                                      :session/data data
+                                      :session/updated-at (str (java.time.Instant/now))))
+                        sessions)))
+
     ;; Broadcast via WebSocket if available
     (when-let [broadcast-fn (resolve 'ouroboros.websocket/broadcast-builder-session!)]
       (broadcast-fn session-id data))
-    
+
     (telemetry/emit! {:event :webux/session-updated
                       :user-id user-id
                       :session-id session-id})
-    
+
     {:session/id session-id
      :session/updated-at (str (java.time.Instant/now))}))
 
@@ -259,74 +259,74 @@
   (let [key (sessions-key user-id)
         completed-at (str (java.time.Instant/now))]
     (memory/update! key
-                  (fn [sessions]
-                    (if-let [session (get sessions session-id)]
-                      (assoc sessions session-id
-                             (assoc session
-                                    :session/state :completed
-                                    :session/completed-at completed-at
-                                    :session/updated-at completed-at))
-                      sessions)))
-    
+                    (fn [sessions]
+                      (if-let [session (get sessions session-id)]
+                        (assoc sessions session-id
+                               (assoc session
+                                      :session/state :completed
+                                      :session/completed-at completed-at
+                                      :session/updated-at completed-at))
+                        sessions)))
+
     ;; Broadcast updated session data
     (when-let [session (get (memory/get-value key) session-id)]
       (when-let [broadcast-fn (resolve 'ouroboros.websocket/broadcast-builder-session!)]
         (broadcast-fn session-id (:session/data session))))
-    
+
     (telemetry/emit! {:event :webux/session-completed
                       :user-id user-id
                       :session-id session-id})
-    
+
     {:session/id session-id
      :session/state :completed
      :session/completed-at completed-at}))
 
 (pco/defresolver project-sessions
-   "Get all builder sessions for a project"
-   [input]
-   {::pco/input [:user/id :project/id]
-    ::pco/output [{:project/sessions [:session/id :session/type :session/state
-                                      :session/created-at :session/updated-at]}]}
-   (let [user-id (or (:user/id input) (:user-id input))
-         project-id (or (:project/id input) (:project-id input))
-         key (when user-id (sessions-key user-id))
-         sessions (if key (vals (or (memory/get-value key) {})) [])
-         project-sessions (filter #(= (:session/project-id %) project-id) sessions)]
-     {:project/sessions (vec project-sessions)}))
+  "Get all builder sessions for a project"
+  [input]
+  {::pco/input [:user/id :project/id]
+   ::pco/output [{:project/sessions [:session/id :session/type :session/state
+                                     :session/created-at :session/updated-at]}]}
+  (let [user-id (or (:user/id input) (:user-id input))
+        project-id (or (:project/id input) (:project-id input))
+        key (when user-id (sessions-key user-id))
+        sessions (if key (vals (or (memory/get-value key) {})) [])
+        project-sessions (filter #(= (:session/project-id %) project-id) sessions)]
+    {:project/sessions (vec project-sessions)}))
 
 (pco/defresolver session-by-id
-   "Get a specific session by ID"
-   [input]
-   {::pco/input [:user/id :session/id]
-    ::pco/output [:session/id :session/type :session/state :session/data
-                  :session/project-id :session/created-at :session/updated-at]}
-   (let [user-id (or (:user/id input) (:user-id input))
-         session-id (or (:session/id input) (:session-id input))
-         key (when user-id (sessions-key user-id))
-         sessions (if key (or (memory/get-value key) {}) {})]
-     (get sessions session-id)))
+  "Get a specific session by ID"
+  [input]
+  {::pco/input [:user/id :session/id]
+   ::pco/output [:session/id :session/type :session/state :session/data
+                 :session/project-id :session/created-at :session/updated-at]}
+  (let [user-id (or (:user/id input) (:user-id input))
+        session-id (or (:session/id input) (:session-id input))
+        key (when user-id (sessions-key user-id))
+        sessions (if key (or (memory/get-value key) {}) {})]
+    (get sessions session-id)))
 
 ;; ============================================================================
 ;; Dashboard Stats
 ;; ============================================================================
 
 (pco/defresolver webux-stats
-   "Get Web UX platform statistics for a user"
-   [input]
-   {::pco/input [:user/id]
-    ::pco/output [:webux/project-count :webux/active-sessions-count
-                  :webux/completed-sessions-count :webux/learning-count]}
-   (let [user-id (or (:user/id input) (:user-id input))
-         projects-key (when user-id (projects-key user-id))
-         sessions-key (when user-id (sessions-key user-id))
-         projects (if projects-key (or (memory/get-value projects-key) {}) {})
-         sessions (if sessions-key (or (memory/get-value sessions-key) {}) {})
-         learnings (if user-id (learning/recall-by-pattern user-id "") [])]
-     
-     {:webux/project-count (count projects)
-      :webux/active-sessions-count (count (filter #(= (:session/state %) :active) (vals sessions)))
-      :webux/completed-sessions-count (count (filter #(= (:session/state %) :completed) (vals sessions)))
-      :webux/learning-count (count learnings)}))
+  "Get Web UX platform statistics for a user"
+  [input]
+  {::pco/input [:user/id]
+   ::pco/output [:webux/project-count :webux/active-sessions-count
+                 :webux/completed-sessions-count :webux/learning-count]}
+  (let [user-id (or (:user/id input) (:user-id input))
+        projects-key (when user-id (projects-key user-id))
+        sessions-key (when user-id (sessions-key user-id))
+        projects (if projects-key (or (memory/get-value projects-key) {}) {})
+        sessions (if sessions-key (or (memory/get-value sessions-key) {}) {})
+        learnings (if user-id (learning/recall-by-pattern user-id "") [])]
+
+    {:webux/project-count (count projects)
+     :webux/active-sessions-count (count (filter #(= (:session/state %) :active) (vals sessions)))
+     :webux/completed-sessions-count (count (filter #(= (:session/state %) :completed) (vals sessions)))
+     :webux/learning-count (count learnings)}))
 
 ;; ============================================================================
 ;; Registration
@@ -346,14 +346,14 @@
 (comment
   ;; Create a project
   (create-project! {:user-id :test-user :name "AI Memory Tool" :description "Better context for AI"})
-  
+
   ;; List projects
   (user-projects {:user-id :test-user})
-  
+
   ;; Start builder session
   (start-builder-session! {:user-id :test-user :project-id "test-user/project-ai-memory-tool-123"
                            :builder-type :empathy-map})
-  
+
   ;; Query via Pathom
   (require '[ouroboros.query :as q])
   (q/q [:webux/project-count :webux/active-sessions-count])

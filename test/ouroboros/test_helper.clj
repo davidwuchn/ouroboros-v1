@@ -14,6 +14,7 @@
      (use-fixtures :each th/clean-fixture)"
   (:require
    [clojure.test :refer [use-fixtures]]
+   [clojure.string :as str]
    ;; Load all resolver namespaces to trigger registration
    [ouroboros.history]
    [ouroboros.knowledge]
@@ -64,6 +65,12 @@
   (memory/delete-value! :test-key)
   (memory/delete-value! :key1)
   (memory/delete-value! :key2)
+  ;; Clear webux-related data (projects, sessions, learning)
+  (doseq [key (keys @memory/memory-store)]
+    (when (or (str/starts-with? (name key) "projects/")
+              (str/starts-with? (name key) "sessions/")
+              (str/starts-with? (name key) "learning/"))
+      (memory/delete-value! key)))
   ;; Run test
   (test-fn))
 
