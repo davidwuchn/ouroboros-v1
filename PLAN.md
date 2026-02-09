@@ -1,7 +1,7 @@
 # PLAN.md
 
 > Next steps and future directions for Ouroboros.
-> Last Updated: 2026-02-06
+> Last Updated: 2026-02-08
 
 ## Summary of External Project Analysis
 
@@ -41,6 +41,8 @@ See detailed analysis sections below for specific recommendations.
 | Product Development Flywheel | ✅ Done | Empathy→ValueProp→MVP→Canvas |
 | Web UX Platform | ✅ Done | 5 phases: canvas, collaboration, wisdom, analytics, embed |
 | Clojure Code Quality Automation | ◐ Partial | clj-kondo linting in CI, 52 unused binding warnings to clean up |
+| ECA IPC Byte-Level Reader | ✅ Done | Fixed UTF-8 framing bug in JSON-RPC reader (BufferedInputStream) |
+| **Streaming Responses** | **◐ In Progress** | **Wiring ECA streaming to chat platforms (5-layer implementation)** |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
@@ -249,9 +251,29 @@ ECA continues or aborts
 - **Container Isolation** — OS-level container isolation for ECA execution
 - **Per-Channel Isolation** — Filesystem isolation per chat channel/platform  
 - **Metrics export** — Prometheus/OpenTelemetry format for monitoring
-- **Streaming responses** — Wire ECA streaming to chat platforms
+- **Streaming responses** — Wire ECA streaming to chat platforms ◐ IN PROGRESS
 - **Protocol compatibility tests** — Ensure Ouroboros works with ECA versions
 - **Config unification** — Single config for Ouroboros + ECA settings
+
+#### Streaming Responses — Implementation Plan (5 Layers)
+
+The core problem: `handle-natural-message` calls `eca/chat-prompt` in fast mode, returning
+the RPC acknowledgment instead of the actual LLM response. ECA sends the real content via
+`chat/contentReceived` notifications, but nothing forwards those to chat platforms.
+
+| Layer | File | What | Status |
+|-------|------|------|--------|
+| 1 | `protocol.clj` | Add `edit-message!` to ChatAdapter protocol | 📋 Planned |
+| 2 | `adapters.clj` | Implement `edit-message!` for Telegram/Discord/Slack + return message-id | 📋 Planned |
+| 3 | `eca_client.clj` | Handle reasoning notifications, multi-listener support | 📋 Planned |
+| 4 | `chat.clj` | Streaming bridge: ECA notifications -> chat with debounced edits | 📋 Planned |
+| 5 | `chat.clj` | Rewrite `handle-natural-message` for streaming flow | 📋 Planned |
+
+**Key design decisions:**
+- Rate limiting: Debounce message edits (Telegram: 30/sec, Discord: 5/sec)
+- Multi-chat: Key streaming state by chat-id + prompt correlation
+- Backward compatible: `edit-message!` optional in protocol (existing adapters still work)
+- Follow existing pattern: `eca_approval_bridge.clj` for ECA->chat forwarding
 
 ### 2. Test Coverage
 - [x] Chat adapter tests (protocol compliance)
@@ -592,7 +614,7 @@ Ouroboros focuses on:
 - [ ] **Query caching** — Pathom resolver caching for frequently accessed data.
 - [ ] **Connection pooling** — HTTP client pooling for API calls and chat platforms.
 - [ ] **Memory optimization** — Event buffer sizing, lazy loading for large datasets.
-- [ ] **Streaming responses** — ECA supports streaming, wire through to chat platforms.
+- [ ] **Streaming responses** — ECA supports streaming, wire through to chat platforms. ◐ IN PROGRESS (see P1 section)
 
 ### Developer Experience
 - [ ] **REPL-driven debugging guide** — Document patterns for interactive development.
@@ -653,6 +675,8 @@ These are now handled by ECA:
 | 2026-02-02 | P0 Security Complete — Prompt injection protection, human confirmation, tool chaining limits |
 | 2026-02-02 | P1 Security — Output schema validation for LLM tool calls |
 | 2026-02-05 | **Architecture Shift** — ECA integration strategy adopted |
+| 2026-02-08 | ECA IPC fix — Byte-level Content-Length reader for UTF-8 framing |
+| 2026-02-08 | Streaming analysis — Mapped 5-layer implementation plan for ECA->chat streaming |
 
 ## Lessons from NanoClaw Analysis
 
@@ -799,7 +823,7 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 | **P1** | Container Isolation | High | 🔴 Critical | 📋 NEW |
 | **P1** | Per-Channel Isolation | Medium | 🔴 High | 📋 NEW |
 | **P1** | Metrics export | Low | 🟡 High | 📋 Planned |
-| **P1** | Streaming responses | Medium | 🟡 High | 📋 Planned |
+| **P1** | Streaming responses | Medium | 🟡 High | ◐ In Progress |
 | **P1** | Protocol compatibility tests | Low | 🟡 High | 📋 Planned |
 | **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
 | **P2** | Per-Channel Session Persistence | Medium | 🟡 Medium | 📋 NEW |
