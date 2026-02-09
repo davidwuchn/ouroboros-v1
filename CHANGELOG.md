@@ -6,6 +6,16 @@
 
 ### Developer Experience — Debug & Auto-Download
 
+- `???????` ⚒ λ Add terminal introspection API (idle, prompt, cursor, dimensions)
+  - `bb process idle <name> [ms]` — Check if session is idle (default 5000ms)
+  - `bb process prompt <name>` — Detect shell prompt (bash, zsh, fish, git, plan9)
+  - `bb process terminal <name>` — Get terminal dimensions and cursor position
+  - `bb process stats <name>` — Comprehensive session statistics
+  - `bb process recent <name> [ms]` — Get output since timestamp
+  - `scripts/process-runner.sh` — Shell equivalent with same API
+  - Cross-platform timestamp handling (macOS date limitations)
+  - Activity tracking via persistent timestamp file
+
 - `???????` ⚒ λ Add `bb debug` task and `ouroboros.debug` namespace
   - `bb debug` — CLI access to ECA status, system health, tools
   - `bb debug eca|system|tools|menu` — Subcommands for specific checks

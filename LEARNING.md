@@ -1419,6 +1419,111 @@ bb debug menu   # Show all commands
 
 ---
 
+### 22. Terminal Introspection via Tmux
+
+**Problem:** Need to determine terminal state programmatically (idle, prompt, cursor position) for AI/human handoff and automation.
+
+**Solution:** Use tmux commands to query session state.
+
+**Tmux Introspection Commands:**
+```bash
+# Get pane content (last N lines)
+tmux capture-pane -t "session-name" -p -S -100
+
+# Terminal dimensions
+tmux display-message -t "session-name" -p "#{pane_width}x#{pane_height}"
+
+# Cursor position
+tmux display-message -t "session-name" -p "#{cursor_x} #{cursor_y}"
+
+# Pane ID
+tmux display-message -t "session-name" -p "#{pane_id}"
+```
+
+**Activity Tracking Pattern:**
+```bash
+# Store timestamps in file
+ACTIVITY_FILE="/tmp/.process-runner-activities"
+
+get_activity() {
+    grep "^${name}:" "$ACTIVITY_FILE" | cut -d: -f2
+}
+
+update_activity() {
+    echo "${name}:$(date +%s%3N)" >> "$ACTIVITY_FILE"
+}
+```
+
+**Idle Detection Logic:**
+```bash
+idle?() {
+    local name="$1"
+    local threshold="${2:-5000}"
+    local last_activity=$(get_activity "$name")
+    local now=$(date +%s%3N)
+    local time_since=$((now - last_activity))
+    
+    [ "$time_since" -lt "$threshold" ] && [ -n "$pane_content" ]
+}
+```
+
+**Prompt Detection Patterns:**
+```bash
+# Different shells have different prompts
+bash/zsh:   .*\$ *$
+zsh:        .*❯ *$
+fish:       .*> *$
+git:        .*➜.*$
+plan9:      .*λ.*$
+```
+
+**Cross-Platform Timestamp Challenge:**
+macOS `date` doesn't support `%3N` for milliseconds. Fallbacks needed:
+
+```bash
+get_now_ms() {
+    if date +%s%3N >/dev/null 2>&1; then
+        date +%s%3N | sed 's/N$//'
+    elif date -u +%s%3N >/dev/null 2>&1; then
+        date -u +%s%3N | sed 's/N$//'
+    elif command -v perl >/dev/null 2>&1; then
+        perl -MTime::HiRes -e 'printf "%d\n", Time::HiRes::time() * 1000'
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 -c 'import time; print(int(time.time() * 1000))'
+    else
+        echo $(($(date +%s) * 1000))
+    fi
+}
+```
+
+**Full Introspection API:**
+```bash
+./process-runner.sh idle <name> [ms]      # Check if idle
+./process-runner.sh prompt <name>         # Detect shell prompt
+./process-runner.sh terminal <name>       # Dimensions + cursor
+./process-runner.sh stats <name>         # All data combined
+./process-runner.sh recent <name> [ms]   # Output since timestamp
+```
+
+**Clojure API (equivalent):**
+```clojure
+(require '[ouroboros.process-runner :as pr])
+
+(pr/idle? "webserver")          ;; Check idle state
+(pr/at-prompt? "webserver")     ;; Detect prompt
+(pr/terminal-state "webserver") ;; Get dimensions
+(pr/session-stats "webserver")  ;; Full statistics
+```
+
+**Key Insights:**
+1. **Tmux provides complete terminal introspection** — capture-pane, display-message
+2. **Activity tracking requires persistent state** — file-based timestamp store
+3. **Prompt patterns vary by shell** — flexible regex needed
+4. **macOS date is limited** — need Perl/Python fallbacks for millisecond timestamps
+5. **Escape special characters** — backslashes, quotes, backticks in output
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*
