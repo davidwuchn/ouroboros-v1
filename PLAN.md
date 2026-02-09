@@ -52,7 +52,9 @@ See detailed analysis sections below for specific recommendations.
 | Web UX Platform | ✅ Done | 5 phases: canvas, collaboration, wisdom, analytics, embed |
 | Clojure Code Quality Automation | ◐ Partial | clj-kondo linting in CI, 52 unused binding warnings to clean up |
 | ECA IPC Byte-Level Reader | ✅ Done | Fixed UTF-8 framing bug in JSON-RPC reader (BufferedInputStream) |
-| **Streaming Responses** | **◐ In Progress** | **Wiring ECA streaming to chat platforms (5-layer implementation)** |
+| **Streaming Responses** | **✅ Done** | **5-layer pipeline: ECA -> chat platforms + frontend WebSocket chat sidebar** |
+| **Flywheel UI** | **✅ Done** | **Step indicator, wisdom sidebar, phase cards, auto-start Empathy Map** |
+| **ECA-Powered Wisdom** | **📋 Next** | **Replace static hardcoded tips/templates with LLM-generated content via ECA** |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
@@ -257,27 +259,72 @@ ECA continues or aborts
 
 ## Immediate Priorities
 
+### 0. ECA-Powered Wisdom (P0) -- NEXT
+
+**Problem**: The flywheel UI has wisdom components (tips, templates, suggestions, guidance) but all content is **static hardcoded `def` blocks**. The chat sidebar has a working ECA pipeline (streaming, WebSocket, Fulcro state) but the wisdom features don't use it. Knowledge and guidance should come from ECA/LLM, not from code.
+
+**Architecture Principle**: **WebUX = state/CRUD/interaction. ECA = knowledge/wisdom/guidance.**
+
+The user interacts with WebUX builders (drag sticky notes, fill empathy map sections, etc). When they need guidance, tips, or analysis, that comes from ECA via the LLM -- not from hardcoded strings.
+
+**Static Content to Replace**:
+
+| Location | Static Content | Replacement |
+|----------|---------------|-------------|
+| `components.cljs:wisdom-tips` | 20 tips (5/phase), taglines | ECA generates tips from actual project data |
+| `components.cljs:wisdom-sidebar` | Renders static tips | Renders ECA-generated contextual insights |
+| `wisdom.cljs:templates` | 6 product templates | ECA suggests templates based on project context |
+| `wisdom.cljs:learning-categories` | 4 categories, count=0 | Query actual learning data from backend memory |
+| `wisdom.cljs:Quick Tips` | 4 inline tip cards | ECA-generated insights from project patterns |
+| `project_detail.cljs:flywheel-phases` | Phase descriptions, time estimates | ECA-enriched with project-specific guidance |
+| `project_detail.cljs:guidance text` | "Follow the flywheel..." static text | Reflects actual project state + ECA recommendations |
+| `project_detail.cljs:current-step` | Hardcoded `:empathy` | Read actual progress from backend project state |
+| `chat_panel.cljs:context-suggestions` | 28 prompt suggestions | ECA generates context-aware suggestions |
+
+**Implementation Plan**:
+
+#### Phase A: Backend -- Wisdom via ECA (P0)
+
+1. **Project context assembly**: Build rich context from project data (empathy map entries, value prop fields, canvas sections) and pass to ECA as system prompt context
+2. **Wisdom query endpoint**: New WebSocket message type `eca/wisdom` that sends project context + phase to ECA and gets back structured guidance (tips, next steps, analysis)
+3. **Flywheel progress tracking**: Store phase completion status per project in backend state (not just "current step = empathy")
+4. **Learning memory query**: Expose actual learning/insight counts and recent entries via EQL resolvers
+
+#### Phase B: Frontend -- Dynamic Wisdom Components (P0)
+
+1. **Wisdom sidebar**: Replace static `wisdom-tips` with ECA-generated content fetched on sidebar open
+2. **Project detail page**: Read actual flywheel progress from backend state, show ECA-recommended next phase
+3. **Chat suggestions**: Generate from ECA based on current builder state, not static `context-suggestions` map
+4. **Wisdom page**: Query actual templates, learning patterns, insights from backend/ECA instead of static `def`s
+5. **Loading states**: Show skeleton/spinner while ECA generates wisdom content
+
+#### Phase C: Continuous Wisdom (P1)
+
+1. **Auto-insights**: When user completes a builder section, trigger ECA analysis in background
+2. **Cross-project patterns**: ECA analyzes patterns across all user's projects
+3. **Wisdom memory**: Store generated insights in learning memory for reuse
+4. **Progressive depth**: First visit = basic tips, repeated visits = deeper analysis based on accumulated context
+
 ### 1. Production Readiness (P1)
 - **Container Isolation** — OS-level container isolation for ECA execution
 - **Per-Channel Isolation** — Filesystem isolation per chat channel/platform  
 - **Metrics export** — Prometheus/OpenTelemetry format for monitoring
-- **Streaming responses** — Wire ECA streaming to chat platforms ◐ IN PROGRESS
+- **Streaming responses** -- ECA streaming to chat platforms ✅ DONE (5-layer pipeline + frontend WebSocket)
 - **Protocol compatibility tests** — Ensure Ouroboros works with ECA versions
 - **Config unification** — Single config for Ouroboros + ECA settings
 
-#### Streaming Responses — Implementation Plan (5 Layers)
-
-The core problem: `handle-natural-message` calls `eca/chat-prompt` in fast mode, returning
-the RPC acknowledgment instead of the actual LLM response. ECA sends the real content via
-`chat/contentReceived` notifications, but nothing forwards those to chat platforms.
+#### Streaming Responses -- COMPLETE ✅
 
 | Layer | File | What | Status |
 |-------|------|------|--------|
-| 1 | `protocol.clj` | Add `edit-message!` to ChatAdapter protocol | 📋 Planned |
-| 2 | `adapters.clj` | Implement `edit-message!` for Telegram/Discord/Slack + return message-id | 📋 Planned |
-| 3 | `eca_client.clj` | Handle reasoning notifications, multi-listener support | 📋 Planned |
-| 4 | `chat.clj` | Streaming bridge: ECA notifications -> chat with debounced edits | 📋 Planned |
-| 5 | `chat.clj` | Rewrite `handle-natural-message` for streaming flow | 📋 Planned |
+| 1 | `protocol.clj` | `EditableAdapter` protocol with `edit-message!` | ✅ Done |
+| 2 | `adapters.clj` | `edit-message!` for Telegram/Discord/Slack + return message-id | ✅ Done |
+| 3 | `eca_client.clj` | Multi-listener callbacks, reasoning notifications | ✅ Done |
+| 4 | `chat.clj` | Streaming bridge: ECA notifications -> chat with debounced edits | ✅ Done |
+| 5 | `chat.clj` | Rewritten `handle-natural-message` for streaming flow | ✅ Done |
+| 6 | `websocket.clj` | Backend WS handler for eca/chat with auto-start ECA | ✅ Done |
+| 7 | `chat_panel.cljs` | Frontend chat sidebar with streaming tokens | ✅ Done |
+| 8 | `websocket.cljs` | WS message handlers + Fulcro render scheduling | ✅ Done |
 
 **Key design decisions:**
 - Rate limiting: Debounce message edits (Telegram: 30/sec, Discord: 5/sec)
@@ -624,7 +671,7 @@ Ouroboros focuses on:
 - [ ] **Query caching** — Pathom resolver caching for frequently accessed data.
 - [ ] **Connection pooling** — HTTP client pooling for API calls and chat platforms.
 - [ ] **Memory optimization** — Event buffer sizing, lazy loading for large datasets.
-- [ ] **Streaming responses** — ECA supports streaming, wire through to chat platforms. ◐ IN PROGRESS (see P1 section)
+- [x] **Streaming responses** -- ECA streaming wired to chat platforms + frontend WebSocket. ✅ DONE
 
 ### Developer Experience
 - [ ] **REPL-driven debugging guide** — Document patterns for interactive development.
@@ -687,6 +734,11 @@ These are now handled by ECA:
 | 2026-02-05 | **Architecture Shift** — ECA integration strategy adopted |
 | 2026-02-08 | ECA IPC fix — Byte-level Content-Length reader for UTF-8 framing |
 | 2026-02-08 | Streaming analysis — Mapped 5-layer implementation plan for ECA->chat streaming |
+| 2026-02-08 | **Streaming Pipeline** -- 5-layer ECA streaming to chat platforms (Telegram/Discord/Slack) |
+| 2026-02-08 | **Frontend Chat** -- Global AI chat sidebar with ECA streaming (WebSocket) |
+| 2026-02-08 | **Auto-start ECA** -- ECA binary auto-starts on first chat message from frontend |
+| 2026-02-08 | **Fulcro Render Fix** -- WebSocket handlers schedule renders for streaming updates |
+| 2026-02-09 | **Flywheel UI** -- Wisdom-guided flywheel: step indicator, contextual tips sidebar, phase cards |
 
 ## Lessons from NanoClaw Analysis
 
@@ -1029,7 +1081,8 @@ Ouroboros delegates AI capabilities to ECA. ECA manages:
 | **P1** | Container Isolation | High | 🔴 Critical | 📋 NEW |
 | **P1** | Per-Channel Isolation | Medium | 🔴 High | 📋 NEW |
 | **P1** | Metrics export | Low | 🟡 High | 📋 Planned |
-| **P1** | Streaming responses | Medium | 🟡 High | ◐ In Progress |
+| **P1** | Streaming responses | Medium | 🟡 High | ✅ Done |
+| **P0** | ECA-Powered Wisdom | High | 🔴 Critical | 📋 Next |
 | **P1** | Protocol compatibility tests | Low | 🟡 High | 📋 Planned |
 | **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
 | **P1** | Hierarchical Agent System | High | 🔴 High | 📋 NEW |

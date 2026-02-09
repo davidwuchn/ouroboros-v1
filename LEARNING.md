@@ -609,6 +609,103 @@ Also fix the serializer to compute Content-Length from bytes, not chars:
 - Added `{:wait? true}` mode to `chat-prompt` for synchronous response collection
 - Suppressed noisy read errors during shutdown
 
+### 23. WebUX = State/CRUD, ECA = Knowledge/Wisdom
+
+**Problem:** The flywheel UI has wisdom components (tips sidebar, templates, prompt suggestions, phase guidance) but all content is **static hardcoded `def` blocks** -- 50+ pieces of content across 6 files. The chat sidebar has a working ECA streaming pipeline but wisdom features don't use it.
+
+**Anti-Pattern: Hardcoded Wisdom Content**
+
+```clojure
+;; BAD - static knowledge that can't adapt to user's project context
+(def wisdom-tips
+  {:empathy [{:title "Start with Why" :text "Understanding your users..."}
+             {:title "Observe First" :text "Watch how people currently..."}]
+   :value-prop [{:title "Be Specific" :text "Vague value props fail..."}]})
+```
+
+This is wrong because:
+1. Tips don't reflect the user's actual project data
+2. Same tips shown to every user regardless of progress
+3. No learning or adaptation over time
+4. Duplicates knowledge that ECA/LLM already has
+
+**Correct Pattern: Dynamic Wisdom via ECA**
+
+```clojure
+;; GOOD - wisdom comes from ECA/LLM with project context
+(defn request-wisdom! [project-id phase]
+  (let [context (assemble-project-context project-id)]
+    (ws/send! {:type "eca/wisdom"
+               :project-id project-id
+               :phase phase
+               :context context})))
+
+;; Backend streams ECA-generated tips back to frontend
+;; Same pipeline pattern as chat sidebar
+```
+
+**Architecture Principle:** **WebUX = state/CRUD/interaction. ECA = knowledge/wisdom/guidance.**
+
+- WebUX handles: Project creation, builder interactions, drag/drop, form fields, undo/redo, presence
+- ECA handles: Tips, templates, suggestions, analysis, insights, phase guidance, learning patterns
+
+**Reference Implementation:** The chat sidebar (`chat_panel.cljs` + `websocket.clj`) is the model for how all wisdom should work:
+1. Frontend sends context + request via WebSocket
+2. Backend assembles project context, sends to ECA
+3. ECA streams response tokens back
+4. Frontend renders progressively with Fulcro render scheduling
+
+**Static Content Inventory (to replace):**
+
+| File | What | Count |
+|------|------|-------|
+| `components.cljs` | `wisdom-tips` def | 20 tips |
+| `wisdom.cljs` | `templates` def | 6 templates |
+| `wisdom.cljs` | `learning-categories` def | 4 categories |
+| `project_detail.cljs` | `flywheel-phases` def | Phase descriptions |
+| `chat_panel.cljs` | `context-suggestions` def | 28 suggestions |
+
+**Key Insight:** If a piece of content in the UI could be better with knowledge of the user's project data, it should come from ECA, not from a `def` block.
+
+---
+
+### 24. Fulcro Render Scheduling for WebSocket State Mutations
+
+**Problem:** WebSocket message handlers that mutate Fulcro's state atom via `swap!` don't trigger re-renders. Chat messages would appear only after the *next* user action triggered a render.
+
+**Root Cause:** Fulcro doesn't `add-watch` its state atom. It only re-renders after `comp/transact!` or `app/schedule-render!`. Direct `swap!` on the state atom changes the data but Fulcro doesn't know to re-render.
+
+**Solution:**
+
+```clojure
+;; websocket.cljs - store render callback in defonce atom
+(defonce render-callback (atom nil))
+
+(defn set-render-callback! [cb]
+  (reset! render-callback cb))
+
+(defn schedule-render! []
+  (when-let [cb @render-callback]
+    (cb)))
+
+;; app.cljs - set callback during init
+(set-render-callback! #(app/schedule-render! APP))
+
+;; Every WS handler that mutates state must call:
+(swap! state assoc-in [...] data)
+(schedule-render!)  ;; <- CRITICAL
+```
+
+**Hot Reload Caveat:** `defonce` atoms survive Shadow-CLJS hot reload, but `init` doesn't re-run. The `refresh` hook in `client.cljs` must re-set the render callback:
+
+```clojure
+(defn ^:dev/after-load refresh []
+  (ws/set-render-callback! #(app/schedule-render! APP))
+  (app/mount! APP Root "app"))
+```
+
+**Key Insight:** Any code path that bypasses Fulcro's transaction system (direct `swap!`, WebSocket handlers, external events) must explicitly schedule renders. This is the #1 gotcha when integrating real-time data with Fulcro.
+
 ---
 
 ## Anti-Patterns
