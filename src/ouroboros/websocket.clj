@@ -7,7 +7,8 @@
    [clojure.edn :as edn]
    [org.httpkit.server :as httpkit]
    [cheshire.core :as json]
-   [ouroboros.telemetry :as telemetry])
+   [ouroboros.telemetry :as telemetry]
+   [ouroboros.eca-client :as eca])
   (:import [java.util.concurrent.atomic AtomicLong]))
 
 ;; ============================================================================
@@ -69,25 +70,100 @@
 ;; Message Handling
 ;; ============================================================================
 
+(defn- send-to!
+  "Send a message to a specific WebSocket client by connection id"
+  [id message]
+  (when-let [channel (get-in @connections [id :channel])]
+    (try
+      (httpkit/send! channel (json/generate-string message))
+      (catch Exception e
+        (println "WebSocket send error for client" id ":" (.getMessage e))))))
+
+(defn- handle-eca-chat!
+  "Handle an eca/chat message from the frontend.
+   Registers a per-request ECA callback that streams tokens back to the
+   specific WebSocket client, then cleans up when done."
+  [client-id {:keys [text context]}]
+  (let [chat-id (str "ws-" client-id "-" (System/currentTimeMillis))
+        listener-id (keyword (str "ws-chat-" client-id))]
+
+    (telemetry/emit! {:event :ws/eca-chat-request
+                      :client-id client-id
+                      :chat-id chat-id
+                      :context context
+                      :text-length (count (str text))})
+
+    ;; Register callback to relay ECA content to this specific WS client
+    (eca/register-callback! "chat/contentReceived" listener-id
+      (fn [notification]
+        (let [params (:params notification)
+              notif-chat-id (:chatId params)
+              role (:role params)
+              content (:content params)]
+          ;; Only handle notifications for our chat-id
+          (when (= notif-chat-id chat-id)
+            (cond
+              ;; Progress: done -> send eca/chat-done and unregister
+              (and (= "progress" (:type content))
+                   (= "done" (:state content)))
+              (do
+                (send-to! client-id {:type :eca/chat-done
+                                     :timestamp (System/currentTimeMillis)})
+                (eca/unregister-callback! "chat/contentReceived" listener-id)
+                (telemetry/emit! {:event :ws/eca-chat-done
+                                  :client-id client-id
+                                  :chat-id chat-id}))
+
+              ;; Assistant text content -> stream as token
+              (and (= role "assistant") (= "text" (:type content)))
+              (send-to! client-id {:type :eca/chat-token
+                                   :token (:text content)
+                                   :timestamp (System/currentTimeMillis)})
+
+              ;; Reasoning content -> could also stream, but for now skip
+              ;; (frontend doesn't display reasoning separately yet)
+              :else nil)))))
+
+    ;; Send prompt to ECA (fast mode - returns immediately after ack)
+    (try
+      (let [result (eca/chat-prompt text {:chat-id chat-id})]
+        (when (= :error (:status result))
+          ;; ECA failed - notify client and clean up
+          (send-to! client-id {:type :eca/chat-response
+                               :text (str "Error: " (or (:message result) (:error result)))
+                               :timestamp (System/currentTimeMillis)})
+          (eca/unregister-callback! "chat/contentReceived" listener-id)))
+      (catch Exception e
+        ;; ECA not running or other error
+        (send-to! client-id {:type :eca/chat-response
+                             :text (str "ECA is not available: " (.getMessage e))
+                             :timestamp (System/currentTimeMillis)})
+        (eca/unregister-callback! "chat/contentReceived" listener-id)
+        (telemetry/emit! {:event :ws/eca-chat-error
+                          :client-id client-id
+                          :error (.getMessage e)})))))
+
 (defn handle-message
   "Handle incoming WebSocket message"
   [id message-str]
   (try
     (let [message (json/parse-string message-str keyword)]
       (case (:type message)
-        :subscribe
+        "subscribe"
         (let [topic (:topic message)]
           (swap! connections update-in [id :subscriptions] conj topic)
           (println (str "Client " id " subscribed to: " topic)))
         
-        :unsubscribe
+        "unsubscribe"
         (let [topic (:topic message)]
           (swap! connections update-in [id :subscriptions] disj topic)
           (println (str "Client " id " unsubscribed from: " topic)))
         
-        :ping
-        (when-let [channel (get-in @connections [id :channel])]
-          (httpkit/send! channel (json/generate-string {:type :pong :timestamp (System/currentTimeMillis)})))
+        "ping"
+        (send-to! id {:type :pong :timestamp (System/currentTimeMillis)})
+
+        "eca/chat"
+        (future (handle-eca-chat! id message))
         
         (println "Unknown message type from client" id ":" (:type message))))
     (catch Exception e
