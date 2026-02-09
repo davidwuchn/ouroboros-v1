@@ -33,7 +33,7 @@
   "Example templates for different product types.
    These serve as fallback defaults -- ECA generates personalized templates
    based on the user's actual project description via content/generate :templates."
-  {:saas {:name "SaaS Product"
+   {:saas {:name "SaaS Product"
           :description "Software as a Service business model"
           :example? true
           :empathy-map {:persona "Small business owner, 35-50, needs to streamline operations"
@@ -42,6 +42,20 @@
                         :see "Complex enterprise software, simple alternatives"
                         :say-do "Says 'I need something simple', trials multiple tools"
                         :pains-gains "Pains: Setup complexity, hidden costs. Gains: Time saved, peace of mind"}
+          :value-proposition {:customer-job "Manage daily operations, track inventory, handle invoicing, and coordinate team tasks across the business"
+                              :pains "Wastes hours on manual data entry; existing tools are too complex and expensive; data lives in spreadsheets that break"
+                              :gains "Saves 10+ hours per week; single dashboard for everything; confidence that nothing falls through the cracks"
+                              :products "Cloud-based operations platform with inventory, invoicing, and task management modules"
+                              :pain-relievers "One-click import from spreadsheets; guided setup wizard; transparent flat-rate pricing with no hidden fees"
+                              :gain-creators "Real-time dashboard with key metrics; automated reminders and alerts; mobile app for on-the-go management"}
+          :mvp-planning {:core-problem "Small business owners waste 10+ hours/week on manual operations across disconnected spreadsheets and tools"
+                         :target-user "Non-technical small business owner (10-50 employees) currently using spreadsheets for operations"
+                         :success-metric "50% reduction in time spent on admin tasks within first month of use"
+                         :must-have-features "Dashboard overview; inventory tracking; basic invoicing; CSV import from existing spreadsheets"
+                         :nice-to-have "Team collaboration; mobile app; automated reports; integrations with QuickBooks"
+                         :out-of-scope "Advanced analytics; AI predictions; multi-currency support; custom workflows"
+                         :timeline "Week 1-2: Dashboard + CSV import. Week 3-4: Inventory module. Week 5-6: Invoicing. Week 7-8: Beta testing with 10 users"
+                         :risks "Users may not migrate from spreadsheets; onboarding friction could cause drop-off; pricing sensitivity in SMB market"}
           :lean-canvas {:problems "Manual processes, data silos, lack of insights"
                         :solution "Cloud-based automation platform"
                         :uvp "Setup in minutes, not months"
@@ -60,6 +74,20 @@
                                :see "Established marketplaces with high fees"
                                :say-do "Posts on social media, researches alternatives"
                                :pains-gains "Pains: High fees, lack of support. Gains: Income, flexibility"}
+                 :value-proposition {:customer-job "Sell handmade or curated products online, reach new customers, and manage orders without technical skills"
+                                     :pains "Existing platforms take 15-30% fees; hard to stand out in crowded marketplaces; no direct customer relationships"
+                                     :gains "Keep most of earnings; build a recognizable brand; loyal repeat customers who come back directly"
+                                     :products "Low-fee marketplace with built-in seller tools, storefront customization, and direct messaging"
+                                     :pain-relievers "Only 5% transaction fee; seller analytics dashboard; direct customer messaging with no middleman"
+                                     :gain-creators "Custom storefront branding; featured seller program; community events that drive traffic to sellers"}
+                 :mvp-planning {:core-problem "Independent sellers lose 15-30% of revenue to platform fees and have no way to build direct customer relationships"
+                                :target-user "Side hustler or small creator selling handmade/curated goods, currently on Etsy or similar, earning $500-5000/month"
+                                :success-metric "100 active sellers listing products within 3 months; average seller saves 15% vs previous platform"
+                                :must-have-features "Seller onboarding and listing creation; buyer search and browse; secure checkout with Stripe; order management"
+                                :nice-to-have "Seller analytics; custom storefronts; review system; seller-to-buyer messaging"
+                                :out-of-scope "Shipping logistics; international payments; wholesale/B2B features; mobile native apps"
+                                :timeline "Week 1-3: Seller onboarding + listings. Week 4-6: Buyer browse + search. Week 7-8: Checkout + orders. Week 9-10: Beta launch with 20 sellers"
+                                :risks "Chicken-and-egg: need sellers before buyers come; trust and safety concerns; competing with established platforms on discoverability"}
                  :lean-canvas {:problems "High platform fees, poor seller support, limited reach"
                                :solution "Low-fee marketplace with seller tools"
                                :uvp "Keep 95% of your earnings"
@@ -78,6 +106,20 @@
                               :see "Trending apps, influencers using products"
                               :say-do "Downloads quickly, abandons if not immediate value"
                               :pains-gains "Pains: Slow onboarding, too many notifications. Gains: Convenience, social status"}
+                :value-proposition {:customer-job "Stay organized, track personal goals, and build healthy habits while juggling a busy professional life"
+                                    :pains "Existing apps are bloated with features; too many notifications cause app fatigue; hard to stay consistent"
+                                    :gains "Feels in control of daily routine; visible progress builds motivation; friends notice positive changes"
+                                    :products "Minimalist mobile app for daily habit tracking with social accountability and streak rewards"
+                                    :pain-relievers "Clean single-screen UI with no clutter; smart notifications only when needed; 30-second daily check-in"
+                                    :gain-creators "Visual streak calendar; shareable milestones; friend challenges that make habits fun"}
+                :mvp-planning {:core-problem "Young professionals want to build better habits but abandon apps within a week due to complexity and notification fatigue"
+                               :target-user "Urban professional aged 22-30, owns a smartphone, has tried and abandoned 2+ habit/productivity apps"
+                               :success-metric "40% D7 retention rate; average user completes daily check-in 5 out of 7 days"
+                               :must-have-features "Habit creation (up to 5 habits); daily check-in screen; streak tracking; push notification (1 per day max)"
+                               :nice-to-have "Friend challenges; shareable milestones; habit templates; dark mode; Apple Health integration"
+                               :out-of-scope "Web version; team/enterprise features; AI coaching; in-app purchases; detailed analytics"
+                               :timeline "Week 1-2: Core habit CRUD + check-in flow. Week 3-4: Streak tracking + notifications. Week 5-6: Polish + TestFlight beta. Week 7-8: Launch with 50 beta users"
+                               :risks "Retention cliff after novelty wears off; App Store approval delays; hard to differentiate in crowded habit-app space"}
                 :lean-canvas {:problems "Inconvenient existing solutions, lack of mobile-first options"
                               :solution "Mobile-native experience"
                               :uvp "Get started in 30 seconds"
@@ -96,6 +138,20 @@
                                  :see "New tools daily, hype cycles"
                                  :say-do "Tries new tools, contributes to OSS, writes blog posts"
                                  :pains-gains "Pains: Context switching, configuration hell. Gains: Flow state, productivity"}
+                   :value-proposition {:customer-job "Write, test, and deploy code efficiently; maintain codebases; collaborate with team on pull requests and code reviews"
+                                       :pains "Constant context switching between 5+ tools; hours lost to configuration and environment setup; broken CI pipelines block deployment"
+                                       :gains "Stays in flow state for long stretches; ships features faster than peers; codebase stays clean and maintainable"
+                                       :products "Unified CLI tool that combines linting, testing, building, and deploying in one consistent interface"
+                                       :pain-relievers "Single config file replaces 5+ tool configs; auto-detects project type; works offline with instant feedback"
+                                       :gain-creators "Built-in best practices as defaults; shareable team presets; one-command deployment with rollback"}
+                   :mvp-planning {:core-problem "Developers waste 30+ minutes daily context-switching between fragmented build, test, and deploy tools"
+                                  :target-user "Full-stack developer working on 2-3 projects, comfortable with CLI, frustrated by toolchain complexity"
+                                  :success-metric "500 GitHub stars in first month; 50% of beta users use it daily after 2 weeks"
+                                  :must-have-features "Project auto-detection; unified test runner; build command; basic deploy to one cloud provider"
+                                  :nice-to-have "Plugin system; team config sharing; CI integration; VS Code extension; performance profiling"
+                                  :out-of-scope "GUI/desktop app; project management features; code editing; hosting infrastructure"
+                                  :timeline "Week 1-2: Project detection + test runner. Week 3-4: Build system + config. Week 5-6: Deploy command. Week 7-8: Open source launch + docs"
+                                  :risks "Developers are skeptical of 'yet another tool'; hard to support every language/framework; adoption requires changing existing workflows"}
                    :lean-canvas {:problems "Slow development cycles, tool fragmentation"
                                  :solution "Unified developer experience"
                                  :uvp "Ship 10x faster"
