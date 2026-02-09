@@ -24,9 +24,12 @@
 ;; ============================================================================
 
 (defn navigate-to
-  "Navigate to a route using the global app instance"
+  "Navigate to a route using the global app instance.
+   Accepts a string (single segment) or vector of segments."
   [route]
-  (dr/change-route! app [route]))
+  (if (vector? route)
+    (dr/change-route! app route)
+    (dr/change-route! app [route])))
 
 ;; ============================================================================
 ;; Router
@@ -83,7 +86,7 @@
                :on-navigate navigate-to
                :on-toggle-chat #(comp/transact! this [(chat/toggle-chat {})])
                :chat-open? chat-open?})
-             (dom/main {:className (str "main-content " (when chat-open? "main-content-shifted"))}
-                       (ui-main-router main-router))
+              (dom/main {:className (str "main-content " (when chat-open? "main-content-shifted"))}
+                        (ui-main-router main-router))
              ;; Global chat sidebar (pass current route as context)
              (chat/ui-chat-panel (assoc chat-panel :chat/context current-route)))))

@@ -13,14 +13,9 @@
   ;; Mount the app with initial state
   (app/mount! app root/Root "app" {:initialize-state? true})
   
-  ;; Navigate to project page after mount (auto-detected workspace project)
-  ;; Use requestAnimationFrame to ensure DOM and state are ready
-  (js/requestAnimationFrame
-    (fn []
-      (dr/change-route! app ["projects"])
-      (js/console.log "Routing initialized to project page")))
-  
   ;; Initialize WebSocket for real-time updates
+  ;; Navigate callback auto-routes to project detail once WS detects the workspace project
+  (ws/set-navigate-callback! #(dr/change-route! app %))
   (init-websocket!)
   (js/console.log "Ouroboros Dashboard initialized"))
 

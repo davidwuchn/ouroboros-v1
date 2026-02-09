@@ -69,16 +69,36 @@
 ;; Event Table
 ;; ============================================================================
 
+(defn- get-any
+  "Get value by keyword or string key variants."
+  [m k]
+  (or (get m k)
+      (get m (name k))
+      (when (namespace k)
+        (get m (str (namespace k) "/" (name k))))))
+
+(defn- event-type-label
+  "Return a safe display label for event type.
+   Handles keyword, string, and alternate keys."
+  [event]
+  (let [evt (or (get-any event :event)
+                (get-any event :event/type)
+                (get-any event :type))]
+    (cond
+      (keyword? evt) (name evt)
+      (string? evt) evt
+      :else "unknown")))
+
 (defn event-row
   "Format an event for display"
-  [event]
-  {:id (or (:event/id event) (str (hash event)))
-   :timestamp (:event/timestamp event)
-   :event-type (name (or (:event event) :unknown))
-   :tool (:tool event)
-   :duration (when-let [ms (:duration-ms event)]
+  [idx event]
+  {:id (str (or (get-any event :event/id) (hash event)) "-" idx)
+   :timestamp (get-any event :event/timestamp)
+   :event-type (event-type-label event)
+   :tool (get-any event :tool)
+   :duration (when-let [ms (get-any event :duration-ms)]
                (str (Math/round ms) "ms"))
-   :success? (:success? event)})
+   :success? (get-any event :success?)})
 
 (defn event-table
   "Table of telemetry events"
@@ -95,7 +115,7 @@
                               (ui/status-badge
                                {:ok? v
                                 :text (if v "Success" "Failed")})))}]
-        rows (map event-row events)]
+        rows (map-indexed event-row events)]
     (ui/data-table
      {:columns columns
       :rows rows

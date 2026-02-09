@@ -73,38 +73,39 @@
 (defn phase-card
   "Individual phase card showing status and what to expect.
    Merges ECA-generated descriptions when available."
-  [{:keys [phase eca-phase project-id on-navigate is-recommended?]}]
+  [{:keys [key phase eca-phase project-id on-navigate is-recommended?]}]
   (let [merged (merge phase eca-phase)
-        {:keys [key label icon route step tagline description
+        {:keys [label icon route step tagline description
                 what-you-build time-estimate outputs]} merged]
-    (dom/div {:className (str "phase-card " (when is-recommended? "phase-recommended"))}
-      (dom/div :.phase-card-header
-        (dom/div :.phase-step-badge (str "Step " step))
-        (dom/span :.phase-icon icon)
-        (dom/h3 label)
-        (when is-recommended?
-          (dom/span :.phase-recommended-badge "Start Here")))
-      (dom/p :.phase-tagline tagline)
-      (dom/p :.phase-description description)
-      (dom/div :.phase-details
-        (dom/div :.phase-detail-item
-          (dom/span :.detail-label "You'll build:")
-          (dom/span :.detail-value what-you-build))
-        (dom/div :.phase-detail-item
-          (dom/span :.detail-label "Time:")
-          (dom/span :.detail-value time-estimate))
-        (dom/div :.phase-detail-item
-          (dom/span :.detail-label "Outputs:")
-          (dom/div :.phase-outputs
-            (for [output outputs]
-              (dom/span {:key output :className "phase-output-tag"} output)))))
-      (dom/div :.phase-actions
-        (ui/button
-          {:on-click #(on-navigate route)
-           :variant (if is-recommended? :primary :secondary)}
-          (if is-recommended?
-            (str "Start " label " →")
-            (str "Open " label)))))))
+    (dom/div {:key key
+              :className (str "phase-card " (when is-recommended? "phase-recommended"))}
+             (dom/div :.phase-card-header
+                      (dom/div :.phase-step-badge (str "Step " step))
+                      (dom/span :.phase-icon icon)
+                      (dom/h3 label)
+                      (when is-recommended?
+                        (dom/span :.phase-recommended-badge "Start Here")))
+             (dom/p :.phase-tagline tagline)
+             (dom/p :.phase-description description)
+             (dom/div :.phase-details
+                      (dom/div :.phase-detail-item
+                               (dom/span :.detail-label "You'll build:")
+                               (dom/span :.detail-value what-you-build))
+                      (dom/div :.phase-detail-item
+                               (dom/span :.detail-label "Time:")
+                               (dom/span :.detail-value time-estimate))
+                      (dom/div :.phase-detail-item
+                               (dom/span :.detail-label "Outputs:")
+                               (dom/div :.phase-outputs
+                                        (for [output outputs]
+                                          (dom/span {:key output :className "phase-output-tag"} output)))))
+             (dom/div :.phase-actions
+                      (ui/button
+                       {:on-click #(on-navigate route)
+                        :variant (if is-recommended? :primary :secondary)}
+                       (if is-recommended?
+                         (str "Start " label " →")
+                         (str "Open " label)))))))
 
 ;; ============================================================================
 ;; Session List Component
@@ -135,101 +136,156 @@
    :mvp-planning "mvp"
    :lean-canvas "canvas"})
 
-(defn kanban-card
-  "Individual Kanban card representing a builder section.
-   Clicking navigates to the builder."
-  [{:keys [card on-navigate]}]
-  (let [{:keys [id title icon builder-type builder-label builder-color
-                description note-count has-data?]} card
-        route (get builder-route-map (keyword builder-type))]
-    (dom/div {:className "kanban-card"
-              :onClick (when on-navigate #(on-navigate route))
-              :title (str builder-label " - " description)}
-      ;; Builder color indicator
-      (dom/div {:className "kanban-card-color-bar"
-                :style {:backgroundColor builder-color}})
-      (dom/div :.kanban-card-body
-        (dom/div :.kanban-card-header
-          (dom/span :.kanban-card-icon icon)
-          (dom/span :.kanban-card-title title))
-        (dom/div :.kanban-card-meta
-          (dom/span {:className "kanban-card-builder-tag"
-                     :style {:color builder-color
-                             :borderColor builder-color}}
-            builder-label)
-          (when (and has-data? (pos? note-count))
-            (dom/span :.kanban-card-count
-              (str note-count (if (= note-count 1) " item" " items")))))))))
+(def ^:private builder-phase-order
+  "Ordered phases for the board layout"
+  [{:type :empathy-map      :label "Empathy Map"        :icon "🧠" :color "#8E24AA" :route "empathy"
+    :tagline "Understand your customer"}
+   {:type :value-proposition :label "Value Proposition"  :icon "💎" :color "#1565C0" :route "valueprop"
+    :tagline "Connect needs to solution"}
+   {:type :mvp-planning      :label "MVP Planning"      :icon "🚀" :color "#E65100" :route "mvp"
+    :tagline "Build the smallest thing that proves value"}
+   {:type :lean-canvas        :label "Lean Canvas"       :icon "📊" :color "#2E7D32" :route "canvas"
+    :tagline "Capture your complete business model"}])
 
-(defn kanban-column
-  "Kanban column with header and cards"
-  [{:keys [column on-navigate]}]
-  (let [{:keys [id label cards]} column
-        count (count cards)]
-    (dom/div {:className (str "kanban-column kanban-column-" (name id))}
-      (dom/div :.kanban-column-header
-        (dom/h3 :.kanban-column-title label)
-        (dom/span :.kanban-column-count (str count)))
-      (dom/div :.kanban-column-body
-        (if (seq cards)
-          (for [card cards]
-            (kanban-card {:key (:id card)
-                          :card card
-                          :on-navigate on-navigate}))
-          (dom/div :.kanban-column-empty
-            (case id
-              :not-started "No tasks yet"
-              :in-progress "Nothing in progress"
-              :done "Nothing completed yet"
-              "")))))))
+(defn- status-icon [status]
+  (case (keyword status)
+    :done "✓"
+    :in-progress "◐"
+    :not-started "○"
+    "○"))
+
+(defn- status-class [status]
+  (case (keyword status)
+    :done "kb-status-done"
+    :in-progress "kb-status-progress"
+    :not-started "kb-status-todo"
+    "kb-status-todo"))
+
+(defn kanban-card
+  "Individual Kanban card representing a builder section."
+  [{:keys [key card on-navigate]}]
+  (let [{:keys [id title icon builder-type description note-count
+                has-data? status]} card
+        route (get builder-route-map (keyword builder-type))]
+    (dom/div {:key key
+              :className (str "kb-card " (status-class status))
+              :onClick (when on-navigate #(on-navigate route))}
+             (dom/div :.kb-card-left
+                      (dom/span {:className (str "kb-card-status " (status-class status))}
+                                (status-icon status)))
+             (dom/div :.kb-card-content
+                      (dom/div :.kb-card-title-row
+                               (dom/span :.kb-card-icon icon)
+                               (dom/span :.kb-card-title title)
+                               (when (and has-data? (pos? note-count))
+                                 (dom/span :.kb-card-badge (str note-count))))
+                      (dom/p :.kb-card-desc description)))))
+
+(defn kanban-phase-group
+  "A phase group showing the builder name, progress, and its section cards."
+  [{:keys [key phase cards on-navigate]}]
+  (let [{:keys [type label icon color route tagline]} phase
+        total (count cards)
+        done (count (filter #(= :done (keyword (:status %))) cards))
+        in-progress (count (filter #(= :in-progress (keyword (:status %))) cards))
+        pct (if (pos? total) (int (* 100 (/ done total))) 0)]
+    (dom/div {:key key :className "kb-phase"}
+      ;; Phase header
+             (dom/div {:className "kb-phase-header" :style {:borderLeftColor color}}
+                      (dom/div :.kb-phase-header-top
+                               (dom/div :.kb-phase-title-row
+                                        (dom/span :.kb-phase-icon icon)
+                                        (dom/h3 :.kb-phase-title label))
+                               (dom/div :.kb-phase-stats
+                                        (when (pos? done)
+                                          (dom/span :.kb-phase-stat-done (str done "/" total)))
+                                        (when (and (zero? done) (pos? in-progress))
+                                          (dom/span :.kb-phase-stat-progress (str in-progress " active")))
+                                        (when (and (zero? done) (zero? in-progress))
+                                          (dom/span :.kb-phase-stat-new "Ready"))))
+                      (dom/p :.kb-phase-tagline tagline)
+        ;; Mini progress bar
+                      (dom/div :.kb-phase-progress
+                               (dom/div {:className "kb-phase-progress-fill"
+                                         :style {:width (str pct "%")
+                                                 :backgroundColor color}})))
+      ;; Section cards
+             (dom/div :.kb-phase-cards
+                      (for [[idx card] (map-indexed vector cards)]
+                        (kanban-card {:key (or (:id card) (str (name (:type phase)) "-" idx))
+                                      :card card
+                                      :on-navigate on-navigate})))
+      ;; Action button
+             (dom/div :.kb-phase-action
+                      (dom/button {:className "kb-phase-btn"
+                                   :style {:color color :borderColor color}
+                                   :onClick #(on-navigate route)}
+                                  (cond
+                                    (pos? done)        (str "Continue " label " →")
+                                    (pos? in-progress) (str "Continue " label " →")
+                                    :else              (str "Start " label " →")))))))
 
 (defn kanban-board
-  "Full Kanban board showing builder section progress.
+  "Full Kanban board showing builder section progress grouped by phase.
    Props:
    - project-id: string
-   - on-navigate: fn called with route segment
-   - board: the board data from backend (or nil if loading)"
+   - on-navigate: fn called with route segment"
   [{:keys [project-id on-navigate]}]
   (let [state-atom @ws/app-state-atom
         board (when state-atom (get-in @state-atom [:kanban/board project-id]))
         columns (:columns board)
-        summary (:summary board)]
+        summary (:summary board)
+        ;; Build a lookup: card-id -> card from all columns
+        all-cards (when columns (into {} (for [col columns
+                                               card (:cards col)]
+                                           [(:id card) card])))
+        ;; Group cards by builder-type
+        cards-by-type (when all-cards
+                        (group-by #(keyword (:builder-type %)) (vals all-cards)))]
     ;; Request board data if not loaded
     (when (and project-id (not board))
       (ws/request-kanban-board! project-id))
-    (dom/div :.kanban-board
-      ;; Summary bar
-      (when summary
-        (dom/div :.kanban-summary
-          (dom/span :.kanban-summary-item
-            (dom/span :.kanban-summary-value (str (:done summary 0)))
-            (dom/span :.kanban-summary-label " done"))
-          (dom/span :.kanban-summary-sep "/")
-          (dom/span :.kanban-summary-item
-            (dom/span :.kanban-summary-value (str (:total summary 0)))
-            (dom/span :.kanban-summary-label " total"))
-          ;; Progress bar
-          (dom/div :.kanban-progress-bar
-            (dom/div {:className "kanban-progress-fill"
-                      :style {:width (str (if (pos? (:total summary 0))
-                                            (* 100 (/ (:done summary 0) (:total summary 0)))
-                                            0) "%")}}))))
-      ;; Columns
-      (if columns
-        (dom/div :.kanban-columns
-          (for [col columns]
-            (kanban-column {:key (name (:id col))
-                            :column col
-                            :on-navigate on-navigate})))
-        (dom/div :.kanban-loading "Loading board...")))))
+    (dom/div :.kb-board
+      ;; Overall progress header
+             (when summary
+               (let [total (:total summary 0)
+                     done (:done summary 0)
+                     in-prog (:in-progress summary 0)
+                     pct (if (pos? total) (int (* 100 (/ done total))) 0)]
+                 (dom/div :.kb-header
+                          (dom/div :.kb-header-stats
+                                   (dom/div :.kb-stat
+                                            (dom/span :.kb-stat-value (str done))
+                                            (dom/span :.kb-stat-label "done"))
+                                   (dom/div :.kb-stat
+                                            (dom/span :.kb-stat-value (str in-prog))
+                                            (dom/span :.kb-stat-label "active"))
+                                   (dom/div :.kb-stat
+                                            (dom/span :.kb-stat-value (str (- total done in-prog)))
+                                            (dom/span :.kb-stat-label "remaining"))
+                                   (dom/div :.kb-stat-pct
+                                            (dom/span :.kb-stat-value (str pct "%"))
+                                            (dom/span :.kb-stat-label "complete")))
+                          (dom/div :.kb-header-bar
+                                   (dom/div {:className "kb-header-bar-fill"
+                                             :style {:width (str pct "%")}})))))
+      ;; Phase groups
+             (if cards-by-type
+               (dom/div :.kb-phases
+                        (for [phase builder-phase-order]
+                          (let [cards (get cards-by-type (:type phase) [])]
+                            (kanban-phase-group
+                             {:key (name (:type phase))
+                              :phase phase
+                              :cards cards
+                              :on-navigate on-navigate}))))
+               (dom/div :.kb-loading
+                        (dom/div :.kb-loading-spinner)
+                        (dom/span "Loading board..."))))))
 
 ;; ============================================================================
 ;; Main Page
 ;; ============================================================================
-
-(def ^:private view-state
-  "Local atom tracking which view is active on the project detail page"
-  (atom :flywheel))
 
 (defsc ProjectDetailPage
   "Project overview page - shows flywheel progress and Kanban board with view toggle"
@@ -240,9 +296,10 @@
                    [df/marker-table :project-detail]]
     :ident         (fn [] [:page/id :project-detail])
     :initial-state (fn [_] {})
+    :initLocalState (fn [_] {:active-view :kanban})
     :route-segment ["project" :project-id]
    :will-enter    (fn [app {:keys [project-id]}]
-                     (let [decoded-id (decode-project-id (or project-id ""))]
+                    (let [decoded-id (decode-project-id (or project-id ""))]
                       (dr/route-deferred [:page/id :project-detail]
                                          (fn []
                                            (df/load! app [:page/id :project-detail] ProjectDetailPage
@@ -252,15 +309,21 @@
                                                       :post-mutation-params {:target [:page/id :project-detail]}})))))}
 
   (let [loading? (df/loading? (get props [df/marker-table :project-detail]))
-        project-name (:project/name props)
-        encoded-id (encode-project-id id)
+        ;; Fallback: read project from WS state if Pathom hasn't loaded yet
+        ws-state (when-let [sa @ws/app-state-atom] @sa)
+        ws-project (get ws-state :workspace/project)
+        ;; Use Pathom data if available, fall back to WS-detected project
+        effective-id (or id (:project/id ws-project))
+        project-name (or (:project/name props) (:project/name ws-project) "Project")
+        effective-desc (or description (:project/description ws-project))
+        effective-status (or status (:project/status ws-project) :draft)
+        encoded-id (encode-project-id effective-id)
         navigate-fn (fn [route]
-                      (dr/change-route! this ["project" encoded-id route]))
+                      (when effective-id
+                        (dr/change-route! this ["project" encoded-id route])))
         ;; Get real flywheel progress from WS state
-        state-atom @ws/app-state-atom
-        progress (when state-atom (get-in @state-atom [:flywheel/progress id]))
+        progress (get-in ws-state [:flywheel/progress effective-id])
         current-step (or (when progress
-                           ;; Map backend phase keywords to frontend keywords
                            (let [step (:current-step progress)]
                              (case step
                                :empathy-map :empathy
@@ -269,96 +332,96 @@
                                :lean-canvas :canvas
                                :empathy)))
                          :empathy)
-        active-view @view-state
+        active-view (or (comp/get-state this :active-view) :kanban)
         ;; ECA-generated flywheel guide content
-        eca-guide (when state-atom (get-in @state-atom [:content/generated :flywheel-guide]))
-        eca-guide-loading? (when state-atom (get-in @state-atom [:content/loading? :flywheel-guide]))
+        eca-guide (get-in ws-state [:content/generated :flywheel-guide])
+        eca-guide-loading? (get-in ws-state [:content/loading? :flywheel-guide])
         ;; Build phase lookup from ECA data (keyed by phase :key)
         eca-phases-map (when (seq eca-guide)
                          (into {} (map (fn [p] [(keyword (:key p)) p]) eca-guide)))]
     ;; Request flywheel progress from backend on load
-    (when (and id (not progress))
-      (ws/request-flywheel-progress! id))
+    (when (and effective-id (not progress))
+      (ws/request-flywheel-progress! effective-id))
     ;; Request ECA flywheel guide if not loaded
-    (when (and id state-atom (not eca-guide) (not eca-guide-loading?))
-      (ws/request-content! :flywheel-guide :project-id id))
-    (if loading?
-      (dom/div :.loading "Loading project...")
-      (dom/div :.project-detail-page
-        ;; Header
-        (dom/div :.project-header
-          (dom/div :.project-header-top
-            (dom/div :.project-header-info
-              (dom/h1 project-name)
-              (dom/span :.project-status-badge (clojure.core/name (or status :draft)))
-              (when description
-                (dom/p :.project-description description)))
-            ;; View toggle
-            (dom/div :.view-toggle
-              (dom/button {:className (str "view-toggle-btn"
-                                          (when (= active-view :flywheel) " view-toggle-active"))
-                           :onClick #(reset! view-state :flywheel)}
-                (dom/span :.view-toggle-icon "🔄")
-                (dom/span "Flywheel"))
-              (dom/button {:className (str "view-toggle-btn"
-                                          (when (= active-view :kanban) " view-toggle-active"))
-                           :onClick #(reset! view-state :kanban)}
-                (dom/span :.view-toggle-icon "📋")
-                (dom/span "Kanban")))))
-
-        ;; === Flywheel View ===
-        (when (= active-view :flywheel)
-          (dom/div :.flywheel-view
-            ;; Flywheel indicator at top
-            (ui/flywheel-indicator
-              {:current-step current-step
-               :project-id id
-               :on-navigate navigate-fn})
-
-            ;; Guidance message
-            (dom/div :.project-guidance
-              (dom/div :.guidance-icon "🎯")
-              (dom/div :.guidance-content
-                (dom/h2 "Your Product Development Journey")
-                (if progress
-                  (dom/p (str "Progress: " (:completed-count progress) "/" (:total-phases progress)
-                              " phases complete. "
-                              (case current-step
-                                :empathy "Start with Empathy to understand your customer."
-                                :valueprop "Map your insights to a Value Proposition."
-                                :mvp "Define what to build first in your MVP."
-                                :canvas "Capture your complete business model."
-                                "Keep going!")))
-                  (dom/p "Follow the flywheel: Empathy -> Value Prop -> MVP -> Lean Canvas. Each step builds on the last. Start with Empathy to understand your customer."))))
-
-            ;; Phase Cards
-            (dom/div :.phases-grid
-              (for [phase fallback-flywheel-phases]
-                (phase-card
-                  {:key (name (:key phase))
-                   :phase phase
-                   :eca-phase (get eca-phases-map (:key phase))
-                   :project-id id
-                   :on-navigate navigate-fn
-                   :is-recommended? (= (:key phase) current-step)})))))
+    (when (and effective-id (not eca-guide) (not eca-guide-loading?))
+      (ws/request-content! :flywheel-guide :project-id effective-id))
+    (if (and loading? (not ws-project))
+      (dom/div :.pd-loading
+               (dom/div :.pd-loading-spinner)
+               (dom/span "Loading project..."))
+      (dom/div :.pd-page
+        ;; Compact header with project info + flywheel nav + view toggle
+               (dom/div :.pd-header
+                        (dom/div :.pd-header-row
+                                 (dom/div :.pd-project-info
+                                          (dom/h1 :.pd-project-name project-name)
+                                          (dom/span {:className (str "pd-status pd-status-" (name effective-status))}
+                                                    (name effective-status)))
+                                 (dom/div :.pd-controls
+              ;; View toggle
+                                           (dom/div :.pd-view-toggle
+                                                    (dom/button {:className (str "pd-toggle-btn"
+                                                                                 (when (= active-view :kanban) " pd-toggle-active"))
+                                                                 :onClick #(comp/set-state! this {:active-view :kanban})}
+                                                                "Board")
+                                                    (dom/button {:className (str "pd-toggle-btn"
+                                                                                 (when (= active-view :flywheel) " pd-toggle-active"))
+                                                                 :onClick #(comp/set-state! this {:active-view :flywheel})}
+                                                                "Phases"))))
+                        (when effective-desc
+                          (dom/p :.pd-description effective-desc))
+          ;; Flywheel nav - always visible as phase breadcrumb
+                        (let [step-order {:empathy 0 :valueprop 1 :mvp 2 :canvas 3}
+                              current-idx (get step-order current-step 0)]
+                          (dom/div :.pd-flywheel-nav
+                                   (for [[idx step] (map-indexed vector ui/flywheel-steps)]
+                                     (let [is-current? (= (:key step) current-step)
+                                           is-past? (< idx current-idx)
+                                           step-cls (str "pd-fw-step"
+                                                         (when is-current? " pd-fw-current")
+                                                         (when is-past? " pd-fw-done"))]
+                                       (dom/div {:key (name (:key step))}
+                                                (when (> idx 0)
+                                                  (dom/div {:className (str "pd-fw-connector"
+                                                                            (when (or is-past? is-current?) " pd-fw-connector-done"))}))
+                                                (dom/button {:className step-cls
+                                                             :onClick #(navigate-fn (:route step))}
+                                                            (dom/span :.pd-fw-icon (:icon step))
+                                                            (dom/span :.pd-fw-label (:label step)))))))))
 
         ;; === Kanban View ===
-        (when (= active-view :kanban)
-          (dom/div :.kanban-view
-            (kanban-board
-              {:project-id id
-               :on-navigate navigate-fn})))
+               (when (= active-view :kanban)
+                 (dom/div :.kanban-view
+                          (kanban-board
+                           {:project-id effective-id
+                            :on-navigate navigate-fn})))
 
-        ;; Active Sessions
-        (when (seq sessions)
-          (dom/div :.sessions-section
-            (dom/h2 "Active Sessions")
-            (dom/div :.sessions-list
-              (map #(when (:session/id %) (ui-session-item %)) sessions))))
+        ;; === Flywheel/Phases View ===
+               (when (= active-view :flywheel)
+                 (dom/div :.flywheel-view
+            ;; Guidance message
+                          (dom/div :.pd-guidance
+                                   (dom/h2 :.pd-guidance-title "Product Development Journey")
+                                   (if progress
+                                     (dom/p :.pd-guidance-text
+                                            (str "Progress: " (:completed-count progress) "/" (:total-phases progress)
+                                                 " phases complete. "
+                                                 (case current-step
+                                                   :empathy "Start with Empathy to understand your customer."
+                                                   :valueprop "Map your insights to a Value Proposition."
+                                                   :mvp "Define what to build first in your MVP."
+                                                   :canvas "Capture your complete business model."
+                                                   "Keep going!")))
+                                     (dom/p :.pd-guidance-text
+                                            "Follow the flywheel: Empathy -> Value Prop -> MVP -> Lean Canvas. Each step builds on the last.")))
 
-        ;; Navigation
-        (dom/div :.project-actions
-          (ui/button
-            {:on-click #(dr/change-route! this ["projects"])
-             :variant :secondary}
-            "← Back to Projects"))))))
+            ;; Phase Cards
+                          (dom/div :.phases-grid
+                                   (for [phase fallback-flywheel-phases]
+                                     (phase-card
+                                      {:key (name (:key phase))
+                                       :phase phase
+                                       :eca-phase (get eca-phases-map (:key phase))
+                                       :project-id effective-id
+                                       :on-navigate navigate-fn
+                                       :is-recommended? (= (:key phase) current-step)})))))))))

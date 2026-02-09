@@ -1,6 +1,7 @@
 (ns ouroboros.frontend.ui.components
   "Reusable UI components"
   (:require
+   [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
    [ouroboros.frontend.websocket :as ws]))
@@ -68,7 +69,13 @@
                                      :onClick #(on-navigate "dashboard")}
                                     "Dashboard"))
                       (dom/li (dom/a {:className (str "nav-link" (when (is? "projects" "project") " active"))
-                                      :onClick #(on-navigate "projects")}
+                                      :onClick (fn [_]
+                                                 (let [ws-state (when-let [sa @ws/app-state-atom] @sa)
+                                                       project-id (get-in ws-state [:workspace/project :project/id])
+                                                       encoded (when project-id (str/replace (str project-id) "/" "~"))]
+                                                   (if encoded
+                                                     (on-navigate ["project" encoded])
+                                                     (on-navigate "projects"))))}
                                      "Project"))
                       (dom/li (dom/a {:className (str "nav-link" (when (is? "wisdom") " active"))
                                       :onClick #(on-navigate "wisdom")}
@@ -296,6 +303,79 @@
            "Key Metrics: pick 1-3 numbers that prove traction"]
     :next-hint "Iterate: go back to Empathy with new learnings!"}})
 
+(defn wisdom-panel-body
+  "Core wisdom content for a phase. Can be embedded in pages or sidebars.
+
+   Props:
+   - phase: keyword (:empathy, :valueprop, :mvp, :canvas)
+   - project-id: string (for ECA context)"
+  [{:keys [phase project-id]}]
+  (let [fallback (get wisdom-tips phase)
+        ;; Read ECA wisdom state from app state atom
+        state-atom @ws/app-state-atom
+        wisdom-state (when state-atom (get-in @state-atom [:wisdom/id :global]))
+        eca-content (:wisdom/content wisdom-state)
+        eca-loading? (:wisdom/loading? wisdom-state)
+        eca-streaming? (:wisdom/streaming? wisdom-state)
+        has-eca-content? (and eca-content (seq eca-content))
+        ;; Read auto-insight state
+        auto-insight (when (and state-atom project-id)
+                       (get-in @state-atom [:auto-insight/id project-id]))
+        auto-insight-content (:auto-insight/content auto-insight)
+        auto-insight-loading? (:auto-insight/loading? auto-insight)
+        auto-insight-streaming? (:auto-insight/streaming? auto-insight)
+        has-auto-insight? (and auto-insight-content (seq auto-insight-content))]
+    ;; Request tips from ECA on first render if not already loading
+    (when (and project-id (not eca-loading?) (not has-eca-content?))
+      (ws/request-wisdom! project-id phase :tips))
+    (dom/div :.wisdom-panel-body
+      ;; Auto-insight notification (proactive, from builder completion)
+      (when (or has-auto-insight? auto-insight-loading?)
+        (dom/div :.wisdom-auto-insight
+          (dom/div :.wisdom-auto-insight-header
+            (dom/span :.wisdom-auto-insight-icon "🎯")
+            (dom/span :.wisdom-auto-insight-title "Builder Insight"))
+          (if has-auto-insight?
+            (dom/div :.wisdom-auto-insight-content
+              (dom/div :.wisdom-eca-text auto-insight-content)
+              (when auto-insight-streaming?
+                (dom/span :.wisdom-streaming-indicator "...")))
+            (when auto-insight-loading?
+              (dom/div :.wisdom-loading
+                (dom/span :.wisdom-loading-icon "🤖")
+                (dom/span "Analyzing your work..."))))))
+      ;; ECA-powered content (streaming or complete)
+      (if has-eca-content?
+        (dom/div :.wisdom-eca-content
+          (dom/div :.wisdom-eca-text eca-content)
+          (when eca-streaming?
+            (dom/span :.wisdom-streaming-indicator "...")))
+        ;; Fallback static tips while ECA loads
+        (dom/div :.wisdom-tips-list
+          (when eca-loading?
+            (dom/div :.wisdom-loading
+              (dom/span :.wisdom-loading-icon "🤖")
+              (dom/span "AI is thinking...")))
+          (for [tip (:tips fallback)]
+            (dom/div {:key tip :className "wisdom-tip-item"}
+              (dom/span :.wisdom-bullet "→")
+              (dom/span tip)))))
+      (when-let [next-hint (:next-hint fallback)]
+        (dom/div :.wisdom-next-hint
+          (dom/span :.wisdom-hint-icon "⏭")
+          (dom/span next-hint)))
+      ;; Refresh button to get new ECA tips
+      (when has-eca-content?
+        (dom/div :.wisdom-actions
+          (dom/button
+            {:className "btn btn-secondary wisdom-refresh-btn"
+             :onClick (fn []
+                        (when-let [sa @ws/app-state-atom]
+                          (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
+                        (ws/request-wisdom! project-id phase :tips))
+             :disabled eca-loading?}
+            "🔄 Get fresh tips"))))))
+
 (defn wisdom-sidebar
   "Contextual wisdom tips panel for the current builder phase.
    Fetches ECA-powered tips on open, shows fallback tips while loading.
@@ -307,73 +387,11 @@
    - project-id: string (for ECA context)"
   [{:keys [phase show? on-close project-id]}]
   (when show?
-    (let [fallback (get wisdom-tips phase)
-          ;; Read ECA wisdom state from app state atom
-          state-atom @ws/app-state-atom
-          wisdom-state (when state-atom (get-in @state-atom [:wisdom/id :global]))
-          eca-content (:wisdom/content wisdom-state)
-          eca-loading? (:wisdom/loading? wisdom-state)
-          eca-streaming? (:wisdom/streaming? wisdom-state)
-          has-eca-content? (and eca-content (seq eca-content))
-          ;; Read auto-insight state
-          auto-insight (when (and state-atom project-id)
-                         (get-in @state-atom [:auto-insight/id project-id]))
-          auto-insight-content (:auto-insight/content auto-insight)
-          auto-insight-loading? (:auto-insight/loading? auto-insight)
-          auto-insight-streaming? (:auto-insight/streaming? auto-insight)
-          has-auto-insight? (and auto-insight-content (seq auto-insight-content))]
-      ;; Request tips from ECA on first render if not already loading
-      (when (and project-id (not eca-loading?) (not has-eca-content?))
-        (ws/request-wisdom! project-id phase :tips))
+    (let [fallback (get wisdom-tips phase)]
       (dom/div :.wisdom-sidebar
         (dom/div :.wisdom-sidebar-header
           (dom/h3 (str "💡 " (:title fallback)))
           (dom/button {:className "btn btn-close"
                        :onClick on-close} "x"))
         (dom/p :.wisdom-tagline (:tagline fallback))
-        ;; Auto-insight notification (proactive, from builder completion)
-        (when (or has-auto-insight? auto-insight-loading?)
-          (dom/div :.wisdom-auto-insight
-            (dom/div :.wisdom-auto-insight-header
-              (dom/span :.wisdom-auto-insight-icon "🎯")
-              (dom/span :.wisdom-auto-insight-title "Builder Insight"))
-            (if has-auto-insight?
-              (dom/div :.wisdom-auto-insight-content
-                (dom/div :.wisdom-eca-text auto-insight-content)
-                (when auto-insight-streaming?
-                  (dom/span :.wisdom-streaming-indicator "...")))
-              (when auto-insight-loading?
-                (dom/div :.wisdom-loading
-                  (dom/span :.wisdom-loading-icon "🤖")
-                  (dom/span "Analyzing your work..."))))))
-        ;; ECA-powered content (streaming or complete)
-        (if has-eca-content?
-          (dom/div :.wisdom-eca-content
-            (dom/div :.wisdom-eca-text eca-content)
-            (when eca-streaming?
-              (dom/span :.wisdom-streaming-indicator "...")))
-          ;; Fallback static tips while ECA loads
-          (dom/div :.wisdom-tips-list
-            (when eca-loading?
-              (dom/div :.wisdom-loading
-                (dom/span :.wisdom-loading-icon "🤖")
-                (dom/span "AI is thinking...")))
-            (for [tip (:tips fallback)]
-              (dom/div {:key tip :className "wisdom-tip-item"}
-                (dom/span :.wisdom-bullet "→")
-                (dom/span tip)))))
-        (when-let [next-hint (:next-hint fallback)]
-          (dom/div :.wisdom-next-hint
-            (dom/span :.wisdom-hint-icon "⏭")
-            (dom/span next-hint)))
-        ;; Refresh button to get new ECA tips
-        (when has-eca-content?
-          (dom/div :.wisdom-actions
-            (dom/button
-              {:className "btn btn-secondary wisdom-refresh-btn"
-               :onClick (fn []
-                          (when-let [sa @ws/app-state-atom]
-                            (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
-                          (ws/request-wisdom! project-id phase :tips))
-               :disabled eca-loading?}
-              "🔄 Get fresh tips")))))))
+        (wisdom-panel-body {:phase phase :project-id project-id})))))
