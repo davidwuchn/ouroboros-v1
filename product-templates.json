@@ -1,0 +1,30 @@
+[
+  {
+    "key": "collaborative-canvas",
+    "name": "Collaborative Canvas Platform",
+    "icon": "🎨",
+    "description": "Real-time visual workspace where teams brainstorm, plan, and build together with live cursors, comments, and shared context.",
+    "tags": ["collaboration", "visual", "whiteboard", "real-time", "teams"]
+  },
+  {
+    "key": "ai-development-hub",
+    "name": "AI-Powered Development Hub",
+    "icon": "🤖",
+    "description": "Integrated environment combining AI assistance with collaborative tools for building products faster.",
+    "tags": ["ai", "development", "product-building", "llm-integration", "productivity"]
+  },
+  {
+    "key": "lean-startup-platform",
+    "name": "Lean Startup & Product Strategy Platform",
+    "icon": "🚀",
+    "description": "Guided workflow engine for the 5-phase product development flywheel from empathy to MVP validation.",
+    "tags": ["startup", "product-management", "strategy", "lean", "validation"]
+  },
+  {
+    "key": "multi-platform-command-center",
+    "name": "Multi-Platform Command Center",
+    "icon": "🗂️",
+    "description": "Unified interface aggregating conversations and actions across Telegram, Discord, Slack, and web into one workspace.",
+    "tags": ["integration", "chat", "cross-platform", "unified-inbox", "workflow"]
+  }
+]
