@@ -66,22 +66,37 @@
 (defn register-callback!
   "Register a callback function for a specific ECA notification method.
 
+   Supports multiple listeners per method. Returns a listener-id that can
+   be used to unregister this specific callback.
+
    The callback function will be called with the notification map when a
    notification with matching method is received.
 
-   Usage: (register-callback! \"chat/toolCallApprove\" handle-tool-call)
-          (register-callback! \"chat/content-received\" handle-content)"
-  [method callback-fn]
-  (swap! state update :callbacks assoc method callback-fn)
-  nil)
+   Usage: (register-callback! \"chat/contentReceived\" handle-content)
+          ;; => \"chat/contentReceived-1738972800000-abc123\"
+          (register-callback! \"chat/contentReceived\" :my-listener handle-content)
+          ;; => :my-listener"
+  ([method callback-fn]
+   (let [listener-id (str method "-" (System/currentTimeMillis) "-" (subs (str (java.util.UUID/randomUUID)) 0 6))]
+     (register-callback! method listener-id callback-fn)))
+  ([method listener-id callback-fn]
+   (swap! state update-in [:callbacks method] (fnil assoc {}) listener-id callback-fn)
+   listener-id))
 
 (defn unregister-callback!
-  "Remove callback for a method.
+  "Remove a specific callback by method and listener-id, or all callbacks for a method.
 
-   Usage: (unregister-callback! \"chat/toolCallApprove\")"
-  [method]
-  (swap! state update :callbacks dissoc method)
-  nil)
+   Usage: (unregister-callback! \"chat/contentReceived\" :my-listener)
+          (unregister-callback! \"chat/contentReceived\")  ;; removes all"
+  ([method]
+   (swap! state update :callbacks dissoc method)
+   nil)
+  ([method listener-id]
+   (swap! state update-in [:callbacks method] dissoc listener-id)
+   ;; Clean up empty maps
+   (when (empty? (get-in @state [:callbacks method]))
+     (swap! state update :callbacks dissoc method))
+   nil))
 
 (defn clear-callbacks!
   "Remove all callbacks.
@@ -276,14 +291,16 @@
     (telemetry/emit! {:event :eca/notification
                       :method method})
 
-    ;; Call registered callback if any
-    (when-let [callback (get-in @state [:callbacks method])]
-      (try
-        (callback notification)
-        (catch Exception e
-          (telemetry/emit! {:event :eca/callback-error
-                            :method method
-                            :error (.getMessage e)}))))
+    ;; Call all registered callbacks for this method
+    (when-let [listeners (get-in @state [:callbacks method])]
+      (doseq [[listener-id callback] listeners]
+        (try
+          (callback notification)
+          (catch Exception e
+            (telemetry/emit! {:event :eca/callback-error
+                              :method method
+                              :listener-id listener-id
+                              :error (.getMessage e)})))))
 
     (case method
       "chat/contentReceived"
@@ -528,29 +545,29 @@
 
      (telemetry/emit! {:event :eca/chat-prompt-sent})
 
-     ;; Register callback to collect assistant responses when waiting
-     (when wait?
-       (register-callback! "chat/contentReceived"
-         (fn [notification]
-           (let [params (:params notification)
-                 role (:role params)
-                 content (:content params)]
-             (when (and content (= chat-id (:chatId params)))
-               (swap! collected-content conj params)
-               ;; Resolve when we get a "done" progress or assistant text content
-               (when (or (and (= role "assistant")
-                              (= "text" (:type content)))
-                         (and (= "progress" (:type content))
-                              (= "done" (:state content))))
-                 (deliver content-promise @collected-content)))))))
+      ;; Register callback to collect assistant responses when waiting
+      (when wait?
+        (register-callback! "chat/contentReceived" :chat-prompt-wait
+          (fn [notification]
+            (let [params (:params notification)
+                  role (:role params)
+                  content (:content params)]
+              (when (and content (= chat-id (:chatId params)))
+                (swap! collected-content conj params)
+                ;; Resolve when we get a "done" progress or assistant text content
+                (when (or (and (= role "assistant")
+                               (= "text" (:type content)))
+                          (and (= "progress" (:type content))
+                               (= "done" (:state content))))
+                  (deliver content-promise @collected-content)))))))
 
      (try
        ;; Wait for the initial RPC acknowledgment
        (let [ack-response (deref response-promise 60000 nil)]
-         (if-not ack-response
-           (do
-             (when wait? (unregister-callback! "chat/contentReceived"))
-             (telemetry/emit! {:event :eca/chat-timeout})
+          (if-not ack-response
+            (do
+              (when wait? (unregister-callback! "chat/contentReceived" :chat-prompt-wait))
+              (telemetry/emit! {:event :eca/chat-timeout})
              {:status :error
               :error :timeout
               :message "Chat acknowledgment timeout"})
@@ -563,8 +580,8 @@
                 :response ack-response})
 
              ;; Wait mode: wait for full assistant response
-             (let [contents (deref content-promise timeout-ms nil)]
-               (unregister-callback! "chat/contentReceived")
+              (let [contents (deref content-promise timeout-ms nil)]
+                (unregister-callback! "chat/contentReceived" :chat-prompt-wait)
                (if contents
                  (let [assistant-texts (->> contents
                                             (filter #(= "assistant" (:role %)))
@@ -584,8 +601,8 @@
                     :partial-content @collected-content
                     :message "Timed out waiting for assistant response"}))))))
 
-       (catch Exception e
-         (when wait? (unregister-callback! "chat/contentReceived"))
+        (catch Exception e
+          (when wait? (unregister-callback! "chat/contentReceived" :chat-prompt-wait))
          (telemetry/emit! {:event :eca/chat-error
                            :error (.getMessage e)})
          {:status :error

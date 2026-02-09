@@ -17,9 +17,22 @@
   (stop! [this]
     "Stop listening")
   (send-message! [this chat-id text]
-    "Send a text message to a chat")
+    "Send a text message to a chat. Returns platform message-id for editing.")
   (send-markdown! [this chat-id text]
-    "Send a markdown-formatted message"))
+    "Send a markdown-formatted message. Returns platform message-id for editing."))
+
+(defprotocol EditableAdapter
+  "Protocol for adapters that support editing sent messages.
+   Separate from ChatAdapter for backward compatibility - adapters
+   that don't support editing will simply not implement this."
+  (edit-message! [this chat-id message-id text]
+    "Edit a previously sent message. message-id is the platform-specific
+     identifier returned by send-message! or send-markdown!."))
+
+(defn supports-edit?
+  "Check if an adapter supports message editing"
+  [adapter]
+  (satisfies? EditableAdapter adapter))
 
 (defn make-message
   "Create a standardized message map

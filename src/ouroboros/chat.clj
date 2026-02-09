@@ -37,6 +37,8 @@
 (def stop! chatp/stop!)
 (def send-message! chatp/send-message!)
 (def send-markdown! chatp/send-markdown!)
+(def edit-message! chatp/edit-message!)
+(def supports-edit? chatp/supports-edit?)
 
 (def make-message chatp/make-message)
 
@@ -66,6 +68,155 @@
   "Get the number of active chat sessions"
   []
   (count @chat-sessions))
+
+;; ============================================================================
+;; Streaming Bridge - ECA content notifications to chat edits
+;; ============================================================================
+
+(defonce ^:private streaming-state
+  (atom {}))
+;; Shape: {chat-id {:message-id    <platform msg id>
+;;                   :adapter       <ChatAdapter>
+;;                   :text          <accumulated text>
+;;                   :reasoning     <accumulated reasoning>
+;;                   :phase         :thinking | :responding | :done
+;;                   :last-edit-ms  <epoch ms of last edit>
+;;                   :edit-pending? <boolean - debounce scheduled?>}}
+
+(def ^:private edit-debounce-ms
+  "Minimum ms between edit-message! calls to respect platform rate limits.
+   Telegram: 30 msg/sec, Discord: 5/sec, Slack: ~1/sec for updates."
+  500)
+
+(def ^:private max-message-length
+  "Maximum text length for a single chat message.
+   Telegram: 4096, Discord: 2000, Slack: 40000. Use lowest common."
+  2000)
+
+(defn- truncate-for-chat
+  "Truncate text to fit platform limits, adding ellipsis if needed"
+  [text]
+  (if (> (count text) max-message-length)
+    (str (subs text 0 (- max-message-length 20)) "\n\n... (truncated)")
+    text))
+
+(defn- build-display-text
+  "Build the display text from streaming state"
+  [{:keys [phase text reasoning]}]
+  (cond
+    ;; Still thinking, no text yet
+    (and (= phase :thinking) (str/blank? text))
+    (if (str/blank? reasoning)
+      "... thinking"
+      (str "... thinking\n\n> " (truncate-for-chat reasoning)))
+
+    ;; Responding with text
+    (not (str/blank? text))
+    (truncate-for-chat text)
+
+    ;; Fallback
+    :else "... processing"))
+
+(defn- flush-edit!
+  "Send an edit-message! for the current streaming state of a chat-id.
+   Only edits if the adapter supports it and enough time has passed."
+  [chat-id]
+  (when-let [{:keys [adapter message-id] :as sstate} (get @streaming-state chat-id)]
+    (when (and adapter message-id (supports-edit? adapter))
+      (let [display-text (build-display-text sstate)]
+        (try
+          (edit-message! adapter chat-id message-id display-text)
+          (swap! streaming-state update chat-id assoc
+                 :last-edit-ms (System/currentTimeMillis)
+                 :edit-pending? false)
+          (telemetry/emit! {:event :chat/stream-edit
+                            :chat-id chat-id
+                            :text-length (count display-text)})
+          (catch Exception e
+            (telemetry/emit! {:event :chat/stream-edit-error
+                              :chat-id chat-id
+                              :error (.getMessage e)})))))))
+
+(defn- schedule-debounced-edit!
+  "Schedule an edit after debounce period if one isn't already pending"
+  [chat-id]
+  (when-let [sstate (get @streaming-state chat-id)]
+    (when-not (:edit-pending? sstate)
+      (swap! streaming-state assoc-in [chat-id :edit-pending?] true)
+      (future
+        (Thread/sleep edit-debounce-ms)
+        ;; Only edit if still streaming (not already done)
+        (when-let [current (get @streaming-state chat-id)]
+          (when (not= :done (:phase current))
+            (flush-edit! chat-id)))))))
+
+(defn- handle-stream-content!
+  "Handle a chat/contentReceived notification for streaming.
+   Routes content to the correct chat-id's streaming state."
+  [notification]
+  (let [params (:params notification)
+        role (:role params)
+        content (:content params)
+        chat-id (:chatId params)]
+    (when-let [sstate (get @streaming-state chat-id)]
+      (cond
+        ;; Progress notification (reasoning/responding/done)
+        (= "progress" (:type content))
+        (let [new-phase (case (:state content)
+                          "reasoning" :thinking
+                          "responding" :responding
+                          "done" :done
+                          nil)]
+          (when new-phase
+            (swap! streaming-state assoc-in [chat-id :phase] new-phase)
+            (when (= new-phase :done)
+              ;; Final edit with complete text
+              (flush-edit! chat-id))))
+
+        ;; Assistant text content
+        (and (= role "assistant") (= "text" (:type content)))
+        (do
+          (swap! streaming-state update-in [chat-id :text] str (:text content))
+          (swap! streaming-state assoc-in [chat-id :phase] :responding)
+          (schedule-debounced-edit! chat-id))
+
+        ;; Reasoning content
+        (and (= role "assistant") (= "reasoning" (:type content)))
+        (do
+          (swap! streaming-state update-in [chat-id :reasoning] str (:reasoning content))
+          (schedule-debounced-edit! chat-id))))))
+
+(defn- start-streaming!
+  "Initialize streaming state for a chat-id and send placeholder message.
+   Returns the message-id of the placeholder."
+  [adapter chat-id eca-chat-id]
+  (let [message-id (send-message! adapter chat-id "... thinking")]
+    (swap! streaming-state assoc eca-chat-id
+           {:message-id message-id
+            :adapter adapter
+            :chat-id chat-id
+            :text ""
+            :reasoning ""
+            :phase :thinking
+            :last-edit-ms (System/currentTimeMillis)
+            :edit-pending? false})
+    message-id))
+
+(defn- stop-streaming!
+  "Clean up streaming state for a chat-id. Returns the final text."
+  [eca-chat-id]
+  (let [sstate (get @streaming-state eca-chat-id)
+        final-text (:text sstate)]
+    (swap! streaming-state dissoc eca-chat-id)
+    final-text))
+
+(defn- setup-streaming-callback!
+  "Register the global streaming callback with ECA client.
+   Only needs to be called once."
+  []
+  (eca/register-callback! "chat/contentReceived" :streaming-bridge
+    handle-stream-content!)
+  (telemetry/emit! {:event :chat/streaming-callback-registered}))
 
 ;; ============================================================================
 ;; Tool Filtering for Chat Safety
@@ -219,15 +370,16 @@
     (send-message! adapter chat-id (str "Unknown command: " (name cmd)))))
 
 (defn- handle-natural-message
-  "Handle natural language message via ECA
+  "Handle natural language message via ECA with streaming response.
 
    Flow:
    1. Store user message in session
-   2. Send to ECA via chat-prompt
-   3. Store and forward ECA response to chat
+   2. Send placeholder message to chat
+   3. Fire ECA prompt (fast mode - returns immediately)
+   4. Streaming callback handles content notifications -> edit-message!
+   5. On completion, final edit with full response
 
-   Note: Conversation history is maintained by ECA, we just track
-   for display purposes in Ouroboros."
+   Fallback: If adapter doesn't support editing, waits for full response."
   [adapter chat-id user-name text]
   (telemetry/emit! {:event :chat/message :chat-id chat-id :user user-name})
 
@@ -237,7 +389,7 @@
   ;; Check if ECA is running
   (let [eca-status (eca/status)]
     (if-not (:running eca-status)
-      (let [error-msg (str "⚠️  ECA is not running.\n\n"
+      (let [error-msg (str "ECA is not running.\n\n"
                            "Please start ECA first:\n"
                            "(require '[ouroboros.interface :as iface])\n"
                            "(iface/eca-start!)\n\n"
@@ -245,31 +397,75 @@
         (telemetry/emit! {:event :chat/eca-not-running})
         (send-message! adapter chat-id error-msg))
 
-      ;; Send to ECA
-      (let [result (eca/chat-prompt text)]
-        (case (:status result)
-          :success
-          (let [response (get-in result [:response :result :content]
-                                 (str "ECA: " (pr-str (:response result))))]
-            (update-session! chat-id :assistant response)
-            (send-message! adapter chat-id response))
+      (if (supports-edit? adapter)
+        ;; Streaming mode: send placeholder, then progressively edit
+        (let [eca-chat-id (str "chat-" chat-id)]
+          (start-streaming! adapter chat-id eca-chat-id)
 
-          :error
-          (let [error-msg (str "⚠️  ECA error: "
-                               (or (:error result) "Unknown error")
-                               "\n\n"
-                               "Message: " (:message result))]
-            (telemetry/emit! {:event :chat/eca-error
-                              :error (:error result)})
-            (update-session! chat-id :assistant error-msg)
-            (send-message! adapter chat-id error-msg))
+          ;; Fire ECA prompt (fast mode - returns after ack)
+          (let [result (eca/chat-prompt text {:chat-id eca-chat-id})]
+            (when (= :error (:status result))
+              ;; Prompt failed - clean up and show error
+              (stop-streaming! eca-chat-id)
+              (let [error-msg (str "ECA error: "
+                                   (or (:error result) "Unknown error")
+                                   "\n" (:message result))]
+                (telemetry/emit! {:event :chat/eca-error :error (:error result)})
+                (send-message! adapter chat-id error-msg)))
 
-          ;; Timeout or other issues
-          (let [error-msg (str "⚠️  ECA request failed: "
-                               (pr-str result))]
-            (telemetry/emit! {:event :chat/eca-failed})
-            (update-session! chat-id :assistant error-msg)
-            (send-message! adapter chat-id error-msg)))))))
+            ;; Wait for streaming to complete (with timeout)
+            (future
+              (let [timeout-ms 120000
+                    start-time (System/currentTimeMillis)]
+                (loop []
+                  (let [sstate (get @streaming-state eca-chat-id)]
+                    (cond
+                      ;; Streaming finished
+                      (nil? sstate)
+                      nil ;; Already cleaned up
+
+                      (= :done (:phase sstate))
+                      (let [final-text (stop-streaming! eca-chat-id)]
+                        (update-session! chat-id :assistant final-text)
+                        (telemetry/emit! {:event :chat/stream-complete
+                                          :chat-id chat-id
+                                          :text-length (count final-text)}))
+
+                      ;; Timeout
+                      (> (- (System/currentTimeMillis) start-time) timeout-ms)
+                      (let [partial-text (stop-streaming! eca-chat-id)]
+                        (telemetry/emit! {:event :chat/stream-timeout :chat-id chat-id})
+                        (update-session! chat-id :assistant
+                                         (str partial-text "\n\n(Response timed out)")))
+
+                      ;; Keep waiting
+                      :else
+                      (do (Thread/sleep 500) (recur)))))))))
+
+        ;; Non-editable adapter: fall back to wait mode
+        (let [result (eca/chat-prompt text {:wait? true :timeout-ms 120000
+                                            :chat-id (str "chat-" chat-id)})]
+          (case (:status result)
+            :success
+            (let [response (or (:content result)
+                               (get-in result [:response :result :content])
+                               (str "ECA: " (pr-str (:response result))))]
+              (update-session! chat-id :assistant response)
+              (send-message! adapter chat-id response))
+
+            :error
+            (let [error-msg (str "ECA error: "
+                                 (or (:error result) "Unknown error")
+                                 "\n" (:message result))]
+              (telemetry/emit! {:event :chat/eca-error :error (:error result)})
+              (update-session! chat-id :assistant error-msg)
+              (send-message! adapter chat-id error-msg))
+
+            ;; Fallback
+            (let [error-msg (str "ECA request failed: " (pr-str result))]
+              (telemetry/emit! {:event :chat/eca-failed})
+              (update-session! chat-id :assistant error-msg)
+              (send-message! adapter chat-id error-msg))))))))
 
 (defn- handle-canvas-message
   "Handle message when user is in canvas-building mode"
@@ -489,12 +685,15 @@
   ;; Ensure ECA client is running
   (let [eca-status (eca/status)]
     (when-not (:running eca-status)
-      (println "◈ Starting ECA client...")
+      (println "Starting ECA client...")
       (try
         (eca/start!)
-        (println "✓ ECA client started")
+        (println "ECA client started")
         (catch Exception e
-          (println "⚠️  Failed to start ECA client:" (.getMessage e))))))
+          (println "Failed to start ECA client:" (.getMessage e))))))
+
+  ;; Register global streaming callback
+  (setup-streaming-callback!)
 
   (doseq [[platform adapter] @active-adapters]
     (let [handler (make-message-handler adapter)]
@@ -502,7 +701,7 @@
       (setup-eca-approval-bridge! adapter)
 
       (start! adapter handler)
-      (println (str "✓ Chat adapter started: " platform)))))
+      (println (str "Chat adapter started: " platform)))))
 
 (defn stop-all! []
   (doseq [[platform adapter] @active-adapters]

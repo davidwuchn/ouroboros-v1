@@ -84,16 +84,16 @@
   "Register callbacks with ECA client to receive tool approval requests.
    Must be called after ECA client is started."
   []
-  (eca-client/register-callback! "chat/toolCallApprove" handle-eca-tool-call-approve)
-  (eca-client/register-callback! "chat/toolCallReject" handle-eca-tool-call-reject)
+  (eca-client/register-callback! "chat/toolCallApprove" :approval-bridge handle-eca-tool-call-approve)
+  (eca-client/register-callback! "chat/toolCallReject" :approval-bridge handle-eca-tool-call-reject)
   (swap! state assoc :eca-callbacks-registered? true)
   nil)
 
 (defn unregister-eca-callbacks!
   "Unregister callbacks from ECA client."
   []
-  (eca-client/unregister-callback! "chat/toolCallApprove")
-  (eca-client/unregister-callback! "chat/toolCallReject")
+  (eca-client/unregister-callback! "chat/toolCallApprove" :approval-bridge)
+  (eca-client/unregister-callback! "chat/toolCallReject" :approval-bridge)
   (swap! state assoc :eca-callbacks-registered? false)
   nil)
 

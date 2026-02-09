@@ -21,21 +21,21 @@
   (testing "Registering a callback stores it in state"
     (let [called? (atom false)
           callback (fn [_] (reset! called? true))]
-      (eca/register-callback! "test/method" callback)
+      (eca/register-callback! "test/method" :test callback)
       (let [callbacks (:callbacks @eca/state)]
         (is (contains? callbacks "test/method"))
-        (is (fn? (get callbacks "test/method"))))))
+        (is (fn? (get-in callbacks ["test/method" :test]))))))
 
   (testing "Unregistering removes callback"
     (let [callback (fn [_])]
-      (eca/register-callback! "test/method" callback)
-      (eca/unregister-callback! "test/method")
+      (eca/register-callback! "test/method" :test callback)
+      (eca/unregister-callback! "test/method" :test)
       (is (not (contains? (:callbacks @eca/state) "test/method")))))
 
   (testing "Clearing callbacks removes all"
     (let [callback (fn [_])]
-      (eca/register-callback! "method1" callback)
-      (eca/register-callback! "method2" callback)
+      (eca/register-callback! "method1" :test callback)
+      (eca/register-callback! "method2" :test callback)
       (eca/clear-callbacks!)
       (is (empty? (:callbacks @eca/state))))))
 
@@ -45,7 +45,7 @@
           captured (atom nil)
           callback (fn [notification] (reset! called? true) (reset! captured notification))
           notification {:method "test/method" :params {:foo "bar"}}]
-      (eca/register-callback! "test/method" callback)
+      (eca/register-callback! "test/method" :test callback)
       ;; Call private function handle-notification!
       (#'eca/handle-notification! notification)
       (is @called? "Callback should have been called")

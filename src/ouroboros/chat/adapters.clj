@@ -47,6 +47,16 @@
                      (merge {:chat_id chat-id :text text}
                             (when parse-mode {:parse_mode parse-mode}))))
 
+(defn- telegram-edit-text [token chat-id message-id text parse-mode]
+  (telegram-api-call token "editMessageText"
+                     (merge {:chat_id chat-id
+                             :message_id message-id
+                             :text text}
+                            (when parse-mode {:parse_mode parse-mode}))))
+
+(defn- telegram-extract-message-id [response]
+  (get-in response [:result :message_id]))
+
 (defn- telegram-parse-message [update]
   (when-let [msg (:message update)]
     (let [chat-id (get-in msg [:chat :id])
@@ -84,10 +94,14 @@
     this)
   
   (send-message! [this chat-id text]
-    (telegram-send-text token chat-id text nil))
+    (telegram-extract-message-id (telegram-send-text token chat-id text nil)))
   
   (send-markdown! [this chat-id text]
-    (telegram-send-text token chat-id text "Markdown")))
+    (telegram-extract-message-id (telegram-send-text token chat-id text "Markdown")))
+
+  chatp/EditableAdapter
+  (edit-message! [this chat-id message-id text]
+    (telegram-edit-text token chat-id message-id text nil)))
 
 (defn telegram-bot
   "Create a Telegram bot adapter
@@ -110,6 +124,11 @@
                                                    "Content-Type" "application/json"}})
                      :post (http/post url {:headers {"Authorization" (str "Bot " token)
                                                      "Content-Type" "application/json"}
+                                           :body (json/generate-string params)})
+                     :patch (http/request {:method :patch
+                                           :uri url
+                                           :headers {"Authorization" (str "Bot " token)
+                                                     "Content-Type" "application/json"}
                                            :body (json/generate-string params)}))]
       (when (= 200 (:status response))
         (json/parse-string (:body response) true)))
@@ -122,6 +141,9 @@
 
 (defn- discord-post-message [token channel-id text]
   (discord-api-call token :post (str "/channels/" channel-id "/messages") {:content text}))
+
+(defn- discord-edit-message [token channel-id message-id text]
+  (discord-api-call token :patch (str "/channels/" channel-id "/messages/" message-id) {:content text}))
 
 (defn- discord-parse-message [event-data]
   (when (= "MESSAGE_CREATE" (:t event-data))
@@ -173,10 +195,14 @@
     this)
   
   (send-message! [this channel-id text]
-    (discord-post-message token channel-id text))
+    (:id (discord-post-message token channel-id text)))
   
   (send-markdown! [this channel-id text]
-    (discord-post-message token channel-id text)))
+    (:id (discord-post-message token channel-id text)))
+
+  chatp/EditableAdapter
+  (edit-message! [this channel-id message-id text]
+    (discord-edit-message token channel-id message-id text)))
 
 (defn discord-bot
   "Create a Discord bot adapter
@@ -210,6 +236,9 @@
 
 (defn- slack-post-message [bot-token channel text]
   (slack-api-call bot-token "chat.postMessage" {:channel channel :text text}))
+
+(defn- slack-edit-message [bot-token channel ts text]
+  (slack-api-call bot-token "chat.update" {:channel channel :ts ts :text text}))
 
 (defn- slack-ack [app-token envelope-id]
   (slack-api-call app-token "apps.connections.open" {}))
@@ -254,10 +283,14 @@
     this)
   
   (send-message! [this channel-id text]
-    (slack-post-message bot-token channel-id text))
+    (:ts (slack-post-message bot-token channel-id text)))
   
   (send-markdown! [this channel-id text]
-    (slack-post-message bot-token channel-id text)))
+    (:ts (slack-post-message bot-token channel-id text)))
+
+  chatp/EditableAdapter
+  (edit-message! [this channel-id message-id text]
+    (slack-edit-message bot-token channel-id message-id text)))
 
 (defn slack-bot
   "Create a Slack bot adapter (Socket Mode)
