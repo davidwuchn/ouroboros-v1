@@ -112,12 +112,15 @@
 
 (def ^:private default-eca-path
   "Default ECA binary location"
-  (cond
-    (System/getenv "ECA_PATH") (System/getenv "ECA_PATH")
-    (fs/exists? "/usr/local/bin/eca") "/usr/local/bin/eca"
-    (fs/exists? (str (System/getProperty "user.home") "/.local/bin/eca"))
-    (str (System/getProperty "user.home") "/.local/bin/eca")
-    :else "eca"))
+  (let [home (System/getProperty "user.home")]
+    (cond
+      (System/getenv "ECA_PATH") (System/getenv "ECA_PATH")
+      (fs/exists? "/usr/local/bin/eca") "/usr/local/bin/eca"
+      (fs/exists? (str home "/.local/bin/eca"))
+      (str home "/.local/bin/eca")
+      (fs/exists? (str home "/bin/eca"))
+      (str home "/bin/eca")
+      :else "eca")))
 
 (defn- get-eca-path []
   (or (System/getenv "ECA_PATH")
@@ -558,7 +561,7 @@
                 (when (or (and (= role "assistant")
                                (= "text" (:type content)))
                           (and (= "progress" (:type content))
-                               (= "done" (:state content))))
+                               (#{"done" "finished"} (:state content))))
                   (deliver content-promise @collected-content)))))))
 
      (try

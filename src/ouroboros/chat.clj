@@ -163,10 +163,10 @@
         ;; Progress notification (reasoning/responding/done)
         (= "progress" (:type content))
         (let [new-phase (case (:state content)
-                          "reasoning" :thinking
-                          "responding" :responding
-                          "done" :done
-                          nil)]
+                           "reasoning" :thinking
+                           "responding" :responding
+                           ("done" "finished") :done
+                           nil)]
           (when new-phase
             (swap! streaming-state assoc-in [chat-id :phase] new-phase)
             (when (= new-phase :done)

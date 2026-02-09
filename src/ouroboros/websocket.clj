@@ -125,7 +125,7 @@
               (cond
                 ;; Progress: done -> send eca/chat-done and unregister
                 (and (= "progress" (:type content))
-                     (= "done" (:state content)))
+                     (#{"done" "finished"} (:state content)))
                 (do
                   (send-to! client-id {:type :eca/chat-done
                                        :timestamp (System/currentTimeMillis)})
