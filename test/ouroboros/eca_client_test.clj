@@ -2,6 +2,7 @@
   "Tests for ECA client"
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
+   [clojure.string :as str]
    [ouroboros.eca-client :as eca]
    [ouroboros.telemetry :as telemetry]))
 
@@ -73,6 +74,75 @@
         (#'eca/handle-notification! {:method "chat/contentReceived" :params {:role "user"}})
         (is (some #(= :eca/notification (:event %)) @telemetry-events))
         (is (some #(= :eca/content-received (:event %)) @telemetry-events))))))
+
+;; ============================================================================
+;; Multi-Listener Callback Tests
+;; ============================================================================
+
+(deftest multi-listener-registration
+  (testing "Multiple listeners on same method all get stored"
+    (let [cb1 (fn [_])
+          cb2 (fn [_])]
+      (eca/register-callback! "test/method" :listener-1 cb1)
+      (eca/register-callback! "test/method" :listener-2 cb2)
+      (let [listeners (get-in @eca/state [:callbacks "test/method"])]
+        (is (= 2 (count listeners)))
+        (is (fn? (get listeners :listener-1)))
+        (is (fn? (get listeners :listener-2))))))
+
+  (testing "Auto-generated listener IDs work (2-arity)"
+    (let [cb (fn [_])
+          listener-id (eca/register-callback! "auto/method" cb)]
+      (is (string? listener-id))
+      (is (str/starts-with? listener-id "auto/method-"))
+      (let [listeners (get-in @eca/state [:callbacks "auto/method"])]
+        (is (= 1 (count listeners)))
+        (is (fn? (get listeners listener-id))))))
+
+  (testing "Removing one listener doesn't affect others"
+    (reset-state!)
+    (let [cb1 (fn [_])
+          cb2 (fn [_])]
+      (eca/register-callback! "test/method" :keep cb1)
+      (eca/register-callback! "test/method" :remove cb2)
+      ;; Remove one
+      (eca/unregister-callback! "test/method" :remove)
+      (let [listeners (get-in @eca/state [:callbacks "test/method"])]
+        (is (= 1 (count listeners)))
+        (is (fn? (get listeners :keep)))
+        (is (nil? (get listeners :remove))))))
+
+  (testing "Removing last listener cleans up method entry"
+    (reset-state!)
+    (let [cb (fn [_])]
+      (eca/register-callback! "cleanup/method" :only-one cb)
+      (eca/unregister-callback! "cleanup/method" :only-one)
+      (is (nil? (get-in @eca/state [:callbacks "cleanup/method"]))))))
+
+(deftest multi-listener-invocation
+  (testing "All listeners for a method get called"
+    (let [calls (atom [])
+          cb1 (fn [n] (swap! calls conj [:listener-1 n]))
+          cb2 (fn [n] (swap! calls conj [:listener-2 n]))
+          notification {:method "multi/test" :params {:data "hello"}}]
+      (eca/register-callback! "multi/test" :listener-1 cb1)
+      (eca/register-callback! "multi/test" :listener-2 cb2)
+      (#'eca/handle-notification! notification)
+      (is (= 2 (count @calls)))
+      (is (some #(= :listener-1 (first %)) @calls))
+      (is (some #(= :listener-2 (first %)) @calls))))
+
+  (testing "Error in one listener doesn't prevent others from executing"
+    (let [calls (atom [])
+          bad-cb (fn [_] (throw (Exception. "boom")))
+          good-cb (fn [n] (swap! calls conj :good-called))
+          notification {:method "error/test" :params {}}]
+      (eca/register-callback! "error/test" :bad bad-cb)
+      (eca/register-callback! "error/test" :good good-cb)
+      ;; Should not throw
+      (#'eca/handle-notification! notification)
+      ;; Good listener should still have been called
+      (is (= [:good-called] @calls)))))
 
 (deftest start-stop-lifecycle
   (testing "Status reflects running state"

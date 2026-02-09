@@ -488,20 +488,22 @@ dev:backend
              (println "      Run: bb test:webux (requires Clojure, not Babashka)")
              (println "NOTE: ECA integration tests require manual execution")
              (println "      Run: bb test:eca (requires ECA binary installed)\n")
-             (require 'ouroboros.core-test)
-             (require 'ouroboros.chat-adapter-test)
-             (require 'ouroboros.tool-execution-test)
-             (require 'ouroboros.integration-test)
-             (let [sum-results (fn [results]
-                                 {:test (apply + (map :test results))
-                                  :pass (apply + (map :pass results))
-                                  :fail (apply + (map :fail results))
-                                  :error (apply + (map :error results))})
-                   results (sum-results
-                            [(t/run-tests 'ouroboros.core-test)
-                             (t/run-tests 'ouroboros.chat-adapter-test)
-                             (t/run-tests 'ouroboros.tool-execution-test)
-                             (t/run-tests 'ouroboros.integration-test)])]
+              (require 'ouroboros.core-test)
+              (require 'ouroboros.chat-adapter-test)
+              (require 'ouroboros.streaming-test)
+              (require 'ouroboros.tool-execution-test)
+              (require 'ouroboros.integration-test)
+              (let [sum-results (fn [results]
+                                  {:test (apply + (map :test results))
+                                   :pass (apply + (map :pass results))
+                                   :fail (apply + (map :fail results))
+                                   :error (apply + (map :error results))})
+                    results (sum-results
+                             [(t/run-tests 'ouroboros.core-test)
+                              (t/run-tests 'ouroboros.chat-adapter-test)
+                              (t/run-tests 'ouroboros.streaming-test)
+                              (t/run-tests 'ouroboros.tool-execution-test)
+                              (t/run-tests 'ouroboros.integration-test)])]
                (println "\n========================================")
                (println "  Grand Total")
                (println "========================================")

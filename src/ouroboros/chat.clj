@@ -120,13 +120,13 @@
 (defn- flush-edit!
   "Send an edit-message! for the current streaming state of a chat-id.
    Only edits if the adapter supports it and enough time has passed."
-  [chat-id]
-  (when-let [{:keys [adapter message-id] :as sstate} (get @streaming-state chat-id)]
+  [eca-chat-id]
+  (when-let [{:keys [adapter message-id chat-id] :as sstate} (get @streaming-state eca-chat-id)]
     (when (and adapter message-id (supports-edit? adapter))
       (let [display-text (build-display-text sstate)]
         (try
           (edit-message! adapter chat-id message-id display-text)
-          (swap! streaming-state update chat-id assoc
+          (swap! streaming-state update eca-chat-id assoc
                  :last-edit-ms (System/currentTimeMillis)
                  :edit-pending? false)
           (telemetry/emit! {:event :chat/stream-edit

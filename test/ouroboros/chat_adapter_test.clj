@@ -271,6 +271,46 @@
 
     (println "  ✓ Multi-platform registration verified")))
 
+;; ============================================================================
+;; EditableAdapter Protocol Tests
+;; ============================================================================
+
+(deftest editable-adapter-protocol-test
+  (testing "All platform adapters satisfy EditableAdapter protocol"
+    (println "\n[TEST] EditableAdapter protocol compliance")
+
+    ;; Telegram
+    (let [tg-bot (adapters/telegram-bot "fake-token")]
+      (is (satisfies? chatp/EditableAdapter tg-bot)
+          "Telegram bot should satisfy EditableAdapter")
+      (is (true? (chatp/supports-edit? tg-bot))
+          "Telegram should support editing"))
+
+    ;; Discord
+    (let [discord-bot (adapters/discord-bot "fake-token")]
+      (is (satisfies? chatp/EditableAdapter discord-bot)
+          "Discord bot should satisfy EditableAdapter")
+      (is (true? (chatp/supports-edit? discord-bot))
+          "Discord should support editing"))
+
+    ;; Slack
+    (let [slack-bot (adapters/slack-bot "xapp-fake" "xoxb-fake")]
+      (is (satisfies? chatp/EditableAdapter slack-bot)
+          "Slack bot should satisfy EditableAdapter")
+      (is (true? (chatp/supports-edit? slack-bot))
+          "Slack should support editing"))
+
+    (println "  ✓ All platforms satisfy EditableAdapter protocol"))
+
+  (testing "MockAdapter does NOT satisfy EditableAdapter"
+    (println "\n[TEST] MockAdapter lacks EditableAdapter")
+    (let [mock (make-mock-adapter)]
+      (is (not (satisfies? chatp/EditableAdapter mock))
+          "MockAdapter should NOT satisfy EditableAdapter")
+      (is (false? (chatp/supports-edit? mock))
+          "MockAdapter should not support editing"))
+    (println "  ✓ MockAdapter correctly lacks EditableAdapter")))
+
 (comment
   ;; Run tests
   (clojure.test/run-tests 'ouroboros.chat-adapter-test))
