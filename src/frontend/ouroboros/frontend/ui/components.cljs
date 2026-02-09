@@ -66,12 +66,15 @@
                      (dom/li (dom/a {:className (str "nav-link" (when (is? "dashboard") " active"))
                                      :onClick #(on-navigate "dashboard")}
                                     "Dashboard"))
-                     (dom/li (dom/a {:className (str "nav-link" (when (is? "projects" "project") " active"))
-                                     :onClick #(on-navigate "projects")}
-                                    "Projects"))
-                     (dom/li (dom/a {:className (str "nav-link" (when (is? "telemetry") " active"))
-                                     :onClick #(on-navigate "telemetry")}
-                                    "Telemetry"))
+                      (dom/li (dom/a {:className (str "nav-link" (when (is? "projects" "project") " active"))
+                                      :onClick #(on-navigate "projects")}
+                                     "Projects"))
+                      (dom/li (dom/a {:className (str "nav-link" (when (is? "wisdom") " active"))
+                                      :onClick #(on-navigate "wisdom")}
+                                     "Wisdom"))
+                      (dom/li (dom/a {:className (str "nav-link" (when (is? "telemetry") " active"))
+                                      :onClick #(on-navigate "telemetry")}
+                                     "Telemetry"))
                      (dom/li (dom/a {:className (str "nav-link" (when (is? "users") " active"))
                                      :onClick #(on-navigate "users")}
                                     "Users"))
@@ -198,3 +201,134 @@
   [{:keys [content]}]
   (dom/pre :.code-block
            (dom/code (str content))))
+
+;; ============================================================================
+;; Flywheel Steps - Product Development Progression
+;; ============================================================================
+
+(def flywheel-steps
+  "The 4-phase product development flywheel"
+  [{:key :empathy
+    :label "Empathy Map"
+    :icon "🧠"
+    :route "empathy"
+    :description "Understand your customer deeply"}
+   {:key :valueprop
+    :label "Value Prop"
+    :icon "💎"
+    :route "valueprop"
+    :description "Map your product to their needs"}
+   {:key :mvp
+    :label "MVP"
+    :icon "🚀"
+    :route "mvp"
+    :description "Define what to build first"}
+   {:key :canvas
+    :label "Lean Canvas"
+    :icon "📊"
+    :route "canvas"
+    :description "Complete business model"}])
+
+(defn flywheel-indicator
+  "Shows the 4-phase product development progression.
+   Highlights current step and shows completion state.
+   
+   Props:
+   - current-step: keyword (:empathy, :valueprop, :mvp, :canvas)
+   - project-id: encoded project id for navigation
+   - on-navigate: fn called with route segment on click"
+  [{:keys [current-step project-id on-navigate]}]
+  (let [step-order [:empathy :valueprop :mvp :canvas]
+        current-idx (.indexOf step-order current-step)]
+    (dom/div :.flywheel-indicator
+      (dom/div :.flywheel-steps
+        (for [[idx step] (map-indexed vector flywheel-steps)]
+          (let [is-current? (= (:key step) current-step)
+                is-past? (< idx current-idx)
+                is-future? (> idx current-idx)
+                step-class (str "flywheel-step "
+                                (when is-current? "flywheel-current ")
+                                (when is-past? "flywheel-completed ")
+                                (when is-future? "flywheel-future "))]
+            (dom/div {:key (name (:key step))}
+              ;; Connector line (except before first)
+              (when (> idx 0)
+                (dom/div {:className (str "flywheel-connector "
+                                          (when is-past? "flywheel-connector-done ")
+                                          (when is-current? "flywheel-connector-done "))}))
+              (dom/div {:className step-class
+                        :onClick (when on-navigate
+                                   #(on-navigate (:route step)))
+                        :title (:description step)}
+                (dom/span :.flywheel-icon (:icon step))
+                (dom/span :.flywheel-label (:label step))
+                (when is-past?
+                  (dom/span :.flywheel-check "✓"))))))))))
+
+;; ============================================================================
+;; Wisdom Tips - Contextual guidance per builder phase
+;; ============================================================================
+
+(def wisdom-tips
+  "Contextual wisdom tips for each phase of the flywheel"
+  {:empathy
+   {:title "Empathy Phase"
+    :tagline "Walk in their shoes before you build."
+    :tips ["Start by observing real users -- don't just imagine"
+           "Look for contradictions between what people say and do"
+           "The most valuable insights come from pains they've accepted as normal"
+           "Be specific: 'Sarah the PM' beats 'busy professionals'"
+           "Capture direct quotes -- they reveal real emotions"]
+    :next-hint "Your empathy insights will directly feed the Value Proposition."}
+   :valueprop
+   {:title "Value Proposition Phase"
+    :tagline "Connect what they need to what you offer."
+    :tips ["Start with customer jobs, not your product features"
+           "Rank pains by severity -- solve the worst ones first"
+           "A great pain reliever beats a nice-to-have gain creator"
+           "If you can't explain the value in one sentence, simplify"
+           "Validate: would they pay to solve this pain today?"]
+    :next-hint "Your value fit will guide what to build in the MVP."}
+   :mvp
+   {:title "MVP Phase"
+    :tagline "Build the smallest thing that proves your value."
+    :tips ["The best MVPs are embarrassingly small -- cut features until it hurts"
+           "Focus on ONE user, ONE problem, ONE solution"
+           "Speed of iteration beats quality of iteration"
+           "Define success metrics BEFORE you build"
+           "If you can test the assumption without code, do that first"]
+    :next-hint "Your MVP learnings will validate the business model."}
+   :canvas
+   {:title "Lean Canvas Phase"
+    :tagline "Connect all the dots into a business model."
+    :tips ["Fill in Problem and Customer Segments first -- they drive everything"
+           "Your Unfair Advantage is the hardest box -- that's OK"
+           "Revenue and Cost should be realistic, not optimistic"
+           "Key Metrics: pick 1-3 numbers that prove traction"
+           "Revisit and update as you learn -- this is a living document"]
+    :next-hint "Iterate: go back to Empathy with new learnings!"}})
+
+(defn wisdom-sidebar
+  "Contextual wisdom tips panel for the current builder phase.
+   
+   Props:
+   - phase: keyword (:empathy, :valueprop, :mvp, :canvas)
+   - show?: boolean"
+  [{:keys [phase show? on-close]}]
+  (when show?
+    (let [{:keys [title tagline tips next-hint]} (get wisdom-tips phase)]
+      (dom/div :.wisdom-sidebar
+        (dom/div :.wisdom-sidebar-header
+          (dom/h3 (str "💡 " title))
+          (dom/button {:className "btn btn-close"
+                       :onClick on-close} "x"))
+        (dom/p :.wisdom-tagline tagline)
+        (dom/div :.wisdom-tips-list
+          (for [tip tips]
+            (dom/div {:key tip :className "wisdom-tip-item"}
+              (dom/span :.wisdom-bullet "→")
+              (dom/span tip))))
+        (when next-hint
+          (dom/div :.wisdom-next-hint
+            (dom/span :.wisdom-hint-icon "⏭")
+            (dom/span next-hint)))))))

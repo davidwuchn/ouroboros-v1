@@ -16,8 +16,9 @@
    [ouroboros.frontend.ui.pages.empathy-builder :as empathy-builder]
    [ouroboros.frontend.ui.pages.value-prop-builder :as value-prop-builder]
    [ouroboros.frontend.ui.pages.mvp-builder :as mvp-builder]
-   [ouroboros.frontend.ui.pages.lean-canvas-builder :as lean-canvas-builder]
-   [goog.events :as gevents]
+    [ouroboros.frontend.ui.pages.lean-canvas-builder :as lean-canvas-builder]
+    [ouroboros.frontend.ui.pages.wisdom :as wisdom]
+    [goog.events :as gevents]
    [goog.events.EventType :as event-type]))
 
 ;; ============================================================================
@@ -43,8 +44,9 @@
     project-detail/ProjectDetailPage
     empathy-builder/EmpathyBuilderPage
     value-prop-builder/ValuePropBuilderPage
-    mvp-builder/MVPBuilderPage
-    lean-canvas-builder/LeanCanvasBuilderPage]
+     mvp-builder/MVPBuilderPage
+     lean-canvas-builder/LeanCanvasBuilderPage
+     wisdom/WisdomPage]
    :ident (fn [] [:router/id :main-router])})
 
 (def ui-main-router (comp/factory MainRouter {:keyfn :router-id}))

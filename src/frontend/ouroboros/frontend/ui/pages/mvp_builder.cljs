@@ -405,24 +405,27 @@
                    :completed-responses
                    {:ui [:ui/show-tutorial :ui/tutorial-step
                          :ui/show-help :ui/show-section-modal
-                         :ui/active-section :ui/section-value]}
+                         :ui/active-section :ui/section-value
+                         :ui/show-wisdom]}
                    [df/marker-table :mvp-builder]]
    :ident         (fn [] [:page/id :mvp-builder])
    :route-segment ["project" :project-id "mvp"]
    :initial-state (fn [_] {:completed-responses []
-                           :ui {:ui/show-tutorial true
-                                :ui/tutorial-step 1
-                                :ui/show-help false
-                                :ui/show-section-modal false
-                                :ui/active-section nil
-                                :ui/section-value ""}})
+                            :ui {:ui/show-tutorial true
+                                 :ui/tutorial-step 1
+                                 :ui/show-help false
+                                 :ui/show-section-modal false
+                                 :ui/active-section nil
+                                 :ui/section-value ""
+                                 :ui/show-wisdom false}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
-                    (let [default-ui {:ui/show-tutorial true
-                                      :ui/tutorial-step 1
-                                      :ui/show-help false
-                                      :ui/show-section-modal false
-                                      :ui/active-section nil
-                                      :ui/section-value ""}
+                     (let [default-ui {:ui/show-tutorial true
+                                       :ui/tutorial-step 1
+                                       :ui/show-help false
+                                       :ui/show-section-modal false
+                                       :ui/active-section nil
+                                       :ui/section-value ""
+                                       :ui/show-wisdom false}
                           existing-ui (:ui current-normalized)
                           ui-val (if (and existing-ui (seq existing-ui))
                                    existing-ui
@@ -447,7 +450,8 @@
         project-name (or (:project/name props) "")
         responses (or completed-responses [])
         {:keys [ui/show-tutorial ui/tutorial-step ui/show-help
-                ui/show-section-modal ui/active-section ui/section-value]} (or ui {})
+                ui/show-section-modal ui/active-section ui/section-value
+                ui/show-wisdom]} (or ui {})
         tutorial-step (or tutorial-step 1)
         section-value (or section-value "")
 
@@ -515,11 +519,30 @@
                  (dom/div :.header-content
                           (dom/h1 "🚀 MVP Planning Builder")
                           (dom/p :.builder-subtitle (str "Planning MVP for: " project-name)))
-                 (dom/button
-                  {:className "btn btn-help"
-                   :onClick #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-help true)})])
-                   :title "How to use this tool"}
-                  "❓ Help"))
+                 (dom/div :.header-actions
+                   (dom/button
+                    {:className (str "btn-wisdom " (when show-wisdom "active"))
+                     :onClick #(comp/transact! this [(m/set-props {:ui (update ui :ui/show-wisdom not)})])}
+                    "💡 Wisdom")
+                   (dom/button
+                    {:className "btn btn-help"
+                     :onClick #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-help true)})])
+                     :title "How to use this tool"}
+                    "❓ Help")))
+
+        ;; Flywheel progress indicator
+        (ui/flywheel-indicator
+          {:current-step :mvp
+           :project-id project-id
+           :on-navigate (fn [route]
+                          (let [encoded-id (str/replace (str project-id) "/" "~")]
+                            (dr/change-route! this ["project" encoded-id route])))})
+
+        ;; Wisdom sidebar (contextual tips)
+        (ui/wisdom-sidebar
+          {:phase :mvp
+           :show? show-wisdom
+           :on-close #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-wisdom false)})])})
 
         ;; Progress
         (mvp-progress {:completed completed-count

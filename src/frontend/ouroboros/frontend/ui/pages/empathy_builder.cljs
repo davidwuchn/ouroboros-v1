@@ -498,38 +498,41 @@
                     {:ui [:ui/persona-name :ui/persona-details :ui/selected-template
                           :ui/show-persona-modal :ui/show-tutorial :ui/tutorial-step
                           :ui/show-help :ui/show-section-modal :ui/active-section
-                          :ui/undo-stack :ui/redo-stack :ui/presenting?]}
+                          :ui/undo-stack :ui/redo-stack :ui/presenting?
+                          :ui/show-wisdom]}
                     [df/marker-table :empathy-builder]]
     :ident         (fn [] [:page/id :empathy-builder])
     :route-segment ["project" :project-id "empathy"]
     :initial-state (fn [_] {:empathy/notes {}
-                            :ui {:ui/persona-name ""
-                                 :ui/persona-details ""
-                                 :ui/selected-template nil
-                                 :ui/show-persona-modal false
-                                 :ui/show-tutorial true
-                                 :ui/tutorial-step 1
-                                 :ui/show-help false
-                                 :ui/show-section-modal false
-                                 :ui/active-section nil
-                                 :ui/undo-stack []
-                                 :ui/redo-stack []
-                                 :ui/presenting? false}})
+                             :ui {:ui/persona-name ""
+                                  :ui/persona-details ""
+                                  :ui/selected-template nil
+                                  :ui/show-persona-modal false
+                                  :ui/show-tutorial true
+                                  :ui/tutorial-step 1
+                                  :ui/show-help false
+                                  :ui/show-section-modal false
+                                  :ui/active-section nil
+                                  :ui/undo-stack []
+                                  :ui/redo-stack []
+                                  :ui/presenting? false
+                                  :ui/show-wisdom false}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
                     ;; Preserve client-only UI state during server loads
                     ;; Remove empty/nil :ui from server data so it doesn't overwrite client state
-                     (let [default-ui {:ui/persona-name ""
-                                       :ui/persona-details ""
-                                       :ui/selected-template nil
-                                       :ui/show-persona-modal false
-                                       :ui/show-tutorial true
-                                       :ui/tutorial-step 1
-                                       :ui/show-help false
-                                       :ui/show-section-modal false
-                                       :ui/active-section nil
-                                       :ui/undo-stack []
-                                       :ui/redo-stack []
-                                       :ui/presenting? false}
+                      (let [default-ui {:ui/persona-name ""
+                                        :ui/persona-details ""
+                                        :ui/selected-template nil
+                                        :ui/show-persona-modal false
+                                        :ui/show-tutorial true
+                                        :ui/tutorial-step 1
+                                        :ui/show-help false
+                                        :ui/show-section-modal false
+                                        :ui/active-section nil
+                                        :ui/undo-stack []
+                                        :ui/redo-stack []
+                                        :ui/presenting? false
+                                        :ui/show-wisdom false}
                           ;; Use existing client UI if it has real keys, otherwise use defaults
                           existing-ui (:ui current-normalized)
                           ui-val (if (and existing-ui (seq existing-ui))
@@ -559,7 +562,7 @@
         {:keys [ui/persona-name ui/persona-details ui/selected-template
                 ui/show-persona-modal ui/show-tutorial ui/tutorial-step
                 ui/show-help ui/show-section-modal ui/active-section
-                ui/undo-stack ui/redo-stack ui/presenting?]} (or ui {})
+                ui/undo-stack ui/redo-stack ui/presenting? ui/show-wisdom]} (or ui {})
         ;; Ensure form values are never nil
         persona-name (or persona-name "")
         persona-details (or persona-details "")
@@ -651,12 +654,32 @@
                           (dom/h1 "🧠 Empathy Map Builder")
                           (dom/p :.builder-subtitle
                                  (str "Understanding your customer for: " project-name)))
-                 ;; Help button
-                 (dom/button
-                  {:className "btn btn-help"
-                   :onClick #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-help true)})])
-                   :title "How to use this tool"}
-                  "❓ Help"))
+                 (dom/div :.header-actions
+                   ;; Wisdom toggle
+                   (dom/button
+                    {:className (str "btn-wisdom " (when show-wisdom "active"))
+                     :onClick #(comp/transact! this [(m/set-props {:ui (update ui :ui/show-wisdom not)})])}
+                    "💡 Wisdom")
+                   ;; Help button
+                   (dom/button
+                    {:className "btn btn-help"
+                     :onClick #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-help true)})])
+                     :title "How to use this tool"}
+                    "❓ Help")))
+
+        ;; Flywheel progress indicator
+        (ui/flywheel-indicator
+          {:current-step :empathy
+           :project-id project-id
+           :on-navigate (fn [route]
+                          (let [encoded-id (str/replace (str project-id) "/" "~")]
+                            (dr/change-route! this ["project" encoded-id route])))})
+
+        ;; Wisdom sidebar (contextual tips)
+        (ui/wisdom-sidebar
+          {:phase :empathy
+           :show? show-wisdom
+           :on-close #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-wisdom false)})])})
 
         ;; Toolbar
         (canvas/toolbar

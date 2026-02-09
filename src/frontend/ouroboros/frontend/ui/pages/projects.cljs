@@ -52,25 +52,30 @@
   {:query [:project/id :project/name :project/description :project/status :project/created-at]
    :ident :project/id}
   (let [project-name (:project/name props)]
-    (ui/card {:title project-name
-              :className (case status
-                           :draft "project-draft"
-                           :active "project-active"
-                           :completed "project-completed"
-                           "")
-              :actions (dom/div :.card-actions
-                         (ui/button
-                           {:on-click #(dr/change-route! this ["project" (clojure.string/replace (str id) "/" "~")])
-                            :variant :primary}
-                           "Open")
-                         (ui/button
-                           {:on-click #(comp/transact! this [(delete-project {:project-id id})])
-                            :variant :danger}
-                           "Delete"))}
-      (dom/div :.project-description (or description "No description"))
-      (dom/div :.project-meta
-        (dom/span :.project-status (clojure.core/name (or status :draft)))
-        (dom/span :.project-date created-at)))))
+    (let [encoded-id (clojure.string/replace (str id) "/" "~")]
+      (ui/card {:title project-name
+                :className (case status
+                             :draft "project-draft"
+                             :active "project-active"
+                             :completed "project-completed"
+                             "")
+                :actions (dom/div :.card-actions
+                           (ui/button
+                             {:on-click #(dr/change-route! this ["project" encoded-id "empathy"])
+                              :variant :primary}
+                             "Start")
+                           (ui/button
+                             {:on-click #(dr/change-route! this ["project" encoded-id])
+                              :variant :secondary}
+                             "Overview")
+                           (ui/button
+                             {:on-click #(comp/transact! this [(delete-project {:project-id id})])
+                              :variant :danger}
+                             "Delete"))}
+        (dom/div :.project-description (or description "No description"))
+        (dom/div :.project-meta
+          (dom/span :.project-status (clojure.core/name (or status :draft)))
+          (dom/span :.project-date created-at))))))
 
 (def ui-project-card (comp/factory ProjectCard {:keyfn :project/id}))
 
