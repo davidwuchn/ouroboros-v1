@@ -26,54 +26,57 @@
 ;; Flywheel Phase Cards
 ;; ============================================================================
 
-(def flywheel-phases
-  "The 4-phase product development flywheel with detailed guidance"
+(def fallback-flywheel-phases
+  "Structural flywheel phase data. Descriptive text is minimal --
+   ECA provides rich, project-specific guidance via content/generate."
   [{:key :empathy
     :label "Empathy Map"
     :icon "🧠"
     :route "empathy"
     :step 1
     :tagline "Walk in their shoes"
-    :description "Deeply understand your customer - what they think, feel, see, hear, say, and do. This is the foundation for everything."
-    :what-you-build "A visual map of your customer's world: their persona, inner thoughts, external influences, behaviors, pains, and gains."
-    :time-estimate "15-20 min"
-    :outputs ["Customer persona" "Key pains and gains" "Behavioral insights"]}
+    :description ""
+    :what-you-build ""
+    :time-estimate ""
+    :outputs ["Customer persona" "Key pains and gains"]}
    {:key :valueprop
     :label "Value Proposition"
     :icon "💎"
     :route "valueprop"
     :step 2
     :tagline "Connect needs to solution"
-    :description "Map your product directly to customer needs. Show how you relieve their pains and create their gains."
-    :what-you-build "A clear value proposition showing the fit between customer needs and your offering."
-    :time-estimate "20-30 min"
-    :outputs ["Customer jobs" "Pain relievers" "Gain creators" "Product definition"]}
+    :description ""
+    :what-you-build ""
+    :time-estimate ""
+    :outputs ["Customer jobs" "Pain relievers" "Gain creators"]}
    {:key :mvp
     :label "MVP Planning"
     :icon "🚀"
     :route "mvp"
     :step 3
     :tagline "Build the smallest thing that proves value"
-    :description "Define what to build first. Focus on one problem, one user, one metric. Ruthlessly cut scope."
-    :what-you-build "A focused MVP plan with must-have features, success metrics, timeline, and identified risks."
-    :time-estimate "20-30 min"
-    :outputs ["Core problem" "Must-have features" "Success metric" "Timeline"]}
+    :description ""
+    :what-you-build ""
+    :time-estimate ""
+    :outputs ["Core problem" "Must-have features" "Success metric"]}
    {:key :canvas
     :label "Lean Canvas"
     :icon "📊"
     :route "canvas"
     :step 4
     :tagline "Connect all the dots"
-    :description "Complete your 1-page business model. Document problems, solution, metrics, channels, costs, and revenue."
-    :what-you-build "A complete Lean Canvas business model that captures your key assumptions to test."
-    :time-estimate "25-35 min"
-    :outputs ["Business model" "Key metrics" "Revenue model" "Unfair advantage"]}])
+    :description ""
+    :what-you-build ""
+    :time-estimate ""
+    :outputs ["Business model" "Key metrics" "Revenue model"]}])
 
 (defn phase-card
-  "Individual phase card showing status and what to expect"
-  [{:keys [phase project-id on-navigate is-recommended?]}]
-  (let [{:keys [key label icon route step tagline description
-                what-you-build time-estimate outputs]} phase]
+  "Individual phase card showing status and what to expect.
+   Merges ECA-generated descriptions when available."
+  [{:keys [phase eca-phase project-id on-navigate is-recommended?]}]
+  (let [merged (merge phase eca-phase)
+        {:keys [key label icon route step tagline description
+                what-you-build time-estimate outputs]} merged]
     (dom/div {:className (str "phase-card " (when is-recommended? "phase-recommended"))}
       (dom/div :.phase-card-header
         (dom/div :.phase-step-badge (str "Step " step))
@@ -266,10 +269,19 @@
                                :lean-canvas :canvas
                                :empathy)))
                          :empathy)
-        active-view @view-state]
+        active-view @view-state
+        ;; ECA-generated flywheel guide content
+        eca-guide (when state-atom (get-in @state-atom [:content/generated :flywheel-guide]))
+        eca-guide-loading? (when state-atom (get-in @state-atom [:content/loading? :flywheel-guide]))
+        ;; Build phase lookup from ECA data (keyed by phase :key)
+        eca-phases-map (when (seq eca-guide)
+                         (into {} (map (fn [p] [(keyword (:key p)) p]) eca-guide)))]
     ;; Request flywheel progress from backend on load
     (when (and id (not progress))
       (ws/request-flywheel-progress! id))
+    ;; Request ECA flywheel guide if not loaded
+    (when (and id state-atom (not eca-guide) (not eca-guide-loading?))
+      (ws/request-content! :flywheel-guide :project-id id))
     (if loading?
       (dom/div :.loading "Loading project...")
       (dom/div :.project-detail-page
@@ -321,10 +333,11 @@
 
             ;; Phase Cards
             (dom/div :.phases-grid
-              (for [phase flywheel-phases]
+              (for [phase fallback-flywheel-phases]
                 (phase-card
                   {:key (name (:key phase))
                    :phase phase
+                   :eca-phase (get eca-phases-map (:key phase))
                    :project-id id
                    :on-navigate navigate-fn
                    :is-recommended? (= (:key phase) current-step)})))))

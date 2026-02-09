@@ -2191,6 +2191,100 @@ User adds sticky note / submits section
 
 ---
 
+### 33. Hardcoded-to-ECA Content Migration Pattern
+
+**Problem:** ~17 categories of hardcoded static content across ~15 files (wisdom tips, templates, learning categories, analytics data, chat suggestions, flywheel phase descriptions, section hints, prediction messages). All these should come from ECA/LLM for personalized, context-aware guidance instead of generic `def` blocks.
+
+**Solution:** Systematic audit + generic content generation handler + frontend ECA-first pattern.
+
+**Step 1: Audit and categorize all hardcoded content**
+
+Classify each piece into one of three buckets:
+1. **Replace with ECA** -- Human-readable guidance text that benefits from project context (tips, suggestions, descriptions, predictions)
+2. **Keep as static fallback** -- Structural data needed for instant UI load (builder section configs, route keys, icon names, keyboard shortcuts)
+3. **Keep as-is** -- UI chrome that must be instant (onboarding tours, structural labels, CSS)
+
+**Step 2: Backend -- Generic content handler**
+
+Instead of one handler per content type, create a single generic `content/generate` handler dispatching by `:content-type`:
+
+```clojure
+(defn- handle-content-generate! [ch {:keys [content-type project-id context]}]
+  (let [system-prompt (case content-type
+                        :insights "Analyze project data and generate insights..."
+                        :blockers "Identify potential blockers..."
+                        :templates "Suggest project templates..."
+                        :chat-suggestions "Generate context-aware chat prompts..."
+                        :flywheel-guide "Generate flywheel phase guidance..."
+                        :section-hints "Generate builder section hints..."
+                        :learning-categories "Generate learning categories..."
+                        (str "Generate " (name content-type) " content"))]
+    ;; Stream tokens as :content/token, complete as :content/generated
+    (stream-eca-content! ch system-prompt content-type)))
+```
+
+**Step 3: Backend -- Real analytics handler**
+
+For analytics, compute REAL data from actual project/session state (don't fake it):
+
+```clojure
+(defn- handle-analytics-dashboard! [ch {:keys [project-id]}]
+  ;; Compute from actual session data
+  (let [progress (analytics/project-progress project-id user-id)
+        health (analytics/calculate-health-score progress)
+        funnel (analytics/completion-funnel project-id user-id)]
+    ;; Send computed data immediately
+    (send-to! ch {:type :analytics/dashboard :data {:progress progress :health health ...}})
+    ;; Stream ECA prediction message asynchronously
+    (future (stream-eca-prediction! ch project-id))))
+```
+
+**Step 4: Frontend -- ECA-first with fallback**
+
+Each component reads ECA content from WS state, requests on mount if not cached, falls back to static while loading:
+
+```clojure
+;; Pattern used in all 7 frontend files
+(let [eca-content (get-in @ws-state [:content/generated :templates])
+      loading? (get-in @ws-state [:content/loading :templates])]
+  ;; Request from ECA on first load
+  (when (and (nil? eca-content) (not loading?))
+    (ws/request-content! :templates))
+  ;; Merge ECA over fallback
+  (let [content (or eca-content fallback-templates)]
+    (render-templates content)))
+```
+
+**Step 5: Empty hardcoded strings, preserve computation**
+
+For backend wisdom/analytics, empty the human-readable TEXT strings but keep computation logic intact:
+
+```clojure
+;; Before: hardcoded prediction message
+{:message "Strong potential for success. Focus on customer validation."}
+
+;; After: empty string, ECA generates via analytics/dashboard handler
+{:message ""}
+;; ECA streams contextual prediction text as :analytics/prediction-token
+```
+
+**What stays static (by design):**
+- Builder section configs (prompts, examples) -- UX structure, must load instantly
+- Onboarding tour steps -- sequential flow, no project context needed
+- Keyboard shortcuts, structural labels -- UI chrome
+- Route keys, icon names, column names -- structural data
+
+**Results:**
+- 10 files changed (3 backend, 7 frontend)
+- 2 new WS handlers: `analytics/dashboard`, `content/generate`
+- 6 new frontend WS message handlers
+- All 58 tests pass, 268 assertions, 0 failures
+- No blank pages -- static fallback shown while ECA loads
+
+**Key Insight:** The migration is about replacing _text_ not _logic_. Keep all computation (health scores, pattern detection, section counting, completion checks). Only replace the human-readable strings that benefit from project-specific context. A generic handler with content-type dispatch is far better than N specialized handlers for similar streaming patterns.
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*

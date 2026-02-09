@@ -45,6 +45,7 @@
 | **Workspace Auto-Detection** | ✅ Done | **Single project per instance, auto-detect from cwd, no create form, project/path in Pathom** |
 | **UI Cleanup: Remove Users/Sessions** | ✅ Done | **Removed Users and Sessions pages (chat-platform data, empty in single-project model). Navbar: Dashboard, Project, Wisdom, Telemetry + AI Chat toggle** |
 | **Kanban Board** | ✅ Done | **Auto-derived Kanban board on Project page: 29 cards across 4 builders, 3 columns (Not Started/In Progress/Done), color-coded by builder, view toggle (Flywheel/Kanban)** |
+| **Phase D: Dynamic Content** | ✅ Done | **Replaced all hardcoded static content with ECA-powered dynamic content. New `analytics/dashboard` and `content/generate` WS handlers. Real analytics from project data. Generic content generation pipeline with 7 content types. Frontend reads ECA content with static fallback.** |
 
 **Verified Working:**
 ```clojure
@@ -218,11 +219,10 @@ In REPL:
 ## Git State
 
 - Branch: `chat-platforms`
-- Status: Dirty (Kanban board feature uncommitted)
+- Status: Clean
 - Last Updated: 2026-02-09
 - Remote: `origin/chat-platforms`
-- Latest committed: `e837f22` (Workspace auto-detect, remove Users/Sessions)
-- Uncommitted: Kanban board view on Project page (backend handler, WS handlers, UI components, CSS)
+- Latest committed: Phase D dynamic content (ECA-powered)
 
 ## Completed Features
 
@@ -235,14 +235,14 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 3. **Workspace Auto-Detection** -- ✅ Single project per instance. Backend auto-detects from `user.dir`, sends `:project/detected` on WS connect. No create form. Project page shows workspace project directly.
 4. **UI Cleanup: Remove Users/Sessions** -- ✅ Removed chat-platform pages (empty data in single-project model). Navbar: Dashboard, Project, Wisdom, Telemetry + AI Chat toggle.
 5. **Kanban Board** -- ✅ Auto-derived Kanban board on Project page. 29 cards across 4 builders (Empathy Map 6, Value Prop 6, MVP 8, Lean Canvas 9). 3 columns: Not Started, In Progress, Done. Cards derive status from actual builder session data. Color-coded by builder. View toggle (Flywheel/Kanban) on Project page.
-6. **Remaining Static Content** -- Chat panel `context-suggestions` (28 prompts) still static (deferred). Templates/learning categories on wisdom page are structural (OK static).
+6. **Phase D: Dynamic Content** -- ✅ Replaced ALL hardcoded static content with ECA-powered dynamic content. New backend handlers: `analytics/dashboard` (real analytics from project data + ECA prediction text), `content/generate` (generic ECA content generation with 7 content types: insights, blockers, templates, chat-suggestions, flywheel-guide, section-hints, learning-categories). Frontend reads ECA content from WS state with static fallback. 10 files changed (3 backend, 7 frontend). 58 tests, 268 assertions pass.
 7. **Metrics Export** -- Prometheus/OpenTelemetry format
 
 **Architectural Insight (2026-02-09)**: ECA-powered wisdom is now **fully wired end-to-end**. Backend assembles project context, sends to ECA, streams tokens back via WebSocket. Frontend renders progressively with Fulcro render scheduling. The wisdom sidebar in all 4 builders and the wisdom page Quick Tips section now fetch from ECA with static fallback. **WebUX = state/CRUD/interaction, ECA = knowledge/wisdom/guidance.**
 
 **Single-Project Model (2026-02-08)**: Shifted from multi-project CRUD to single-project-per-instance. The running directory IS the project. Backend auto-detects workspace info on WS connect and sends `:project/detected`. Frontend normalizes into Fulcro state. Users/Sessions pages removed (were chat-platform data, always empty without adapters running).
 
-**Remaining Static Content**: Chat panel `context-suggestions` (28 prompts) -- deferred to avoid complexity. Templates and learning categories on wisdom page are structural, not guidance -- OK to remain static.
+**Dynamic Content Migration Complete**: All hardcoded static content (wisdom tips, templates, learning categories, analytics dashboard, chat suggestions, flywheel phase descriptions, section hints) now powered by ECA with static fallback. Builder section configs (UX structure) remain static by design -- they define instant-load UI chrome.
 
 **🐍 SYSTEM COMPLETE** — All P0 safety features implemented. The Ouroboros is production-ready with comprehensive security controls.
 
@@ -262,6 +262,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✅ **Workspace Auto-Detection** -- Single project per instance, auto-detect from `user.dir`, no create form, `:project/detected` on WS connect
 - ✅ **Remove Users/Sessions Pages** -- Removed orphaned chat-platform pages, cleaned navbar, router, dashboard cards, backend query resolver
 - ✅ **Kanban Board** -- Auto-derived task board on Project page with view toggle (Flywheel/Kanban), 29 cards across 4 builders, status from builder session data
+- ✅ **Phase D: Dynamic Content** -- Replaced all hardcoded static content with ECA-powered dynamic content. New `analytics/dashboard` and `content/generate` WS handlers. Real analytics, generic content pipeline with 7 types, frontend ECA-first with static fallback.
 - ✅ **Chat Commands** -- `/learn`, `/recall`, `/wisdom`, `/build canvas|empathy|valueprop|mvp` commands (ready)
 - ✅ **Progressive Disclosure** -- Builder stage suggestions, contextual help
 - ✅ **Product Development Flywheel** -- Empathy Map -> Value Proposition -> MVP -> Lean Canvas with learning integration
@@ -271,7 +272,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✗ Internal AI/agent system (delegated to ECA)
 - ✗ Skill system (replaced by learning flywheel)
 
-**Next Phase**: Production hardening -- container isolation, metrics export, cross-project UI, chat context suggestions from ECA.
+**Next Phase**: Production hardening -- container isolation, metrics export, cross-project UI.
 
 **Recent Architectural Changes**:
 - **Single project per instance** -- removed multi-project CRUD, workspace auto-detected from `user.dir`
@@ -345,7 +346,7 @@ All wisdom components now stream from ECA/LLM with static fallback:
 - ✅ Wisdom page Quick Tips section
 - ✅ Flywheel progress from backend state
 - ✅ Project detail dynamic guidance
-- ⚠️ Chat panel `context-suggestions` (28 prompts) still static (deferred)
+- ✅ Chat panel context suggestions (ECA-generated with fallback)
 
 ### Phase C: Continuous Wisdom -- COMPLETE ✅
 
@@ -359,11 +360,23 @@ Builder persistence and auto-insight pipeline fully wired:
 - ⚠️ Cross-project analysis UI not yet built (no trigger button)
 - ⚠️ Undo/redo mutations don't sync to backend yet
 
+### Phase D: Dynamic Content -- COMPLETE ✅
+
+All hardcoded static content replaced with ECA-powered dynamic content:
+- ✅ Analytics dashboard with REAL data (backend-computed from project/session data)
+- ✅ ECA-streamed prediction messages for analytics
+- ✅ Generic `content/generate` handler with 7 content types
+- ✅ Wisdom page templates and learning categories from ECA
+- ✅ Chat panel suggestions from ECA with fallback
+- ✅ Flywheel phase descriptions from ECA
+- ✅ Builder section hints from ECA
+- ✅ Hardcoded insight/suggestion/prediction TEXT strings emptied (computation logic preserved)
+- ✅ Frontend ECA-first pattern: request on mount, show fallback while loading
+
 ### Next Priorities
 1. **Cross-project analysis UI** -- Add trigger button for portfolio-level ECA analysis
-2. **Chat context suggestions from ECA** -- Replace 28 static prompts with ECA-generated context-aware suggestions
-3. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
-4. **Container Isolation** -- OS-level isolation for ECA execution
+2. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
+3. **Container Isolation** -- OS-level isolation for ECA execution
 
 ---
 

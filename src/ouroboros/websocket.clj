@@ -11,7 +11,8 @@
     [ouroboros.eca-client :as eca]
     [ouroboros.memory :as memory]
     [ouroboros.wisdom :as wisdom]
-    [ouroboros.learning :as learning])
+    [ouroboros.learning :as learning]
+    [ouroboros.analytics :as analytics])
    (:import [java.util.concurrent.atomic AtomicLong]
             [java.io File]))
 
@@ -658,6 +659,213 @@
                          :timestamp (System/currentTimeMillis)})))
 
 ;; ============================================================================
+;; Analytics Dashboard Handler
+;; ============================================================================
+
+(defn- handle-analytics-dashboard!
+  "Handle an analytics/dashboard request from the frontend.
+   Returns real analytics data computed from actual project/session data."
+  [client-id {:keys [project-id]}]
+  (let [user-id :demo-user
+        ;; Real progress data
+        progress (analytics/project-progress project-id user-id)
+        ;; Real health score
+        health (analytics/calculate-health-score project-id user-id)
+        ;; Real prediction (score + factors, message will come from ECA)
+        prediction (analytics/predict-success project-id user-id)
+        ;; Real funnel from session data
+        funnel (analytics/completion-funnel)
+        ;; Real time tracking per session
+        sessions-key (keyword (str "builder-sessions/" (name user-id)))
+        all-sessions (vals (or (memory/get-value sessions-key) {}))
+        project-sessions (filter #(= (:session/project-id %) project-id) all-sessions)
+        time-data (mapv (fn [session]
+                          (let [time-info (analytics/time-in-stage session)]
+                            {:stage (:session/type session)
+                             :stage/time (:stage/time-total-ms time-info)
+                             :completed? (:stage/completed? time-info)}))
+                        project-sessions)
+        total-time (reduce + 0 (keep :stage/time time-data))]
+
+    (send-to! client-id {:type :analytics/dashboard
+                         :project-id project-id
+                         :data {:progress (:project/overall-percentage progress)
+                                :stages (:project/stages progress)
+                                :health-score (:health/score health)
+                                :health-factors (:health/factors health)
+                                :prediction {:likelihood (:likelihood prediction)
+                                             :confidence (:confidence prediction)
+                                             :score (:health/score prediction)}
+                                :funnel (:funnel/stages funnel)
+                                :total-users (:funnel/total-users funnel)
+                                :time-tracking {:total-time total-time
+                                                :stages time-data}}
+                         :timestamp (System/currentTimeMillis)})
+
+    ;; Also request ECA to generate a contextual prediction message
+    (when (:running (eca/status))
+      (future
+        (try
+          (let [chat-id (str "ws-analytics-" client-id "-" (System/currentTimeMillis))
+                listener-id (keyword (str "ws-analytics-msg-" client-id))
+                context-str (assemble-project-context user-id project-id nil)
+                prompt (str "You are a product development analyst. Based on the project data below, "
+                            "write a brief (2-3 sentences) assessment of the project's current state "
+                            "and one specific recommendation. Be concrete and specific to the data.\n\n"
+                            "Health score: " (:health/score health) "/100\n"
+                            "Likelihood: " (name (:likelihood prediction)) "\n"
+                            "Overall progress: " (:project/overall-percentage progress) "%\n\n"
+                            "---\n\n" context-str)]
+            ;; Register callback
+            (eca/register-callback! "chat/contentReceived" listener-id
+              (fn [notification]
+                (let [params (:params notification)
+                      notif-chat-id (:chatId params)
+                      role (:role params)
+                      content (:content params)]
+                  (when (= notif-chat-id chat-id)
+                    (cond
+                      (and (= "progress" (:type content))
+                           (#{"done" "finished"} (:state content)))
+                      (do
+                        (send-to! client-id {:type :analytics/prediction-done
+                                             :project-id project-id
+                                             :timestamp (System/currentTimeMillis)})
+                        (eca/unregister-callback! "chat/contentReceived" listener-id))
+
+                      (and (= role "assistant") (= "text" (:type content)))
+                      (send-to! client-id {:type :analytics/prediction-token
+                                           :token (:text content)
+                                           :project-id project-id
+                                           :timestamp (System/currentTimeMillis)})
+
+                      :else nil)))))
+            ;; Send to ECA
+            (let [result (eca/chat-prompt prompt {:chat-id chat-id})]
+              (when (= :error (:status result))
+                (eca/unregister-callback! "chat/contentReceived" listener-id))))
+          (catch Exception e
+            (telemetry/emit! {:event :ws/analytics-prediction-error
+                              :client-id client-id
+                              :error (.getMessage e)})))))))
+
+;; ============================================================================
+;; Content Generation Handler (Generic ECA content)
+;; ============================================================================
+
+(def ^:private content-prompts
+  "System prompts for different content generation types"
+  {:insights
+   "You are a product development coach. Based on the project data below, provide 2-3 specific insights about the user's work. Be concrete and reference their actual data. Format as a JSON array of objects with keys: type, title, description, confidence (0-1). Example: [{\"type\":\"pattern\",\"title\":\"Strong customer focus\",\"description\":\"Your empathy map shows...\",\"confidence\":0.85}]"
+
+   :blockers
+   "You are a product development coach. Based on the project data below, identify any potential blockers or gaps. What's missing? What should the user address before moving forward? Be specific. Format as a JSON array of strings."
+
+   :templates
+   "You are a product strategy advisor. Based on the project description below, suggest 3-4 product templates/archetypes that could fit this project. For each, give: name, icon (emoji), description (1 sentence), and relevant tags. Format as a JSON array of objects with keys: key, name, icon, description, tags (array of strings)."
+
+   :chat-suggestions
+   "You are a product development assistant. Based on the current project context and phase, generate 4 specific questions or prompts the user could ask to deepen their work. Each should be a complete sentence. Format as a JSON array of strings."
+
+   :flywheel-guide
+   "You are a product development coach. Based on the project data below, provide guidance for each of the 4 flywheel phases (Empathy Map, Value Proposition, MVP Planning, Lean Canvas). For each phase, give a personalized tagline and 1-2 sentence description based on their actual data. Format as a JSON array of objects with keys: key (empathy/valueprop/mvp/canvas), tagline, description."
+
+   :section-hints
+   "You are a product development coach. Based on the project context, generate helpful hints and descriptions for the builder sections the user is working on. Be specific to their project, not generic. Format as a JSON object mapping section keys to objects with keys: description, hint."
+
+   :learning-categories
+   "You are a product strategist. Based on the user's project data and learning history, describe what they've learned in each category: customer-understanding, product-development, business-model, competitive-landscape. Give insight counts and brief descriptions. Format as a JSON array of objects with keys: category, label, description, count."})
+
+(defn- handle-content-generate!
+  "Handle a content/generate request from the frontend.
+   Routes to ECA with content-type-specific prompts.
+   Sends streaming tokens back, then a complete message."
+  [client-id {:keys [project-id content-type context]}]
+  (let [user-id :demo-user
+        content-type-kw (if (string? content-type) (keyword content-type) content-type)]
+
+    ;; Auto-start ECA if not running
+    (when-not (:running (eca/status))
+      (try
+        (eca/start!)
+        (catch Exception e
+          (send-to! client-id {:type :content/error
+                               :content-type content-type-kw
+                               :error (str "Failed to start ECA: " (.getMessage e))
+                               :timestamp (System/currentTimeMillis)}))))
+
+    (if-not (:running (eca/status))
+      (send-to! client-id {:type :content/error
+                           :content-type content-type-kw
+                           :error "ECA not available"
+                           :timestamp (System/currentTimeMillis)})
+
+      (let [chat-id (str "ws-content-" (name content-type-kw) "-" client-id "-" (System/currentTimeMillis))
+            listener-id (keyword (str "ws-content-" (name content-type-kw) "-" client-id))
+            accumulated (atom "")
+            context-str (assemble-project-context user-id project-id nil)
+            system-prompt (get content-prompts content-type-kw
+                               "You are a product development advisor. Provide specific, actionable guidance based on the project data below.")
+            prompt (str system-prompt "\n\n---\n\n" context-str
+                        (when context (str "\n\nAdditional context: " context)))]
+
+        (telemetry/emit! {:event :ws/content-generate-request
+                          :client-id client-id
+                          :content-type content-type-kw
+                          :project-id project-id})
+
+        ;; Register streaming callback
+        (eca/register-callback! "chat/contentReceived" listener-id
+          (fn [notification]
+            (let [params (:params notification)
+                  notif-chat-id (:chatId params)
+                  role (:role params)
+                  content (:content params)]
+              (when (= notif-chat-id chat-id)
+                (cond
+                  ;; Done
+                  (and (= "progress" (:type content))
+                       (#{"done" "finished"} (:state content)))
+                  (do
+                    (send-to! client-id {:type :content/generated
+                                         :content-type content-type-kw
+                                         :content @accumulated
+                                         :project-id project-id
+                                         :timestamp (System/currentTimeMillis)})
+                    (eca/unregister-callback! "chat/contentReceived" listener-id)
+                    (telemetry/emit! {:event :ws/content-generate-done
+                                      :client-id client-id
+                                      :content-type content-type-kw}))
+
+                  ;; Token
+                  (and (= role "assistant") (= "text" (:type content)))
+                  (do
+                    (swap! accumulated str (:text content))
+                    (send-to! client-id {:type :content/token
+                                         :content-type content-type-kw
+                                         :token (:text content)
+                                         :project-id project-id
+                                         :timestamp (System/currentTimeMillis)}))
+
+                  :else nil)))))
+
+        ;; Send to ECA
+        (try
+          (let [result (eca/chat-prompt prompt {:chat-id chat-id})]
+            (when (= :error (:status result))
+              (send-to! client-id {:type :content/error
+                                   :content-type content-type-kw
+                                   :error (or (:message result) (:error result))
+                                   :timestamp (System/currentTimeMillis)})
+              (eca/unregister-callback! "chat/contentReceived" listener-id)))
+          (catch Exception e
+            (send-to! client-id {:type :content/error
+                                 :content-type content-type-kw
+                                 :error (.getMessage e)
+                                 :timestamp (System/currentTimeMillis)})
+            (eca/unregister-callback! "chat/contentReceived" listener-id)))))))
+
+;; ============================================================================
 ;; ECA Wisdom Handler
 ;; ============================================================================
 
@@ -911,6 +1119,12 @@
 
         "kanban/board"
         (handle-kanban-board! id message)
+
+        "analytics/dashboard"
+        (future (handle-analytics-dashboard! id message))
+
+        "content/generate"
+        (future (handle-content-generate! id message))
         
         (println "Unknown message type from client" id ":" (:type message))))
     (catch Exception e

@@ -235,19 +235,21 @@
 
         ;; Simple prediction model
         score (:health/score health)
+        ;; Prediction model - :message left empty, ECA generates contextual
+        ;; prediction text via the analytics/dashboard websocket handler
         prediction (cond
                      (>= score 80) {:likelihood :high
                                     :confidence 0.85
-                                    :message "Strong foundation. Good progress across all stages."}
+                                    :message ""}
                      (>= score 60) {:likelihood :medium
                                     :confidence 0.70
-                                    :message "Making progress. Focus on completing the empathy map."}
+                                    :message ""}
                      (>= score 40) {:likelihood :low
                                     :confidence 0.60
-                                    :message "Early stages. More customer research needed."}
+                                    :message ""}
                      :else {:likelihood :very-low
                             :confidence 0.75
-                            :message "Project needs attention. Start with customer understanding."})]
+                            :message ""})]
 
     (assoc prediction
            :health/score score

@@ -12,7 +12,8 @@
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.data-fetch :as df]
-   [ouroboros.frontend.ui.components :as ui]))
+   [ouroboros.frontend.ui.components :as ui]
+   [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
 ;; Progress Gauge
@@ -240,63 +241,77 @@
 ;; ============================================================================
 
 (defsc AnalyticsDashboard
-  "Main analytics dashboard component"
+  "Main analytics dashboard component - reads real data from WebSocket state"
   [this {:keys [project-id user-id]}]
-  (dom/div :.analytics-dashboard
-    ;; Header
-           (dom/div :.dashboard-header
-                    (dom/h2 "📊 Project Analytics")
-                    (ui/button
-                     {:on-click #(df/load! this [:component/id :analytics] AnalyticsDashboard)
-                      :variant :secondary}
-                     "🔄 Refresh"))
+  (let [state-atom @ws/app-state-atom
+        dashboard (when state-atom (get-in @state-atom [:analytics/dashboard project-id]))
+        progress-data (:progress dashboard)
+        health-data (:health dashboard)
+        funnel-data (:funnel dashboard)
+        prediction-data (:prediction dashboard)
+        time-data (:time-tracking dashboard)
+        prediction-msg (:prediction-message dashboard)
+        prediction-streaming? (:prediction-streaming? dashboard)
+        loading? (nil? dashboard)]
 
-    ;; Grid layout
-           (dom/div :.analytics-grid
-      ;; Progress gauge
-                    (dom/div :.analytics-card
-                             (progress-gauge {:percentage 65 :label "Overall Progress"}))
+    ;; Request real analytics data if not loaded
+    (when (and project-id (not dashboard))
+      (ws/request-analytics! project-id))
 
-      ;; Health score
-                    (dom/div :.analytics-card
-                             (health-score-display
-                              {:score 72
-                               :factors {:has-empathy? true}
-                               :has-value-prop? true
-                               :has-canvas? false
-                               :empathy-complete? true
-                               :recent-activity? true}))
+    (dom/div :.analytics-dashboard
+      ;; Header
+             (dom/div :.dashboard-header
+                      (dom/h2 "Project Analytics")
+                      (ui/button
+                       {:on-click #(ws/request-analytics! project-id)
+                        :variant :secondary}
+                       "Refresh"))
 
-      ;; Stage breakdown
-                    (dom/div :.analytics-card.wide
-                             (dom/h4 "Stage Progress")
-                             (map #(when (:stage/type %) (ui-stage-progress %))
-                                  [{:stage/type :empathy-map :stage/status :completed :stage/percentage 100}
-                                   {:stage/type :value-proposition :stage/status :active :stage/percentage 60}
-                                   {:stage/type :mvp-planning :stage/status :pending :stage/percentage 0}
-                                   {:stage/type :lean-canvas :stage/status :pending :stage/percentage 0}]))
+      (if loading?
+        ;; Loading state
+        (dom/div :.analytics-loading
+                 (dom/div :.analytics-loading-icon "...")
+                 (dom/p "Loading analytics..."))
 
-      ;; Funnel
-                    (dom/div :.analytics-card
-                             (funnel-chart
-                              {:stages [{:stage :empathy-map :reached 100 :reached-percentage 100 :completed 85 :drop-off 15}
-                                        {:stage :value-proposition :reached 75 :reached-percentage 75 :completed 60 :drop-off 15}
-                                        {:stage :mvp-planning :reached 50 :reached-percentage 50 :completed 30 :drop-off 20}
-                                        {:stage :lean-canvas :reached 35 :reached-percentage 35 :completed 20 :drop-off 15}]}))
+        ;; Grid layout with real data
+        (dom/div :.analytics-grid
+          ;; Progress gauge
+                  (dom/div :.analytics-card
+                           (progress-gauge {:percentage (or (:percentage progress-data) 0)
+                                            :label "Overall Progress"}))
 
-      ;; Prediction
-                    (dom/div :.analytics-card
-                             (prediction-card
-                              {:likelihood :medium
-                               :confidence 0.70
-                               :message "Making good progress. Focus on completing value proposition and starting MVP planning."}))
+          ;; Health score
+                  (dom/div :.analytics-card
+                           (health-score-display
+                            {:score (or (:health/score health-data) 0)
+                             :factors (:health/factors health-data)}))
 
-       ;; Time tracking
-                     (dom/div :.analytics-card
-                              (time-tracking-display
-                               {:total-time (* 5 24 60 60 1000)
-                                :stages [{:stage :empathy-map :stage/time (* 3 24 60 60 1000)}
-                                         {:stage :value-proposition :stage/time (* 2 24 60 60 1000)}]})))))
+          ;; Stage breakdown
+                  (dom/div :.analytics-card.wide
+                           (dom/h4 "Stage Progress")
+                           (when-let [stages (:stages progress-data)]
+                             (map #(when (:stage/type %) (ui-stage-progress %)) stages)))
+
+          ;; Funnel
+                  (dom/div :.analytics-card
+                           (when funnel-data
+                             (funnel-chart {:stages funnel-data})))
+
+          ;; Prediction
+                  (dom/div :.analytics-card
+                           (prediction-card
+                            {:likelihood (or (keyword (:likelihood prediction-data)) :medium)
+                             :confidence (or (:confidence prediction-data) 0)
+                             :message (if (seq prediction-msg)
+                                        prediction-msg
+                                        (if prediction-streaming?
+                                          "Generating prediction..."
+                                          (:message prediction-data "")))}))
+
+           ;; Time tracking
+                   (dom/div :.analytics-card
+                            (when time-data
+                              (time-tracking-display time-data))))))))
 
 ;; ============================================================================
 ;; Export

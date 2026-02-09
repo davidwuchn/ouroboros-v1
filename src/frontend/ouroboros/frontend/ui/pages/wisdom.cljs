@@ -8,61 +8,63 @@
    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
-;; Static Template Data (client-side for now)
+;; Fallback Template Data (shown while ECA loads)
 ;; ============================================================================
 
-(def templates
+(def fallback-templates
+  "Default templates shown while ECA content loads"
   [{:key :saas-b2b
     :name "SaaS B2B"
     :icon "💼"
-    :description "Business-to-business software as a service. Recurring revenue, enterprise sales cycles."
+    :description "Business-to-business software as a service."
     :tags ["recurring revenue" "enterprise" "subscription"]}
    {:key :marketplace
     :name "Marketplace"
     :icon "🏪"
-    :description "Two-sided platform connecting buyers and sellers. Network effects and liquidity."
+    :description "Two-sided platform connecting buyers and sellers."
     :tags ["network effects" "supply/demand" "transactions"]}
    {:key :consumer-app
     :name "Consumer App"
     :icon "📱"
-    :description "Direct-to-consumer mobile or web application. Growth loops and retention."
+    :description "Direct-to-consumer mobile or web application."
     :tags ["growth" "retention" "viral"]}
    {:key :api-platform
     :name "API / Developer Platform"
     :icon "🔌"
-    :description "Developer tools and infrastructure. Self-serve onboarding, usage-based pricing."
+    :description "Developer tools and infrastructure."
     :tags ["developer" "self-serve" "usage-based"]}
    {:key :content-creator
     :name "Creator / Content"
     :icon "🎨"
-    :description "Tools for content creators. Monetization, audience building, creative workflow."
+    :description "Tools for content creators."
     :tags ["creator economy" "content" "monetization"]}
    {:key :hardware-iot
     :name "Hardware / IoT"
     :icon "🔧"
-    :description "Physical products with connected software. Manufacturing, firmware, support."
+    :description "Physical products with connected software."
     :tags ["hardware" "firmware" "supply chain"]}])
 
-(def learning-categories
+(def fallback-learning-categories
+  "Default categories shown while ECA content loads"
   [{:category "customer-understanding"
     :icon "🧠"
     :label "Customer Understanding"
-    :description "Insights about your target audience, their pains, gains, and jobs-to-be-done."
+    :description ""
     :count 0}
    {:category "product-development"
     :icon "🚀"
     :label "Product Development"
-    :description "Patterns in feature prioritization, MVP scope, and iteration cycles."
+    :description ""
     :count 0}
    {:category "business-model"
     :icon "💼"
     :label "Business Model"
-    :description "Revenue streams, cost structure, channels, and key partnerships."
+    :description ""
     :count 0}
    {:category "competitive-landscape"
     :icon "🔍"
     :label "Competitive Landscape"
-    :description "Differentiation, unfair advantages, and market positioning."
+    :description ""
     :count 0}])
 
 ;; ============================================================================
@@ -104,79 +106,86 @@
    :will-enter    (fn [app _route-params]
                     (dr/route-immediate [:page/id :wisdom]))}
 
-  (dom/div :.wisdom-page
-    ;; Header
-    (dom/div :.wisdom-page-header
-      (dom/h1 "Wisdom")
-      (dom/p :.wisdom-subtitle
-        "Templates, insights, and patterns to accelerate your product thinking."))
+  (let [state-atom @ws/app-state-atom
+        ;; ECA-generated templates
+        eca-templates (when state-atom (get-in @state-atom [:content/generated :templates]))
+        templates-loading? (when state-atom (get-in @state-atom [:content/loading? :templates]))
+        templates (if (seq eca-templates) eca-templates fallback-templates)
+        ;; ECA-generated learning categories
+        eca-categories (when state-atom (get-in @state-atom [:content/generated :learning-categories]))
+        categories-loading? (when state-atom (get-in @state-atom [:content/loading? :learning-categories]))
+        categories (if (seq eca-categories) eca-categories fallback-learning-categories)]
 
-    ;; Templates Section
-    (dom/section :.wisdom-section
-      (dom/div :.wisdom-section-header
-        (dom/h2 "Templates")
-        (dom/p :.wisdom-section-desc "Start with a proven framework for your product type."))
-      (dom/div :.wisdom-template-grid
-        (for [t templates]
-          (template-card (assoc t :on-select
-                           (fn [k] (js/console.log "Selected template:" (str k))))))))
+    ;; Request ECA content on first load
+    (when (and state-atom (not eca-templates) (not templates-loading?))
+      (ws/request-content! :templates))
+    (when (and state-atom (not eca-categories) (not categories-loading?))
+      (ws/request-content! :learning-categories))
 
-    ;; Learning Patterns Section
-    (dom/section :.wisdom-section
-      (dom/div :.wisdom-section-header
-        (dom/h2 "Learning Patterns")
-        (dom/p :.wisdom-section-desc "Insights discovered across your projects."))
-      (dom/div :.wisdom-category-grid
-        (for [c learning-categories]
-          (category-card c))))
+    (dom/div :.wisdom-page
+      ;; Header
+      (dom/div :.wisdom-page-header
+        (dom/h1 "Wisdom")
+        (dom/p :.wisdom-subtitle
+          "Templates, insights, and patterns to accelerate your product thinking."))
 
-    ;; Tips Section (ECA-powered with fallback)
-    (let [state-atom @ws/app-state-atom
-          wisdom-state (when state-atom (get-in @state-atom [:wisdom/id :global]))
-          eca-content (:wisdom/content wisdom-state)
-          eca-loading? (:wisdom/loading? wisdom-state)
-          eca-streaming? (:wisdom/streaming? wisdom-state)
-          has-eca-content? (and eca-content (seq eca-content))]
-      ;; Auto-request tips from ECA on first load
-      (when (and (not eca-loading?) (not has-eca-content?))
-        (ws/request-wisdom! nil :general :tips))
+      ;; Templates Section
       (dom/section :.wisdom-section
         (dom/div :.wisdom-section-header
-          (dom/h2 "Quick Tips")
-          (when has-eca-content?
-            (dom/button
-              {:className "btn btn-secondary btn-sm"
-               :onClick (fn [_]
-                          (when state-atom
-                            (swap! @ws/app-state-atom
-                                   assoc-in [:wisdom/id :global :wisdom/content] ""))
-                          (ws/request-wisdom! nil :general :tips))}
-              "Refresh")))
-        (if has-eca-content?
-          ;; ECA-powered content
-          (dom/div :.wisdom-eca-content
-            (dom/div :.wisdom-eca-text eca-content)
-            (when eca-streaming?
-              (dom/span :.wisdom-streaming-indicator "...")))
-          ;; Fallback static tips while ECA loads
-          (dom/div :.wisdom-tips-grid
-            (when eca-loading?
-              (dom/div :.wisdom-loading
-                (dom/span :.wisdom-loading-icon "AI")
-                (dom/span "Generating personalized tips...")))
-            (dom/div :.wisdom-tip-card
-              (dom/div :.wisdom-tip-icon "...")
-              (dom/h4 "Start with Empathy")
-              (dom/p "Always begin with understanding your customer. Use the Empathy Map builder to capture what they think, feel, say, and do."))
-            (dom/div :.wisdom-tip-card
-              (dom/div :.wisdom-tip-icon "...")
-              (dom/h4 "Test Assumptions Early")
-              (dom/p "Your Lean Canvas is full of hypotheses. Identify the riskiest assumption and design an experiment to validate it."))
-            (dom/div :.wisdom-tip-card
-              (dom/div :.wisdom-tip-icon "...")
-              (dom/h4 "Scope Down Your MVP")
-              (dom/p "The best MVPs are embarrassingly small. Cut features until it hurts, then cut one more."))
-            (dom/div :.wisdom-tip-card
-              (dom/div :.wisdom-tip-icon "...")
-              (dom/h4 "Iterate Fast")
-              (dom/p "Ship, measure, learn, repeat. Speed of iteration beats quality of iteration."))))))))
+          (dom/h2 "Templates")
+          (dom/p :.wisdom-section-desc "Start with a proven framework for your product type.")
+          (when templates-loading?
+            (dom/span :.wisdom-loading-badge "Loading from AI...")))
+        (dom/div :.wisdom-template-grid
+          (for [t templates]
+            (template-card (assoc t :on-select
+                             (fn [k] (js/console.log "Selected template:" (str k))))))))
+
+      ;; Learning Patterns Section
+      (dom/section :.wisdom-section
+        (dom/div :.wisdom-section-header
+          (dom/h2 "Learning Patterns")
+          (dom/p :.wisdom-section-desc "Insights discovered across your projects.")
+          (when categories-loading?
+            (dom/span :.wisdom-loading-badge "Loading from AI...")))
+        (dom/div :.wisdom-category-grid
+          (for [c categories]
+            (category-card c))))
+
+      ;; Tips Section (ECA-powered with fallback)
+      (let [wisdom-state (when state-atom (get-in @state-atom [:wisdom/id :global]))
+            eca-content (:wisdom/content wisdom-state)
+            eca-loading? (:wisdom/loading? wisdom-state)
+            eca-streaming? (:wisdom/streaming? wisdom-state)
+            has-eca-content? (and eca-content (seq eca-content))]
+        ;; Auto-request tips from ECA on first load
+        (when (and (not eca-loading?) (not has-eca-content?))
+          (ws/request-wisdom! nil :general :tips))
+        (dom/section :.wisdom-section
+          (dom/div :.wisdom-section-header
+            (dom/h2 "Quick Tips")
+            (when has-eca-content?
+              (dom/button
+                {:className "btn btn-secondary btn-sm"
+                 :onClick (fn [_]
+                            (when state-atom
+                              (swap! @ws/app-state-atom
+                                     assoc-in [:wisdom/id :global :wisdom/content] ""))
+                            (ws/request-wisdom! nil :general :tips))}
+                "Refresh")))
+          (if has-eca-content?
+            ;; ECA-powered content
+            (dom/div :.wisdom-eca-content
+              (dom/div :.wisdom-eca-text eca-content)
+              (when eca-streaming?
+                (dom/span :.wisdom-streaming-indicator "...")))
+            ;; Fallback static tips while ECA loads
+            (dom/div :.wisdom-tips-grid
+              (when eca-loading?
+                (dom/div :.wisdom-loading
+                  (dom/span :.wisdom-loading-icon "AI")
+                  (dom/span "Generating personalized tips...")))
+              (dom/div :.wisdom-tip-card
+                (dom/div :.wisdom-tip-icon "...")
+                (dom/h4 "Loading Tips")
+                (dom/p "AI-powered tips are being generated. Please wait...")))))))))

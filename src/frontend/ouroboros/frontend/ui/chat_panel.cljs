@@ -135,50 +135,36 @@
 ;; Context Detection
 ;; ============================================================================
 
-(def context-suggestions
-  "Fallback quick action suggestions based on page context.
-   ECA-generated suggestions replace these when available."
+(def fallback-context-suggestions
+  "Fallback quick action suggestions shown while ECA generates context-aware ones.
+   Kept minimal - ECA provides richer, project-specific suggestions."
   {"empathy"   {:label "Empathy Map"
                 :icon "🧠"
                 :suggestions ["What am I missing in my empathy map?"
-                              "Help me understand my customer better"
-                              "What questions should I ask in user interviews?"
-                              "Analyze my persona for blind spots"]}
+                              "Help me understand my customer better"]}
    "valueprop" {:label "Value Proposition"
                 :icon "✨"
                 :suggestions ["Is my value proposition strong enough?"
-                              "How can I differentiate from competitors?"
-                              "Help me refine my messaging"
-                              "What objections might customers have?"]}
+                              "How can I differentiate from competitors?"]}
    "canvas"    {:label "Lean Canvas"
                 :icon "📊"
                 :suggestions ["Review my business model assumptions"
-                              "What risks should I test first?"
-                              "Help me identify my unfair advantage"
-                              "Are my revenue streams realistic?"]}
+                              "What risks should I test first?"]}
    "mvp"       {:label "MVP Planning"
                 :icon "🚀"
                 :suggestions ["What features should I cut from MVP?"
-                              "Help me prioritize my feature list"
-                              "How should I measure MVP success?"
-                              "What's the fastest way to validate this?"]}
+                              "How should I measure MVP success?"]}
    "dashboard" {:label "Dashboard"
                 :icon "📋"
-                :suggestions ["How do I get started with Ouroboros?"
-                              "What should I work on first?"
-                              "Explain the product development flywheel"
-                              "Help me create my first project"]}
+                :suggestions ["What should I work on first?"
+                              "Explain the product development flywheel"]}
    "projects"  {:label "Projects"
                 :icon "📁"
                 :suggestions ["How should I structure my project?"
-                              "What makes a good project scope?"
-                              "Help me name my project"
-                              "When should I start a new project?"]}
+                              "Help me name my project"]}
    :default    {:label "General"
                 :icon "💬"
                 :suggestions ["How do I use Ouroboros?"
-                              "What is an empathy map?"
-                              "Explain lean canvas methodology"
                               "Help me with product strategy"]}})
 
 (defn detect-context
@@ -195,10 +181,23 @@
       :else                                 nil)))
 
 (defn get-context-info
-  "Get context label, icon, and suggestions for current route"
+  "Get context label, icon, and suggestions for current route.
+   Uses ECA-generated suggestions if available, falls back to static."
   [route]
-  (let [ctx (detect-context route)]
-    (get context-suggestions (or ctx :default) (get context-suggestions :default))))
+  (let [ctx (detect-context route)
+        ;; Check for ECA-generated suggestions
+        state-atom @ws/app-state-atom
+        eca-suggestions (when state-atom (get-in @state-atom [:content/generated :chat-suggestions]))
+        eca-loading? (when state-atom (get-in @state-atom [:content/loading? :chat-suggestions]))
+        fallback (get fallback-context-suggestions (or ctx :default)
+                     (get fallback-context-suggestions :default))]
+    ;; Request ECA suggestions if not loaded
+    (when (and state-atom (not eca-suggestions) (not eca-loading?))
+      (ws/request-content! :chat-suggestions :context (or ctx "general")))
+    ;; Use ECA suggestions if available for this context
+    (if-let [eca-ctx (and eca-suggestions (get eca-suggestions (or ctx :default)))]
+      (merge fallback eca-ctx)
+      fallback)))
 
 ;; ============================================================================
 ;; Chat Message Component

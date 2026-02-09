@@ -265,33 +265,34 @@
 ;; ============================================================================
 
 (def wisdom-tips
-  "Fallback contextual wisdom tips (shown while ECA loads or if unavailable)"
+  "Fallback contextual wisdom tips shown while ECA loads or is unavailable.
+   ECA replaces these with personalized, project-aware guidance."
   {:empathy
    {:title "Empathy Phase"
     :tagline "Walk in their shoes before you build."
-    :tips ["Start by observing real users -- don't just imagine"
+    :tips ["Start by observing real users"
            "Look for contradictions between what people say and do"
-           "The most valuable insights come from pains they've accepted as normal"]
+           "Focus on pains they have accepted as normal"]
     :next-hint "Your empathy insights will directly feed the Value Proposition."}
    :valueprop
    {:title "Value Proposition Phase"
     :tagline "Connect what they need to what you offer."
     :tips ["Start with customer jobs, not your product features"
-           "Rank pains by severity -- solve the worst ones first"
+           "Rank pains by severity"
            "A great pain reliever beats a nice-to-have gain creator"]
     :next-hint "Your value fit will guide what to build in the MVP."}
    :mvp
    {:title "MVP Phase"
     :tagline "Build the smallest thing that proves your value."
-    :tips ["The best MVPs are embarrassingly small -- cut features until it hurts"
+    :tips ["Cut features until it hurts, then cut one more"
            "Focus on ONE user, ONE problem, ONE solution"
            "Define success metrics BEFORE you build"]
     :next-hint "Your MVP learnings will validate the business model."}
    :canvas
    {:title "Lean Canvas Phase"
     :tagline "Connect all the dots into a business model."
-    :tips ["Fill in Problem and Customer Segments first -- they drive everything"
-           "Your Unfair Advantage is the hardest box -- that's OK"
+    :tips ["Fill in Problem and Customer Segments first"
+           "Your Unfair Advantage is the hardest box"
            "Key Metrics: pick 1-3 numbers that prove traction"]
     :next-hint "Iterate: go back to Empathy with new learnings!"}})
 

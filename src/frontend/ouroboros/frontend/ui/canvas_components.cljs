@@ -152,31 +152,32 @@
 ;; ============================================================================
 
 (defn empathy-map-sections
-  "Define the 6 empathy map sections with enhanced guidance"
+  "Define the 6 empathy map sections. Descriptions are structural labels.
+   Hints left empty -- ECA provides contextual guidance via section-hints."
   []
   [{:key :persona :title "👤 Persona" 
-    :description "Who is your ideal customer? Name, role, background."
-    :hint "Be specific! 'Sarah, 32, Product Manager' > 'busy professionals'"
+    :description "Who is your ideal customer?"
+    :hint ""
     :grid-area "persona" :color "blue"}
    {:key :think-feel :title "🧠 Think & Feel" 
-    :description "What's going on in their head? Fears, hopes, dreams."
-    :hint "Use quotes: 'I worry that...' 'I wish I could...'"
+    :description "What's going on in their head?"
+    :hint ""
     :grid-area "think-feel" :color "pink"}
    {:key :hear :title "👂 Hear" 
-    :description "What do others tell them? Boss, colleagues, media."
-    :hint "Who influences their decisions?"
+    :description "What do others tell them?"
+    :hint ""
     :grid-area "hear" :color "green"}
    {:key :see :title "👁️ See" 
-    :description "What's in their environment? Workspace, market, trends."
-    :hint "What do they observe around them daily?"
+    :description "What's in their environment?"
+    :hint ""
     :grid-area "see" :color "yellow"}
    {:key :say-do :title "💬 Say & Do" 
-    :description "Their behavior in public. Watch for contradictions!"
-    :hint "What they say vs. what they actually do"
+    :description "Their behavior in public."
+    :hint ""
     :grid-area "say-do" :color "orange"}
    {:key :pains-gains :title "⚡ Pains & Gains" 
     :description "What frustrates them? What does success look like?"
-    :hint "PAIN: obstacles | GAIN: desired outcomes"
+    :hint ""
     :grid-area "pains-gains" :color "purple"}])
 
 (defn- render-canvas-section
@@ -265,7 +266,8 @@
 ;; ============================================================================
 
 (defn lean-canvas-sections
-  "Define the 9 Lean Canvas sections"
+  "Define the 9 Lean Canvas sections. Descriptions are structural labels.
+   ECA provides richer guidance via section-hints content type."
   []
   [{:key :problems :title "😫 Problems" :description "Top 3 customer problems"
     :grid-area "problems" :color "red"}
@@ -273,7 +275,7 @@
     :grid-area "solution" :color "green"}
    {:key :uvp :title "✨ UVP" :description "Unique Value Proposition"
     :grid-area "uvp" :color "purple"}
-   {:key :unfair-advantage :title "🛡️ Unfair Advantage" :description "Cannot be copied"
+   {:key :unfair-advantage :title "🛡️ Unfair Advantage" :description "What cannot be copied"
     :grid-area "unfair-advantage" :color "gold"}
    {:key :customer-segments :title "👥 Customer Segments" :description "Target customers"
     :grid-area "customer-segments" :color "blue"}
@@ -281,7 +283,7 @@
     :grid-area "key-metrics" :color "teal"}
    {:key :channels :title "📢 Channels" :description "How you reach customers"
     :grid-area "channels" :color "orange"}
-   {:key :cost-structure :title "💰 Cost Structure" :description "Fixed & variable costs"
+   {:key :cost-structure :title "💰 Cost Structure" :description "Fixed and variable costs"
     :grid-area "cost-structure" :color "pink"}
    {:key :revenue-streams :title "💵 Revenue Streams" :description "How you make money"
     :grid-area "revenue-streams" :color "green"}])

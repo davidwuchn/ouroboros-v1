@@ -30,9 +30,12 @@
 ;; ============================================================================
 
 (def canvas-templates
-  "Pre-built templates for different product types"
+  "Example templates for different product types.
+   These serve as fallback defaults -- ECA generates personalized templates
+   based on the user's actual project description via content/generate :templates."
   {:saas {:name "SaaS Product"
           :description "Software as a Service business model"
+          :example? true
           :empathy-map {:persona "Small business owner, 35-50, needs to streamline operations"
                         :think-feel "Worried about costs, wants reliable solution"
                         :hear "Other businesses using similar tools"
@@ -166,7 +169,8 @@
     (take 5 related)))
 
 (defn recognize-blockers
-  "Identify potential blockers from incomplete sessions"
+  "Identify potential blockers from incomplete sessions.
+   Returns detected blockers; suggestions come from ECA via content/generate :blockers."
   [user-id]
   (let [all-learnings (learning/recall-by-pattern user-id "")
         incomplete-patterns (filter #(str/includes? (:learning/pattern %) "started")
@@ -174,15 +178,17 @@
     (when (seq incomplete-patterns)
       {:blockers/detected? true
        :blockers/count (count incomplete-patterns)
-       :blockers/suggestions ["Consider completing your empathy map first"
-                              "You have multiple projects in progress - focus on one"]})))
+       ;; Suggestions now come from ECA -- frontend requests via content/generate :blockers
+       :blockers/suggestions []})))
 
 ;; ============================================================================
 ;; AI Insight Generation
 ;; ============================================================================
 
 (defn generate-insights
-  "Generate AI insights from canvas data"
+  "Generate structural insights from canvas data.
+   Returns detected patterns with types/titles; detailed descriptions come
+   from ECA via the content/generate :insights handler."
   [canvas-data canvas-type]
   (case canvas-type
     :empathy-map
@@ -191,13 +197,13 @@
         (and (get sections :pains) (get sections :gains))
         (conj {:insight/type :pains-gains-alignment
                :insight/title "Pains & Gains Analysis"
-               :insight/description "Your customer has clear pains around efficiency. Consider emphasizing time savings in your value proposition."
+               :insight/description ""  ;; ECA fills this via content/generate :insights
                :insight/confidence 0.85})
         
         (get sections :think-feel)
         (conj {:insight/type :emotional-driver
                :insight/title "Emotional Driver Identified"
-               :insight/description "Fear of missing out is a key motivator. Consider scarcity tactics or social proof."
+               :insight/description ""  ;; ECA fills this via content/generate :insights
                :insight/confidence 0.72})))
     
     :lean-canvas
@@ -206,47 +212,49 @@
         (and (get blocks :problems) (get blocks :solution))
         (conj {:insight/type :problem-solution-fit
                :insight/title "Problem-Solution Alignment"
-               :insight/description "Your solution directly addresses the stated problems. Good alignment for MVP validation."
+               :insight/description ""  ;; ECA fills this via content/generate :insights
                :insight/confidence 0.90})
         
         (and (get blocks :uvp) (get blocks :customer-segments))
         (conj {:insight/type :uvp-clarity
                :insight/title "UVP Clarity Check"
-               :insight/description "Ensure your UVP speaks directly to the customer segment's primary pain point."
+               :insight/description ""  ;; ECA fills this via content/generate :insights
                :insight/confidence 0.78})))
     
     []))
 
 (defn suggest-next-step
-  "Suggest the next logical step in the product development flywheel"
+  "Suggest the next logical step in the product development flywheel.
+   Returns structural data (next-stage, action label); detailed reasoning
+   comes from ECA via content/generate :flywheel-guide."
   [current-stage current-data]
   (case current-stage
     :empathy-map
     (if (get-in current-data [:empathy/sections :pains-gains])
       {:suggestion/next-stage :value-proposition
-       :suggestion/reason "You have a complete empathy map. Time to define your value proposition."
+       :suggestion/reason ""  ;; ECA fills via content/generate
        :suggestion/action "Continue to Value Proposition Canvas"}
       {:suggestion/next-stage :empathy-map
-       :suggestion/reason "Complete the Pains & Gains section to finish your empathy map."
+       :suggestion/reason ""  ;; ECA fills via content/generate
        :suggestion/action "Add Pains & Gains"})
     
     :value-proposition
     {:suggestion/next-stage :mvp-planning
-     :suggestion/reason "With value prop defined, plan your MVP features."
+     :suggestion/reason ""  ;; ECA fills via content/generate
      :suggestion/action "Start MVP Planning"}
     
     :mvp-planning
     {:suggestion/next-stage :lean-canvas
-     :suggestion/reason "Now formalize your business model."
+     :suggestion/reason ""  ;; ECA fills via content/generate
      :suggestion/action "Build Lean Canvas"}
     
     :lean-canvas
     {:suggestion/next-stage :validation
-     :suggestion/reason "You have a complete business model. Time to validate!"
+     :suggestion/reason ""  ;; ECA fills via content/generate
      :suggestion/action "Start Validation"}
     
     {:suggestion/next-stage :empathy-map
-     :suggestion/reason "Start with customer understanding."
+     :suggestion/reason ""  ;; ECA fills via content/generate
      :suggestion/action "Create Empathy Map"}))
 
 ;; ============================================================================
@@ -309,14 +317,17 @@
     (take 3 (map first sorted))))
 
 (defn suggest-from-history
-  "Suggest based on user's past successful patterns"
+  "Suggest based on user's past successful patterns.
+   Returns structural data (type, confidence); personalized message
+   comes from ECA via content/generate."
   [user-id current-stage]
   (let [history (learning/recall-by-pattern user-id (name current-stage))
         completed (filter #(str/includes? (:learning/pattern %) "complete") history)]
     (when (seq completed)
       {:suggestion/type :historical
-       :suggestion/message "Based on your past projects, you typically spend 3-4 days on this stage. Consider setting a deadline."
-       :suggestion/confidence 0.65})))
+       :suggestion/message ""  ;; ECA fills personalized message via content/generate
+       :suggestion/confidence 0.65
+       :suggestion/history-count (count completed)})))
 
 ;; ============================================================================
 ;; Pathom Resolvers

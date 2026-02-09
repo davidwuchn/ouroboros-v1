@@ -198,6 +198,65 @@
     (schedule-render!)))
 
 ;; ============================================================================
+;; Analytics Dashboard Message Handlers
+;; ============================================================================
+
+(defmethod handle-message :analytics/dashboard
+  [{:keys [project-id data]}]
+  ;; Real analytics data from backend (progress, health, funnel, prediction, time)
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in [:analytics/dashboard project-id] data)
+    (schedule-render!)))
+
+(defmethod handle-message :analytics/prediction-token
+  [{:keys [token project-id]}]
+  ;; Streaming prediction message token from ECA
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom update-in
+           [:analytics/dashboard project-id :prediction-message] str token)
+    (schedule-render!)))
+
+(defmethod handle-message :analytics/prediction-done
+  [{:keys [project-id]}]
+  ;; Prediction streaming complete
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in
+           [:analytics/dashboard project-id :prediction-streaming?] false)
+    (schedule-render!)))
+
+;; ============================================================================
+;; Content Generation Message Handlers
+;; ============================================================================
+
+(defmethod handle-message :content/token
+  [{:keys [token content-type]}]
+  ;; Streaming content token from ECA
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom update-in
+           [:content/streaming content-type] str token)
+    (schedule-render!)))
+
+(defmethod handle-message :content/generated
+  [{:keys [content-type content]}]
+  ;; Content generation complete
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc-in [:content/generated content-type] content)
+                 (update :content/streaming dissoc content-type)
+                 (assoc-in [:content/loading? content-type] false))))
+    (schedule-render!)))
+
+(defmethod handle-message :content/error
+  [{:keys [content-type error]}]
+  ;; Content generation error
+  (js/console.error "Content generation error:" content-type error)
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in [:content/loading? content-type] false)
+    (schedule-render!)))
+
+;; ============================================================================
 ;; Auto-Insight Message Handlers
 ;; ============================================================================
 
@@ -376,6 +435,31 @@
   [project-id]
   (send! {:type "kanban/board"
           :project-id project-id}))
+
+(defn request-analytics!
+  "Request real analytics dashboard data for a project"
+  [project-id]
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in
+           [:analytics/dashboard project-id :prediction-streaming?] true))
+  (send! {:type "analytics/dashboard"
+          :project-id project-id}))
+
+(defn request-content!
+  "Request ECA-generated content by type.
+   content-type: :insights, :blockers, :templates, :chat-suggestions,
+                 :flywheel-guide, :section-hints, :learning-categories"
+  [content-type & {:keys [project-id context]}]
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc-in [:content/loading? content-type] true)
+                 (assoc-in [:content/streaming content-type] "")))))
+  (send! (cond-> {:type "content/generate"
+                   :content-type (name content-type)}
+           project-id (assoc :project-id project-id)
+           context (assoc :context context))))
 
 (defn save-builder-data!
   "Send builder section data to backend for persistence.
