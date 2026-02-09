@@ -84,65 +84,81 @@
    Registers a per-request ECA callback that streams tokens back to the
    specific WebSocket client, then cleans up when done."
   [client-id {:keys [text context]}]
-  (let [chat-id (str "ws-" client-id "-" (System/currentTimeMillis))
-        listener-id (keyword (str "ws-chat-" client-id))]
-
-    (telemetry/emit! {:event :ws/eca-chat-request
-                      :client-id client-id
-                      :chat-id chat-id
-                      :context context
-                      :text-length (count (str text))})
-
-    ;; Register callback to relay ECA content to this specific WS client
-    (eca/register-callback! "chat/contentReceived" listener-id
-      (fn [notification]
-        (let [params (:params notification)
-              notif-chat-id (:chatId params)
-              role (:role params)
-              content (:content params)]
-          ;; Only handle notifications for our chat-id
-          (when (= notif-chat-id chat-id)
-            (cond
-              ;; Progress: done -> send eca/chat-done and unregister
-              (and (= "progress" (:type content))
-                   (= "done" (:state content)))
-              (do
-                (send-to! client-id {:type :eca/chat-done
-                                     :timestamp (System/currentTimeMillis)})
-                (eca/unregister-callback! "chat/contentReceived" listener-id)
-                (telemetry/emit! {:event :ws/eca-chat-done
-                                  :client-id client-id
-                                  :chat-id chat-id}))
-
-              ;; Assistant text content -> stream as token
-              (and (= role "assistant") (= "text" (:type content)))
-              (send-to! client-id {:type :eca/chat-token
-                                   :token (:text content)
-                                   :timestamp (System/currentTimeMillis)})
-
-              ;; Reasoning content -> could also stream, but for now skip
-              ;; (frontend doesn't display reasoning separately yet)
-              :else nil)))))
-
-    ;; Send prompt to ECA (fast mode - returns immediately after ack)
+  ;; Auto-start ECA if not running
+  (when-not (:running (eca/status))
+    (telemetry/emit! {:event :ws/eca-auto-start :client-id client-id})
     (try
-      (let [result (eca/chat-prompt text {:chat-id chat-id})]
-        (when (= :error (:status result))
-          ;; ECA failed - notify client and clean up
-          (send-to! client-id {:type :eca/chat-response
-                               :text (str "Error: " (or (:message result) (:error result)))
-                               :timestamp (System/currentTimeMillis)})
-          (eca/unregister-callback! "chat/contentReceived" listener-id)))
+      (eca/start!)
       (catch Exception e
-        ;; ECA not running or other error
         (send-to! client-id {:type :eca/chat-response
-                             :text (str "ECA is not available: " (.getMessage e))
+                             :text (str "Failed to start ECA: " (.getMessage e))
                              :timestamp (System/currentTimeMillis)})
-        (eca/unregister-callback! "chat/contentReceived" listener-id)
-        (telemetry/emit! {:event :ws/eca-chat-error
+        (telemetry/emit! {:event :ws/eca-auto-start-failed
                           :client-id client-id
-                          :error (.getMessage e)})))))
+                          :error (.getMessage e)}))))
 
+  (if-not (:running (eca/status))
+    ;; Still not running after start attempt
+    (send-to! client-id {:type :eca/chat-response
+                         :text "ECA could not be started. Ensure the ECA binary is installed."
+                         :timestamp (System/currentTimeMillis)})
+
+    ;; ECA is running - proceed with chat
+    (let [chat-id (str "ws-" client-id "-" (System/currentTimeMillis))
+          listener-id (keyword (str "ws-chat-" client-id))]
+
+      (telemetry/emit! {:event :ws/eca-chat-request
+                        :client-id client-id
+                        :chat-id chat-id
+                        :context context
+                        :text-length (count (str text))})
+
+      ;; Register callback to relay ECA content to this specific WS client
+      (eca/register-callback! "chat/contentReceived" listener-id
+        (fn [notification]
+          (let [params (:params notification)
+                notif-chat-id (:chatId params)
+                role (:role params)
+                content (:content params)]
+            ;; Only handle notifications for our chat-id
+            (when (= notif-chat-id chat-id)
+              (cond
+                ;; Progress: done -> send eca/chat-done and unregister
+                (and (= "progress" (:type content))
+                     (= "done" (:state content)))
+                (do
+                  (send-to! client-id {:type :eca/chat-done
+                                       :timestamp (System/currentTimeMillis)})
+                  (eca/unregister-callback! "chat/contentReceived" listener-id)
+                  (telemetry/emit! {:event :ws/eca-chat-done
+                                    :client-id client-id
+                                    :chat-id chat-id}))
+
+                ;; Assistant text content -> stream as token
+                (and (= role "assistant") (= "text" (:type content)))
+                (send-to! client-id {:type :eca/chat-token
+                                     :token (:text content)
+                                     :timestamp (System/currentTimeMillis)})
+
+                ;; Reasoning content -> skip for now
+                :else nil)))))
+
+      ;; Send prompt to ECA (fast mode - returns immediately after ack)
+      (try
+        (let [result (eca/chat-prompt text {:chat-id chat-id})]
+          (when (= :error (:status result))
+            (send-to! client-id {:type :eca/chat-response
+                                 :text (str "Error: " (or (:message result) (:error result)))
+                                 :timestamp (System/currentTimeMillis)})
+            (eca/unregister-callback! "chat/contentReceived" listener-id)))
+        (catch Exception e
+          (send-to! client-id {:type :eca/chat-response
+                               :text (str "ECA error: " (.getMessage e))
+                               :timestamp (System/currentTimeMillis)})
+          (eca/unregister-callback! "chat/contentReceived" listener-id)
+          (telemetry/emit! {:event :ws/eca-chat-error
+                            :client-id client-id
+                            :error (.getMessage e)}))))))
 (defn handle-message
   "Handle incoming WebSocket message"
   [id message-str]
