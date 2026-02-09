@@ -60,6 +60,7 @@ See detailed analysis sections below for specific recommendations.
 | **Phase C: Continuous Wisdom** | **✅ Done** | **Builder persistence, auto-insights on completion, learning storage, cross-project analysis (backend). Phase D (production hardening) next.** |
 | **Workspace Auto-Detection** | **✅ Done** | **Single project per instance, auto-detect from cwd, no create form, `:project/detected` on WS connect** |
 | **UI Cleanup: Remove Users/Sessions** | **✅ Done** | **Removed chat-platform pages, cleaned navbar/router/dashboard/query. Single-project model.** |
+| **Kanban Board** | **✅ Done** | **Auto-derived task board on Project page: 29 cards, 3 columns, builder color-coding, view toggle (Flywheel/Kanban)** |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
@@ -749,6 +750,7 @@ These are now handled by ECA:
 | 2026-02-09 | **Phase C: Continuous Wisdom** -- Builder data persistence via WebSocket, auto-insights on builder completion, learning memory storage, cross-project analysis (backend), debounced sync for sticky-note builders |
 | 2026-02-08 | **Workspace Auto-Detection** -- Single project per instance, auto-detect from `user.dir`, no create form, `:project/detected` on WS connect, `:project/path` in Pathom resolver |
 | 2026-02-08 | **UI Cleanup: Remove Users/Sessions** -- Removed chat-platform pages (empty in single-project model), cleaned navbar/router/dashboard/backend query resolver, deleted orphaned files |
+| 2026-02-09 | **Kanban Board** -- Auto-derived Kanban board on Project page: backend handler computes card status from builder session data, WS message protocol, frontend components with view toggle (Flywheel/Kanban), CSS styling |
 
 ## Lessons from NanoClaw Analysis
 

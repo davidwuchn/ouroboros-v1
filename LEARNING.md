@@ -2159,6 +2159,38 @@ User adds sticky note / submits section
 
 ---
 
+### 32. Auto-Derived Kanban Board Pattern
+
+**Problem:** Needed a Kanban board to show builder progress, but manually dragging cards between columns would duplicate state and drift from actual builder data. The board should always reflect reality.
+
+**Solution:** Derive Kanban card status automatically from builder session data. No manual drag-and-drop.
+
+**Status derivation logic:**
+- **Done** -- Section has data (sticky notes in canvas builders, responses in form builders)
+- **In Progress** -- Builder session exists but section is empty
+- **Not Started** -- No builder session exists for that builder type
+
+**Two builder architectures require different completion checks:**
+```clojure
+;; Canvas builders (Empathy Map, Value Prop): notes stored in maps keyed by section
+(defn- canvas-section-completed? [data section-key]
+  (let [notes (get-in data [:notes (name section-key)])]
+    (and (seq notes) (> (count notes) 0))))
+
+;; Form builders (MVP, Lean Canvas): responses stored as vectors of maps
+(defn- form-section-completed? [data section-key]
+  (let [responses (get-in data [:responses (name section-key)])]
+    (and (seq responses) (> (count responses) 0))))
+```
+
+**Auto-refresh pattern:** When builder data is saved (`:builder/data-saved` WS message), the frontend automatically re-requests the Kanban board. This keeps the board in sync without polling.
+
+**View toggle with module-level atom:** Used a simple `(defonce view-state (atom :flywheel))` instead of Fulcro mutations for the Flywheel/Kanban toggle. This is purely local UI state with no persistence needs -- an atom is simpler and avoids unnecessary Fulcro mutation boilerplate.
+
+**Key Insight:** When a board's purpose is to visualize progress (not manage workflow), derive status from source data rather than storing it independently. This eliminates sync bugs and ensures the board is always truthful. The cost is that you can't have "manual override" statuses, but for progress tracking that's actually a feature -- the board can't lie.
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*

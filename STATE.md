@@ -44,6 +44,7 @@
 | **Phase C: Continuous Wisdom** | ✅ Done | **Builder persistence, auto-insights on completion, learning storage, cross-project analysis (backend)** |
 | **Workspace Auto-Detection** | ✅ Done | **Single project per instance, auto-detect from cwd, no create form, project/path in Pathom** |
 | **UI Cleanup: Remove Users/Sessions** | ✅ Done | **Removed Users and Sessions pages (chat-platform data, empty in single-project model). Navbar: Dashboard, Project, Wisdom, Telemetry + AI Chat toggle** |
+| **Kanban Board** | ✅ Done | **Auto-derived Kanban board on Project page: 29 cards across 4 builders, 3 columns (Not Started/In Progress/Done), color-coded by builder, view toggle (Flywheel/Kanban)** |
 
 **Verified Working:**
 ```clojure
@@ -217,11 +218,11 @@ In REPL:
 ## Git State
 
 - Branch: `chat-platforms`
-- Status: Dirty (workspace auto-detect + UI cleanup uncommitted)
-- Last Updated: 2026-02-08
+- Status: Dirty (Kanban board feature uncommitted)
+- Last Updated: 2026-02-09
 - Remote: `origin/chat-platforms`
-- Latest committed: `984427e` (Phase C: Continuous Wisdom)
-- Uncommitted: Workspace auto-detection, Users/Sessions page removal, doc updates
+- Latest committed: `e837f22` (Workspace auto-detect, remove Users/Sessions)
+- Uncommitted: Kanban board view on Project page (backend handler, WS handlers, UI components, CSS)
 
 ## Completed Features
 
@@ -233,8 +234,9 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 2. **Continuous Wisdom (Phase C)** -- ✅ Builder persistence, auto-insights on completion, learning memory storage, cross-project analysis (backend). Debounced WebSocket sync for sticky-note builders.
 3. **Workspace Auto-Detection** -- ✅ Single project per instance. Backend auto-detects from `user.dir`, sends `:project/detected` on WS connect. No create form. Project page shows workspace project directly.
 4. **UI Cleanup: Remove Users/Sessions** -- ✅ Removed chat-platform pages (empty data in single-project model). Navbar: Dashboard, Project, Wisdom, Telemetry + AI Chat toggle.
-5. **Remaining Static Content** -- Chat panel `context-suggestions` (28 prompts) still static (deferred). Templates/learning categories on wisdom page are structural (OK static).
-6. **Metrics Export** -- Prometheus/OpenTelemetry format
+5. **Kanban Board** -- ✅ Auto-derived Kanban board on Project page. 29 cards across 4 builders (Empathy Map 6, Value Prop 6, MVP 8, Lean Canvas 9). 3 columns: Not Started, In Progress, Done. Cards derive status from actual builder session data. Color-coded by builder. View toggle (Flywheel/Kanban) on Project page.
+6. **Remaining Static Content** -- Chat panel `context-suggestions` (28 prompts) still static (deferred). Templates/learning categories on wisdom page are structural (OK static).
+7. **Metrics Export** -- Prometheus/OpenTelemetry format
 
 **Architectural Insight (2026-02-09)**: ECA-powered wisdom is now **fully wired end-to-end**. Backend assembles project context, sends to ECA, streams tokens back via WebSocket. Frontend renders progressively with Fulcro render scheduling. The wisdom sidebar in all 4 builders and the wisdom page Quick Tips section now fetch from ECA with static fallback. **WebUX = state/CRUD/interaction, ECA = knowledge/wisdom/guidance.**
 
@@ -259,6 +261,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✅ **Phase C: Continuous Wisdom** -- Builder data persisted to backend via WebSocket, auto-insights on builder completion, learning memory storage, cross-project analysis (backend)
 - ✅ **Workspace Auto-Detection** -- Single project per instance, auto-detect from `user.dir`, no create form, `:project/detected` on WS connect
 - ✅ **Remove Users/Sessions Pages** -- Removed orphaned chat-platform pages, cleaned navbar, router, dashboard cards, backend query resolver
+- ✅ **Kanban Board** -- Auto-derived task board on Project page with view toggle (Flywheel/Kanban), 29 cards across 4 builders, status from builder session data
 - ✅ **Chat Commands** -- `/learn`, `/recall`, `/wisdom`, `/build canvas|empathy|valueprop|mvp` commands (ready)
 - ✅ **Progressive Disclosure** -- Builder stage suggestions, contextual help
 - ✅ **Product Development Flywheel** -- Empathy Map -> Value Proposition -> MVP -> Lean Canvas with learning integration

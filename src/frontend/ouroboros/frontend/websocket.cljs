@@ -4,7 +4,7 @@
    [com.fulcrologic.fulcro.application :as app]))
 
 ;; Forward declarations
-(declare connected? stop-ping-loop!)
+(declare connected? stop-ping-loop! send!)
 
 ;; ============================================================================
 ;; App State Reference
@@ -179,7 +179,23 @@
 (defmethod handle-message :builder/data-saved
   [{:keys [session-id project-id builder-type]}]
   ;; Confirmation that builder data was persisted
-  (js/console.log "Builder data saved:" builder-type session-id))
+  ;; Also refresh Kanban board if it's loaded
+  (js/console.log "Builder data saved:" builder-type session-id)
+  (when-let [state-atom @app-state-atom]
+    (when (get-in @state-atom [:kanban/board project-id])
+      ;; Re-request Kanban board to reflect updated builder data
+      (send! {:type "kanban/board" :project-id project-id}))))
+
+;; ============================================================================
+;; Kanban Board Message Handlers
+;; ============================================================================
+
+(defmethod handle-message :kanban/board
+  [{:keys [project-id board]}]
+  ;; Kanban board data from backend
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in [:kanban/board project-id] board)
+    (schedule-render!)))
 
 ;; ============================================================================
 ;; Auto-Insight Message Handlers
@@ -353,6 +369,12 @@
   "Request flywheel progress for a project"
   [project-id]
   (send! {:type "flywheel/progress"
+          :project-id project-id}))
+
+(defn request-kanban-board!
+  "Request Kanban board state for a project"
+  [project-id]
+  (send! {:type "kanban/board"
           :project-id project-id}))
 
 (defn save-builder-data!
