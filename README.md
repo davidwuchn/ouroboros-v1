@@ -80,6 +80,14 @@ bb git:install-hooks    # Install pre-commit hook (runs tests before commits)
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Influences
+
+Ouroboros learns from leading AI frameworks:
+
+- **[Agent Zero](https://github.com/agent0ai/agent-zero)** — Hierarchical agents, prompt-driven architecture, context summarization
+- **[Nanobot](https://github.com/HKUDS/nanobot)** — Message bus architecture, per-channel persistence
+- **[NanoClaw](https://github.com/gavrielc/nanoclaw)** — Container isolation, minimal configuration
+
 ## Capabilities
 
 | Category | Features |
@@ -158,10 +166,11 @@ The dashboard provides a web interface for system observability:
 ## Design Principles
 
 1. **Query over API** — Everything is EQL
-2. **Observe by default** — Telemetry everywhere
-3. **Protocol abstraction** — ChatAdapter, LLM providers
-4. **Safety boundaries** — Tool sandboxing, allowlists, rate limits, safe tools
-5. **Self-documenting** — System queries itself
+2. **Behavior as data** — Prompts, statecharts, resolvers as queryable/configurable data
+3. **Observe by default** — Telemetry everywhere
+4. **Protocol abstraction** — ChatAdapter, LLM providers
+5. **Safety boundaries** — Tool sandboxing, allowlists, rate limits, safe tools
+6. **Self-documenting** — System queries itself
 
 ## Documentation
 

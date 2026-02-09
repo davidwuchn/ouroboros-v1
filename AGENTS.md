@@ -58,18 +58,30 @@ Use symbols in commit messages for searchable git history.
 | ‖      | wait   | Paused, blocked      |
 | ↺      | retry  | Again, loop back     |
 
+### Agent Hierarchy (inspired by Agent Zero)
+
+| Symbol | Label       | Meaning                      |
+| ------ | ----------- | ---------------------------- |
+| ψ₀     | agent-zero  | Top-level agent (superior)   |
+| ψ₁     | sub-agent   | Subordinate agent            |
+| ψₙ     | nth-agent   | nth level delegation         |
+| ⊣      | delegates   | Task handoff (ψ₀ ⊣ ψ₁)       |
+| ⊢      | reports     | Result return (ψ₁ ⊢ ψ₀)      |
+
 ---
 
 ## Files
 
-| File         | Purpose                      |
-| ------------ | ---------------------------- |
-| AGENTS.md    | Bootstrap (this file)        |
-| README.md    | User documentation           |
-| STATE.md     | Now (what is true)           |
-| PLAN.md      | Next (what should happen)    |
-| LEARNING.md  | Past (patterns discovered)   |
-| CHANGELOG.md | Commit summaries             |
+| File         | Purpose                      | Fidelity |
+| ------------ | ---------------------------- | -------- |
+| AGENTS.md    | Bootstrap (this file)        | Reference |
+| README.md    | User documentation           | Guide |
+| **STATE.md** | **Now** (what is true)       | **Full** — Current status, changes frequently |
+| **PLAN.md**  | **Next** (what should happen)| **Summary** — Roadmap, decisions, medium-term |
+| **LEARNING.md**| **Past** (patterns discovered)| **Distilled** — Eternal truths, timeless patterns |
+| CHANGELOG.md | Commit summaries             | Log |
+
+> **Note:** STATE/PLAN/LEARNING mirrors Agent Zero's context compression: STATE=recent (full), PLAN=medium (summarized), LEARNING=old (condensed). Same tiered approach for human-readable project memory.
 
 ---
 
@@ -332,6 +344,61 @@ bb test:webux    # WebUX tests (requires Clojure, not Babashka)
 | `bb` | Babashka task runner |
 | `clj-paren-repair` | Fix delimiters and format Clojure files |
 | `clj-kondo` | Lint Clojure code |
+
+---
+
+## External Influences & Design Patterns
+
+Ouroboros borrows proven patterns from other AI agent frameworks:
+
+### From Agent Zero (14.3k★ Python Framework)
+
+**Hierarchical Agents (ψ₀ ⊣ ψ₁)**
+- Superior agents delegate to subordinate agents
+- Each sub-agent gets clean context, specialized tools
+- Parallel execution for independent tasks
+- Use for: canvas builders, research, code review
+
+**Context Summarization**
+- Recent messages (last 10): Full verbatim
+- Medium age (10-50): Summarized key points  
+- Old messages (50+): Condensed to decisions only
+- Result: "Near-infinite" conversation memory
+
+**Prompt-Driven Architecture** *(Convergence)*
+- All behavior defined in markdown files
+- `prompts/default/` — Built-in prompts
+- `prompts/custom/` — User overrides
+- Non-developers customize via text files
+- **Note:** Extends Ouroboros's "behavior as data" philosophy (statecharts, resolvers, memory)
+
+**Instruments vs Tools** *(Delegated to ECA)*
+- **Tools**: Always in system prompt (core capabilities)
+- **Instruments**: Extended capabilities managed by ECA's skills system
+- Ouroboros delegates AI capabilities to ECA; focuses on chat platform integration
+
+**Dynamic Behavior** *(Adopt)*
+- Runtime behavior rules stored in memory
+- User preferences automatically applied
+- Example: "Always use UK English" → persisted rule
+- **Gap:** Foundation exists (memory system), needs `behavior` namespace
+
+### From Nanobot (7.9k★ Ultra-Lightweight)
+
+**Message Bus Architecture**
+- Decouple chat adapters from core with async queues
+- Better concurrency, easier testing
+
+**Per-Channel Session Persistence**
+- JSONL files per chat channel
+- Automatic compaction/summarization
+
+### From NanoClaw (Minimal Claude Assistant)
+
+**Container Isolation**
+- OS-level isolation for AI execution
+- Per-channel filesystem mounts
+- Non-root execution inside containers
 
 ---
 

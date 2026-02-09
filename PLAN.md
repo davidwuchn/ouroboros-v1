@@ -7,6 +7,16 @@
 
 This plan incorporates lessons from analyzing similar projects:
 
+### From [Agent Zero](https://github.com/agent0ai/agent-zero) (14.3k stars, Python AI framework):
+1. **Hierarchical Agent System** - Superior/subordinate agents for context management (P1)
+2. **Context Summarization** - Tiered compression (recent=full, older=summarized) (P1)
+3. **Prompt-Driven Architecture** - All behavior defined in prompt files (P2)
+4. **Projects/Workspaces** - Isolated environments with scoped memory/knowledge (P1 - Complete)
+5. ~~**Instruments**~~ - On-demand capabilities managed by ECA skills system (DELEGATED)
+6. **Extension Points** - Lifecycle hooks for customization without core changes (P2)
+7. **Dynamic Behavior** - Runtime behavior rules persisted across sessions (P2)
+8. **Docker-First Deployment** - Everything runs in container for consistency (P2)
+
 ### From [NanoClaw](https://github.com/gavrielc/nanoclaw):
 1. **Container Isolation** - Add OS-level container isolation for AI execution (P1)
 2. **Per-Channel Isolation** - Filesystem isolation per chat channel (P1)
@@ -792,6 +802,202 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 
 **Status**: 📋 P2 — Enhancement to existing memory system. Current EDN/JSONL works; implement when scaling to high-volume channels or needing automatic compaction.
 
+---
+
+## Lessons from Agent Zero Analysis
+
+Based on analysis of [Agent Zero](https://github.com/agent0ai/agent-zero) (14.3k stars, Python-based AI framework with hierarchical multi-agent system):
+
+### Hierarchical Agent System (P1) 📋 NEW
+**Current**: Single agent per chat session, context grows unbounded.
+**Gap**: No way to delegate subtasks to specialized agents with fresh context.
+**Agent Zero Approach**: Superior/subordinate agent hierarchy:
+- Agent 0 delegates to sub-agents for specific tasks
+- Each sub-agent has clean context, focused tools
+- Parallel execution of independent subtasks
+- Sub-agents report back to superior
+
+**Recommendation**: Implement hierarchical agents:
+```clojure
+;; Spawn sub-agent for empathy mapping
+(subordinate/spawn! 
+  {:role :empathy-builder
+   :context {:project-id "proj-123"}
+   :timeout-ms 300000}
+  "Build empathy map for SaaS product")
+
+;; Sub-agent has:
+;; - Fresh context window
+;; - Specialized tools (canvas/create, sticky-note/add)
+;; - Isolated memory for the task
+;; - Callback to parent on completion
+```
+
+**Use Cases**:
+- Canvas builders (each builder = sub-agent)
+- Research tasks (spawn agent to gather info)
+- Code review (separate agent for analysis)
+- Long-running tasks (don't block main session)
+
+**Implementation Approach**:
+1. Add `ouroboros.subordinate` namespace
+2. Sub-agents are lightweight (shared process, isolated context)
+3. Communication via message passing (not parent/child process)
+4. Results merged back into parent context
+
+**Status**: 📋 P1 — Core capability for Web UX Platform and chat scalability.
+
+### Context Summarization (P1) 📋 NEW
+**Current**: Memory stores full conversation history; no compaction.
+**Gap**: Context windows overflow in long sessions; no summarization strategy.
+**Agent Zero Approach**: Tiered compression:
+- **Recent** (last 10 messages): Full verbatim content
+- **Medium** (10-50 messages ago): Summarized key points
+- **Old** (50+ messages ago): Condensed to decisions/outcomes only
+
+**Ouroboros Already Does This**: Our documentation structure (STATE/PLAN/LEARNING) mirrors this tiered approach:
+- **STATE.md** = Now — Full fidelity, current status
+- **PLAN.md** = Next — Summarized intentions, roadmap  
+- **LEARNING.md** = Past — Distilled patterns, eternal truths
+
+We just need to apply the same pattern to conversation memory.
+
+**Recommendation**: Add context compression to chat sessions:
+```clojure
+;; Automatic tiered compression
+(context/compress 
+  {:recent-threshold 10      ; Keep verbatim
+   :medium-threshold 50      ; Summarize
+   :compression-model :fast}) ; Use fast model for summarization
+```
+
+**Benefits**:
+- "Near-infinite" effective conversation memory
+- Reduced token costs
+- Faster inference (smaller context)
+- Preserved important decisions
+
+**Status**: 📋 P1 — Critical for production chat usage; prevents context overflow.
+
+### Prompt-Driven Architecture (P2) 📋 NEW
+**Current**: System prompts hardcoded in namespaces.
+**Gap**: Non-developers cannot customize agent behavior without code changes.
+**Agent Zero Approach**: Everything in `/prompts/`:
+- `agent.system.main.role.md`
+- `agent.system.main.communication.md`
+- `agent.system.tool.*.md`
+
+**This Extends Ouroboros's Core Philosophy:**
+
+Ouroboros already treats **behavior as data**:
+- Statecharts = lifecycle as data
+- Resolvers = query logic as data  
+- Memory/Knowledge = persistence as data
+- **Prompts** = agent behavior as data (same pattern!)
+
+**Recommendation**: Prompt hierarchy:
+```
+prompts/
+├── default/                    ; Built-in prompts
+│   ├── system.main.role.md
+│   ├── system.main.communication.md
+│   └── system.tool.*.md
+└── custom/                     ; User overrides
+    └── my-prompts/
+        └── system.main.role.md  ; Only override what changes
+```
+
+**Features**:
+- Variable placeholders: `{{var}}` syntax
+- File includes: `{{ include "path/to/file.md" }}`
+- Queryable via EQL: `(q [:prompt/system :prompt/tools])`
+- Dynamic variable loaders (Clojure functions that generate prompt data)
+
+**Status**: 📋 P2 — Natural extension of our data-driven architecture.
+
+### Instruments: On-Demand Tools (P2) 📋 DELEGATED TO ECA
+**Current**: ECA handles tool management and extended capabilities.
+**Status**: ✅ **Not needed** — ECA already provides:
+- Skills/procedures system
+- Context-aware tool selection
+- Extended capabilities beyond core tools
+- Dynamic tool loading
+
+**Why we don't build this:**
+Ouroboros delegates AI capabilities to ECA. ECA manages:
+- Tool registry and discovery
+- Skill-based procedures
+- Context-appropriate tool selection
+- Extended capability loading
+
+**Ouroboros focus:** Chat platform integration, not AI tool management.
+
+**Status**: 📋 DELEGATED — ECA handles instruments/skills. Ouroboros focuses on unique value.
+
+### Dynamic Behavior Adjustment (P2) 📋 NEW
+**Current**: User preferences require repetitive prompting or code changes.
+**Gap**: No persistent per-user behavior customization.
+**What We Have**: Foundation exists — `memory/save!` can store data, prompts can be dynamic
+**What's Missing**: 
+- Dedicated behavior namespace
+- Automatic injection of rules into system prompts
+- User-facing API: `(behavior/add-rule! ...)`
+
+**Agent Zero Approach**: Runtime behavior rules in `behaviour.md`:
+```markdown
+# Behavior Rules
+- Use UK English spelling
+- Always explain "why" before "how"
+- Prefer Clojure over Python for examples
+```
+
+**Recommendation**: Build behavior layer on top of memory:
+```clojure
+;; User says: "Always use UK spelling"
+(behavior/add-rule! :uk-english "Use UK English spelling (colour, not color)")
+
+;; Rule automatically injected into system prompt for this user
+;; Persists across sessions via memory system
+```
+
+**Status**: 📋 P2 — Enhancement for personalization. Foundation exists, needs orchestration.
+
+### Extension Points Architecture (P2) 📋 NEW
+**Current**: Extensions require modifying core code.
+**Gap**: No clean hooks for customization without forks.
+**Agent Zero Approach**: 11 extension points:
+- `agent_init`, `before_main_llm_call`, `message_loop_start`
+- `tool_call`, `tool_result`, `session_shutdown`
+
+**Recommendation**: Lifecycle hooks:
+```clojure
+;; Register extension hook
+(extension/on :tool-call
+  (fn [tool params]
+    (when (= tool :file/write)
+      (if (dangerous? params)
+        {:block true :reason "Dangerous path"}
+        {:continue true}))))
+```
+
+**Status**: 📋 P2 — Enables community extensions without core changes.
+
+### Voice Interface (P3) 📋 NEW
+**Current**: Text-only chat interfaces.
+**Gap**: No speech-to-text or text-to-speech.
+**Agent Zero Approach**: Local Whisper STT + browser TTS:
+- Speech-to-text: OpenAI Whisper (local, no API key)
+- Text-to-speech: Browser built-in (no cloud dependency)
+
+**Recommendation**: Voice integration:
+- Telegram voice messages → Whisper → text
+- Responses → optional TTS for accessibility
+- Local processing (privacy-preserving)
+
+**Status**: 📋 P3 — Accessibility enhancement; deferred until requested.
+
+---
+
 ### Ultra-Lightweight Philosophy (P2) 📋 NEW
 **Current**: 60+ files, feature-rich but complex.
 **Gap**: Hard to understand and customize.
@@ -826,7 +1032,13 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 | **P1** | Streaming responses | Medium | 🟡 High | ◐ In Progress |
 | **P1** | Protocol compatibility tests | Low | 🟡 High | 📋 Planned |
 | **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
+| **P1** | Hierarchical Agent System | High | 🔴 High | 📋 NEW |
+| **P1** | Context Summarization | Medium | 🔴 High | 📋 NEW |
 | **P2** | Per-Channel Session Persistence | Medium | 🟡 Medium | 📋 NEW |
+| **P2** | Prompt-Driven Architecture | Medium | 🟡 Medium | 📋 NEW |
+| **P2** | Instruments (On-Demand Tools) | N/A | N/A | ✅ DELEGATED TO ECA |
+| **P2** | Dynamic Behavior Adjustment | Low | 🟢 Low | 📋 NEW |
+| **P2** | Extension Points | High | 🟡 Medium | 📋 NEW |
 | **P2** | Structured logging | Low | 🟡 Medium | 📋 Planned |
 | **P2** | Distributed tracing | Medium | 🟡 Medium | 📋 Planned |
 | **P2** | Audit logging | Low | 🟡 Medium | 📋 Planned |
@@ -847,8 +1059,9 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 | **P3** | Tool usage heatmaps | Low | 🟢 Low | 📋 Planned |
 | **P3** | Latency percentiles | Low | 🟢 Low | 📋 Planned |
 | **P3** | Additional chat platforms | Medium | 🟢 Low | 📋 Planned |
-| **P3** | Voice integration | High | 🟢 Low | 📋 Planned |
+| **P3** | Voice integration | High | 🟢 Low | 📋 NEW |
 | **P3** | Multi-modal support | High | 🟢 Low | 📋 Planned |
+| **P3** | Voice Interface (STT/TTS) | High | 🟢 Low | 📋 NEW |
 | **P3** | Message formatting | Low | 🟢 Low | 📋 Planned |
 | **P3** | Fallback mode | Medium | 🟢 Low | 📋 Planned |
 

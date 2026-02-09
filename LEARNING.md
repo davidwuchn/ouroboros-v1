@@ -1473,7 +1473,187 @@ bb debug menu   # Show all commands
 
 ---
 
-### 22. Terminal Introspection via Tmux
+### 22. Hierarchical Agent Pattern (from Agent Zero)
+
+**Problem:** Single agents get overwhelmed with complex tasks, context windows overflow, and parallel execution is hard to coordinate.
+
+**Agent Zero Solution:** Superior/subordinate agent hierarchy:
+```
+User (Superior)
+  └── Agent 0
+       ├── Sub-agent A (research)
+       └── Sub-agent B (coding)
+```
+
+**Benefits:**
+1. **Clean context** — Each agent focuses on specific subtask
+2. **Parallel execution** — Sub-agents work simultaneously
+3. **Specialization** — Different models/tools per agent role
+4. **Recoverability** — Failed sub-agents don't crash the main session
+
+**Implementation in Ouroboros:**
+```clojure
+;; Create sub-agent for canvas building
+(def empathy-agent
+  {:role :empathy-builder
+   :tools [:canvas/create :sticky-note/add]
+   :parent-session :main-session
+   :context {:project-id "proj-123"}})
+
+;; Delegate with timeout
+(subordinate/delegate! empathy-agent
+  {:task "Build empathy map for SaaS product"
+   :timeout-ms 300000
+   :callback (fn [result] (ui/update-canvas result))})
+```
+
+**Key Insight:** Hierarchy is not just for coordination—it's for context management. When an agent's context grows too large, spawn a sub-agent to continue the work with fresh context.
+
+---
+
+### 23. Context Summarization Strategy (from Agent Zero)
+
+**Problem:** Long chat sessions exceed LLM context windows, causing failures or degraded performance.
+
+**Agent Zero Solution:** Tiered compression:
+- **Recent (last 10 messages):** Full content, verbatim
+- **Medium (10-50 messages ago):** Summarized with key facts
+- **Old (50+ messages ago):** Condensed to decisions + outcomes only
+
+**Implementation Pattern:**
+```clojure
+(defn compress-context [messages]
+  (let [recent (take 10 messages)           ; Keep verbatim
+        medium (take 40 (drop 10 messages)) ; Summarize
+        old (drop 50 messages)]             ; Condense
+    (concat recent
+            (map summarize-message medium)
+            [(condense-to-decisions old)])))
+```
+
+**Key Insight:** Not all history is equal. Recent context needs precision, old context needs only outcomes. This gives "near-infinite" effective memory.
+
+**Ouroboros Already Implements This:**
+Our documentation structure mirrors this tiered approach:
+- **STATE.md** = Recent (now) — Full fidelity, current status
+- **PLAN.md** = Medium-term — Intentions, roadmap, decisions
+- **LEARNING.md** = Long-term — Distilled patterns, timeless wisdom
+
+The same principle applies: STATE changes frequently with full detail, PLAN summarizes direction, LEARNING captures eternal truths.
+
+---
+
+### 24. Prompt-Driven Customization (from Agent Zero)
+
+**Problem:** Customizing AI behavior requires code changes, limiting non-developer users.
+
+**Agent Zero Solution:** Everything is prompts:
+```
+prompts/
+├── agent.system.main.role.md
+├── agent.system.main.communication.md
+├── agent.system.main.solving.md
+└── agent.system.tool.*.md
+```
+
+**This Is Already Ouroboros's Core Philosophy:**
+
+Ouroboros is built on the principle that **behavior is data**, not code:
+
+| Domain | Data-Driven Approach |
+|--------|---------------------|
+| **System lifecycle** | Statecharts define transitions in data |
+| **Query interface** | Pathom resolvers registered as data |
+| **Chat adapters** | Protocol-based, implementation swappable |
+| **Memory/Knowledge** | EDN/JSONL files, not hardcoded |
+| **Agent behavior** | → **Prompts as markdown** (same pattern) |
+
+**Benefits:**
+1. **Non-coder customization** — Modify behavior with text files
+2. **Version control** — Prompts are code, tracked in git
+3. **A/B testing** — Swap prompt directories to test behaviors
+4. **Community sharing** — Share prompt packs like themes
+5. **Queryable** — Load prompts via EQL: `(q [:prompt/system :prompt/tools])`
+
+**Ouroboros Integration:**
+```clojure
+;; Load custom prompts from ~/.ouroboros/prompts/
+(wisdom/load-prompt-profile! :my-custom)
+
+;; Or per-project prompts
+(wisdom/load-prompt-profile! "./project-prompts")
+
+;; Query prompt library
+(q [:prompt/system :prompt/tools])
+;; => {:prompt/system "You are Ouroboros...", :prompt/tools [...]}
+```
+
+**Key Insight:** Prompts are the "source code" of agent behavior. This isn't new—it's the same pattern we use for resolvers, statecharts, and memory. Behavior as data, queryable and customizable.
+
+---
+
+### 25. Instruments: On-Demand Capabilities (from Agent Zero) — DELEGATED
+
+**Problem:** Tools in system prompt consume tokens even when unused. Too many tools = context overflow.
+
+**Agent Zero Solution:** Instruments stored in memory, recalled on demand.
+
+**Ouroboros Status:** ✅ **Delegated to ECA**
+
+Since we delegate AI capabilities to ECA (Editor Code Assistant), we don't need to build our own instruments system. ECA already provides:
+- **Skills/procedures** — Extended capabilities beyond core tools
+- **Context-aware selection** — Automatically chooses relevant tools
+- **Dynamic loading** — Load capabilities on demand
+- **Tool management** — Registry, discovery, execution
+
+**What Ouroboros provides:**
+- Chat platform integration (Telegram, Discord, Slack)
+- Tool approval bridge (security layer)
+- Unique platform capabilities (Web UX, collaboration)
+
+**Key Insight:** Don't rebuild what ECA provides. Focus on what makes Ouroboros unique: multi-platform chat with collaborative product development.
+
+---
+
+### 26. Dynamic Behavior Adjustment (from Agent Zero)
+
+**Problem:** User preferences ("always use UK English", "never use emojis") require code changes or repetitive prompting.
+
+**Agent Zero Solution:** Runtime behavior rules stored in `behaviour.md`:
+```markdown
+# Behavior Rules
+- Use UK English spelling (colour, not color)
+- Provide code examples in Clojure first
+- Always explain the "why" before the "how"
+```
+
+**Ouroboros Status:** Infrastructure exists, feature does not.
+
+We have the foundation:
+- `memory/save!` — Can store preferences
+- `learning/remember` — Can store insights
+- Prompt system — Can inject text into context
+
+**Gap:** No dedicated behavior system that:
+1. Stores user preferences separately from general memory
+2. Automatically injects them into system prompts
+3. Provides user-facing API for adding rules
+
+**Proposed Implementation:**
+```clojure
+;; User says: "Always explain why before how"
+(behavior/add-rule! :explain-why-first
+  "Always explain the reasoning before providing the solution")
+
+;; Rule automatically injected into system prompt
+;; Persists across sessions
+```
+
+**Key Insight:** Agents should learn preferences like humans do—once stated, always applied. Behavior rules are "soft programming." We have the memory, just need the orchestration.
+
+---
+
+### 27. Terminal Introspection via Tmux
 
 **Problem:** Need to determine terminal state programmatically (idle, prompt, cursor position) for AI/human handoff and automation.
 
