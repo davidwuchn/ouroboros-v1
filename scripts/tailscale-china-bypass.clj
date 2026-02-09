@@ -17,6 +17,12 @@
 (def cache-file (str (System/getProperty "user.home") "/.cache/tailscale-china-bypass/cn.zone"))
 (def cache-max-age-hours 24)
 
+(defn valid-cidr?
+  "Check if a string is a valid CIDR notation (e.g. 1.2.3.0/24)"
+  [s]
+  (when (and (string? s) (not (str/blank? s)))
+    (re-matches #"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}" (str/trim s))))
+
 (defn ensure-cache-dir
   "Ensure cache directory exists"
   []
@@ -33,9 +39,9 @@
             cache-max-age-hours))))
 
 (defn read-cache
-  "Read IP ranges from cache file"
+  "Read IP ranges from cache file, filtering out invalid entries"
   []
-  (str/split-lines (slurp cache-file)))
+  (filterv valid-cidr? (str/split-lines (slurp cache-file))))
 
 (defn write-cache
   "Write IP ranges to cache file"
@@ -44,12 +50,12 @@
   (spit cache-file content))
 
 (defn fetch-from-source
-  "Fetch IP ranges from a single source"
+  "Fetch IP ranges from a single source, filtering invalid entries"
   [source]
   (let [result (shell {:out :string :err :string :continue true}
                       "curl" "-s" "--max-time" "30" source)]
     (when (zero? (:exit result))
-      (str/split-lines (:out result)))))
+      (filterv valid-cidr? (str/split-lines (:out result))))))
 
 (defn fetch-china-ips
   "Fetch China IP ranges from multiple sources with caching"
@@ -152,16 +158,17 @@
 (defn ip-in-cidr?
   "Check if an IP address falls within a CIDR range"
   [ip cidr]
-  (let [[network prefix] (str/split cidr #"/")
-        prefix-len (Integer/parseInt prefix)
-        ip-parts (mapv #(Integer/parseInt %) (str/split ip #"\."))
-        net-parts (mapv #(Integer/parseInt %) (str/split network #"\."))
-        mask (bit-shift-left -1 (- 32 prefix-len))
-        ip-int (reduce (fn [acc part] (+ (bit-shift-left acc 8) part)) 0 ip-parts)
-        net-int (reduce (fn [acc part] (+ (bit-shift-left acc 8) part)) 0 net-parts)
-        ip-masked (bit-and ip-int mask)
-        net-masked (bit-and net-int mask)]
-    (= ip-masked net-masked)))
+  (when (valid-cidr? cidr)
+    (let [[network prefix] (str/split cidr #"/")
+          prefix-len (Integer/parseInt prefix)
+          ip-parts (mapv #(Integer/parseInt %) (str/split ip #"\."))
+          net-parts (mapv #(Integer/parseInt %) (str/split network #"\."))
+          mask (bit-shift-left -1 (- 32 prefix-len))
+          ip-int (reduce (fn [acc part] (+ (bit-shift-left acc 8) part)) 0 ip-parts)
+          net-int (reduce (fn [acc part] (+ (bit-shift-left acc 8) part)) 0 net-parts)
+          ip-masked (bit-and ip-int mask)
+          net-masked (bit-and net-int mask)]
+      (= ip-masked net-masked))))
 
 (defn test-bypass
   "Test if bypass is working by checking route to a China IP"
