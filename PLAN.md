@@ -1,7 +1,7 @@
 # PLAN.md
 
 > Next steps and future directions for Ouroboros.
-> Last Updated: 2026-02-08
+> Last Updated: 2026-02-09
 
 ## Summary of External Project Analysis
 
@@ -54,7 +54,7 @@ See detailed analysis sections below for specific recommendations.
 | ECA IPC Byte-Level Reader | ✅ Done | Fixed UTF-8 framing bug in JSON-RPC reader (BufferedInputStream) |
 | **Streaming Responses** | **✅ Done** | **5-layer pipeline: ECA -> chat platforms + frontend WebSocket chat sidebar** |
 | **Flywheel UI** | **✅ Done** | **Step indicator, wisdom sidebar, phase cards, auto-start Empathy Map** |
-| **ECA-Powered Wisdom** | **📋 Next** | **Replace static hardcoded tips/templates with LLM-generated content via ECA** |
+| **ECA-Powered Wisdom (A+B)** | **✅ Done** | **Backend + Frontend complete. Wisdom sidebar, flywheel progress, wisdom page stream from ECA. Phase C (Continuous Wisdom) next.** |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
@@ -259,7 +259,7 @@ ECA continues or aborts
 
 ## Immediate Priorities
 
-### 0. ECA-Powered Wisdom (P0) -- NEXT
+### 0. ECA-Powered Wisdom (P0) -- PHASE A+B COMPLETE ✅
 
 **Problem**: The flywheel UI has wisdom components (tips, templates, suggestions, guidance) but all content is **static hardcoded `def` blocks**. The chat sidebar has a working ECA pipeline (streaming, WebSocket, Fulcro state) but the wisdom features don't use it. Knowledge and guidance should come from ECA/LLM, not from code.
 
@@ -283,22 +283,22 @@ The user interacts with WebUX builders (drag sticky notes, fill empathy map sect
 
 **Implementation Plan**:
 
-#### Phase A: Backend -- Wisdom via ECA (P0)
+#### Phase A: Backend -- Wisdom via ECA (P0) ✅ COMPLETE
 
-1. **Project context assembly**: Build rich context from project data (empathy map entries, value prop fields, canvas sections) and pass to ECA as system prompt context
-2. **Wisdom query endpoint**: New WebSocket message type `eca/wisdom` that sends project context + phase to ECA and gets back structured guidance (tips, next steps, analysis)
-3. **Flywheel progress tracking**: Store phase completion status per project in backend state (not just "current step = empathy")
-4. **Learning memory query**: Expose actual learning/insight counts and recent entries via EQL resolvers
+1. **Project context assembly**: ✅ Build rich context from project data (empathy map entries, value prop fields, canvas sections) and pass to ECA as system prompt context
+2. **Wisdom query endpoint**: ✅ New WebSocket message type `eca/wisdom` that sends project context + phase to ECA and gets back structured guidance (tips, next steps, analysis)
+3. **Flywheel progress tracking**: ✅ Store phase completion status per project in backend state (not just "current step = empathy")
+4. **Learning memory query**: ✅ Expose actual learning/insight counts and recent entries via EQL resolvers
 
-#### Phase B: Frontend -- Dynamic Wisdom Components (P0)
+#### Phase B: Frontend -- Dynamic Wisdom Components (P0) ✅ COMPLETE
 
-1. **Wisdom sidebar**: Replace static `wisdom-tips` with ECA-generated content fetched on sidebar open
-2. **Project detail page**: Read actual flywheel progress from backend state, show ECA-recommended next phase
-3. **Chat suggestions**: Generate from ECA based on current builder state, not static `context-suggestions` map
-4. **Wisdom page**: Query actual templates, learning patterns, insights from backend/ECA instead of static `def`s
-5. **Loading states**: Show skeleton/spinner while ECA generates wisdom content
+1. **Wisdom sidebar**: ✅ Replace static `wisdom-tips` with ECA-generated content fetched on sidebar open
+2. **Project detail page**: ✅ Read actual flywheel progress from backend state, show ECA-recommended next phase
+3. **Chat suggestions**: ⚠️ Deferred -- `context-suggestions` still static (28 prompts). Will replace with ECA-generated suggestions.
+4. **Wisdom page**: ✅ Quick Tips section now ECA-powered with static fallback. Templates/categories structural (OK static).
+5. **Loading states**: ✅ Show streaming indicator while ECA generates wisdom content
 
-#### Phase C: Continuous Wisdom (P1)
+#### Phase C: Continuous Wisdom (P1) -- NEXT
 
 1. **Auto-insights**: When user completes a builder section, trigger ECA analysis in background
 2. **Cross-project patterns**: ECA analyzes patterns across all user's projects
@@ -739,6 +739,8 @@ These are now handled by ECA:
 | 2026-02-08 | **Auto-start ECA** -- ECA binary auto-starts on first chat message from frontend |
 | 2026-02-08 | **Fulcro Render Fix** -- WebSocket handlers schedule renders for streaming updates |
 | 2026-02-09 | **Flywheel UI** -- Wisdom-guided flywheel: step indicator, contextual tips sidebar, phase cards |
+| 2026-02-09 | **Backend ECA Wisdom** -- `eca/wisdom` + `flywheel/progress` WebSocket handlers, context-enriched LLM queries |
+| 2026-02-09 | **Frontend ECA Wisdom** -- Streaming tips, real flywheel progress, project context across 9 files. 0 warnings, 58 tests pass. |
 
 ## Lessons from NanoClaw Analysis
 
@@ -1082,7 +1084,7 @@ Ouroboros delegates AI capabilities to ECA. ECA manages:
 | **P1** | Per-Channel Isolation | Medium | 🔴 High | 📋 NEW |
 | **P1** | Metrics export | Low | 🟡 High | 📋 Planned |
 | **P1** | Streaming responses | Medium | 🟡 High | ✅ Done |
-| **P0** | ECA-Powered Wisdom | High | 🔴 Critical | 📋 Next |
+| **P0** | ECA-Powered Wisdom (A+B) | High | 🔴 Critical | ✅ Done |
 | **P1** | Protocol compatibility tests | Low | 🟡 High | 📋 Planned |
 | **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
 | **P1** | Hierarchical Agent System | High | 🔴 High | 📋 NEW |

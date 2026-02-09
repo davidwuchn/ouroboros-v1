@@ -1855,6 +1855,69 @@ get_now_ms() {
 
 ---
 
+### 25. ECA Wisdom Pipeline Pattern (End-to-End)
+
+**Problem:** Wisdom components (tips sidebar, flywheel progress, quick tips page) displayed static hardcoded content. The chat sidebar had a working ECA streaming pipeline, but wisdom features didn't use it. Needed to extend the same pattern to all wisdom delivery.
+
+**Solution:** Replicate the chat streaming architecture for wisdom, with project context enrichment.
+
+**End-to-End Data Flow:**
+
+```
+Browser (wisdom sidebar opens in builder)
+  -> ws/request-wisdom! sends {type: "eca/wisdom", project-id, phase, request-type}
+  -> Backend websocket.clj handle-eca-wisdom!
+       -> auto-start ECA if needed
+       -> assemble project context (empathy entries, value prop, canvas)
+       -> build system prompt with context + wisdom instruction
+       -> register per-request callback for "chat/contentReceived"
+       -> eca/chat-prompt with system + user prompt
+  -> ECA binary -> LLM generates wisdom
+  -> chat/contentReceived notifications arrive
+       -> callback filters by chat-id
+       -> text chunks -> send-to! client {:type :eca/wisdom-token :token "..."}
+       -> "finished" -> send-to! {:type :eca/wisdom-done}
+       -> unregister callback
+  -> Frontend websocket.cljs dispatches
+       -> :eca/wisdom-token -> swap! state, append content, schedule-render!
+       -> :eca/wisdom-done -> set loading?/streaming? false, schedule-render!
+  -> Fulcro re-renders wisdom-sidebar with ECA content
+  -> If ECA unavailable: static fallback tips shown (graceful degradation)
+```
+
+**Key Design Decisions:**
+
+1. **Reuse chat pipeline**: Same ECA callback registration, same streaming token pattern, same Fulcro render scheduling. Don't invent a new mechanism.
+
+2. **Context enrichment**: Backend assembles project data (empathy map entries, value prop fields, canvas sections) into the system prompt so ECA/LLM generates project-specific wisdom, not generic tips.
+
+3. **Static fallback**: Keep reduced static tips (3/phase instead of 5) as graceful degradation when ECA is unavailable. Don't remove fallback content entirely.
+
+4. **Phase keyword mapping**: Backend uses domain keywords (`:empathy-map`, `:value-proposition`) while frontend uses short keywords (`:empathy`, `:valueprop`). Map at the boundary in `project_detail.cljs`.
+
+5. **Per-request callbacks**: Each wisdom request registers a unique callback keyed by chat-id, then unregisters when done. Prevents cross-request interference.
+
+**Frontend State Shape:**
+```clojure
+;; At [:wisdom/id :global] in Fulcro normalized state
+{:wisdom/content ""          ;; Accumulated ECA streaming text
+ :wisdom/loading? false      ;; Request in flight?
+ :wisdom/streaming? false    ;; Actively receiving tokens?
+ :wisdom/request-type :tips} ;; Which type was requested
+```
+
+**Files Modified (9 total):**
+- `websocket.clj` -- Backend handlers: `handle-eca-wisdom!`, `handle-flywheel-progress!`
+- `websocket.cljs` -- Frontend handlers: wisdom-token, wisdom-done, wisdom-response, flywheel/progress
+- `components.cljs` -- `wisdom-sidebar` now ECA-powered with streaming + fallback
+- `wisdom.cljs` -- Quick Tips section now ECA-powered
+- `project_detail.cljs` -- Real flywheel progress from backend
+- 4 builder files -- Pass `:project-id` to `wisdom-sidebar`
+
+**Key Insight:** When you have a working streaming pipeline (chat), extending it to new use cases (wisdom) is mostly about context assembly on the backend and state management on the frontend. The transport layer (WebSocket + ECA callbacks + Fulcro render scheduling) stays the same.
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*
