@@ -173,6 +173,51 @@
     (schedule-render!)))
 
 ;; ============================================================================
+;; Builder Data Persistence Handlers
+;; ============================================================================
+
+(defmethod handle-message :builder/data-saved
+  [{:keys [session-id project-id builder-type]}]
+  ;; Confirmation that builder data was persisted
+  (js/console.log "Builder data saved:" builder-type session-id))
+
+;; ============================================================================
+;; Auto-Insight Message Handlers
+;; ============================================================================
+
+(defmethod handle-message :eca/auto-insight-start
+  [{:keys [project-id builder-type]}]
+  ;; Auto-insight generation started after builder completion
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc-in [:auto-insight/id project-id :auto-insight/content] "")
+                 (assoc-in [:auto-insight/id project-id :auto-insight/loading?] true)
+                 (assoc-in [:auto-insight/id project-id :auto-insight/streaming?] true)
+                 (assoc-in [:auto-insight/id project-id :auto-insight/builder-type] builder-type))))
+    (schedule-render!)))
+
+(defmethod handle-message :eca/auto-insight-token
+  [{:keys [token project-id builder-type]}]
+  ;; Streaming auto-insight token
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom update-in
+           [:auto-insight/id project-id :auto-insight/content] str token)
+    (schedule-render!)))
+
+(defmethod handle-message :eca/auto-insight-done
+  [{:keys [project-id builder-type]}]
+  ;; Auto-insight streaming complete
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc-in [:auto-insight/id project-id :auto-insight/loading?] false)
+                 (assoc-in [:auto-insight/id project-id :auto-insight/streaming?] false))))
+    (schedule-render!)))
+
+;; ============================================================================
 ;; Connection Management
 ;; ============================================================================
 
@@ -284,16 +329,27 @@
                  (assoc-in [:wisdom/id :global :wisdom/streaming?] true)
                  (assoc-in [:wisdom/id :global :wisdom/request-type] request-type))))
     (schedule-render!))
-  (send! {:type "eca/wisdom"
-          :project-id project-id
-          :phase (name phase)
-          :request-type (name request-type)}))
+  (send! (cond-> {:type "eca/wisdom"
+                  :project-id project-id
+                  :request-type (name request-type)}
+           phase (assoc :phase (name phase)))))
 
 (defn request-flywheel-progress!
   "Request flywheel progress for a project"
   [project-id]
   (send! {:type "flywheel/progress"
           :project-id project-id}))
+
+(defn save-builder-data!
+  "Send builder section data to backend for persistence.
+   builder-type: :empathy-map, :value-proposition, :mvp-planning, :lean-canvas
+   data: the full builder data (notes map or responses vector)"
+  [project-id session-id builder-type data]
+  (send! {:type "builder/save-data"
+          :project-id project-id
+          :session-id session-id
+          :builder-type (name builder-type)
+          :data data}))
 
 (defn- send-subscription!
   "Send subscription/unsubscription message"

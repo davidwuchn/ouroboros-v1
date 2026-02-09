@@ -54,7 +54,8 @@ See detailed analysis sections below for specific recommendations.
 | ECA IPC Byte-Level Reader | ✅ Done | Fixed UTF-8 framing bug in JSON-RPC reader (BufferedInputStream) |
 | **Streaming Responses** | **✅ Done** | **5-layer pipeline: ECA -> chat platforms + frontend WebSocket chat sidebar** |
 | **Flywheel UI** | **✅ Done** | **Step indicator, wisdom sidebar, phase cards, auto-start Empathy Map** |
-| **ECA-Powered Wisdom (A+B)** | **✅ Done** | **Backend + Frontend complete. Wisdom sidebar, flywheel progress, wisdom page stream from ECA. Phase C (Continuous Wisdom) next.** |
+| **ECA-Powered Wisdom (A+B)** | **✅ Done** | **Backend + Frontend complete. Wisdom sidebar, flywheel progress, wisdom page stream from ECA.** |
+| **Phase C: Continuous Wisdom** | **✅ Done** | **Builder persistence, auto-insights on completion, learning storage, cross-project analysis (backend). Phase D (production hardening) next.** |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
@@ -298,12 +299,12 @@ The user interacts with WebUX builders (drag sticky notes, fill empathy map sect
 4. **Wisdom page**: ✅ Quick Tips section now ECA-powered with static fallback. Templates/categories structural (OK static).
 5. **Loading states**: ✅ Show streaming indicator while ECA generates wisdom content
 
-#### Phase C: Continuous Wisdom (P1) -- NEXT
+#### Phase C: Continuous Wisdom (P1) -- COMPLETE ✅
 
-1. **Auto-insights**: When user completes a builder section, trigger ECA analysis in background
-2. **Cross-project patterns**: ECA analyzes patterns across all user's projects
-3. **Wisdom memory**: Store generated insights in learning memory for reuse
-4. **Progressive depth**: First visit = basic tips, repeated visits = deeper analysis based on accumulated context
+1. **Auto-insights**: ✅ When user completes a builder section, trigger ECA analysis in background. Streams as `:eca/auto-insight-token` events.
+2. **Cross-project patterns**: ◐ Backend `assemble-cross-project-context` + `:cross-project` wisdom prompt done. Frontend UI trigger not yet built.
+3. **Wisdom memory**: ✅ Generated insights stored in learning memory via `learning/save-insight!` on auto-insight completion.
+4. **Progressive depth**: Deferred -- requires session history tracking per builder visit.
 
 ### 1. Production Readiness (P1)
 - **Container Isolation** — OS-level container isolation for ECA execution
@@ -741,6 +742,7 @@ These are now handled by ECA:
 | 2026-02-09 | **Flywheel UI** -- Wisdom-guided flywheel: step indicator, contextual tips sidebar, phase cards |
 | 2026-02-09 | **Backend ECA Wisdom** -- `eca/wisdom` + `flywheel/progress` WebSocket handlers, context-enriched LLM queries |
 | 2026-02-09 | **Frontend ECA Wisdom** -- Streaming tips, real flywheel progress, project context across 9 files. 0 warnings, 58 tests pass. |
+| 2026-02-09 | **Phase C: Continuous Wisdom** -- Builder data persistence via WebSocket, auto-insights on builder completion, learning memory storage, cross-project analysis (backend), debounced sync for sticky-note builders |
 
 ## Lessons from NanoClaw Analysis
 
@@ -1085,6 +1087,7 @@ Ouroboros delegates AI capabilities to ECA. ECA manages:
 | **P1** | Metrics export | Low | 🟡 High | 📋 Planned |
 | **P1** | Streaming responses | Medium | 🟡 High | ✅ Done |
 | **P0** | ECA-Powered Wisdom (A+B) | High | 🔴 Critical | ✅ Done |
+| **P1** | Phase C: Continuous Wisdom | Medium | 🔴 High | ✅ Done |
 | **P1** | Protocol compatibility tests | Low | 🟡 High | 📋 Planned |
 | **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
 | **P1** | Hierarchical Agent System | High | 🔴 High | 📋 NEW |

@@ -8,15 +8,16 @@
    - Guided prompts and examples
    - Real-time collaboration
    - Export to PDF/JSON"
-  (:require
-   [clojure.string :as str]
-   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-   [com.fulcrologic.fulcro.dom :as dom]
-   [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-   [com.fulcrologic.fulcro.data-fetch :as df]
-   [com.fulcrologic.fulcro.mutations :as m]
-   [ouroboros.frontend.ui.components :as ui]
-   [ouroboros.frontend.ui.canvas-components :as canvas]))
+   (:require
+    [clojure.string :as str]
+    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+    [com.fulcrologic.fulcro.dom :as dom]
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+    [com.fulcrologic.fulcro.data-fetch :as df]
+    [com.fulcrologic.fulcro.mutations :as m]
+    [ouroboros.frontend.ui.components :as ui]
+    [ouroboros.frontend.ui.canvas-components :as canvas]
+    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
 ;; Block Configuration with Prompts and Examples
@@ -192,31 +193,53 @@
                   (conj undo-stack current-notes))
         (assoc-in [:page/id :lean-canvas-builder :ui :ui/redo-stack] []))))
 
+(defonce ^:private canvas-sync-timer (atom nil))
+
+(defn- sync-canvas-notes!
+  "Send current canvas notes to backend for persistence (debounced 500ms)"
+  [state-atom]
+  (when-let [t @canvas-sync-timer]
+    (js/clearTimeout t))
+  (reset! canvas-sync-timer
+    (js/setTimeout
+      (fn []
+        (let [s @state-atom
+              project-id (get-in s [:page/id :lean-canvas-builder :project/id])
+              session (get-in s [:page/id :lean-canvas-builder :lean-canvas/session])
+              session-id (or (:session/id session) (str "canvas-" project-id))
+              notes (get-in s [:page/id :lean-canvas-builder :lean-canvas/notes] {})]
+          (when project-id
+            (ws/save-builder-data! project-id session-id :lean-canvas notes))))
+      500)))
+
 (m/defmutation add-canvas-note
-  "Add a sticky note to a canvas block (client-only for now)"
+  "Add a sticky note to a canvas block"
   [{:keys [session-id block-key content color]}]
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)
                                new-note (canvas/create-sticky-note block-key content :color (or color "yellow"))]
                            (update-in s [:page/id :lean-canvas-builder :lean-canvas/notes]
-                                      (fnil assoc {}) (:item/id new-note) new-note))))))
+                                      (fnil assoc {}) (:item/id new-note) new-note))))
+          (sync-canvas-notes! state)))
 
 (m/defmutation update-canvas-note
-  "Update a canvas sticky note (client-only for now)"
+  "Update a canvas sticky note"
   [{:keys [note-id updates]}]
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)]
-                           (update-in s [:page/id :lean-canvas-builder :lean-canvas/notes note-id] merge updates))))))
+                           (update-in s [:page/id :lean-canvas-builder :lean-canvas/notes note-id] merge updates))))
+          (sync-canvas-notes! state)))
 
 (m/defmutation delete-canvas-note
-  "Delete a canvas sticky note (client-only for now)"
+  "Delete a canvas sticky note"
   [{:keys [note-id]}]
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)]
-                           (update-in s [:page/id :lean-canvas-builder :lean-canvas/notes] dissoc note-id))))))
+                           (update-in s [:page/id :lean-canvas-builder :lean-canvas/notes] dissoc note-id))))
+          (sync-canvas-notes! state)))
 
 (m/defmutation undo-canvas
   "Undo last notes change"
@@ -254,7 +277,8 @@
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)]
-                           (assoc-in s [:page/id :lean-canvas-builder :lean-canvas/notes] {}))))))
+                           (assoc-in s [:page/id :lean-canvas-builder :lean-canvas/notes] {}))))
+          (sync-canvas-notes! state)))
 
 ;; ============================================================================
 ;; Tutorial Modal Component

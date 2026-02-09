@@ -2,16 +2,20 @@
   "WebSocket server for real-time updates
    
    Provides live telemetry streams to connected clients."
-  (:require
-   [clojure.string :as str]
-   [clojure.edn :as edn]
-   [org.httpkit.server :as httpkit]
-   [cheshire.core :as json]
-   [ouroboros.telemetry :as telemetry]
-   [ouroboros.eca-client :as eca]
-   [ouroboros.memory :as memory]
-   [ouroboros.wisdom :as wisdom])
-  (:import [java.util.concurrent.atomic AtomicLong]))
+   (:require
+    [clojure.string :as str]
+    [clojure.edn :as edn]
+    [org.httpkit.server :as httpkit]
+    [cheshire.core :as json]
+    [ouroboros.telemetry :as telemetry]
+    [ouroboros.eca-client :as eca]
+    [ouroboros.memory :as memory]
+    [ouroboros.wisdom :as wisdom]
+    [ouroboros.learning :as learning])
+   (:import [java.util.concurrent.atomic AtomicLong]))
+
+;; Forward declarations for functions defined later in the file
+(declare assemble-project-context handle-auto-insight!)
 
 ;; ============================================================================
 ;; Connection Management
@@ -209,6 +213,226 @@
      :total-phases (count phase-order)}))
 
 ;; ============================================================================
+;; Builder Data Persistence
+;; ============================================================================
+
+(def ^:private builder-section-counts
+  "Number of sections required for completion per builder type"
+  {:empathy-map 6          ;; persona, think-feel, hear, see, say-do, pains-gains
+   :value-proposition 6    ;; customer-job, pains, gains, products, pain-relievers, gain-creators
+   :mvp-planning 8         ;; core-problem, target-user, success-metric, must-have-features, nice-to-have, out-of-scope, timeline, risks
+   :lean-canvas 9})        ;; problems, customer-segments, uvp, solution, channels, revenue-streams, cost-structure, key-metrics, unfair-advantage
+
+(defn- count-completed-sections
+  "Count how many sections have data in the builder data map.
+   For sticky-note builders (empathy, lean-canvas): data is {note-id -> note-map}, grouped by :item/section.
+   For form builders (value-prop, mvp): data is [{:section-key ... :response ...}]."
+  [builder-type data]
+  (case builder-type
+    ;; Sticky note builders: data is a flat map of {note-id -> {:item/section :key ...}}
+    (:empathy-map :lean-canvas)
+    (let [notes (vals (or data {}))
+          sections-with-notes (set (map :item/section notes))]
+      (count sections-with-notes))
+
+    ;; Form builders: data is a vector of {:section-key :response}
+    (:value-proposition :mvp-planning)
+    (let [responses (or data [])
+          section-keys (set (map :section-key responses))]
+      (count section-keys))
+
+    ;; Unknown builder type
+    0))
+
+(defn- builder-complete?
+  "Check if a builder has all its sections filled"
+  [builder-type data]
+  (let [required (get builder-section-counts builder-type 0)
+        completed (count-completed-sections builder-type data)]
+    (and (pos? required)
+         (>= completed required))))
+
+(defn- handle-save-builder-data!
+  "Handle a builder/save-data message from the frontend.
+   Persists the current builder data to the backend session store.
+   Optionally triggers auto-insight if the builder is newly complete."
+  [client-id {:keys [project-id session-id builder-type data]}]
+  (let [user-id :demo-user
+        builder-type-kw (if (string? builder-type) (keyword builder-type) builder-type)]
+
+    (telemetry/emit! {:event :ws/builder-data-save
+                      :client-id client-id
+                      :project-id project-id
+                      :session-id session-id
+                      :builder-type builder-type-kw})
+
+    ;; Persist session data to memory via direct memory update
+    ;; (same as webux/update-builder-session! but without Pathom)
+    (let [key (keyword (str "builder-sessions/" (name user-id)))]
+      (memory/update! key
+                      (fn [sessions]
+                        (if-let [session (get sessions session-id)]
+                          (assoc sessions session-id
+                                 (assoc session
+                                        :session/data data
+                                        :session/updated-at (str (java.time.Instant/now))))
+                          ;; Session doesn't exist - create it
+                          (assoc sessions session-id
+                                 {:session/id session-id
+                                  :session/project-id project-id
+                                  :session/type builder-type-kw
+                                  :session/state :active
+                                  :session/data data
+                                  :session/created-at (str (java.time.Instant/now))
+                                  :session/updated-at (str (java.time.Instant/now))})))))
+
+    ;; Send confirmation
+    (send-to! client-id {:type :builder/data-saved
+                         :session-id session-id
+                         :project-id project-id
+                         :builder-type builder-type-kw
+                         :timestamp (System/currentTimeMillis)})
+
+    ;; Check if builder is now complete and trigger auto-insight
+    (let [is-complete? (builder-complete? builder-type-kw data)]
+      (when is-complete?
+        ;; Check if we already marked this session as completed
+        (let [key (keyword (str "builder-sessions/" (name user-id)))
+              session (get (memory/get-value key) session-id)
+              already-completed? (= :completed (:session/state session))]
+          (when-not already-completed?
+            ;; Mark session as completed
+            (memory/update! key
+                            (fn [sessions]
+                              (if-let [s (get sessions session-id)]
+                                (assoc sessions session-id
+                                       (assoc s
+                                              :session/state :completed
+                                              :session/completed-at (str (java.time.Instant/now))
+                                              :session/updated-at (str (java.time.Instant/now))))
+                                sessions)))
+
+            (telemetry/emit! {:event :ws/builder-completed
+                              :client-id client-id
+                              :project-id project-id
+                              :session-id session-id
+                              :builder-type builder-type-kw})
+
+            ;; Trigger auto-insight via ECA (C-2: non-blocking background task)
+            (future
+              (try
+                (handle-auto-insight! client-id
+                                      {:project-id project-id
+                                       :builder-type builder-type-kw
+                                       :data data})
+                (catch Exception e
+                  (telemetry/emit! {:event :ws/auto-insight-error
+                                    :client-id client-id
+                                    :error (.getMessage e)}))))))))))
+
+(defn- handle-auto-insight!
+  "Generate an auto-insight when a builder section completes.
+   Sends ECA a focused prompt about the completed builder data and streams
+   the response back as auto-insight tokens. Saves completed insight to learning memory."
+  [client-id {:keys [project-id builder-type data]}]
+  (let [user-id :demo-user
+        builder-type-kw (if (string? builder-type) (keyword builder-type) builder-type)
+        builder-label (get phase-labels builder-type-kw (name (or builder-type-kw :unknown)))]
+
+    ;; Only proceed if ECA is running (don't auto-start for background insights)
+    (when (:running (eca/status))
+      (let [chat-id (str "ws-insight-" client-id "-" (System/currentTimeMillis))
+            listener-id (keyword (str "ws-insight-" client-id))
+            ;; Accumulate streamed text for saving to learning
+            insight-text (atom "")
+            ;; Build context from the completed data
+            context-str (assemble-project-context user-id project-id builder-type-kw)
+            ;; Insight-specific prompt
+            prompt (str "You are a product development coach. The user just completed their "
+                        builder-label " builder. Based on the project context below, provide:\n"
+                        "1. A brief congratulatory note (1 sentence)\n"
+                        "2. One key insight or pattern you notice from their work (2-3 sentences)\n"
+                        "3. How this connects to the next phase in the product development flywheel (1-2 sentences)\n\n"
+                        "Keep it concise and specific to their actual data. No generic advice.\n\n"
+                        "---\n\n" context-str)]
+
+        ;; Notify client that auto-insight is starting
+        (send-to! client-id {:type :eca/auto-insight-start
+                             :project-id project-id
+                             :builder-type builder-type-kw
+                             :timestamp (System/currentTimeMillis)})
+
+        ;; Register streaming callback
+        (eca/register-callback! "chat/contentReceived" listener-id
+          (fn [notification]
+            (let [params (:params notification)
+                  notif-chat-id (:chatId params)
+                  role (:role params)
+                  content (:content params)]
+              (when (= notif-chat-id chat-id)
+                (cond
+                  ;; Done -> send insight-done, unregister, store insight in learning
+                  (and (= "progress" (:type content))
+                       (#{"done" "finished"} (:state content)))
+                  (do
+                    (send-to! client-id {:type :eca/auto-insight-done
+                                         :project-id project-id
+                                         :builder-type builder-type-kw
+                                         :timestamp (System/currentTimeMillis)})
+                    (eca/unregister-callback! "chat/contentReceived" listener-id)
+
+                    ;; Save completed insight to learning memory (C-5)
+                    (let [full-text @insight-text]
+                      (when (seq full-text)
+                        (try
+                          (learning/save-insight! user-id
+                            {:title (str builder-label " Completion Insight")
+                             :insights [full-text]
+                             :pattern (str "builder-completion-" (name builder-type-kw))
+                             :category "builder-insight"
+                             :tags #{(name builder-type-kw) "auto-insight" (str project-id)}
+                             :transfers [(name builder-type-kw)]})
+                          (telemetry/emit! {:event :ws/insight-saved-to-learning
+                                            :client-id client-id
+                                            :project-id project-id
+                                            :builder-type builder-type-kw
+                                            :insight-length (count full-text)})
+                          (catch Exception e
+                            (telemetry/emit! {:event :ws/insight-save-error
+                                              :error (.getMessage e)})))))
+
+                    (telemetry/emit! {:event :ws/auto-insight-done
+                                      :client-id client-id
+                                      :project-id project-id
+                                      :builder-type builder-type-kw}))
+
+                  ;; Assistant text -> accumulate and stream as auto-insight token
+                  (and (= role "assistant") (= "text" (:type content)))
+                  (do
+                    (swap! insight-text str (:text content))
+                    (send-to! client-id {:type :eca/auto-insight-token
+                                         :token (:text content)
+                                         :project-id project-id
+                                         :builder-type builder-type-kw
+                                         :timestamp (System/currentTimeMillis)}))
+
+                  :else nil)))))
+
+        ;; Send prompt to ECA
+        (try
+          (let [result (eca/chat-prompt prompt {:chat-id chat-id})]
+            (when (= :error (:status result))
+              (eca/unregister-callback! "chat/contentReceived" listener-id)
+              (telemetry/emit! {:event :ws/auto-insight-error
+                                :client-id client-id
+                                :error (or (:message result) (:error result))})))
+          (catch Exception e
+            (eca/unregister-callback! "chat/contentReceived" listener-id)
+            (telemetry/emit! {:event :ws/auto-insight-error
+                              :client-id client-id
+                              :error (.getMessage e)})))))))
+
+;; ============================================================================
 ;; ECA Wisdom Handler
 ;; ============================================================================
 
@@ -227,7 +451,10 @@
    "You are a product development assistant. Based on the project context and current phase, generate 4 specific questions or prompts the user could ask to deepen their understanding. Each should be a complete sentence that the user can click to ask. Format as a numbered list."
 
    :templates
-   "You are a product strategy advisor. Based on the project description, suggest which product development template/archetype best fits this project (SaaS B2B, Marketplace, Consumer App, API Platform, Creator/Content, Hardware/IoT) and explain why in 2-3 sentences. Then provide 2-3 specific tips for that archetype."})
+   "You are a product strategy advisor. Based on the project description, suggest which product development template/archetype best fits this project (SaaS B2B, Marketplace, Consumer App, API Platform, Creator/Content, Hardware/IoT) and explain why in 2-3 sentences. Then provide 2-3 specific tips for that archetype."
+
+   :cross-project
+   "You are a product portfolio strategist. The user has multiple projects in development. Based on all their project data below, analyze:\n1. Common patterns across projects (shared customer segments, similar problems, etc.)\n2. Potential synergies or conflicts between projects\n3. Which project appears most mature/ready to launch\n4. Cross-project insights they might be missing\n\nBe specific to their actual data. Keep it to 4-5 concise paragraphs."})
 
 (defn- assemble-project-context
   "Build a rich context string from project data for ECA.
@@ -298,6 +525,21 @@
                                                    (:categories patterns)))))]]
     (str/join "\n" (remove nil? context-parts))))
 
+(defn- assemble-cross-project-context
+  "Build context string from ALL projects for a user, for cross-project analysis."
+  [user-id]
+  (let [projects-key (keyword (str "projects/" (name user-id)))
+        projects (vals (or (memory/get-value projects-key) {}))
+        ;; Build context for each project
+        project-contexts
+        (for [project projects
+              :let [pid (:project/id project)]]
+          (assemble-project-context user-id pid nil))]
+    (if (seq project-contexts)
+      (str "# All Projects (" (count projects) " total)\n\n"
+           (str/join "\n\n---\n\n" project-contexts))
+      "No projects found for this user.")))
+
 (defn- handle-eca-wisdom!
   "Handle an eca/wisdom message from the frontend.
    Assembles project context, sends to ECA with a phase-specific prompt,
@@ -331,8 +573,10 @@
       ;; ECA running - assemble context and query
       (let [chat-id (str "ws-wisdom-" client-id "-" (System/currentTimeMillis))
             listener-id (keyword (str "ws-wisdom-" client-id))
-            ;; Build project context
-            context-str (assemble-project-context user-id project-id phase-kw)
+            ;; Build project context (cross-project loads ALL projects)
+            context-str (if (= request-type-kw :cross-project)
+                          (assemble-cross-project-context user-id)
+                          (assemble-project-context user-id project-id phase-kw))
             ;; Get system prompt for request type
             system-prompt (get wisdom-prompts request-type-kw (:tips wisdom-prompts))
             ;; Compose full prompt
@@ -436,6 +680,9 @@
 
         "flywheel/progress"
         (handle-flywheel-progress! id message)
+
+        "builder/save-data"
+        (handle-save-builder-data! id message)
         
         (println "Unknown message type from client" id ":" (:type message))))
     (catch Exception e

@@ -1918,6 +1918,147 @@ Browser (wisdom sidebar opens in builder)
 
 ---
 
+### 26. Builder Data Persistence Pipeline (WebSocket Sync)
+
+**Problem:** Builder interactions (adding sticky notes, filling sections) only existed in the frontend Fulcro state. The backend had no knowledge of what users actually built, so it couldn't detect completion or trigger analysis.
+
+**Solution:** Wire every builder mutation to send data to the backend via WebSocket, with the backend persisting to memory and detecting builder completion.
+
+**Data Flow:**
+```
+User adds sticky note / submits section
+  -> Fulcro mutation (swap! state)
+  -> sync helper reads updated state
+  -> [500ms debounce for sticky-note builders]
+  -> ws/save-builder-data!(project-id, session-id, builder-type, data)
+  -> WebSocket "builder/save-data" message
+  -> Backend handle-save-builder-data!
+  -> memory/update! persists to session store
+  -> Sends :builder/data-saved confirmation
+  -> If builder-complete? AND not already completed:
+    -> Marks session :completed
+    -> Spawns future: handle-auto-insight!
+```
+
+**Builder Completion Detection:**
+```clojure
+;; Each builder type has a required section count
+(def builder-section-counts
+  {:empathy-map 6, :value-proposition 6, :mvp-planning 8, :lean-canvas 9})
+
+;; Sticky-note builders: group by :item/section, count unique sections
+;; Form builders: count unique :section-key values in response vector
+(defn count-completed-sections [builder-type data] ...)
+
+(defn builder-complete? [builder-type data]
+  (>= (count-completed-sections builder-type data)
+      (get builder-section-counts builder-type 0)))
+```
+
+**Session ID Conventions:**
+| Builder | Pattern |
+|---------|---------|
+| Empathy Map | `(:session/id session)` or `"empathy-<project-id>"` |
+| Value Prop | `"valueprop-<project-id>"` |
+| MVP | `"mvp-<project-id>"` |
+| Lean Canvas | `(:session/id session)` or `"canvas-<project-id>"` |
+
+**Key Insight:** The backend doesn't need to understand builder UI interactions -- it just needs the data shape and section counts. Completion detection is a simple count check, not complex state machine logic.
+
+---
+
+### 27. Debounced WebSocket Sync in ClojureScript
+
+**Problem:** Sticky-note builders fire mutations rapidly (add, update, delete, drag). Sending a WebSocket message on every mutation would flood the backend and waste bandwidth.
+
+**Solution:** 500ms debounce using `js/setTimeout` with a `defonce` timer atom per builder.
+
+**Implementation:**
+```clojure
+;; Per-builder debounce timer
+(defonce ^:private empathy-sync-timer (atom nil))
+
+(defn- sync-empathy-notes! [state]
+  ;; Cancel previous timer
+  (when-let [t @empathy-sync-timer]
+    (js/clearTimeout t))
+  ;; Set new timer - fires after 500ms of inactivity
+  (reset! empathy-sync-timer
+    (js/setTimeout
+      (fn []
+        (let [project-id (get-in @state [...])
+              session-id (get-in @state [...])
+              notes (get-in @state [...])]
+          (ws/save-builder-data! project-id session-id :empathy-map notes)))
+      500)))
+
+;; Called from every mutation that changes notes
+(m/defmutation add-empathy-note [params]
+  (action [{:keys [state]}]
+    (swap! state ...)
+    (sync-empathy-notes! state)))
+```
+
+**Why `defonce`:** The timer atom must survive Shadow-CLJS hot reloads. Regular `def` would reset the timer reference, potentially orphaning in-flight timers.
+
+**Pattern applies to:** Empathy Map builder (4 mutations), Lean Canvas builder (4 mutations). Value Prop and MVP builders use form submission (not per-keystroke), so they sync immediately without debounce.
+
+**Key Insight:** Debounce at the sync boundary, not at the mutation boundary. The UI should feel instant (immediate `swap!`), while the network sync batches naturally.
+
+---
+
+### 28. Auto-Insight Streaming with Accumulation
+
+**Problem:** When a builder completes, we want ECA to analyze the work and provide insights. The insight needs to be both streamed to the frontend (for real-time display) AND saved to learning memory (for persistence). But ECA streams tokens one at a time.
+
+**Solution:** Accumulate streamed tokens in an atom during streaming, then save the complete text on stream completion.
+
+**Implementation:**
+```clojure
+(defn- handle-auto-insight! [ch project-id builder-type user-id]
+  (let [context (assemble-project-context project-id user-id)
+        prompt (str "Analyze the " (name builder-type) " the user just completed...")
+        ;; Accumulator for streamed text
+        accumulated-text (atom "")]
+    ;; Send start marker
+    (send-to! ch {:type :eca/auto-insight-start :builder-type builder-type})
+    ;; Register streaming callback
+    (eca/register-callback! "chat/contentReceived" :auto-insight
+      (fn [{:keys [text status]}]
+        (when text
+          (swap! accumulated-text str text)
+          (send-to! ch {:type :eca/auto-insight-token :token text}))
+        (when (= status "finished")
+          ;; Save accumulated insight to learning memory
+          (learning/save-insight!
+            {:title (str (label builder-type) " Completion Insight")
+             :content @accumulated-text
+             :category "builder-insight"
+             :tags [builder-type "auto-insight" project-id]})
+          (send-to! ch {:type :eca/auto-insight-done})
+          (eca/unregister-callback! "chat/contentReceived" :auto-insight))))
+    ;; Trigger ECA
+    (eca/chat-prompt prompt {:system-prompt (str context "\n\n" instruction)})))
+```
+
+**Frontend State (separate from wisdom):**
+```clojure
+;; At [:auto-insight/id <project-id>] -- NOT at [:wisdom/id :global]
+{:auto-insight/content ""
+ :auto-insight/loading? false
+ :auto-insight/streaming? false
+ :auto-insight/builder-type :empathy-map}
+```
+
+**Key Design Decisions:**
+1. **Separate from wisdom state** -- Auto-insights are proactive (system-initiated), wisdom is reactive (user-requested). Different idents prevent interference.
+2. **Accumulate in atom, save on done** -- Can't save to learning memory token by token. Atom accumulates, then bulk-saves on "finished".
+3. **Run in future** -- `handle-auto-insight!` is spawned in a `future` from the save handler. Doesn't block the save confirmation response.
+
+**Key Insight:** Streaming + persistence requires dual output: one channel for real-time UI (tokens), one for durable storage (accumulated text). An atom bridging the two is the simplest correct approach.
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*

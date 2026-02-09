@@ -8,15 +8,16 @@
    - Rich text editing
    - Guided onboarding and tutorials
    - Example content and prompts"
-  (:require
-   [clojure.string :as str]
-   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-   [com.fulcrologic.fulcro.dom :as dom]
-   [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-   [com.fulcrologic.fulcro.data-fetch :as df]
-   [com.fulcrologic.fulcro.mutations :as m]
-   [ouroboros.frontend.ui.components :as ui]
-   [ouroboros.frontend.ui.canvas-components :as canvas]))
+   (:require
+    [clojure.string :as str]
+    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+    [com.fulcrologic.fulcro.dom :as dom]
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+    [com.fulcrologic.fulcro.data-fetch :as df]
+    [com.fulcrologic.fulcro.mutations :as m]
+    [ouroboros.frontend.ui.components :as ui]
+    [ouroboros.frontend.ui.canvas-components :as canvas]
+    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
 ;; Section Configuration with Prompts and Examples
@@ -170,31 +171,53 @@
                   (conj undo-stack current-notes))
         (assoc-in [:page/id :empathy-builder :ui :ui/redo-stack] []))))
 
+(defonce ^:private empathy-sync-timer (atom nil))
+
+(defn- sync-empathy-notes!
+  "Send current empathy notes to backend for persistence (debounced 500ms)"
+  [state-atom]
+  (when-let [t @empathy-sync-timer]
+    (js/clearTimeout t))
+  (reset! empathy-sync-timer
+    (js/setTimeout
+      (fn []
+        (let [s @state-atom
+              project-id (get-in s [:page/id :empathy-builder :project/id])
+              session (get-in s [:page/id :empathy-builder :empathy/session])
+              session-id (or (:session/id session) (str "empathy-" project-id))
+              notes (get-in s [:page/id :empathy-builder :empathy/notes] {})]
+          (when project-id
+            (ws/save-builder-data! project-id session-id :empathy-map notes))))
+      500)))
+
 (m/defmutation add-empathy-note
-  "Add a sticky note to an empathy section (client-only for now)"
+  "Add a sticky note to an empathy section"
   [{:keys [session-id section-key content]}]
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)
                                new-note (canvas/create-sticky-note section-key content)]
                            (update-in s [:page/id :empathy-builder :empathy/notes]
-                                      (fnil assoc {}) (:item/id new-note) new-note))))))
+                                      (fnil assoc {}) (:item/id new-note) new-note))))
+          (sync-empathy-notes! state)))
 
 (m/defmutation update-empathy-note
-  "Update a sticky note (client-only for now)"
+  "Update a sticky note"
   [{:keys [note-id updates]}]
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)]
-                           (update-in s [:page/id :empathy-builder :empathy/notes note-id] merge updates))))))
+                           (update-in s [:page/id :empathy-builder :empathy/notes note-id] merge updates))))
+          (sync-empathy-notes! state)))
 
 (m/defmutation delete-empathy-note
-  "Delete a sticky note (client-only for now)"
+  "Delete a sticky note"
   [{:keys [note-id]}]
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)]
-                           (update-in s [:page/id :empathy-builder :empathy/notes] dissoc note-id))))))
+                           (update-in s [:page/id :empathy-builder :empathy/notes] dissoc note-id))))
+          (sync-empathy-notes! state)))
 
 (m/defmutation undo-empathy
   "Undo last notes change"
@@ -232,7 +255,8 @@
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)]
-                           (assoc-in s [:page/id :empathy-builder :empathy/notes] {}))))))
+                           (assoc-in s [:page/id :empathy-builder :empathy/notes] {}))))
+          (sync-empathy-notes! state)))
 
 
 ;; ============================================================================

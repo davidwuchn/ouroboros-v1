@@ -7,14 +7,15 @@
    - Example responses
    - Prioritization framework
    - Progress tracking"
-  (:require
-   [clojure.string :as str]
-   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-   [com.fulcrologic.fulcro.dom :as dom]
-   [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-   [com.fulcrologic.fulcro.data-fetch :as df]
-   [com.fulcrologic.fulcro.mutations :as m]
-   [ouroboros.frontend.ui.components :as ui]))
+   (:require
+    [clojure.string :as str]
+    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+    [com.fulcrologic.fulcro.dom :as dom]
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+    [com.fulcrologic.fulcro.data-fetch :as df]
+    [com.fulcrologic.fulcro.mutations :as m]
+    [ouroboros.frontend.ui.components :as ui]
+    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
 ;; Section Configuration with Prompts and Examples
@@ -184,14 +185,21 @@
 ;; ============================================================================
 
 (m/defmutation submit-mvp-response
-  "Save a section response (client-only for now)"
+  "Save a section response"
   [{:keys [section-key response]}]
   (action [{:keys [state]}]
     (swap! state update-in [:page/id :mvp-builder :completed-responses]
            (fnil conj [])
            {:section-key section-key
             :response response
-            :completed-at (js/Date.now)})))
+            :completed-at (js/Date.now)})
+    ;; Sync to backend
+    (let [s @state
+          project-id (get-in s [:page/id :mvp-builder :project/id])
+          responses (get-in s [:page/id :mvp-builder :completed-responses] [])
+          session-id (str "mvp-" project-id)]
+      (when project-id
+        (ws/save-builder-data! project-id session-id :mvp-planning responses)))))
 
 ;; ============================================================================
 ;; Tutorial Modal Component

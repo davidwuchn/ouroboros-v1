@@ -41,6 +41,7 @@
 | **Web UX Platform - Phase 3** | ✅ Done | **Multi-user collaboration: presence, cursors, comments, version history** |
 | **Web UX Platform - Phase 4** | ✅ Done | **Wisdom & AI: templates, insights, ECA chat integration, pattern recognition** |
 | **Web UX Platform - Phase 5** | ✅ Done | **Polish & Scale: offline sync, analytics, embedding API, onboarding tours** |
+| **Phase C: Continuous Wisdom** | ✅ Done | **Builder persistence, auto-insights on completion, learning storage, cross-project analysis (backend)** |
 
 **Verified Working:**
 ```clojure
@@ -217,7 +218,8 @@ In REPL:
 - Status: Clean
 - Last Updated: 2026-02-09
 - Remote: `origin/chat-platforms`
-- Latest: `bdbbd68` Frontend ECA-powered wisdom
+- Latest: `02ae95d` + Phase C changes
+- Phase C (Continuous Wisdom): ✅ Builder persistence, auto-insights, learning storage -- COMPLETE
 
 ## Completed Features
 
@@ -226,8 +228,9 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 ## Current Focus / Next Steps
 
 1. **ECA-Powered Wisdom** -- ✅ Backend + Frontend complete. Wisdom sidebar, flywheel progress, wisdom page all stream from ECA. Static fallback tips remain as graceful degradation.
-2. **Remaining Static Content** -- Chat panel `context-suggestions` (28 prompts) still static (deferred). Templates/learning categories on wisdom page are structural (OK static).
-3. **Metrics Export** -- Prometheus/OpenTelemetry format
+2. **Continuous Wisdom (Phase C)** -- ✅ Builder persistence, auto-insights on completion, learning memory storage, cross-project analysis (backend). Debounced WebSocket sync for sticky-note builders.
+3. **Remaining Static Content** -- Chat panel `context-suggestions` (28 prompts) still static (deferred). Templates/learning categories on wisdom page are structural (OK static).
+4. **Metrics Export** -- Prometheus/OpenTelemetry format
 
 **Architectural Insight (2026-02-09)**: ECA-powered wisdom is now **fully wired end-to-end**. Backend assembles project context, sends to ECA, streams tokens back via WebSocket. Frontend renders progressively with Fulcro render scheduling. The wisdom sidebar in all 4 builders and the wisdom page Quick Tips section now fetch from ECA with static fallback. **WebUX = state/CRUD/interaction, ECA = knowledge/wisdom/guidance.**
 
@@ -247,6 +250,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✅ **Frontend Chat** -- Global AI chat sidebar with ECA streaming (WebSocket)
 - ✅ **Flywheel UI** -- Step indicator, wisdom sidebar, project detail dashboard
 - ✅ **ECA-Powered Wisdom** -- Wisdom sidebar, flywheel progress, wisdom page all stream from ECA with static fallback
+- ✅ **Phase C: Continuous Wisdom** -- Builder data persisted to backend via WebSocket, auto-insights on builder completion, learning memory storage, cross-project analysis (backend)
 - ✅ **Chat Commands** -- `/learn`, `/recall`, `/wisdom`, `/build canvas|empathy|valueprop|mvp` commands (ready)
 - ✅ **Progressive Disclosure** -- Builder stage suggestions, contextual help
 - ✅ **Product Development Flywheel** -- Empathy Map -> Value Proposition -> MVP -> Lean Canvas with learning integration
@@ -256,7 +260,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✗ Internal AI/agent system (delegated to ECA)
 - ✗ Skill system (replaced by learning flywheel)
 
-**Next Phase**: Phase C -- Continuous Wisdom: auto-insights on builder completion, cross-project patterns, wisdom memory, progressive depth.
+**Next Phase**: Production hardening -- container isolation, metrics export, cross-project UI, chat context suggestions from ECA.
 
 ## Shared Components
 
@@ -325,8 +329,20 @@ All wisdom components now stream from ECA/LLM with static fallback:
 - ✅ Project detail dynamic guidance
 - ⚠️ Chat panel `context-suggestions` (28 prompts) still static (deferred)
 
+### Phase C: Continuous Wisdom -- COMPLETE ✅
+
+Builder persistence and auto-insight pipeline fully wired:
+- ✅ Backend `save-builder-data!` handler with completion detection
+- ✅ Auto-insight trigger on builder completion (ECA streaming)
+- ✅ Learning memory storage for generated insights
+- ✅ Frontend builder persistence with 500ms debounced WebSocket sync
+- ✅ Frontend auto-insight display in wisdom sidebar
+- ✅ Cross-project analysis (backend only, UI deferred)
+- ⚠️ Cross-project analysis UI not yet built (no trigger button)
+- ⚠️ Undo/redo mutations don't sync to backend yet
+
 ### Next Priorities
-1. **Phase C: Continuous Wisdom** -- Auto-insights on builder completion, cross-project patterns, wisdom memory
+1. **Cross-project analysis UI** -- Add trigger button for portfolio-level ECA analysis
 2. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
 3. **Container Isolation** -- OS-level isolation for ECA execution
 

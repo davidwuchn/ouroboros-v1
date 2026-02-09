@@ -304,7 +304,8 @@
 (defn wisdom-sidebar
   "Contextual wisdom tips panel for the current builder phase.
    Fetches ECA-powered tips on open, shows fallback tips while loading.
-   
+   Also displays auto-insights from builder completion.
+    
    Props:
    - phase: keyword (:empathy, :valueprop, :mvp, :canvas)
    - show?: boolean
@@ -318,7 +319,14 @@
           eca-content (:wisdom/content wisdom-state)
           eca-loading? (:wisdom/loading? wisdom-state)
           eca-streaming? (:wisdom/streaming? wisdom-state)
-          has-eca-content? (and eca-content (seq eca-content))]
+          has-eca-content? (and eca-content (seq eca-content))
+          ;; Read auto-insight state
+          auto-insight (when (and state-atom project-id)
+                         (get-in @state-atom [:auto-insight/id project-id]))
+          auto-insight-content (:auto-insight/content auto-insight)
+          auto-insight-loading? (:auto-insight/loading? auto-insight)
+          auto-insight-streaming? (:auto-insight/streaming? auto-insight)
+          has-auto-insight? (and auto-insight-content (seq auto-insight-content))]
       ;; Request tips from ECA on first render if not already loading
       (when (and project-id (not eca-loading?) (not has-eca-content?))
         (ws/request-wisdom! project-id phase :tips))
@@ -328,6 +336,21 @@
           (dom/button {:className "btn btn-close"
                        :onClick on-close} "x"))
         (dom/p :.wisdom-tagline (:tagline fallback))
+        ;; Auto-insight notification (proactive, from builder completion)
+        (when (or has-auto-insight? auto-insight-loading?)
+          (dom/div :.wisdom-auto-insight
+            (dom/div :.wisdom-auto-insight-header
+              (dom/span :.wisdom-auto-insight-icon "🎯")
+              (dom/span :.wisdom-auto-insight-title "Builder Insight"))
+            (if has-auto-insight?
+              (dom/div :.wisdom-auto-insight-content
+                (dom/div :.wisdom-eca-text auto-insight-content)
+                (when auto-insight-streaming?
+                  (dom/span :.wisdom-streaming-indicator "...")))
+              (when auto-insight-loading?
+                (dom/div :.wisdom-loading
+                  (dom/span :.wisdom-loading-icon "🤖")
+                  (dom/span "Analyzing your work..."))))))
         ;; ECA-powered content (streaming or complete)
         (if has-eca-content?
           (dom/div :.wisdom-eca-content
