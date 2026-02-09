@@ -65,6 +65,53 @@
   nil)
 
 ;; ============================================================================
+;; ECA Chat Message Handlers
+;; ============================================================================
+
+(defmethod handle-message :eca/chat-response
+  [{:keys [text]}]
+  ;; Complete (non-streaming) response from ECA
+  (when-let [state-atom @app-state-atom]
+    (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
+          idx (dec (count messages))]
+      (when (and (>= idx 0)
+                 (= :assistant (:role (nth messages idx)))
+                 (:streaming? (nth messages idx)))
+        (swap! state-atom
+               (fn [s]
+                 (-> s
+                     (assoc-in [:chat/id :global :chat/messages idx]
+                               {:role :assistant
+                                :content text
+                                :timestamp (js/Date.now)})
+                     (assoc-in [:chat/id :global :chat/loading?] false))))))))
+
+(defmethod handle-message :eca/chat-token
+  [{:keys [token]}]
+  ;; Streaming token from ECA
+  (when-let [state-atom @app-state-atom]
+    (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
+          idx (dec (count messages))]
+      (when (and (>= idx 0)
+                 (= :assistant (:role (nth messages idx))))
+        (swap! state-atom update-in
+               [:chat/id :global :chat/messages idx :content] str token)))))
+
+(defmethod handle-message :eca/chat-done
+  [_]
+  ;; Streaming complete
+  (when-let [state-atom @app-state-atom]
+    (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
+          idx (dec (count messages))]
+      (when (and (>= idx 0)
+                 (= :assistant (:role (nth messages idx))))
+        (swap! state-atom
+               (fn [s]
+                 (-> s
+                     (update-in [:chat/id :global :chat/messages idx] dissoc :streaming?)
+                     (assoc-in [:chat/id :global :chat/loading?] false))))))))
+
+;; ============================================================================
 ;; Connection Management
 ;; ============================================================================
 

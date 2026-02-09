@@ -442,7 +442,7 @@
                    :lean-canvas/notes
                    {:ui [:ui/show-tutorial :ui/tutorial-step
                           :ui/show-help :ui/show-add-modal :ui/active-block
-                          :ui/undo-stack :ui/redo-stack]}
+                          :ui/undo-stack :ui/redo-stack :ui/presenting?]}
                    [df/marker-table :lean-canvas-builder]]
    :ident         (fn [] [:page/id :lean-canvas-builder])
    :route-segment ["project" :project-id "canvas"]
@@ -453,15 +453,17 @@
                                  :ui/show-add-modal false
                                  :ui/active-block nil
                                  :ui/undo-stack []
-                                 :ui/redo-stack []}})
+                                 :ui/redo-stack []
+                                 :ui/presenting? false}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
-                     (let [default-ui {:ui/show-tutorial true
-                                       :ui/tutorial-step 1
-                                       :ui/show-help false
-                                       :ui/show-add-modal false
-                                       :ui/active-block nil
-                                       :ui/undo-stack []
-                                       :ui/redo-stack []}
+                      (let [default-ui {:ui/show-tutorial true
+                                        :ui/tutorial-step 1
+                                        :ui/show-help false
+                                        :ui/show-add-modal false
+                                        :ui/active-block nil
+                                        :ui/undo-stack []
+                                        :ui/redo-stack []
+                                        :ui/presenting? false}
                           existing-ui (:ui current-normalized)
                           ui-val (if (and existing-ui (seq existing-ui))
                                    existing-ui
@@ -488,7 +490,7 @@
         notes-map (or notes {})
         {:keys [ui/show-tutorial ui/tutorial-step ui/show-help
                  ui/show-add-modal ui/active-block
-                 ui/undo-stack ui/redo-stack]} (or ui {})
+                 ui/undo-stack ui/redo-stack ui/presenting?]} (or ui {})
         tutorial-step (or tutorial-step 1)
 
         ;; Organize notes by block
@@ -505,6 +507,16 @@
                (dom/p "Loading Lean Canvas builder..."))
 
       (dom/div :.builder-page.lean-canvas-builder
+
+        ;; Present Mode (fullscreen overlay)
+        (when presenting?
+          (canvas/presentation
+           {:title "Lean Canvas"
+            :sections (mapv (fn [{:keys [key title icon]}]
+                              {:key key :title title :icon icon})
+                            lean-canvas-blocks)
+            :notes-by-section notes-by-block
+            :on-exit #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? false)})])}))
 
         ;; Tutorial Modal
         (when show-tutorial
@@ -561,7 +573,7 @@
                        (let [json-data (canvas/export-canvas-to-json (vals notes-map))]
                          (canvas/download-json (str "lean-canvas-" project-id ".json") json-data)))
           :on-share (fn [] (js/alert "Share link copied to clipboard!"))
-          :on-present (fn [] (js/alert "Present mode activated!"))
+           :on-present (fn [] (comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? true)})]))
           :on-clear (fn []
                       (when (js/confirm "Clear all notes? This cannot be undone.")
                         (comp/transact! this [(clear-canvas-notes {})])))

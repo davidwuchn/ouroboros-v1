@@ -6,6 +6,7 @@
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
    [ouroboros.frontend.app :refer [app]]
    [ouroboros.frontend.ui.components :as ui]
+   [ouroboros.frontend.ui.chat-panel :as chat]
    [ouroboros.frontend.ui.pages.dashboard :as dashboard]
    [ouroboros.frontend.ui.pages.telemetry :as telemetry]
    [ouroboros.frontend.ui.pages.users :as users]
@@ -15,7 +16,9 @@
    [ouroboros.frontend.ui.pages.empathy-builder :as empathy-builder]
    [ouroboros.frontend.ui.pages.value-prop-builder :as value-prop-builder]
    [ouroboros.frontend.ui.pages.mvp-builder :as mvp-builder]
-   [ouroboros.frontend.ui.pages.lean-canvas-builder :as lean-canvas-builder]))
+   [ouroboros.frontend.ui.pages.lean-canvas-builder :as lean-canvas-builder]
+   [goog.events :as gevents]
+   [goog.events.EventType :as event-type]))
 
 ;; ============================================================================
 ;; Navigation Handler
@@ -51,17 +54,38 @@
 ;; ============================================================================
 
 (defsc Root
-  [this {:keys [main-router]}]
-  {:query         [{:main-router (comp/get-query MainRouter)}]
+  [this {:keys [main-router chat-panel]}]
+  {:query         [{:main-router (comp/get-query MainRouter)}
+                   {:chat-panel (comp/get-query chat/ChatPanel)}]
    :initial-state (fn [_]
-                    {:main-router (comp/get-initial-state MainRouter {:router-id :main-router})})}
+                    {:main-router (comp/get-initial-state MainRouter {:router-id :main-router})
+                     :chat-panel (comp/get-initial-state chat/ChatPanel {})})
+
+   :componentDidMount
+   (fn [this]
+     ;; Global keyboard shortcut: Ctrl+/ to toggle chat
+     (let [handler (fn [e]
+                     (when (and (.-ctrlKey e) (= "/" (.-key e)))
+                       (.preventDefault e)
+                       (comp/transact! this [(chat/toggle-chat {})])))]
+       (let [key (gevents/listen js/document event-type/KEYDOWN handler)]
+         (comp/set-state! this {:kbd-listener-key key}))))
+
+   :componentWillUnmount
+   (fn [this]
+     (when-let [key (:kbd-listener-key (comp/get-state this))]
+       (gevents/unlistenByKey key)))}
 
   (let [current-route (dr/current-route app)
-        ;; current-route is a vector like ["dashboard"] or ["projects"] or ["project" "id" "empathy"]
-        active-route (first current-route)]
+        active-route (first current-route)
+        chat-open? (:chat/open? chat-panel)]
     (dom/div :.app-container
              (ui/navbar
               {:active-route (or active-route "dashboard")
-               :on-navigate navigate-to})
-             (dom/main :.main-content
-                       (ui-main-router main-router)))))
+               :on-navigate navigate-to
+               :on-toggle-chat #(comp/transact! this [(chat/toggle-chat {})])
+               :chat-open? chat-open?})
+             (dom/main {:className (str "main-content " (when chat-open? "main-content-shifted"))}
+                       (ui-main-router main-router))
+             ;; Global chat sidebar (pass current route as context)
+             (chat/ui-chat-panel (assoc chat-panel :chat/context current-route)))))

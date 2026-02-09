@@ -498,7 +498,7 @@
                     {:ui [:ui/persona-name :ui/persona-details :ui/selected-template
                           :ui/show-persona-modal :ui/show-tutorial :ui/tutorial-step
                           :ui/show-help :ui/show-section-modal :ui/active-section
-                          :ui/undo-stack :ui/redo-stack]}
+                          :ui/undo-stack :ui/redo-stack :ui/presenting?]}
                     [df/marker-table :empathy-builder]]
     :ident         (fn [] [:page/id :empathy-builder])
     :route-segment ["project" :project-id "empathy"]
@@ -513,11 +513,12 @@
                                  :ui/show-section-modal false
                                  :ui/active-section nil
                                  :ui/undo-stack []
-                                 :ui/redo-stack []}})
+                                 :ui/redo-stack []
+                                 :ui/presenting? false}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
                     ;; Preserve client-only UI state during server loads
                     ;; Remove empty/nil :ui from server data so it doesn't overwrite client state
-                    (let [default-ui {:ui/persona-name ""
+                     (let [default-ui {:ui/persona-name ""
                                        :ui/persona-details ""
                                        :ui/selected-template nil
                                        :ui/show-persona-modal false
@@ -527,7 +528,8 @@
                                        :ui/show-section-modal false
                                        :ui/active-section nil
                                        :ui/undo-stack []
-                                       :ui/redo-stack []}
+                                       :ui/redo-stack []
+                                       :ui/presenting? false}
                           ;; Use existing client UI if it has real keys, otherwise use defaults
                           existing-ui (:ui current-normalized)
                           ui-val (if (and existing-ui (seq existing-ui))
@@ -557,7 +559,7 @@
         {:keys [ui/persona-name ui/persona-details ui/selected-template
                 ui/show-persona-modal ui/show-tutorial ui/tutorial-step
                 ui/show-help ui/show-section-modal ui/active-section
-                ui/undo-stack ui/redo-stack]} (or ui {})
+                ui/undo-stack ui/redo-stack ui/presenting?]} (or ui {})
         ;; Ensure form values are never nil
         persona-name (or persona-name "")
         persona-details (or persona-details "")
@@ -580,6 +582,15 @@
                (dom/p "Loading empathy builder..."))
 
       (dom/div :.builder-page.empathy-builder
+
+        ;; Present Mode (fullscreen overlay)
+        (when presenting?
+          (canvas/presentation
+           {:title "Empathy Map"
+            :sections (mapv (fn [[k v]] {:key k :title (:title v) :icon (:icon v)})
+                            empathy-sections)
+            :notes-by-section notes-by-section
+            :on-exit #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? false)})])}))
 
         ;; Tutorial Modal (shown on first visit)
         (when show-tutorial
@@ -653,7 +664,7 @@
                        (let [json-data (canvas/export-canvas-to-json (vals notes-map))]
                          (canvas/download-json (str "empathy-map-" project-id ".json") json-data)))
           :on-share (fn [] (js/alert "Share link copied to clipboard!"))
-          :on-present (fn [] (js/alert "Present mode activated!"))
+           :on-present (fn [] (comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? true)})]))
           :on-clear (fn []
                       (when (js/confirm "Clear all notes? This cannot be undone.")
                         (comp/transact! this [(clear-empathy-notes {})])))

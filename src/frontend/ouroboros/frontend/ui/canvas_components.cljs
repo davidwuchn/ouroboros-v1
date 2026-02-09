@@ -13,10 +13,12 @@
    - Connection lines between related items
    - Real-time collaboration cursors
    - Rich text editing"
-  (:require
-   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-   [com.fulcrologic.fulcro.dom :as dom]
-   [com.fulcrologic.fulcro.mutations :as m]))
+   (:require
+    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+    [com.fulcrologic.fulcro.dom :as dom]
+    [com.fulcrologic.fulcro.mutations :as m]
+    [goog.events :as gevents]
+    [goog.events.EventType :as event-type]))
 
 ;; ============================================================================
 ;; Canvas State Management
@@ -424,6 +426,85 @@
     (js/URL.revokeObjectURL url)))
 
 ;; ============================================================================
+;; Present Mode (Fullscreen Read-Only View)
+;; ============================================================================
+
+(defn- present-note-card
+  "Render a single note as a clean presentation card"
+  [{:item/keys [content color]}]
+  (dom/div {:className (str "present-note present-note-" (or color "yellow"))}
+           (dom/p :.present-note-content content)))
+
+(defn- present-section-panel
+  "Render a section with its notes for presentation"
+  [{:keys [title icon notes]}]
+  (dom/div :.present-section
+           (dom/div :.present-section-header
+                    (dom/span :.present-section-icon icon)
+                    (dom/h3 :.present-section-title title))
+           (dom/div :.present-section-notes
+                    (if (seq notes)
+                      (map-indexed
+                       (fn [idx note]
+                         (dom/div {:key (or (:item/id note) idx)}
+                                  (present-note-card note)))
+                       notes)
+                      (dom/div :.present-section-empty
+                               (dom/span "No notes yet"))))))
+
+(defsc PresentMode
+  "Fullscreen presentation overlay for canvas content.
+   Uses lifecycle methods for ESC key listener."
+  [this {:keys [title sections notes-by-section on-exit]}]
+  {:componentDidMount
+   (fn [this]
+     (let [handler (fn [e]
+                     (when (= "Escape" (.-key e))
+                       (let [{:keys [on-exit]} (comp/props this)]
+                         (when on-exit (on-exit)))))
+           key (gevents/listen js/document event-type/KEYDOWN handler)]
+       (comp/set-state! this {:listener-key key})))
+
+   :componentWillUnmount
+   (fn [this]
+     (when-let [key (:listener-key (comp/get-state this))]
+       (gevents/unlistenByKey key)))}
+
+  (dom/div :.present-overlay
+           {:onClick (fn [e]
+                       ;; Close when clicking the backdrop (not the content)
+                       (when (= (.-target e) (.-currentTarget e))
+                         (when on-exit (on-exit))))}
+           (dom/div :.present-container
+                    ;; Header bar
+                    (dom/div :.present-header
+                             (dom/h1 :.present-title title)
+                             (dom/div :.present-header-actions
+                                      (dom/span :.present-hint "Press ESC to exit")
+                                      (dom/button
+                                       {:className "btn present-exit-btn"
+                                        :onClick on-exit}
+                                       "x Exit")))
+                    ;; Content grid
+                    (dom/div :.present-grid
+                             (for [{:keys [key title icon]} sections]
+                               (let [section-notes (get notes-by-section key [])]
+                                 (dom/div {:key (if (keyword? key) (name key) (str key))}
+                                          (present-section-panel
+                                           {:title title
+                                            :icon icon
+                                            :notes section-notes}))))))))
+
+(def ui-present-mode (comp/factory PresentMode))
+
+(defn present-mode
+  "Convenience wrapper for PresentMode.
+   Takes a map with :title, :sections [{:key :title :icon}...],
+   :notes-by-section {section-key [notes...]}, and :on-exit callback."
+  [props]
+  (ui-present-mode props))
+
+;; ============================================================================
 ;; Public API
 ;; ============================================================================
 
@@ -461,3 +542,4 @@
 (def sticky-note ui-sticky-note)
 (def canvas-section ui-canvas-section)
 (def toolbar canvas-toolbar)
+(def presentation present-mode)

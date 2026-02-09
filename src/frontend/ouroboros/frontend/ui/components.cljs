@@ -56,7 +56,7 @@
 
 (defn navbar
   "Navigation bar component"
-  [{:keys [active-route on-navigate]}]
+  [{:keys [active-route on-navigate on-toggle-chat chat-open?]}]
   (let [is? (fn [& routes] (some #(= active-route %) routes))]
     (dom/nav :.navbar
              (dom/a :.navbar-brand
@@ -77,7 +77,14 @@
                                     "Users"))
                      (dom/li (dom/a {:className (str "nav-link" (when (is? "sessions") " active"))
                                      :onClick #(on-navigate "sessions")}
-                                    "Sessions"))))))
+                                    "Sessions")))
+             ;; Chat toggle button
+             (dom/button
+              {:className (str "chat-toggle-btn " (when chat-open? "chat-toggle-active"))
+               :onClick on-toggle-chat
+               :title "AI Assistant (Ctrl+/)"}
+              (dom/span :.chat-toggle-icon "🤖")
+              (dom/span :.chat-toggle-label "AI Chat")))))
 
 (defn main-layout
   "Main application layout"
