@@ -322,10 +322,11 @@
     ;; Sticky note builders: normalize :item/section values in each note
     (:empathy-map :lean-canvas)
     (reduce-kv (fn [m k note]
-                 (assoc m k
-                        (cond-> note
-                          (string? (:item/section note))
-                          (update :item/section keyword))))
+                 (let [str-key (if (keyword? k) (name k) k)]
+                   (assoc m str-key
+                          (cond-> note
+                            (string? (:item/section note))
+                            (update :item/section keyword)))))
                {} (or data {}))
 
     ;; Form builders: normalize :section-key values in each response

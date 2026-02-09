@@ -159,13 +159,14 @@
            ;; Ensure they are keywords for frontend compatibility.
            normalized-data (cond
                              (#{:empathy-builder :lean-canvas-builder} id)
-                             (when session-data
-                               (reduce-kv (fn [m k note]
-                                            (assoc m k
-                                                   (cond-> note
-                                                     (string? (:item/section note))
-                                                     (update :item/section keyword))))
-                                          {} session-data))
+                              (when session-data
+                                (reduce-kv (fn [m k note]
+                                             (let [str-key (if (keyword? k) (name k) k)]
+                                               (assoc m str-key
+                                                      (cond-> note
+                                                        (string? (:item/section note))
+                                                        (update :item/section keyword)))))
+                                           {} session-data))
                              
                              (#{:value-prop-builder :mvp-builder} id)
                              (when session-data
