@@ -20,6 +20,16 @@
 (declare assemble-project-context handle-auto-insight! handle-learning-save-examples! handle-wisdom-template!)
 
 ;; ============================================================================
+;; Current User
+;; ============================================================================
+
+(defn- current-user-id
+  "Get the current system user as a keyword.
+   Uses the OS login username (e.g. :davidwu) instead of a hardcoded demo user."
+  []
+  (keyword (System/getProperty "user.name")))
+
+;; ============================================================================
 ;; Workspace Detection
 ;; ============================================================================
 
@@ -73,7 +83,7 @@
   "Find or create the project for the current workspace directory.
    Returns the project map."
   []
-  (let [user-id :demo-user
+  (let [user-id (current-user-id)
         {:keys [name description path]} (detect-workspace-info)
         projects-key (keyword (str "projects/" (clojure.core/name user-id)))
         existing-projects (or (memory/get-value projects-key) {})
@@ -374,7 +384,7 @@
    Persists the current builder data to the backend session store.
    Optionally triggers auto-insight if the builder is newly complete."
   [client-id {:keys [project-id session-id builder-type data]}]
-  (let [user-id :demo-user
+  (let [user-id (current-user-id)
         builder-type-kw (if (string? builder-type) (keyword builder-type) builder-type)
         ;; Normalize keyword values that were stringified during JSON round-trip
         normalized-data (normalize-builder-data builder-type-kw data)]
@@ -454,7 +464,7 @@
    Sends ECA a focused prompt about the completed builder data and streams
    the response back as auto-insight tokens. Saves completed insight to learning memory."
   [client-id {:keys [project-id builder-type data]}]
-  (let [user-id :demo-user
+  (let [user-id (current-user-id)
         builder-type-kw (if (string? builder-type) (keyword builder-type) builder-type)
         builder-label (get phase-labels builder-type-kw (name (or builder-type-kw :unknown)))]
 
@@ -683,7 +693,7 @@
   "Handle a kanban/board request from the frontend.
    Returns the computed Kanban board state for a project."
   [client-id {:keys [project-id]}]
-  (let [user-id :demo-user
+  (let [user-id (current-user-id)
         board (compute-kanban-board user-id project-id)]
     (send-to! client-id {:type :kanban/board
                          :project-id project-id
@@ -698,7 +708,7 @@
   "Handle an analytics/dashboard request from the frontend.
    Returns real analytics data computed from actual project/session data."
   [client-id {:keys [project-id]}]
-  (let [user-id :demo-user
+  (let [user-id (current-user-id)
         ;; Real progress data
         progress (analytics/project-progress project-id user-id)
         ;; Real health score
@@ -813,7 +823,7 @@
    Routes to ECA with content-type-specific prompts.
    Sends streaming tokens back, then a complete message."
   [client-id {:keys [project-id content-type context]}]
-  (let [user-id :demo-user
+  (let [user-id (current-user-id)
         content-type-kw (if (string? content-type) (keyword content-type) content-type)]
 
     ;; Auto-start ECA if not running
@@ -1012,7 +1022,7 @@
   [client-id {:keys [project-id phase request-type]}]
   (let [phase-kw (if (string? phase) (keyword phase) phase)
         request-type-kw (if (string? request-type) (keyword request-type) (or request-type :tips))
-        user-id :demo-user]
+        user-id (current-user-id)]
 
     ;; Auto-start ECA if not running
     (when-not (:running (eca/status))
@@ -1111,7 +1121,7 @@
   "Handle a flywheel/progress request from the frontend.
    Returns computed flywheel progress for a project."
   [client-id {:keys [project-id]}]
-  (let [user-id :demo-user
+  (let [user-id (current-user-id)
         progress (compute-flywheel-progress user-id project-id)]
     (send-to! client-id {:type :flywheel/progress
                          :project-id project-id
@@ -1264,7 +1274,7 @@
 (defn- handle-learning-save-examples!
   "Persist builder contents as learning examples"
   [client-id {:keys [project-id label template-key builder-type session-id data]}]
-  (let [user-id :demo-user
+  (let [user-id (current-user-id)
         builder-type-kw (if (string? builder-type) (keyword builder-type) builder-type)
         title (str "Wisdom Example - " label)
         examples (format-example-items builder-type-kw data)

@@ -23,6 +23,73 @@
    [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
+;; Current User
+;; ============================================================================
+
+(defn- current-user-id
+  "Get the current system user as a keyword.
+   Uses the OS login username (e.g. :davidwu) instead of a hardcoded demo user."
+  []
+  (keyword (System/getProperty "user.name")))
+
+;; ============================================================================
+;; Demo-user Data Migration
+;; ============================================================================
+
+(defn- migrate-demo-user-data!
+  "One-time migration: move data from :demo-user keys to the real system username.
+   Rewrites project IDs and session references from 'demo-user/...' to '<real-user>/...'."
+  []
+  (let [real-user (current-user-id)
+        real-name (name real-user)
+        old-projects-key :projects/demo-user
+        old-sessions-key :builder-sessions/demo-user
+        new-projects-key (keyword (str "projects/" real-name))
+        new-sessions-key (keyword (str "builder-sessions/" real-name))
+        old-projects (memory/get-value old-projects-key)
+        old-sessions (memory/get-value old-sessions-key)]
+    (when (and old-projects (not= real-user :demo-user))
+      ;; Migrate projects: rewrite IDs from "demo-user/..." to "<real-user>/..."
+      (let [migrated-projects
+            (reduce-kv
+              (fn [m old-id project]
+                (let [new-id (str/replace old-id #"^demo-user/" (str real-name "/"))
+                      migrated (-> project
+                                   (assoc :project/id new-id)
+                                   (assoc :project/owner real-name))]
+                  (assoc m new-id migrated)))
+              {}
+              old-projects)]
+        (memory/save-value! new-projects-key
+                            (merge (or (memory/get-value new-projects-key) {})
+                                   migrated-projects))
+        (memory/delete-value! old-projects-key)
+        (println (str "✓ Migrated " (count migrated-projects) " projects from :demo-user to :" real-name))))
+    (when (and old-sessions (not= real-user :demo-user))
+      ;; Migrate builder sessions: rewrite project-id references and session ID keys
+      (let [migrated-sessions
+            (reduce-kv
+              (fn [m session-id session]
+                (let [new-session-id (str/replace (str session-id) "demo-user/" (str real-name "/"))
+                      new-project-id (when (:session/project-id session)
+                                       (str/replace (:session/project-id session)
+                                                     #"^demo-user/" (str real-name "/")))
+                      migrated (cond-> session
+                                 true (assoc :session/id new-session-id)
+                                 new-project-id (assoc :session/project-id new-project-id))]
+                  (assoc m new-session-id migrated)))
+              {}
+              old-sessions)]
+        (memory/save-value! new-sessions-key
+                            (merge (or (memory/get-value new-sessions-key) {})
+                                   migrated-sessions))
+        (memory/delete-value! old-sessions-key)
+        (println (str "✓ Migrated " (count migrated-sessions) " builder sessions from :demo-user to :" real-name))))))
+
+;; Run migration once at namespace load
+(defonce ^:private _migration-done (do (migrate-demo-user-data!) true))
+
+;; ============================================================================
 ;; Data Model
 ;; ============================================================================
 
@@ -143,14 +210,12 @@
      :project/deleted? true}))
 
 (pco/defresolver page-user
-  "Get current user-id from page context (for demo purposes)
-    Maps page IDs to user IDs. In production, use auth/user-id from session."
+  "Get current user-id from page context.
+   Uses the OS login username as user identity."
   [{:keys [page/id]}]
   {::pco/input [:page/id]
    ::pco/output [:user/id]}
-   ;; Default to :demo-user for all pages in this demo
-   ;; In production, this would derive from authentication session
-  {:user/id :demo-user})
+  {:user/id (current-user-id)})
 
 (pco/defresolver user-projects
   "Get all projects for a user"
@@ -341,9 +406,7 @@
   [{:keys [name description]}]
   {::pco/op-name 'ouroboros.frontend.ui.pages.projects/create-project
    ::pco/output [:project/id :project/name :project/description :project/owner :project/status :project/created-at :project/updated-at]}
-  ;; Use demo-user since frontend doesn't send user-id yet
-  ;; In production, this would come from auth context
-  (create-project! {:user-id :demo-user :name name :description description}))
+  (create-project! {:user-id (current-user-id) :name name :description description}))
 
 (pco/defmutation frontend-delete-project
   "Frontend adapter for delete-project mutation.
@@ -351,8 +414,7 @@
   [{:keys [project-id]}]
   {::pco/op-name 'ouroboros.frontend.ui.pages.projects/delete-project
    ::pco/output [:project/id :project/deleted?]}
-  ;; Use demo-user since frontend doesn't send user-id yet
-  (delete-project! {:user-id :demo-user :project-id project-id}))
+  (delete-project! {:user-id (current-user-id) :project-id project-id}))
 
 ;; ============================================================================
 ;; Registration

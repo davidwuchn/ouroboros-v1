@@ -10,7 +10,7 @@
    [ouroboros.frontend.ui.components :as ui]
    [ouroboros.frontend.websocket :as ws]))
 
-;; Project IDs contain "/" (e.g. "demo-user/project-name-123")
+;; Project IDs contain "/" (e.g. "davidwu/project-ouroboros-chat-1739012345678")
 ;; which breaks URL routing. Encode/decode for safe URL use.
 (defn encode-project-id
   "Replace / with ~ for safe URL routing"
