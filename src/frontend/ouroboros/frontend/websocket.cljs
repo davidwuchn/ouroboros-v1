@@ -506,6 +506,30 @@
           :builder-type (name builder-type)
           :data data}))
 
+(defn merge-builder-data-into-state!
+  "Write builder data directly into Fulcro state at the correct ident path.
+   Called after template injection to make data immediately available to builder
+   components without requiring navigation + df/load! round-trip.
+   builder-type: :empathy-map, :value-proposition, :mvp-planning, :lean-canvas
+   data: the builder data (notes map or responses vector)"
+  [builder-type data]
+  (when-let [state-atom @app-state-atom]
+    (case builder-type
+      :empathy-map
+      (swap! state-atom assoc-in [:page/id :empathy-builder :empathy/notes] data)
+
+      :lean-canvas
+      (swap! state-atom assoc-in [:page/id :lean-canvas-builder :lean-canvas/notes] data)
+
+      :value-proposition
+      (swap! state-atom assoc-in [:page/id :value-prop-builder :completed-responses] data)
+
+      :mvp-planning
+      (swap! state-atom assoc-in [:page/id :mvp-builder :completed-responses] data)
+
+      nil)
+    (schedule-render!)))
+
 (defn- send-subscription!
   "Send subscription/unsubscription message"
   [type topic]

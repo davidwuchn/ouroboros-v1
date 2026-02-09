@@ -317,6 +317,8 @@
 
 (defn- inject-template-all-builders!
   "Save template data across all 4 builders for a project.
+   Sends data to backend for persistence AND writes directly into Fulcro state
+   so builder components have the data immediately without requiring navigation.
    Returns the count of builders that had data to save."
   [project-id template-data]
   (let [results (doall
@@ -324,8 +326,12 @@
                         :let [data (template->builder-data type template-data)
                               session-id (str prefix project-id)]
                         :when (seq data)]
-                    (do (ws/save-builder-data! project-id session-id type data)
-                        type)))]
+                    (do
+                      ;; Save to backend for persistence
+                      (ws/save-builder-data! project-id session-id type data)
+                      ;; Also write directly into Fulcro state for immediate availability
+                      (ws/merge-builder-data-into-state! type data)
+                      type)))]
     (count results)))
 
 (def builder-labels
