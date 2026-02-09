@@ -1,6 +1,7 @@
 (ns ouroboros.frontend.websocket
   "WebSocket client for real-time updates"
   (:require
+   [clojure.string :as str]
    [com.fulcrologic.fulcro.application :as app]))
 
 ;; Forward declarations
@@ -12,6 +13,7 @@
 
 (defonce app-state-atom (atom nil))
 (defonce render-callback (atom nil))
+(defonce navigate-callback (atom nil))
 
 (defn set-app-state-atom!
   "Set the app state atom for merging data"
@@ -22,6 +24,11 @@
   "Set a callback to trigger UI re-render after state mutation"
   [cb]
   (reset! render-callback cb))
+
+(defn set-navigate-callback!
+  "Set a callback for programmatic navigation: (fn [route-segments])"
+  [cb]
+  (reset! navigate-callback cb))
 
 (defn- schedule-render!
   "Schedule a UI re-render after direct state mutation"
@@ -186,6 +193,18 @@
       ;; Re-request Kanban board to reflect updated builder data
       (send! {:type "kanban/board" :project-id project-id}))))
 
+(defmethod handle-message :builder/snapshot
+  [{:keys [project-id sessions]}]
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in [:builder/snapshot project-id] sessions)
+    (schedule-render!)))
+
+(defmethod handle-message :wisdom/template
+  [{:keys [template-key data]}]
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in [:wisdom/template (keyword template-key)] data)
+    (schedule-render!)))
+
 ;; ============================================================================
 ;; Kanban Board Message Handlers
 ;; ============================================================================
@@ -265,15 +284,19 @@
   ;; Workspace project auto-detected by backend on WS connect
   (js/console.log "Workspace project detected:" (clj->js project))
   (when-let [state-atom @app-state-atom]
-    (let [project-id (:project/id project)]
+    (let [project-id (:project/id project)
+          encoded-id (str/replace (str project-id) "/" "~")]
       (swap! state-atom
              (fn [s]
                (-> s
                    ;; Store the active workspace project
                    (assoc-in [:workspace/project] project)
                    ;; Also normalize it into the project table for Fulcro
-                   (assoc-in [:project/id project-id] project)))))
-    (schedule-render!)))
+                   (assoc-in [:project/id project-id] project))))
+      (schedule-render!)
+      ;; Auto-navigate to the project detail page (kanban view)
+      (when-let [nav @navigate-callback]
+        (nav ["project" encoded-id])))))
 
 (defmethod handle-message :eca/auto-insight-start
   [{:keys [project-id builder-type]}]
@@ -448,7 +471,7 @@
 (defn request-content!
   "Request ECA-generated content by type.
    content-type: :insights, :blockers, :templates, :chat-suggestions,
-                 :flywheel-guide, :section-hints, :learning-categories"
+                  :flywheel-guide, :section-hints, :learning-categories"
   [content-type & {:keys [project-id context]}]
   (when-let [state-atom @app-state-atom]
     (swap! state-atom
@@ -456,10 +479,33 @@
              (-> s
                  (assoc-in [:content/loading? content-type] true)
                  (assoc-in [:content/streaming content-type] "")))))
-  (send! (cond-> {:type "content/generate"
-                   :content-type (name content-type)}
-           project-id (assoc :project-id project-id)
-           context (assoc :context context))))
+    (send! (cond-> {:type "content/generate"
+                    :content-type (name content-type)}
+             project-id (assoc :project-id project-id)
+             context (assoc :context context))))
+
+(defn request-builder-snapshot!
+  "Request latest builder session data for a project"
+  [project-id]
+  (send! {:type "builder/snapshot"
+          :project-id project-id}))
+
+(defn request-learning-save-examples!
+  "Save builder contents as learning examples"
+  [{:keys [project-id label template-key builder-type session-id data]}]
+  (send! {:type "learning/save-examples"
+          :project-id project-id
+          :label label
+          :template-key (when template-key (name template-key))
+          :builder-type (name builder-type)
+          :session-id session-id
+          :data data}))
+
+(defn request-wisdom-template!
+  "Request template data from backend"
+  [template-key]
+  (send! {:type "wisdom/template"
+          :template-key (name template-key)}))
 
 (defn save-builder-data!
   "Send builder section data to backend for persistence.

@@ -495,10 +495,13 @@
                           ui-val (if (and existing-ui (seq existing-ui))
                                    existing-ui
                                    default-ui)
-                          clean-data (dissoc data-tree :ui :lean-canvas/notes)]
+                          clean-data (dissoc data-tree :ui :lean-canvas/notes)
+                          ;; Prefer client notes if non-empty, otherwise use server notes
+                          client-notes (:lean-canvas/notes current-normalized)
+                          server-notes (:lean-canvas/notes data-tree)]
                       (merge
                        {:ui ui-val
-                        :lean-canvas/notes (or (not-empty (:lean-canvas/notes current-normalized)) {})}
+                        :lean-canvas/notes (or (not-empty client-notes) (not-empty server-notes) {})}
                        clean-data)))
    :will-enter    (fn [app {:keys [project-id]}]
                     (let [decoded-id (str/replace (or project-id "") "~" "/")]

@@ -563,10 +563,13 @@
                                    existing-ui
                                    default-ui)
                           ;; Strip server-side keys that would overwrite client state
-                          clean-data (dissoc data-tree :ui :empathy/notes :completed-responses)]
+                          clean-data (dissoc data-tree :ui :empathy/notes :completed-responses)
+                          ;; Prefer client notes if non-empty, otherwise use server notes
+                          client-notes (:empathy/notes current-normalized)
+                          server-notes (:empathy/notes data-tree)]
                       (merge
                        {:ui ui-val
-                        :empathy/notes (or (not-empty (:empathy/notes current-normalized)) {})}
+                        :empathy/notes (or (not-empty client-notes) (not-empty server-notes) {})}
                        clean-data)))
    :will-enter    (fn [app {:keys [project-id]}]
                     (let [decoded-id (str/replace (or project-id "") "~" "/")]

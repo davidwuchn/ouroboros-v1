@@ -129,13 +129,48 @@
     ;; Builder pages (empathy, value-prop, mvp, lean-canvas)
     (#{:empathy-builder :value-prop-builder :mvp-builder :lean-canvas-builder} id)
     (let [project-id (:project-id env)
-          project (get-project-by-id project-id)]
+          project (get-project-by-id project-id)
+          ;; Look up persisted builder session data from memory
+          user-id (when-let [slash-idx (and project-id (str/index-of project-id "/"))]
+                    (keyword (subs project-id 0 slash-idx)))
+          builder-type-kw (case id
+                            :empathy-builder :empathy-map
+                            :value-prop-builder :value-proposition
+                            :mvp-builder :mvp-planning
+                            :lean-canvas-builder :lean-canvas
+                            nil)
+          session-prefix (case id
+                           :empathy-builder "empathy-"
+                           :value-prop-builder "valueprop-"
+                           :mvp-builder "mvp-"
+                           :lean-canvas-builder "canvas-"
+                           "")
+          session-id (when project-id (str session-prefix project-id))
+          all-sessions (when user-id
+                         (let [key (keyword (str "builder-sessions/" (name user-id)))]
+                           (try
+                             (require 'ouroboros.memory)
+                             ((resolve 'ouroboros.memory/get-value) key)
+                             (catch Exception _ nil))))
+          session (when session-id (get all-sessions session-id))
+          session-data (:session/data session)
+          ;; Extract data in the right format for each builder type
+          empathy-notes (if (= id :empathy-builder)
+                          (or session-data {})
+                          {})
+          lean-canvas-notes (if (= id :lean-canvas-builder)
+                              (or session-data {})
+                              {})
+          completed-responses (if (#{:value-prop-builder :mvp-builder} id)
+                                (or session-data [])
+                                [])]
       {:page/id id
        :project/id (or (:project/id project) project-id)
        :project/name (or (:project/name project) "Unknown Project")
        ;; Empathy builder attributes
-       :empathy/session nil
-       :empathy/notes {}
+       :empathy/session (when (= id :empathy-builder)
+                          {:session/id (or session-id "")})
+       :empathy/notes empathy-notes
        ;; MVP/Value Prop builder attributes
        :session/ui {:ui/current-section 0
                     :ui/total-sections 6
@@ -143,13 +178,14 @@
                     :ui/hint nil
                     :ui/completed-sections []
                     :ui/complete? false}
-       :session/data {}
+       :session/data (or session-data {})
        ;; Lean Canvas builder attributes
-       :lean-canvas/session nil
-       :lean-canvas/notes {}
+       :lean-canvas/session (when (= id :lean-canvas-builder)
+                              {:session/id (or session-id "")})
+       :lean-canvas/notes lean-canvas-notes
        ;; UI: return empty map - client pre-merge fills in defaults
         :ui {}
-        :completed-responses []
+        :completed-responses completed-responses
         :ui.fulcro.client.data-fetch.load-markers/by-id nil
        :page/error (when-not project "Project not found")})
     
@@ -162,12 +198,12 @@
                              (require 'ouroboros.telemetry)
                              ((resolve 'ouroboros.telemetry/get-events))
                              (catch Exception e nil)))]
-      {:page/id id
-       :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
-                            (catch Exception e false))
-       :system/current-state (try ((resolve 'ouroboros.engine/current-state))
-                                 (catch Exception e nil))
-       :system/meta {:version "0.1.0"}
+       {:page/id id
+        :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
+                             (catch Exception e false))
+        :system/current-state (try ((resolve 'ouroboros.engine/current-state))
+                                  (catch Exception e nil))
+        :system/meta {:version "0.1.0"}
        ;; Telemetry data
        :telemetry/total-events (count telemetry-data)
        :telemetry/tool-invocations (count (filter #(= :tool/invoke (:event %)) telemetry-data))
@@ -177,14 +213,14 @@
                               (/ (count (filter #(false? (:success? %)) telemetry-data))
                                  (count telemetry-data) 0.01)
                               0)
-       :telemetry/events (mapv (fn [evt]
-                                {:event/id (or (:event/id evt) (str (hash evt)))
-                                 :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
-                                 :event (:event evt)
-                                 :tool (:tool evt)
-                                 :duration-ms (:duration-ms evt)
-                                 :success? (:success? evt)})
-                              telemetry-data)
+        :telemetry/events (mapv (fn [evt]
+                                 {:event/id (or (:event/id evt) (str (java.util.UUID/randomUUID)))
+                                  :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
+                                  :event (:event evt)
+                                  :tool (:tool evt)
+                                  :duration-ms (:duration-ms evt)
+                                  :success? (:success? evt)})
+                               telemetry-data)
        ;; Project fields (empty for non-project pages)
        :project/id nil
        :project/name nil

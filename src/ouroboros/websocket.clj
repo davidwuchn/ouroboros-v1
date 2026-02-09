@@ -17,7 +17,7 @@
             [java.io File]))
 
 ;; Forward declarations for functions defined later in the file
-(declare assemble-project-context handle-auto-insight!)
+(declare assemble-project-context handle-auto-insight! handle-learning-save-examples! handle-builder-snapshot! handle-wisdom-template!)
 
 ;; ============================================================================
 ;; Workspace Detection
@@ -1086,6 +1086,22 @@
                          :progress progress
                           :timestamp (System/currentTimeMillis)})))
 
+(defn- handle-builder-snapshot!
+  "Send latest builder session data for a project"
+  [client-id {:keys [project-id]}]
+  (let [user-id :demo-user
+        sessions-key (keyword (str "builder-sessions/" (name user-id)))
+        all-sessions (vals (or (memory/get-value sessions-key) {}))
+        project-sessions (filter #(= (:session/project-id %) project-id) all-sessions)
+        by-type (group-by :session/type project-sessions)
+        latest-by-type (into {}
+                             (for [[builder-type sessions] by-type]
+                               [builder-type (last (sort-by :session/updated-at sessions))]))]
+    (send-to! client-id {:type :builder/snapshot
+                         :project-id project-id
+                         :sessions latest-by-type
+                         :timestamp (System/currentTimeMillis)})))
+
 (defn handle-message
   "Handle incoming WebSocket message"
   [id message-str]
@@ -1116,6 +1132,15 @@
 
         "builder/save-data"
         (handle-save-builder-data! id message)
+
+        "builder/snapshot"
+        (handle-builder-snapshot! id message)
+
+        "learning/save-examples"
+        (handle-learning-save-examples! id message)
+
+        "wisdom/template"
+        (handle-wisdom-template! id message)
 
         "kanban/board"
         (handle-kanban-board! id message)
@@ -1175,10 +1200,89 @@
 (defn telemetry-callback
   "Callback for telemetry events - broadcasts to WebSocket clients"
   [event]
-  (broadcast-to! :telemetry/events
-                 {:type :telemetry/event
-                  :data event
-                  :timestamp (System/currentTimeMillis)}))
+  (let [normalized (cond
+                     (:event event) event
+                     (:event/type event) (assoc event :event (:event/type event))
+                     (:type event) (assoc event :event (:type event))
+                     :else event)]
+    (broadcast-to! :telemetry/events
+                   {:type :telemetry/event
+                    :data normalized
+                    :timestamp (System/currentTimeMillis)})))
+
+(defn- format-example-items
+  "Convert builder data into a list of example items"
+  [builder-type data]
+  (case builder-type
+    :empathy-map
+    (let [notes (vals (or data {}))]
+      (map (fn [note]
+             {:section (name (:item/section note))
+              :content (:item/content note)
+              :kind :sticky-note})
+           notes))
+
+    :lean-canvas
+    (let [notes (vals (or data {}))]
+      (map (fn [note]
+             {:section (name (:item/section note))
+              :content (:item/content note)
+              :kind :sticky-note})
+           notes))
+
+    :value-proposition
+    (let [responses (or data [])]
+      (map (fn [{:keys [section-key response]}]
+             {:section (name section-key)
+              :content response
+              :kind :response})
+           responses))
+
+    :mvp-planning
+    (let [responses (or data [])]
+      (map (fn [{:keys [section-key response]}]
+             {:section (name section-key)
+              :content response
+              :kind :response})
+           responses))
+
+    []))
+
+(defn- handle-learning-save-examples!
+  "Persist builder contents as learning examples"
+  [client-id {:keys [project-id label template-key builder-type session-id data]}]
+  (let [user-id :demo-user
+        builder-type-kw (if (string? builder-type) (keyword builder-type) builder-type)
+        title (str "Wisdom Example - " label)
+        examples (format-example-items builder-type-kw data)
+        tags (cond-> #{"wisdom" "example" (name builder-type-kw)}
+               template-key (conj (name template-key))
+               project-id (conj (str project-id)))]
+    (learning/save-insight! user-id
+                            {:title title
+                             :insights [(str "Captured builder examples from " label)]
+                             :pattern "wisdom-example"
+                             :category "product-development"
+                             :tags tags
+                             :examples (vec examples)})
+    (telemetry/emit! {:event :wisdom/examples-saved
+                      :client-id client-id
+                      :project-id project-id
+                      :builder-type builder-type-kw})
+    (send-to! client-id {:type :learning/examples-saved
+                         :project-id project-id
+                         :builder-type builder-type-kw
+                         :timestamp (System/currentTimeMillis)})))
+
+(defn- handle-wisdom-template!
+  "Return template data by key"
+  [client-id {:keys [template-key]}]
+  (let [template-kw (keyword template-key)
+        template (wisdom/get-template template-kw)]
+    (send-to! client-id {:type :wisdom/template
+                         :template-key (name template-kw)
+                         :data template
+                         :timestamp (System/currentTimeMillis)})))
 
 (defonce telemetry-listener-registered? (atom false))
 

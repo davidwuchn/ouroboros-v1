@@ -350,15 +350,16 @@
 
 (defn section-card
   "Displays a section card with response or prompt to fill"
-  [{:keys [section response on-click on-edit]}]
-  (let [{:keys [key title icon hint]} section]
-    (dom/div {:className (str "value-prop-card " (when response "completed"))
+  [{:keys [key section response on-click on-edit]}]
+  (let [{:keys [title icon hint]} section]
+    (dom/div {:key (name key)
+              :className (str "value-prop-card " (when response "completed"))
               :onClick (if response on-edit on-click)}
-             (dom/div :.card-header
-                      (dom/span :.card-icon icon)
-                      (dom/h4 title)
-                      (when response
-                        (dom/span :.completed-badge "✓")))
+              (dom/div :.card-header
+                       (dom/span :.card-icon icon)
+                       (dom/h4 title)
+                       (when response
+                         (dom/span :.completed-badge "✓")))
              (if response
                (dom/div :.card-response
                         (dom/p response)
@@ -408,10 +409,13 @@
                           ui-val (if (and existing-ui (seq existing-ui))
                                    existing-ui
                                    default-ui)
-                          clean-data (dissoc data-tree :ui :completed-responses)]
+                          clean-data (dissoc data-tree :ui :completed-responses)
+                          ;; Prefer client responses if non-empty, otherwise use server responses
+                          client-responses (:completed-responses current-normalized)
+                          server-responses (:completed-responses data-tree)]
                       (merge
                        {:ui ui-val
-                        :completed-responses (or (not-empty (:completed-responses current-normalized)) [])}
+                        :completed-responses (or (not-empty client-responses) (not-empty server-responses) [])}
                        clean-data)))
    :will-enter    (fn [app {:keys [project-id]}]
                     (let [decoded-id (str/replace (or project-id "") "~" "/")]
@@ -553,20 +557,20 @@
                               :variant :primary}
                              "Continue to MVP Planning >")))
 
-          ;; Section Cards Grid
-          (dom/div :.value-prop-grid
-                   (for [{:keys [key] :as section} value-prop-sections]
-                     (section-card
-                      {:key (name key)
-                       :section section
-                       :response (get response-map key)
-                       :on-click #(comp/transact! this
+           ;; Section Cards Grid
+           (dom/div :.value-prop-grid
+                    (for [{:keys [key] :as section} value-prop-sections]
+                      (section-card
+                       {:key key
+                        :section section
+                        :response (get response-map key)
+                        :on-click #(comp/transact! this
+                                                   [(m/set-props {:ui (-> ui
+                                                                          (assoc :ui/show-section-modal true)
+                                                                          (assoc :ui/active-section key)
+                                                                          (assoc :ui/section-value ""))})])
+                        :on-edit #(comp/transact! this
                                                   [(m/set-props {:ui (-> ui
                                                                          (assoc :ui/show-section-modal true)
                                                                          (assoc :ui/active-section key)
-                                                                         (assoc :ui/section-value ""))})])
-                       :on-edit #(comp/transact! this
-                                                 [(m/set-props {:ui (-> ui
-                                                                        (assoc :ui/show-section-modal true)
-                                                                        (assoc :ui/active-section key)
-                                                                        (assoc :ui/section-value (get response-map key "")))})])}))))))))
+                                                                         (assoc :ui/section-value (get response-map key "")))})])}))))))))
