@@ -70,7 +70,7 @@
     (let [telemetry-events (atom [])
           original-emit telemetry/emit!]
       (with-redefs [telemetry/emit! (fn [event] (swap! telemetry-events conj event))]
-        (#'eca/handle-notification! {:method "chat/content-received" :params {:role "user"}})
+        (#'eca/handle-notification! {:method "chat/contentReceived" :params {:role "user"}})
         (is (some #(= :eca/notification (:event %)) @telemetry-events))
         (is (some #(= :eca/content-received (:event %)) @telemetry-events))))))
 

@@ -557,6 +557,60 @@ bb dev:stop
 
 ---
 
+### 22. LSP/JSON-RPC Content-Length Is Bytes, Not Characters
+
+**Problem:** ECA IPC was silently dropping all messages after the first large notification containing multi-byte UTF-8 characters (e.g., unicode in tool descriptions). The `chat/prompt` RPC returned `{status: "prompting"}` but no `chat/contentReceived` notifications ever arrived.
+
+**Root Cause:** The JSON-RPC reader used `BufferedReader` (character-based) but `Content-Length` headers specify **bytes**. When ECA sent a message with `Content-Length: 18291` that contained multi-byte UTF-8 characters, the actual character count was lower (~18230 chars). `BufferedReader.read(char[], 0, 18291)` consumed 18291 **chars** which was more **bytes** than intended, eating into the next message's framing. All subsequent messages were corrupted.
+
+**Diagnostic approach:**
+1. Raw byte-level dump of ECA stdout showed messages were being sent correctly
+2. Noticed `tool/serverUpdated` notification (18291 Content-Length) was the last successfully parsed message
+3. Computed: 18291 bytes = 18230 chars (61 multi-byte characters in MCP tool descriptions)
+4. After that message, reader was 61 bytes ahead in the stream, corrupting all subsequent frames
+
+**Solution:** Read from `BufferedInputStream` (byte-level), not `BufferedReader` (character-level):
+
+```clojure
+;; WRONG - BufferedReader reads chars, Content-Length is bytes
+(let [reader (BufferedReader. (InputStreamReader. stdout))
+      chars (char-array content-length)]
+  (.read reader chars 0 content-length)  ; reads N chars, not N bytes!
+  (String. chars))
+
+;; CORRECT - BufferedInputStream reads bytes, then decode to string
+(let [stream (BufferedInputStream. stdout)
+      bytes (byte-array content-length)]
+  ;; Read exactly content-length bytes
+  (loop [offset 0]
+    (when (< offset content-length)
+      (let [n (.read stream bytes offset (- content-length offset))]
+        (when (pos? n)
+          (recur (+ offset n))))))
+  (String. bytes "UTF-8"))
+```
+
+Also fix the serializer to compute Content-Length from bytes, not chars:
+```clojure
+;; WRONG
+(str "Content-Length: " (count json-string) "\r\n\r\n" json-string)
+
+;; CORRECT
+(let [json-bytes (.getBytes json-string "UTF-8")]
+  (str "Content-Length: " (alength json-bytes) "\r\n\r\n" json-string))
+```
+
+**Key Insight:** This is the single most common LSP client implementation bug on the JVM. Any protocol using `Content-Length` in bytes MUST read from raw byte streams. `Reader`/`BufferedReader` decode bytes to chars, making it impossible to honor byte-count headers when multi-byte UTF-8 is present. The failure is silent and intermittent -- it only manifests when messages happen to contain enough multi-byte characters to shift the byte/char offset.
+
+**Additional fixes in the same session:**
+- Removed `Thread/sleep 100` from read-loop (IO blocks naturally on `InputStream.read`)
+- Added EOF detection (nil response stops loop instead of spinning)
+- Preserved `:callbacks` across `start!` restarts
+- Added `{:wait? true}` mode to `chat-prompt` for synchronous response collection
+- Suppressed noisy read errors during shutdown
+
+---
+
 ## Anti-Patterns
 
 ### Circular Dependencies

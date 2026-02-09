@@ -34,13 +34,13 @@
    (eca/chat-prompt \"Hello!\")
    (eca/stop!)"
   (:require
-   [cheshire.core :as json]
-   [clojure.string :as str]
-   [ouroboros.fs :as fs]
-   [ouroboros.telemetry :as telemetry]
-   [ouroboros.resolver-registry :as registry])
-   (:import [java.io BufferedReader PrintWriter InputStreamReader]
-            [java.lang ProcessBuilder ProcessHandle]))
+    [cheshire.core :as json]
+    [clojure.string :as str]
+    [ouroboros.fs :as fs]
+    [ouroboros.telemetry :as telemetry]
+    [ouroboros.resolver-registry :as registry])
+    (:import [java.io BufferedReader InputStreamReader BufferedInputStream]
+             [java.lang ProcessBuilder]))
 
 ;; ============================================================================
 ;; State
@@ -53,7 +53,8 @@
          :running false
          :request-id 0
          :pending-requests {}
-         :callbacks {}}))
+         :callbacks {}
+         :chat-contents []}))
 
 ;; Forward declarations
 (declare initialize!)
@@ -152,45 +153,80 @@
 (defn- serialize-message [message]
   (let [safe-message (sanitize-for-json message)
         json (json/generate-string safe-message)
-        content-length (count json)]
+        json-bytes (.getBytes json "UTF-8")
+        content-length (alength json-bytes)]
     (str "Content-Length: " content-length "\r\n\r\n" json)))
 
-(defn- read-response-header [reader]
-  "Read Content-Length header from response"
-  (loop []
-    (let [line (.readLine reader)]
-      (if (str/blank? line)
-        nil
-        (if (str/starts-with? line "Content-Length:")
-          (let [len-str (str/trim (subs line 15))]
-            (Integer/parseInt len-str))
-          (recur))))))
+(defn- read-line-bytes
+  "Read a line from a BufferedInputStream, terminated by \\r\\n.
+   Returns the line as a String (without \\r\\n), or nil on EOF."
+  [^BufferedInputStream stream]
+  (let [baos (java.io.ByteArrayOutputStream. 256)]
+    (loop [prev-byte -1]
+      (let [b (.read stream)]
+        (cond
+          ;; EOF
+          (neg? b) (if (pos? (.size baos))
+                     (.toString baos "UTF-8")
+                     nil)
+          ;; \r\n sequence - line complete
+          (and (= b 10) (= prev-byte 13))
+          (let [arr (.toByteArray baos)
+                len (alength arr)]
+            ;; Remove trailing \r (we already appended it)
+            (String. arr 0 (max 0 (dec len)) "UTF-8"))
+          ;; Accumulate
+          :else
+          (do (.write baos b)
+              (recur b)))))))
 
-(defn- read-jsonrpc-response [reader]
-  "Read and parse a JSON-RPC response"
-  (let [content-length (read-response-header reader)]
+(defn- read-response-header [^BufferedInputStream stream]
+  "Read Content-Length header from response (byte-level).
+   Returns the content-length as an integer, or nil on EOF."
+  (loop [found-content-length nil]
+    (let [line (read-line-bytes stream)]
+      (cond
+        (nil? line)
+        found-content-length
+
+        (str/blank? line)
+        (if found-content-length
+          found-content-length
+          (recur nil))
+
+        (str/starts-with? line "Content-Length:")
+        (let [len-str (str/trim (subs line 15))]
+          (recur (Integer/parseInt len-str)))
+
+        :else
+        (recur found-content-length)))))
+
+(defn- read-jsonrpc-response [^BufferedInputStream stream]
+  "Read and parse a JSON-RPC response (byte-level).
+   Content-Length specifies bytes, so we read exactly that many bytes."
+  (let [content-length (read-response-header stream)]
     (when content-length
-      (let [sb (StringBuilder. content-length)]
-        (loop [remaining content-length]
-          (when (> remaining 0)
-            (let [chars (char-array remaining)
-                  read-count (.read reader chars 0 remaining)]
+      (let [buf (byte-array content-length)]
+        (loop [offset 0]
+          (when (< offset content-length)
+            (let [read-count (.read stream buf offset (- content-length offset))]
               (cond
                 (neg? read-count)
                 (telemetry/emit! {:event :eca/read-eof
-                                  :expected remaining})
+                                  :expected (- content-length offset)})
 
                 (pos? read-count)
-                (do (.append sb chars 0 read-count)
-                    (recur (- remaining read-count)))))))
-        (let [json (.toString sb)]
+                (recur (+ offset read-count))))))
+        (let [json (String. buf "UTF-8")]
           (try
             (json/parse-string json true)
             (catch Exception e
               (telemetry/emit! {:event :eca/json-parse-error
                                 :error (.getMessage e)
-                                :content-preview (subs json 0 (min 100 (count json)))})
-              (throw e))))))))
+                                :content-preview (subs json 0 (min 100 (count json)))
+                                :content-length content-length
+                                :actual-length (count json)})
+              nil)))))))
 
 ;; ============================================================================
 ;; Request/Response Handling
@@ -206,8 +242,10 @@
 
     (swap! state assoc-in [:pending-requests id] response-promise)
 
-    (.print stdin (serialize-message message))
-    (.flush stdin)
+    (let [serialized (serialize-message message)
+          bytes (.getBytes serialized "UTF-8")]
+      (.write stdin bytes)
+      (.flush stdin))
 
     (telemetry/emit! {:event :eca/send-request
                       :method method
@@ -222,8 +260,10 @@
                  :method method
                  :params params}]
 
-    (.print stdin (serialize-message message))
-    (.flush stdin)
+    (let [msg (serialize-message message)
+          bytes (.getBytes msg "UTF-8")]
+      (.write stdin bytes)
+      (.flush stdin))
 
     (telemetry/emit! {:event :eca/send-notification
                       :method method})))
@@ -246,18 +286,27 @@
                             :error (.getMessage e)}))))
 
     (case method
-      "chat/content-received"
-      (telemetry/emit! {:event :eca/content-received
-                        :role (:role params)})
+      "chat/contentReceived"
+      (do
+        (telemetry/emit! {:event :eca/content-received
+                          :role (:role params)
+                          :content (:content params)})
+        ;; Store chat content in state for retrieval
+        (swap! state update :chat-contents conj params))
 
-      "chat/toolCallApprove"
-      (telemetry/emit! {:event :eca/tool-call-approve
-                        :tool (get-in params [:tool :name])
-                        :params (get-in params [:tool :arguments])})
+      "chat/toolCallRun"
+      (telemetry/emit! {:event :eca/tool-call-run
+                        :tool (:name params)
+                        :params (:arguments params)})
 
-      "chat/toolCallReject"
-      (telemetry/emit! {:event :eca/tool-call-reject
-                        :tool (get-in params [:tool :name])})
+      "chat/toolCalled"
+      (telemetry/emit! {:event :eca/tool-called
+                        :tool (:name params)
+                        :outputs (:outputs params)})
+
+      "config/updated"
+      (telemetry/emit! {:event :eca/config-updated
+                        :config params})
 
       ;; Unknown notification
       (telemetry/emit! {:event :eca/unknown-notification
@@ -285,15 +334,21 @@
           (let [response (try
                            (read-jsonrpc-response stdout)
                            (catch Exception e
-                             (telemetry/emit! {:event :eca/read-error
-                                               :error (.getMessage e)})
+                             (when (:running @state)
+                               (telemetry/emit! {:event :eca/read-error
+                                                 :error (.getMessage e)}))
                              nil))]
-            (when response
-              (if (:id response)
-                (handle-response! response)
-                (handle-notification! response))))
-          (Thread/sleep 100)
-          (recur))))))
+            (if response
+              (do
+                (if (:id response)
+                  (handle-response! response)
+                  (handle-notification! response))
+                ;; No sleep needed - read-jsonrpc-response blocks on IO
+                (recur))
+              ;; nil response means EOF or parse error - ECA likely exited
+              (when (:running @state)
+                (telemetry/emit! {:event :eca/read-loop-eof})
+                (swap! state assoc :running false)))))))))
 
 ;; ============================================================================
 ;; ECA Lifecycle
@@ -314,18 +369,41 @@
      (println "   Download from: https://github.com/editor-code-assistant/eca/releases")
      (throw (ex-info "ECA binary not found" {:path eca-path})))
 
-   (try
-      (let [proc (.start (ProcessBuilder. [eca-path "server"]))
-           stdin-writer (PrintWriter. (.getOutputStream proc) true)
-           stdout-reader (BufferedReader. (InputStreamReader. (.getInputStream proc)))]
+    (try
+       (let [proc (.start (ProcessBuilder. [eca-path "server"]))
+             stdin-raw (.getOutputStream proc)
+             stdout-stream (BufferedInputStream. (.getInputStream proc))
+             stderr-reader (BufferedReader. (InputStreamReader. (.getErrorStream proc)))]
+
+        ;; Start thread to drain stderr (prevents ECA from blocking)
+        (future
+          (loop []
+            (when-let [line (.readLine stderr-reader)]
+              (telemetry/emit! {:event :eca/stderr :line line})
+              (recur))))
+
+        ;; Monitor process health
+        (future
+          (loop []
+            (Thread/sleep 1000)
+            (when (:running @state)
+              (when-not (.isAlive proc)
+                (println "⚠️  ECA process has exited!")
+                (telemetry/emit! {:event :eca/process-exit
+                                  :exit-code (try (.exitValue proc) (catch Exception _ nil))})
+                (swap! state assoc :running false))
+              (recur))))
 
        (reset! state {:eca-process proc
-                      :stdin stdin-writer
-                      :stdout stdout-reader
-                      :running true
-                      :request-id 0
-                      :pending-requests {}
-                      :eca-path eca-path})
+                       :stdin stdin-raw
+                       :stdout stdout-stream
+                       :stderr stderr-reader
+                       :running true
+                       :request-id 0
+                       :pending-requests {}
+                       :callbacks (:callbacks @state)
+                       :chat-contents []
+                       :eca-path eca-path})
 
        (println "✓ ECA process started")
 
@@ -407,7 +485,7 @@
   []
   (telemetry/emit! {:event :eca/stop})
   (let [{:keys [eca-process running]} @state]
-    (when @running
+    (when running
       (swap! state assoc :running false)
 
       (when eca-process
@@ -428,38 +506,90 @@
 ;; ============================================================================
 
 (defn chat-prompt
-  "Send a chat message to ECA and get response
+  "Send a chat message to ECA and get response.
 
-   Usage: (chat-prompt \"Hello, help me write a function!\")"
-  [message]
-  (telemetry/emit! {:event :eca/chat-prompt
-                    :message-length (count message)})
+   By default, returns immediately after ECA acknowledges the prompt.
+   Set :wait? true to wait for the full assistant response (via notifications).
 
-  (let [params {:chatId "default"
-                :message message
-                :behavior "default"}
-        response-promise (send-request! "chat/prompt" params)]
+   Usage: (chat-prompt \"Hello!\")
+          (chat-prompt \"Hello!\" {:wait? true :timeout-ms 120000})"
+  ([message] (chat-prompt message {}))
+  ([message {:keys [wait? timeout-ms chat-id]
+             :or {wait? false timeout-ms 120000 chat-id "default"}}]
+   (telemetry/emit! {:event :eca/chat-prompt
+                     :message-length (count message)})
 
-    (telemetry/emit! {:event :eca/chat-prompt-sent})
+   (let [params {:chatId chat-id
+                 :message message}
+         response-promise (send-request! "chat/prompt" params)
+         ;; For wait mode: track content received via callback
+         content-promise (when wait? (promise))
+         collected-content (when wait? (atom []))]
 
-    (try
-      (let [response (deref response-promise 60000 nil)]
-        (if response
-          (do
-            (telemetry/emit! {:event :eca/chat-response})
-            {:status :success
-             :response response})
-          (do
-            (telemetry/emit! {:event :eca/chat-timeout})
-            {:status :error
-             :error :timeout
-             :message "Chat response timeout"})))
+     (telemetry/emit! {:event :eca/chat-prompt-sent})
 
-      (catch Exception e
-        (telemetry/emit! {:event :eca/chat-error
-                          :error (.getMessage e)})
-        {:status :error
-         :error (.getMessage e)}))))
+     ;; Register callback to collect assistant responses when waiting
+     (when wait?
+       (register-callback! "chat/contentReceived"
+         (fn [notification]
+           (let [params (:params notification)
+                 role (:role params)
+                 content (:content params)]
+             (when (and content (= chat-id (:chatId params)))
+               (swap! collected-content conj params)
+               ;; Resolve when we get a "done" progress or assistant text content
+               (when (or (and (= role "assistant")
+                              (= "text" (:type content)))
+                         (and (= "progress" (:type content))
+                              (= "done" (:state content))))
+                 (deliver content-promise @collected-content)))))))
+
+     (try
+       ;; Wait for the initial RPC acknowledgment
+       (let [ack-response (deref response-promise 60000 nil)]
+         (if-not ack-response
+           (do
+             (when wait? (unregister-callback! "chat/contentReceived"))
+             (telemetry/emit! {:event :eca/chat-timeout})
+             {:status :error
+              :error :timeout
+              :message "Chat acknowledgment timeout"})
+
+           (if-not wait?
+             ;; Fast mode: return immediately after ack
+             (do
+               (telemetry/emit! {:event :eca/chat-response})
+               {:status :success
+                :response ack-response})
+
+             ;; Wait mode: wait for full assistant response
+             (let [contents (deref content-promise timeout-ms nil)]
+               (unregister-callback! "chat/contentReceived")
+               (if contents
+                 (let [assistant-texts (->> contents
+                                            (filter #(= "assistant" (:role %)))
+                                            (filter #(= "text" (get-in % [:content :type])))
+                                            (map #(get-in % [:content :text])))]
+                   (telemetry/emit! {:event :eca/chat-response
+                                     :content-count (count contents)})
+                   {:status :success
+                    :response ack-response
+                    :content (str/join "\n" assistant-texts)
+                    :notifications contents})
+                 (do
+                   (telemetry/emit! {:event :eca/chat-content-timeout})
+                   {:status :error
+                    :error :content-timeout
+                    :response ack-response
+                    :partial-content @collected-content
+                    :message "Timed out waiting for assistant response"}))))))
+
+       (catch Exception e
+         (when wait? (unregister-callback! "chat/contentReceived"))
+         (telemetry/emit! {:event :eca/chat-error
+                           :error (.getMessage e)})
+         {:status :error
+          :error (.getMessage e)})))))
 
 (defn query-context
   "Query context from ECA (repoMap, files, etc.)
@@ -499,6 +629,21 @@
 
       (catch Exception e
         {:status :error :error (.getMessage e)}))))
+
+(defn get-chat-contents
+  "Get all received chat contents from ECA notifications.
+
+   Usage: (get-chat-contents)"
+  []
+  (get @state :chat-contents []))
+
+(defn clear-chat-contents!
+  "Clear stored chat contents.
+
+   Usage: (clear-chat-contents!)"
+  []
+  (swap! state assoc :chat-contents [])
+  nil)
 
 ;; ============================================================================
 ;; Tool Approval (for chat platforms)
