@@ -193,12 +193,6 @@
       ;; Re-request Kanban board to reflect updated builder data
       (send! {:type "kanban/board" :project-id project-id}))))
 
-(defmethod handle-message :builder/snapshot
-  [{:keys [project-id sessions]}]
-  (when-let [state-atom @app-state-atom]
-    (swap! state-atom assoc-in [:builder/snapshot project-id] sessions)
-    (schedule-render!)))
-
 (defmethod handle-message :wisdom/template
   [{:keys [template-key data]}]
   (when-let [state-atom @app-state-atom]
@@ -483,12 +477,6 @@
                     :content-type (name content-type)}
              project-id (assoc :project-id project-id)
              context (assoc :context context))))
-
-(defn request-builder-snapshot!
-  "Request latest builder session data for a project"
-  [project-id]
-  (send! {:type "builder/snapshot"
-          :project-id project-id}))
 
 (defn request-learning-save-examples!
   "Save builder contents as learning examples"

@@ -152,18 +152,40 @@
                              (require 'ouroboros.memory)
                              ((resolve 'ouroboros.memory/get-value) key)
                              (catch Exception _ nil))))
-          session (when session-id (get all-sessions session-id))
-          session-data (:session/data session)
-          ;; Extract data in the right format for each builder type
-          empathy-notes (if (= id :empathy-builder)
-                          (or session-data {})
-                          {})
-          lean-canvas-notes (if (= id :lean-canvas-builder)
-                              (or session-data {})
-                              {})
-          completed-responses (if (#{:value-prop-builder :mvp-builder} id)
-                                (or session-data [])
-                                [])]
+           session (when session-id (get all-sessions session-id))
+           session-data (:session/data session)
+           ;; Defensive normalization: data stored before the websocket fix
+           ;; may have string values for :item/section and :section-key.
+           ;; Ensure they are keywords for frontend compatibility.
+           normalized-data (cond
+                             (#{:empathy-builder :lean-canvas-builder} id)
+                             (when session-data
+                               (reduce-kv (fn [m k note]
+                                            (assoc m k
+                                                   (cond-> note
+                                                     (string? (:item/section note))
+                                                     (update :item/section keyword))))
+                                          {} session-data))
+                             
+                             (#{:value-prop-builder :mvp-builder} id)
+                             (when session-data
+                               (mapv (fn [resp]
+                                       (cond-> resp
+                                         (string? (:section-key resp))
+                                         (update :section-key keyword)))
+                                     session-data))
+                             
+                             :else session-data)
+           ;; Extract data in the right format for each builder type
+           empathy-notes (if (= id :empathy-builder)
+                           (or normalized-data {})
+                           {})
+           lean-canvas-notes (if (= id :lean-canvas-builder)
+                               (or normalized-data {})
+                               {})
+           completed-responses (if (#{:value-prop-builder :mvp-builder} id)
+                                 (or normalized-data [])
+                                 [])]
       {:page/id id
        :project/id (or (:project/id project) project-id)
        :project/name (or (:project/name project) "Unknown Project")
@@ -178,7 +200,7 @@
                     :ui/hint nil
                     :ui/completed-sections []
                     :ui/complete? false}
-       :session/data (or session-data {})
+        :session/data (or normalized-data {})
        ;; Lean Canvas builder attributes
        :lean-canvas/session (when (= id :lean-canvas-builder)
                               {:session/id (or session-id "")})

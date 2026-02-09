@@ -17,7 +17,7 @@
             [java.io File]))
 
 ;; Forward declarations for functions defined later in the file
-(declare assemble-project-context handle-auto-insight! handle-learning-save-examples! handle-builder-snapshot! handle-wisdom-template!)
+(declare assemble-project-context handle-auto-insight! handle-learning-save-examples! handle-wisdom-template!)
 
 ;; ============================================================================
 ;; Workspace Detection
@@ -310,6 +310,35 @@
    :mvp-planning 8         ;; core-problem, target-user, success-metric, must-have-features, nice-to-have, out-of-scope, timeline, risks
    :lean-canvas 9})        ;; problems, customer-segments, uvp, solution, channels, revenue-streams, cost-structure, key-metrics, unfair-advantage
 
+(defn- normalize-builder-data
+  "Normalize builder data after JSON round-trip.
+   clj->js on the frontend converts keyword values to strings.
+   json/parse-string with keyword only keywordizes map keys, not values.
+   This function restores keyword values for known fields:
+   - :item/section values (e.g. \"persona\" -> :persona)
+   - :section-key values (e.g. \"customer-job\" -> :customer-job)"
+  [builder-type data]
+  (case builder-type
+    ;; Sticky note builders: normalize :item/section values in each note
+    (:empathy-map :lean-canvas)
+    (reduce-kv (fn [m k note]
+                 (assoc m k
+                        (cond-> note
+                          (string? (:item/section note))
+                          (update :item/section keyword))))
+               {} (or data {}))
+
+    ;; Form builders: normalize :section-key values in each response
+    (:value-proposition :mvp-planning)
+    (mapv (fn [resp]
+            (cond-> resp
+              (string? (:section-key resp))
+              (update :section-key keyword)))
+          (or data []))
+
+    ;; Unknown builder type - pass through
+    data))
+
 (defn- count-completed-sections
   "Count how many sections have data in the builder data map.
    For sticky-note builders (empathy, lean-canvas): data is {note-id -> note-map}, grouped by :item/section.
@@ -345,7 +374,9 @@
    Optionally triggers auto-insight if the builder is newly complete."
   [client-id {:keys [project-id session-id builder-type data]}]
   (let [user-id :demo-user
-        builder-type-kw (if (string? builder-type) (keyword builder-type) builder-type)]
+        builder-type-kw (if (string? builder-type) (keyword builder-type) builder-type)
+        ;; Normalize keyword values that were stringified during JSON round-trip
+        normalized-data (normalize-builder-data builder-type-kw data)]
 
     (telemetry/emit! {:event :ws/builder-data-save
                       :client-id client-id
@@ -361,7 +392,7 @@
                         (if-let [session (get sessions session-id)]
                           (assoc sessions session-id
                                  (assoc session
-                                        :session/data data
+                                        :session/data normalized-data
                                         :session/updated-at (str (java.time.Instant/now))))
                           ;; Session doesn't exist - create it
                           (assoc sessions session-id
@@ -369,7 +400,7 @@
                                   :session/project-id project-id
                                   :session/type builder-type-kw
                                   :session/state :active
-                                  :session/data data
+                                  :session/data normalized-data
                                   :session/created-at (str (java.time.Instant/now))
                                   :session/updated-at (str (java.time.Instant/now))})))))
 
@@ -381,7 +412,7 @@
                          :timestamp (System/currentTimeMillis)})
 
     ;; Check if builder is now complete and trigger auto-insight
-    (let [is-complete? (builder-complete? builder-type-kw data)]
+    (let [is-complete? (builder-complete? builder-type-kw normalized-data)]
       (when is-complete?
         ;; Check if we already marked this session as completed
         (let [key (keyword (str "builder-sessions/" (name user-id)))
@@ -1086,22 +1117,6 @@
                          :progress progress
                           :timestamp (System/currentTimeMillis)})))
 
-(defn- handle-builder-snapshot!
-  "Send latest builder session data for a project"
-  [client-id {:keys [project-id]}]
-  (let [user-id :demo-user
-        sessions-key (keyword (str "builder-sessions/" (name user-id)))
-        all-sessions (vals (or (memory/get-value sessions-key) {}))
-        project-sessions (filter #(= (:session/project-id %) project-id) all-sessions)
-        by-type (group-by :session/type project-sessions)
-        latest-by-type (into {}
-                             (for [[builder-type sessions] by-type]
-                               [builder-type (last (sort-by :session/updated-at sessions))]))]
-    (send-to! client-id {:type :builder/snapshot
-                         :project-id project-id
-                         :sessions latest-by-type
-                         :timestamp (System/currentTimeMillis)})))
-
 (defn handle-message
   "Handle incoming WebSocket message"
   [id message-str]
@@ -1132,9 +1147,6 @@
 
         "builder/save-data"
         (handle-save-builder-data! id message)
-
-        "builder/snapshot"
-        (handle-builder-snapshot! id message)
 
         "learning/save-examples"
         (handle-learning-save-examples! id message)
