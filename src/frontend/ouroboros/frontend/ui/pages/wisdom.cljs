@@ -4,7 +4,8 @@
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-   [ouroboros.frontend.ui.components :as ui]))
+   [ouroboros.frontend.ui.components :as ui]
+   [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
 ;; Static Template Data (client-side for now)
@@ -129,24 +130,53 @@
         (for [c learning-categories]
           (category-card c))))
 
-    ;; Tips Section
-    (dom/section :.wisdom-section
-      (dom/div :.wisdom-section-header
-        (dom/h2 "Quick Tips"))
-      (dom/div :.wisdom-tips-grid
-        (dom/div :.wisdom-tip-card
-          (dom/div :.wisdom-tip-icon "💡")
-          (dom/h4 "Start with Empathy")
-          (dom/p "Always begin with understanding your customer. Use the Empathy Map builder to capture what they think, feel, say, and do."))
-        (dom/div :.wisdom-tip-card
-          (dom/div :.wisdom-tip-icon "🎯")
-          (dom/h4 "Test Assumptions Early")
-          (dom/p "Your Lean Canvas is full of hypotheses. Identify the riskiest assumption and design an experiment to validate it."))
-        (dom/div :.wisdom-tip-card
-          (dom/div :.wisdom-tip-icon "✂️")
-          (dom/h4 "Scope Down Your MVP")
-          (dom/p "The best MVPs are embarrassingly small. Cut features until it hurts, then cut one more."))
-        (dom/div :.wisdom-tip-card
-          (dom/div :.wisdom-tip-icon "🔄")
-          (dom/h4 "Iterate Fast")
-          (dom/p "Ship, measure, learn, repeat. Speed of iteration beats quality of iteration."))))))
+    ;; Tips Section (ECA-powered with fallback)
+    (let [state-atom @ws/app-state-atom
+          wisdom-state (when state-atom (get-in @state-atom [:wisdom/id :global]))
+          eca-content (:wisdom/content wisdom-state)
+          eca-loading? (:wisdom/loading? wisdom-state)
+          eca-streaming? (:wisdom/streaming? wisdom-state)
+          has-eca-content? (and eca-content (seq eca-content))]
+      ;; Auto-request tips from ECA on first load
+      (when (and (not eca-loading?) (not has-eca-content?))
+        (ws/request-wisdom! nil :general :tips))
+      (dom/section :.wisdom-section
+        (dom/div :.wisdom-section-header
+          (dom/h2 "Quick Tips")
+          (when has-eca-content?
+            (dom/button
+              {:className "btn btn-secondary btn-sm"
+               :onClick (fn [_]
+                          (when state-atom
+                            (swap! @ws/app-state-atom
+                                   assoc-in [:wisdom/id :global :wisdom/content] ""))
+                          (ws/request-wisdom! nil :general :tips))}
+              "Refresh")))
+        (if has-eca-content?
+          ;; ECA-powered content
+          (dom/div :.wisdom-eca-content
+            (dom/div :.wisdom-eca-text eca-content)
+            (when eca-streaming?
+              (dom/span :.wisdom-streaming-indicator "...")))
+          ;; Fallback static tips while ECA loads
+          (dom/div :.wisdom-tips-grid
+            (when eca-loading?
+              (dom/div :.wisdom-loading
+                (dom/span :.wisdom-loading-icon "AI")
+                (dom/span "Generating personalized tips...")))
+            (dom/div :.wisdom-tip-card
+              (dom/div :.wisdom-tip-icon "...")
+              (dom/h4 "Start with Empathy")
+              (dom/p "Always begin with understanding your customer. Use the Empathy Map builder to capture what they think, feel, say, and do."))
+            (dom/div :.wisdom-tip-card
+              (dom/div :.wisdom-tip-icon "...")
+              (dom/h4 "Test Assumptions Early")
+              (dom/p "Your Lean Canvas is full of hypotheses. Identify the riskiest assumption and design an experiment to validate it."))
+            (dom/div :.wisdom-tip-card
+              (dom/div :.wisdom-tip-icon "...")
+              (dom/h4 "Scope Down Your MVP")
+              (dom/p "The best MVPs are embarrassingly small. Cut features until it hurts, then cut one more."))
+            (dom/div :.wisdom-tip-card
+              (dom/div :.wisdom-tip-icon "...")
+              (dom/h4 "Iterate Fast")
+              (dom/p "Ship, measure, learn, repeat. Speed of iteration beats quality of iteration."))))))))

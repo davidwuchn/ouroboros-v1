@@ -2,7 +2,8 @@
   "Reusable UI components"
   (:require
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-   [com.fulcrologic.fulcro.dom :as dom]))
+   [com.fulcrologic.fulcro.dom :as dom]
+   [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
 ;; Button
@@ -270,65 +271,91 @@
 ;; ============================================================================
 
 (def wisdom-tips
-  "Contextual wisdom tips for each phase of the flywheel"
+  "Fallback contextual wisdom tips (shown while ECA loads or if unavailable)"
   {:empathy
    {:title "Empathy Phase"
     :tagline "Walk in their shoes before you build."
     :tips ["Start by observing real users -- don't just imagine"
            "Look for contradictions between what people say and do"
-           "The most valuable insights come from pains they've accepted as normal"
-           "Be specific: 'Sarah the PM' beats 'busy professionals'"
-           "Capture direct quotes -- they reveal real emotions"]
+           "The most valuable insights come from pains they've accepted as normal"]
     :next-hint "Your empathy insights will directly feed the Value Proposition."}
    :valueprop
    {:title "Value Proposition Phase"
     :tagline "Connect what they need to what you offer."
     :tips ["Start with customer jobs, not your product features"
            "Rank pains by severity -- solve the worst ones first"
-           "A great pain reliever beats a nice-to-have gain creator"
-           "If you can't explain the value in one sentence, simplify"
-           "Validate: would they pay to solve this pain today?"]
+           "A great pain reliever beats a nice-to-have gain creator"]
     :next-hint "Your value fit will guide what to build in the MVP."}
    :mvp
    {:title "MVP Phase"
     :tagline "Build the smallest thing that proves your value."
     :tips ["The best MVPs are embarrassingly small -- cut features until it hurts"
            "Focus on ONE user, ONE problem, ONE solution"
-           "Speed of iteration beats quality of iteration"
-           "Define success metrics BEFORE you build"
-           "If you can test the assumption without code, do that first"]
+           "Define success metrics BEFORE you build"]
     :next-hint "Your MVP learnings will validate the business model."}
    :canvas
    {:title "Lean Canvas Phase"
     :tagline "Connect all the dots into a business model."
     :tips ["Fill in Problem and Customer Segments first -- they drive everything"
            "Your Unfair Advantage is the hardest box -- that's OK"
-           "Revenue and Cost should be realistic, not optimistic"
-           "Key Metrics: pick 1-3 numbers that prove traction"
-           "Revisit and update as you learn -- this is a living document"]
+           "Key Metrics: pick 1-3 numbers that prove traction"]
     :next-hint "Iterate: go back to Empathy with new learnings!"}})
 
 (defn wisdom-sidebar
   "Contextual wisdom tips panel for the current builder phase.
+   Fetches ECA-powered tips on open, shows fallback tips while loading.
    
    Props:
    - phase: keyword (:empathy, :valueprop, :mvp, :canvas)
-   - show?: boolean"
-  [{:keys [phase show? on-close]}]
+   - show?: boolean
+   - project-id: string (for ECA context)"
+  [{:keys [phase show? on-close project-id]}]
   (when show?
-    (let [{:keys [title tagline tips next-hint]} (get wisdom-tips phase)]
+    (let [fallback (get wisdom-tips phase)
+          ;; Read ECA wisdom state from app state atom
+          state-atom @ws/app-state-atom
+          wisdom-state (when state-atom (get-in @state-atom [:wisdom/id :global]))
+          eca-content (:wisdom/content wisdom-state)
+          eca-loading? (:wisdom/loading? wisdom-state)
+          eca-streaming? (:wisdom/streaming? wisdom-state)
+          has-eca-content? (and eca-content (seq eca-content))]
+      ;; Request tips from ECA on first render if not already loading
+      (when (and project-id (not eca-loading?) (not has-eca-content?))
+        (ws/request-wisdom! project-id phase :tips))
       (dom/div :.wisdom-sidebar
         (dom/div :.wisdom-sidebar-header
-          (dom/h3 (str "💡 " title))
+          (dom/h3 (str "💡 " (:title fallback)))
           (dom/button {:className "btn btn-close"
                        :onClick on-close} "x"))
-        (dom/p :.wisdom-tagline tagline)
-        (dom/div :.wisdom-tips-list
-          (for [tip tips]
-            (dom/div {:key tip :className "wisdom-tip-item"}
-              (dom/span :.wisdom-bullet "→")
-              (dom/span tip))))
-        (when next-hint
+        (dom/p :.wisdom-tagline (:tagline fallback))
+        ;; ECA-powered content (streaming or complete)
+        (if has-eca-content?
+          (dom/div :.wisdom-eca-content
+            (dom/div :.wisdom-eca-text eca-content)
+            (when eca-streaming?
+              (dom/span :.wisdom-streaming-indicator "...")))
+          ;; Fallback static tips while ECA loads
+          (dom/div :.wisdom-tips-list
+            (when eca-loading?
+              (dom/div :.wisdom-loading
+                (dom/span :.wisdom-loading-icon "🤖")
+                (dom/span "AI is thinking...")))
+            (for [tip (:tips fallback)]
+              (dom/div {:key tip :className "wisdom-tip-item"}
+                (dom/span :.wisdom-bullet "→")
+                (dom/span tip)))))
+        (when-let [next-hint (:next-hint fallback)]
           (dom/div :.wisdom-next-hint
             (dom/span :.wisdom-hint-icon "⏭")
-            (dom/span next-hint)))))))
+            (dom/span next-hint)))
+        ;; Refresh button to get new ECA tips
+        (when has-eca-content?
+          (dom/div :.wisdom-actions
+            (dom/button
+              {:className "btn btn-secondary wisdom-refresh-btn"
+               :onClick (fn []
+                          (when-let [sa @ws/app-state-atom]
+                            (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
+                          (ws/request-wisdom! project-id phase :tips))
+               :disabled eca-loading?}
+              "🔄 Get fresh tips")))))))

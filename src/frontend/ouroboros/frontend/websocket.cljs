@@ -127,6 +127,52 @@
         (schedule-render!)))))
 
 ;; ============================================================================
+;; ECA Wisdom Message Handlers
+;; ============================================================================
+
+(defmethod handle-message :eca/wisdom-token
+  [{:keys [token request-type]}]
+  ;; Streaming wisdom token from ECA
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom update-in
+           [:wisdom/id :global :wisdom/content] str token)
+    (schedule-render!)))
+
+(defmethod handle-message :eca/wisdom-done
+  [{:keys [request-type]}]
+  ;; Wisdom streaming complete
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc-in [:wisdom/id :global :wisdom/loading?] false)
+                 (assoc-in [:wisdom/id :global :wisdom/streaming?] false))))
+    (schedule-render!)))
+
+(defmethod handle-message :eca/wisdom-response
+  [{:keys [text request-type]}]
+  ;; Complete (non-streaming) wisdom response or error
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc-in [:wisdom/id :global :wisdom/content] text)
+                 (assoc-in [:wisdom/id :global :wisdom/loading?] false)
+                 (assoc-in [:wisdom/id :global :wisdom/streaming?] false))))
+    (schedule-render!)))
+
+;; ============================================================================
+;; Flywheel Progress Message Handlers
+;; ============================================================================
+
+(defmethod handle-message :flywheel/progress
+  [{:keys [project-id progress]}]
+  ;; Flywheel progress data from backend
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in [:flywheel/progress project-id] progress)
+    (schedule-render!)))
+
+;; ============================================================================
 ;; Connection Management
 ;; ============================================================================
 
@@ -223,6 +269,31 @@
   (when-let [ws @ws-connection]
     (when (= (.-readyState ws) js/WebSocket.OPEN)
       (.send ws (js/JSON.stringify (clj->js message))))))
+
+(defn request-wisdom!
+  "Request ECA wisdom for a project phase.
+   request-type: :tips, :next-steps, :analysis, :suggestions, :templates"
+  [project-id phase request-type]
+  ;; Reset wisdom state before sending
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc-in [:wisdom/id :global :wisdom/content] "")
+                 (assoc-in [:wisdom/id :global :wisdom/loading?] true)
+                 (assoc-in [:wisdom/id :global :wisdom/streaming?] true)
+                 (assoc-in [:wisdom/id :global :wisdom/request-type] request-type))))
+    (schedule-render!))
+  (send! {:type "eca/wisdom"
+          :project-id project-id
+          :phase (name phase)
+          :request-type (name request-type)}))
+
+(defn request-flywheel-progress!
+  "Request flywheel progress for a project"
+  [project-id]
+  (send! {:type "flywheel/progress"
+          :project-id project-id}))
 
 (defn- send-subscription!
   "Send subscription/unsubscription message"

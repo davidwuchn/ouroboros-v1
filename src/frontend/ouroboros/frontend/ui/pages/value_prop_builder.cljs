@@ -512,6 +512,7 @@
         (ui/wisdom-sidebar
           {:phase :valueprop
            :show? show-wisdom
+           :project-id project-id
            :on-close #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-wisdom false)})])})
 
         ;; Progress

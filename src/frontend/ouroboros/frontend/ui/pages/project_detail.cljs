@@ -6,7 +6,8 @@
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
    [com.fulcrologic.fulcro.data-fetch :as df]
-   [ouroboros.frontend.ui.components :as ui]))
+   [ouroboros.frontend.ui.components :as ui]
+   [ouroboros.frontend.websocket :as ws]))
 
 ;; Project IDs contain "/" (e.g. "demo-user/project-name-123")
 ;; which breaks URL routing. Encode/decode for safe URL use.
@@ -147,7 +148,23 @@
         project-name (:project/name props)
         encoded-id (encode-project-id id)
         navigate-fn (fn [route]
-                      (dr/change-route! this ["project" encoded-id route]))]
+                      (dr/change-route! this ["project" encoded-id route]))
+        ;; Get real flywheel progress from WS state
+        state-atom @ws/app-state-atom
+        progress (when state-atom (get-in @state-atom [:flywheel/progress id]))
+        current-step (or (when progress
+                           ;; Map backend phase keywords to frontend keywords
+                           (let [step (:current-step progress)]
+                             (case step
+                               :empathy-map :empathy
+                               :value-proposition :valueprop
+                               :mvp-planning :mvp
+                               :lean-canvas :canvas
+                               :empathy)))
+                         :empathy)]
+    ;; Request flywheel progress from backend on load
+    (when (and id (not progress))
+      (ws/request-flywheel-progress! id))
     (if loading?
       (dom/div :.loading "Loading project...")
       (dom/div :.project-detail-page
@@ -160,7 +177,7 @@
 
         ;; Flywheel indicator at top
         (ui/flywheel-indicator
-          {:current-step :empathy
+          {:current-step current-step
            :project-id id
            :on-navigate navigate-fn})
 
@@ -169,7 +186,16 @@
           (dom/div :.guidance-icon "🎯")
           (dom/div :.guidance-content
             (dom/h2 "Your Product Development Journey")
-            (dom/p "Follow the flywheel: Empathy → Value Prop → MVP → Lean Canvas. Each step builds on the last. Start with Empathy to understand your customer.")))
+            (if progress
+              (dom/p (str "Progress: " (:completed-count progress) "/" (:total-phases progress)
+                          " phases complete. "
+                          (case current-step
+                            :empathy "Start with Empathy to understand your customer."
+                            :valueprop "Map your insights to a Value Proposition."
+                            :mvp "Define what to build first in your MVP."
+                            :canvas "Capture your complete business model."
+                            "Keep going!")))
+              (dom/p "Follow the flywheel: Empathy → Value Prop → MVP → Lean Canvas. Each step builds on the last. Start with Empathy to understand your customer."))))
 
         ;; Phase Cards
         (dom/div :.phases-grid
@@ -179,7 +205,7 @@
                :phase phase
                :project-id id
                :on-navigate navigate-fn
-               :is-recommended? (= (:key phase) :empathy)})))
+               :is-recommended? (= (:key phase) current-step)})))
 
         ;; Active Sessions
         (when (seq sessions)

@@ -136,7 +136,8 @@
 ;; ============================================================================
 
 (def context-suggestions
-  "Quick action suggestions based on page context"
+  "Fallback quick action suggestions based on page context.
+   ECA-generated suggestions replace these when available."
   {"empathy"   {:label "Empathy Map"
                 :icon "🧠"
                 :suggestions ["What am I missing in my empathy map?"
