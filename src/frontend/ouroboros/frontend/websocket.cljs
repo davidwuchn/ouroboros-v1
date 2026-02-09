@@ -185,6 +185,21 @@
 ;; Auto-Insight Message Handlers
 ;; ============================================================================
 
+(defmethod handle-message :project/detected
+  [{:keys [project]}]
+  ;; Workspace project auto-detected by backend on WS connect
+  (js/console.log "Workspace project detected:" (clj->js project))
+  (when-let [state-atom @app-state-atom]
+    (let [project-id (:project/id project)]
+      (swap! state-atom
+             (fn [s]
+               (-> s
+                   ;; Store the active workspace project
+                   (assoc-in [:workspace/project] project)
+                   ;; Also normalize it into the project table for Fulcro
+                   (assoc-in [:project/id project-id] project)))))
+    (schedule-render!)))
+
 (defmethod handle-message :eca/auto-insight-start
   [{:keys [project-id builder-type]}]
   ;; Auto-insight generation started after builder completion

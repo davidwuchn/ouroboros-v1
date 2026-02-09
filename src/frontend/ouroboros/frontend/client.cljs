@@ -13,12 +13,12 @@
   ;; Mount the app with initial state
   (app/mount! app root/Root "app" {:initialize-state? true})
   
-  ;; Navigate to dashboard after mount
+  ;; Navigate to project page after mount (auto-detected workspace project)
   ;; Use requestAnimationFrame to ensure DOM and state are ready
   (js/requestAnimationFrame
     (fn []
-      (dr/change-route! app ["dashboard"])
-      (js/console.log "Routing initialized to dashboard")))
+      (dr/change-route! app ["projects"])
+      (js/console.log "Routing initialized to project page")))
   
   ;; Initialize WebSocket for real-time updates
   (init-websocket!)

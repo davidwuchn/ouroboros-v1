@@ -57,9 +57,7 @@
    (dom/h1 {:key "dashboard-title"} "Dashboard")
    (dom/div {:key "dashboard-metrics" :className "metrics-grid mb-3"}
              (card-skeleton {:key "loading-system" :title "System Status" :metric-count 2})
-             (card-skeleton {:key "loading-telemetry" :title "Telemetry" :metric-count 3})
-             (card-skeleton {:key "loading-users" :title "Users" :metric-count 2})
-             (card-skeleton {:key "loading-sessions" :title "Sessions" :metric-count 1}))
+             (card-skeleton {:key "loading-telemetry" :title "Telemetry" :metric-count 3}))
    (ui/card {:key "loading-system-info" :title "System Info"}
             (dom/div :.skeleton-text {:key "loading-info" :style {:height "60px"}}))))
 
@@ -102,30 +100,6 @@
                        :label "Errors"
                        :className (when (> errors 0) "text-warning")}))))
 
-(defn users-summary-card
-  "User statistics summary"
-  [{:keys [user-count admin-count]}]
-  (ui/card {:key "users" :title "Users"}
-           (dom/div :.metrics-grid {:key "users-metrics"}
-                     (ui/metric-card
-                      {:key "user-count"
-                       :value (or user-count 0)
-                       :label "Total Users"})
-                     (ui/metric-card
-                      {:key "admin-count"
-                       :value (or admin-count 0)
-                       :label "Admins"}))))
-
-(defn sessions-summary-card
-  "Chat sessions summary"
-  [{:keys [session-count]}]
-  (ui/card {:key "sessions" :title "Chat Sessions"}
-           (dom/div :.metrics-grid {:key "sessions-metrics"}
-                     (ui/metric-card
-                      {:key "session-count"
-                       :value (or session-count 0)
-                       :label "Active Sessions"}))))
-
 ;; ============================================================================
 ;; Main Dashboard Page
 ;; ============================================================================
@@ -137,9 +111,6 @@
                 telemetry/total-events
                 telemetry/tool-invocations
                 telemetry/errors
-                auth/user-count
-                auth/admin-count
-                chat/session-count
                 page/error]
          :as props}]
   {:query         [:system/healthy?
@@ -148,9 +119,6 @@
                    :telemetry/total-events
                    :telemetry/tool-invocations
                    :telemetry/errors
-                   :auth/user-count
-                   :auth/admin-count
-                   :chat/session-count
                    [df/marker-table :dashboard]
                    :page/error]
     :ident         (fn [] [:page/id :dashboard])
@@ -198,16 +166,7 @@
                   {:key "telemetry"
                    :total-events total-events
                    :tool-invocations tool-invocations
-                   :errors errors})
-
-                 (users-summary-card
-                  {:key "users"
-                   :user-count user-count
-                   :admin-count admin-count})
-
-                 (sessions-summary-card
-                  {:key "sessions"
-                   :session-count session-count}))
+                   :errors errors}))
 
         (when meta
           (ui/card {:key "system-info" :title "System Info"}

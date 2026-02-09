@@ -12,10 +12,96 @@
     [ouroboros.memory :as memory]
     [ouroboros.wisdom :as wisdom]
     [ouroboros.learning :as learning])
-   (:import [java.util.concurrent.atomic AtomicLong]))
+   (:import [java.util.concurrent.atomic AtomicLong]
+            [java.io File]))
 
 ;; Forward declarations for functions defined later in the file
 (declare assemble-project-context handle-auto-insight!)
+
+;; ============================================================================
+;; Workspace Detection
+;; ============================================================================
+
+(defn- detect-workspace-info
+  "Detect project info from the current working directory.
+   Reads directory name and looks for common project files to build a description."
+  []
+  (let [cwd (System/getProperty "user.dir")
+        dir (File. cwd)
+        dir-name (.getName dir)
+        ;; Try to read first line of README for description
+        readme-desc (let [readme (File. dir "README.md")]
+                      (when (.exists readme)
+                        (try
+                          (let [lines (str/split-lines (slurp readme))
+                                ;; Skip blank lines and # title, find first content line
+                                content (->> lines
+                                             (drop-while #(or (str/blank? %) (str/starts-with? % "#")))
+                                             first)]
+                            (when (and content (not (str/blank? content)))
+                              (let [trimmed (str/trim content)]
+                                (if (> (count trimmed) 200)
+                                  (str (subs trimmed 0 200) "...")
+                                  trimmed))))
+                          (catch Exception _ nil))))
+        ;; Detect project type from files
+        project-type (cond
+                       (.exists (File. dir "deps.edn")) "Clojure"
+                       (.exists (File. dir "project.clj")) "Clojure (Leiningen)"
+                       (.exists (File. dir "bb.edn")) "Babashka"
+                       (.exists (File. dir "package.json")) "Node.js"
+                       (.exists (File. dir "Cargo.toml")) "Rust"
+                       (.exists (File. dir "go.mod")) "Go"
+                       (.exists (File. dir "pyproject.toml")) "Python"
+                       (.exists (File. dir "requirements.txt")) "Python"
+                       (.exists (File. dir "pom.xml")) "Java (Maven)"
+                       (.exists (File. dir "build.gradle")) "Java (Gradle)"
+                       :else nil)
+        description (str/join " | "
+                      (remove nil?
+                        [(when project-type (str project-type " project"))
+                         readme-desc]))]
+    {:name dir-name
+     :description (if (str/blank? description)
+                    (str "Project in " cwd)
+                    description)
+     :path cwd
+     :project-type project-type}))
+
+(defn- ensure-workspace-project!
+  "Find or create the project for the current workspace directory.
+   Returns the project map."
+  []
+  (let [user-id :demo-user
+        {:keys [name description path]} (detect-workspace-info)
+        projects-key (keyword (str "projects/" (clojure.core/name user-id)))
+        existing-projects (or (memory/get-value projects-key) {})
+        ;; Find project matching this workspace path
+        existing (first (filter (fn [[_ p]]
+                                  (= path (:project/path p)))
+                                existing-projects))]
+    (if existing
+      ;; Return existing project
+      (val existing)
+      ;; Create new project for this workspace
+      (let [project-id (str (clojure.core/name user-id) "/project-"
+                            (str/replace (str/lower-case name) #"[^a-z0-9]+" "-")
+                            "-" (System/currentTimeMillis))
+            project {:project/id project-id
+                     :project/name name
+                     :project/description (or description "")
+                     :project/path path
+                     :project/owner (clojure.core/name user-id)
+                     :project/status :active
+                     :project/created-at (str (java.time.Instant/now))
+                     :project/updated-at (str (java.time.Instant/now))}]
+        (memory/update! projects-key
+                        (fn [projects]
+                          (assoc (or projects {}) project-id project)))
+        (telemetry/emit! {:event :ws/workspace-project-created
+                          :project-id project-id
+                          :path path})
+        project))))
 
 ;; ============================================================================
 ;; Connection Management
@@ -705,12 +791,22 @@
         (httpkit/on-close channel (fn [status]
                                     (remove-connection! id)))
         (httpkit/on-receive channel (fn [message]
-                                      (handle-message id message)))
+                                       (handle-message id message)))
         ;; Send initial connection acknowledgment
         (httpkit/send! channel (json/generate-string
                                 {:type :connected
                                  :client-id id
-                                 :timestamp (System/currentTimeMillis)})))
+                                 :timestamp (System/currentTimeMillis)}))
+        ;; Auto-detect workspace project and send to client
+        (future
+          (try
+            (let [project (ensure-workspace-project!)]
+              (httpkit/send! channel (json/generate-string
+                                      {:type :project/detected
+                                       :project project
+                                       :timestamp (System/currentTimeMillis)})))
+            (catch Exception e
+              (println "Error detecting workspace project:" (.getMessage e))))))
       ;; Not a WebSocket request
       {:status 400
        :headers {"Content-Type" "text/plain"}

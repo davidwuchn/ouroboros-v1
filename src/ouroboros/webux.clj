@@ -157,7 +157,7 @@
   [input]
   {::pco/input [:user/id]
    ::pco/output [{:user/projects [:project/id :project/name :project/description
-                                  :project/status :project/created-at]}]}
+                                   :project/status :project/path :project/created-at]}]}
   (let [user-id (or (:user/id input) (:user-id input))
         key (when user-id (projects-key user-id))
         projects (if key (vals (or (memory/get-value key) {})) [])]
@@ -168,7 +168,7 @@
   [input]
   {::pco/input [:user/id :project/id]
    ::pco/output [:project/id :project/name :project/description
-                 :project/status :project/owner :project/created-at]}
+                 :project/status :project/path :project/owner :project/created-at]}
   (let [user-id (or (:user/id input) (:user-id input))
         project-id (or (:project/id input) (:project-id input))
         key (when user-id (projects-key user-id))

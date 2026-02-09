@@ -69,19 +69,13 @@
                                     "Dashboard"))
                       (dom/li (dom/a {:className (str "nav-link" (when (is? "projects" "project") " active"))
                                       :onClick #(on-navigate "projects")}
-                                     "Projects"))
+                                     "Project"))
                       (dom/li (dom/a {:className (str "nav-link" (when (is? "wisdom") " active"))
                                       :onClick #(on-navigate "wisdom")}
                                      "Wisdom"))
                       (dom/li (dom/a {:className (str "nav-link" (when (is? "telemetry") " active"))
                                       :onClick #(on-navigate "telemetry")}
-                                     "Telemetry"))
-                     (dom/li (dom/a {:className (str "nav-link" (when (is? "users") " active"))
-                                     :onClick #(on-navigate "users")}
-                                    "Users"))
-                     (dom/li (dom/a {:className (str "nav-link" (when (is? "sessions") " active"))
-                                     :onClick #(on-navigate "sessions")}
-                                    "Sessions")))
+                                      "Telemetry")))
              ;; Chat toggle button
              (dom/button
               {:className (str "chat-toggle-btn " (when chat-open? "chat-toggle-active"))

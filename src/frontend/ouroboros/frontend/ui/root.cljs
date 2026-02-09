@@ -9,9 +9,7 @@
    [ouroboros.frontend.ui.chat-panel :as chat]
    [ouroboros.frontend.ui.pages.dashboard :as dashboard]
    [ouroboros.frontend.ui.pages.telemetry :as telemetry]
-   [ouroboros.frontend.ui.pages.users :as users]
-   [ouroboros.frontend.ui.pages.sessions :as sessions]
-   [ouroboros.frontend.ui.pages.projects :as projects]
+    [ouroboros.frontend.ui.pages.projects :as projects]
    [ouroboros.frontend.ui.pages.project-detail :as project-detail]
    [ouroboros.frontend.ui.pages.empathy-builder :as empathy-builder]
    [ouroboros.frontend.ui.pages.value-prop-builder :as value-prop-builder]
@@ -35,12 +33,10 @@
 ;; ============================================================================
 
 (dr/defrouter MainRouter [this props]
-  {:router-targets
-   [dashboard/DashboardPage
-    telemetry/TelemetryPage
-    users/UsersPage
-    sessions/SessionsPage
-    projects/ProjectsPage
+   {:router-targets
+    [dashboard/DashboardPage
+     telemetry/TelemetryPage
+     projects/ProjectsPage
     project-detail/ProjectDetailPage
     empathy-builder/EmpathyBuilderPage
     value-prop-builder/ValuePropBuilderPage

@@ -33,10 +33,12 @@ See detailed analysis sections below for specific recommendations.
 
 ## Current Status
 
-**ARCHITECTURE SHIFT** — ECA integration model active:
+**ARCHITECTURE SHIFT** -- ECA integration model active:
 - Chat platforms (Telegram, Discord, Slack) = core Ouroboros value
 - AI/LLM capabilities delegated to ECA (Editor Code Assistant)
 - Ouroboros = ECA "editor client" for chat platforms
+- **Single project per instance** -- workspace auto-detected from `user.dir`, no multi-project CRUD
+- **WebUX simplified** -- Dashboard, Project, Wisdom, Telemetry (removed Users/Sessions)
 
 **Status Key:** ✅ Done | ◐ Partial | 📋 Planned | ✗ Removed
 
@@ -56,6 +58,8 @@ See detailed analysis sections below for specific recommendations.
 | **Flywheel UI** | **✅ Done** | **Step indicator, wisdom sidebar, phase cards, auto-start Empathy Map** |
 | **ECA-Powered Wisdom (A+B)** | **✅ Done** | **Backend + Frontend complete. Wisdom sidebar, flywheel progress, wisdom page stream from ECA.** |
 | **Phase C: Continuous Wisdom** | **✅ Done** | **Builder persistence, auto-insights on completion, learning storage, cross-project analysis (backend). Phase D (production hardening) next.** |
+| **Workspace Auto-Detection** | **✅ Done** | **Single project per instance, auto-detect from cwd, no create form, `:project/detected` on WS connect** |
+| **UI Cleanup: Remove Users/Sessions** | **✅ Done** | **Removed chat-platform pages, cleaned navbar/router/dashboard/query. Single-project model.** |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
@@ -743,6 +747,8 @@ These are now handled by ECA:
 | 2026-02-09 | **Backend ECA Wisdom** -- `eca/wisdom` + `flywheel/progress` WebSocket handlers, context-enriched LLM queries |
 | 2026-02-09 | **Frontend ECA Wisdom** -- Streaming tips, real flywheel progress, project context across 9 files. 0 warnings, 58 tests pass. |
 | 2026-02-09 | **Phase C: Continuous Wisdom** -- Builder data persistence via WebSocket, auto-insights on builder completion, learning memory storage, cross-project analysis (backend), debounced sync for sticky-note builders |
+| 2026-02-08 | **Workspace Auto-Detection** -- Single project per instance, auto-detect from `user.dir`, no create form, `:project/detected` on WS connect, `:project/path` in Pathom resolver |
+| 2026-02-08 | **UI Cleanup: Remove Users/Sessions** -- Removed chat-platform pages (empty in single-project model), cleaned navbar/router/dashboard/backend query resolver, deleted orphaned files |
 
 ## Lessons from NanoClaw Analysis
 

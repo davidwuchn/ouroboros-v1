@@ -42,6 +42,8 @@
 | **Web UX Platform - Phase 4** | ✅ Done | **Wisdom & AI: templates, insights, ECA chat integration, pattern recognition** |
 | **Web UX Platform - Phase 5** | ✅ Done | **Polish & Scale: offline sync, analytics, embedding API, onboarding tours** |
 | **Phase C: Continuous Wisdom** | ✅ Done | **Builder persistence, auto-insights on completion, learning storage, cross-project analysis (backend)** |
+| **Workspace Auto-Detection** | ✅ Done | **Single project per instance, auto-detect from cwd, no create form, project/path in Pathom** |
+| **UI Cleanup: Remove Users/Sessions** | ✅ Done | **Removed Users and Sessions pages (chat-platform data, empty in single-project model). Navbar: Dashboard, Project, Wisdom, Telemetry + AI Chat toggle** |
 
 **Verified Working:**
 ```clojure
@@ -215,11 +217,11 @@ In REPL:
 ## Git State
 
 - Branch: `chat-platforms`
-- Status: Clean
-- Last Updated: 2026-02-09
+- Status: Dirty (workspace auto-detect + UI cleanup uncommitted)
+- Last Updated: 2026-02-08
 - Remote: `origin/chat-platforms`
-- Latest: `02ae95d` + Phase C changes
-- Phase C (Continuous Wisdom): ✅ Builder persistence, auto-insights, learning storage -- COMPLETE
+- Latest committed: `984427e` (Phase C: Continuous Wisdom)
+- Uncommitted: Workspace auto-detection, Users/Sessions page removal, doc updates
 
 ## Completed Features
 
@@ -229,10 +231,14 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 
 1. **ECA-Powered Wisdom** -- ✅ Backend + Frontend complete. Wisdom sidebar, flywheel progress, wisdom page all stream from ECA. Static fallback tips remain as graceful degradation.
 2. **Continuous Wisdom (Phase C)** -- ✅ Builder persistence, auto-insights on completion, learning memory storage, cross-project analysis (backend). Debounced WebSocket sync for sticky-note builders.
-3. **Remaining Static Content** -- Chat panel `context-suggestions` (28 prompts) still static (deferred). Templates/learning categories on wisdom page are structural (OK static).
-4. **Metrics Export** -- Prometheus/OpenTelemetry format
+3. **Workspace Auto-Detection** -- ✅ Single project per instance. Backend auto-detects from `user.dir`, sends `:project/detected` on WS connect. No create form. Project page shows workspace project directly.
+4. **UI Cleanup: Remove Users/Sessions** -- ✅ Removed chat-platform pages (empty data in single-project model). Navbar: Dashboard, Project, Wisdom, Telemetry + AI Chat toggle.
+5. **Remaining Static Content** -- Chat panel `context-suggestions` (28 prompts) still static (deferred). Templates/learning categories on wisdom page are structural (OK static).
+6. **Metrics Export** -- Prometheus/OpenTelemetry format
 
 **Architectural Insight (2026-02-09)**: ECA-powered wisdom is now **fully wired end-to-end**. Backend assembles project context, sends to ECA, streams tokens back via WebSocket. Frontend renders progressively with Fulcro render scheduling. The wisdom sidebar in all 4 builders and the wisdom page Quick Tips section now fetch from ECA with static fallback. **WebUX = state/CRUD/interaction, ECA = knowledge/wisdom/guidance.**
+
+**Single-Project Model (2026-02-08)**: Shifted from multi-project CRUD to single-project-per-instance. The running directory IS the project. Backend auto-detects workspace info on WS connect and sends `:project/detected`. Frontend normalizes into Fulcro state. Users/Sessions pages removed (were chat-platform data, always empty without adapters running).
 
 **Remaining Static Content**: Chat panel `context-suggestions` (28 prompts) -- deferred to avoid complexity. Templates and learning categories on wisdom page are structural, not guidance -- OK to remain static.
 
@@ -251,6 +257,8 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✅ **Flywheel UI** -- Step indicator, wisdom sidebar, project detail dashboard
 - ✅ **ECA-Powered Wisdom** -- Wisdom sidebar, flywheel progress, wisdom page all stream from ECA with static fallback
 - ✅ **Phase C: Continuous Wisdom** -- Builder data persisted to backend via WebSocket, auto-insights on builder completion, learning memory storage, cross-project analysis (backend)
+- ✅ **Workspace Auto-Detection** -- Single project per instance, auto-detect from `user.dir`, no create form, `:project/detected` on WS connect
+- ✅ **Remove Users/Sessions Pages** -- Removed orphaned chat-platform pages, cleaned navbar, router, dashboard cards, backend query resolver
 - ✅ **Chat Commands** -- `/learn`, `/recall`, `/wisdom`, `/build canvas|empathy|valueprop|mvp` commands (ready)
 - ✅ **Progressive Disclosure** -- Builder stage suggestions, contextual help
 - ✅ **Product Development Flywheel** -- Empathy Map -> Value Proposition -> MVP -> Lean Canvas with learning integration
@@ -261,6 +269,13 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✗ Skill system (replaced by learning flywheel)
 
 **Next Phase**: Production hardening -- container isolation, metrics export, cross-project UI, chat context suggestions from ECA.
+
+**Recent Architectural Changes**:
+- **Single project per instance** -- removed multi-project CRUD, workspace auto-detected from `user.dir`
+- **Cleaned frontend pages** -- removed Users/Sessions pages (chat-platform data not relevant in WebUX model)
+- **Simplified navbar** -- Dashboard, Project, Wisdom, Telemetry + AI Chat toggle
+- **Simplified dashboard** -- System Status + Telemetry cards only (no users/sessions summary)
+- **Cleaned backend** -- Removed `ouroboros.auth` and `ouroboros.chat` from page-level data loading in `query.clj`
 
 ## Shared Components
 
@@ -343,8 +358,9 @@ Builder persistence and auto-insight pipeline fully wired:
 
 ### Next Priorities
 1. **Cross-project analysis UI** -- Add trigger button for portfolio-level ECA analysis
-2. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
-3. **Container Isolation** -- OS-level isolation for ECA execution
+2. **Chat context suggestions from ECA** -- Replace 28 static prompts with ECA-generated context-aware suggestions
+3. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
+4. **Container Isolation** -- OS-level isolation for ECA execution
 
 ---
 

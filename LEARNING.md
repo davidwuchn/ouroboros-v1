@@ -1032,10 +1032,15 @@ src/frontend/ouroboros/frontend/
     ├── components.cljs    # Reusable UI components
     ├── root.cljs          # Root component with router
     └── pages/
-        ├── dashboard.cljs # Overview page
+        ├── dashboard.cljs # Overview page (System Status + Telemetry)
         ├── telemetry.cljs # Events page (with live updates)
-        ├── users.cljs     # User management
-        └── sessions.cljs  # Chat sessions
+        ├── projects.cljs  # Single workspace project view
+        ├── project_detail.cljs  # Project detail + flywheel
+        ├── empathy_builder.cljs # Empathy Map builder
+        ├── value_prop_builder.cljs # Value Prop builder
+        ├── mvp_builder.cljs    # MVP builder
+        ├── lean_canvas_builder.cljs # Lean Canvas builder
+        └── wisdom.cljs    # Wisdom page
 ```
 
 ### Key Patterns
@@ -2056,6 +2061,101 @@ User adds sticky note / submits section
 3. **Run in future** -- `handle-auto-insight!` is spawned in a `future` from the save handler. Doesn't block the save confirmation response.
 
 **Key Insight:** Streaming + persistence requires dual output: one channel for real-time UI (tokens), one for durable storage (accumulated text). An atom bridging the two is the simplest correct approach.
+
+---
+
+### 29. Single Project Per Instance -- Workspace Auto-Detection
+
+**Problem:** The multi-project CRUD model (create/list/delete projects) didn't match the actual use case. Ouroboros runs in a specific workspace directory, and there's always exactly one project -- the current working directory.
+
+**Solution:** Auto-detect the project from `user.dir` on WebSocket connect. No create form needed.
+
+**Implementation:**
+
+```clojure
+;; Backend: websocket.clj
+(defn- detect-workspace-info []
+  (let [dir (System/getProperty "user.dir")
+        name (last (str/split dir #"/"))]
+    {:project/name name
+     :project/path dir
+     :project/description (str "Project from " dir)}))
+
+(defn- ensure-workspace-project! [user-id]
+  (let [info (detect-workspace-info)
+        existing (webux/user-projects user-id)]
+    (if (seq existing)
+      (first existing)
+      (webux/create-project! {:user-id user-id :name (:project/name info) ...}))))
+
+;; On WS connect, after :connected message:
+(send-to! ch {:type :project/detected :project (ensure-workspace-project! user-id)})
+```
+
+```clojure
+;; Frontend: websocket.cljs
+(defmethod handle-message :project/detected [msg]
+  (let [project (:project msg)
+        id (:project/id project)]
+    ;; Normalize into Fulcro state at two locations:
+    ;; 1. [:project/id <id>] -- normalized entity table
+    ;; 2. [:workspace/project] -- quick access ref
+    (swap! state assoc-in [:project/id id] project)
+    (swap! state assoc :workspace/project project)
+    (schedule-render!)))
+```
+
+**Frontend page rewrite:** `projects.cljs` no longer has a `ProjectForm` component. It reads `:workspace/project` from the raw state atom and displays it directly. Uses `(::app/state-atom (comp/any->app this))` to access raw Fulcro state.
+
+**Key Insight:** When the deployment model is "one instance per workspace" (like VS Code extensions, editor plugins, or local dev tools), don't build multi-project CRUD. Auto-detect from the environment and present the single project directly.
+
+---
+
+### 30. Fulcro State Atom Access from Components
+
+**Problem:** Need to read raw Fulcro normalized state from within a component (e.g., to access `:workspace/project` which isn't part of any component's EQL query).
+
+**Solution:** Use `(::app/state-atom (comp/any->app this))` to get the raw state atom from any Fulcro component.
+
+```clojure
+(defsc ProjectsPage [this _]
+  {:query [:page/id]
+   :ident (fn [] [:page/id :projects])}
+  (let [state-atom (::app/state-atom (comp/any->app this))
+        project (:workspace/project @state-atom)]
+    ;; Render project data directly from raw state
+    (dom/div (dom/h1 (:project/name project)) ...)))
+```
+
+**When to use:**
+- Data injected by external sources (WebSocket messages, not EQL queries)
+- Global singleton data that doesn't fit component query model
+- Workspace-level state shared across all pages
+
+**When NOT to use:**
+- Normal component data -- use `:query` and `:ident` instead
+- Data that should trigger re-renders on change -- use `comp/transact!`
+
+**Caveat:** Direct `deref` of the state atom during render works for reading, but mutations via `swap!` won't trigger re-renders. Always call `app/schedule-render!` after `swap!` on the state atom.
+
+---
+
+### 31. Remove Unused Pages Cleanly from Fulcro
+
+**Problem:** Users and Sessions pages were chat-platform pages showing data from in-memory atoms. In the single-project WebUX model, these pages were always empty and irrelevant. Need to remove them without breaking the router or leaving orphaned references.
+
+**Checklist for removing a Fulcro page:**
+
+1. **`root.cljs`** -- Remove from router target list and remove the `:require` for the page namespace
+2. **`components.cljs`** -- Remove navbar link (`nav-link` call)
+3. **`dashboard.cljs`** (if applicable) -- Remove summary cards and related query keys (`:auth/user-count`, `:chat/session-count`, etc.)
+4. **`query.clj`** (backend) -- Remove resolver output keys and data loading branches for removed pages. Remove namespace requires if no longer needed.
+5. **Delete page files** -- `users.cljs`, `sessions.cljs` (verify no other files reference them)
+6. **Verify** -- `bb test`, `bb test:webux`, Shadow-CLJS 0 warnings
+
+**What we kept:** Backend modules (`ouroboros.auth`, `ouroboros.chat`) still exist and register their own Pathom resolvers. They're still required by `dashboard.clj` (HTTP server), `test_helper.clj`, `embed.clj`, etc. We only removed them from **page-level data loading** in `query.clj`.
+
+**Key Insight:** Removing a page from a Fulcro app is a 6-point checklist: router targets, navbar links, dashboard cards, backend query resolver, file deletion, test verification. Miss any one and you'll have broken routes or orphaned code. Backend modules can stay if other parts of the system use them -- just remove them from the page data loading path.
 
 ---
 
