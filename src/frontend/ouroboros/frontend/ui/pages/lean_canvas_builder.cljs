@@ -179,28 +179,82 @@
     :tip "The Unfair Advantage is often the hardest box. It's okay to leave it blank initially."}])
 
 ;; ============================================================================
-;; Mutations
+;; Mutations (with undo/redo history)
 ;; ============================================================================
+
+(defn- push-undo!
+  "Snapshot current notes onto undo stack before a mutation. Clears redo stack."
+  [state]
+  (let [current-notes (get-in state [:page/id :lean-canvas-builder :lean-canvas/notes] {})
+        undo-stack (get-in state [:page/id :lean-canvas-builder :ui :ui/undo-stack] [])]
+    (-> state
+        (assoc-in [:page/id :lean-canvas-builder :ui :ui/undo-stack]
+                  (conj undo-stack current-notes))
+        (assoc-in [:page/id :lean-canvas-builder :ui :ui/redo-stack] []))))
 
 (m/defmutation add-canvas-note
   "Add a sticky note to a canvas block (client-only for now)"
   [{:keys [session-id block-key content color]}]
   (action [{:keys [state]}]
-          (let [new-note (canvas/create-sticky-note block-key content :color (or color "yellow"))]
-            (swap! state update-in [:page/id :lean-canvas-builder :lean-canvas/notes]
-                   (fnil assoc {}) (:item/id new-note) new-note))))
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)
+                               new-note (canvas/create-sticky-note block-key content :color (or color "yellow"))]
+                           (update-in s [:page/id :lean-canvas-builder :lean-canvas/notes]
+                                      (fnil assoc {}) (:item/id new-note) new-note))))))
 
 (m/defmutation update-canvas-note
   "Update a canvas sticky note (client-only for now)"
   [{:keys [note-id updates]}]
   (action [{:keys [state]}]
-          (swap! state update-in [:page/id :lean-canvas-builder :lean-canvas/notes note-id] merge updates)))
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)]
+                           (update-in s [:page/id :lean-canvas-builder :lean-canvas/notes note-id] merge updates))))))
 
 (m/defmutation delete-canvas-note
   "Delete a canvas sticky note (client-only for now)"
   [{:keys [note-id]}]
   (action [{:keys [state]}]
-          (swap! state update-in [:page/id :lean-canvas-builder :lean-canvas/notes] dissoc note-id)))
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)]
+                           (update-in s [:page/id :lean-canvas-builder :lean-canvas/notes] dissoc note-id))))))
+
+(m/defmutation undo-canvas
+  "Undo last notes change"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [undo-stack (get-in s [:page/id :lean-canvas-builder :ui :ui/undo-stack] [])
+                               redo-stack (get-in s [:page/id :lean-canvas-builder :ui :ui/redo-stack] [])
+                               current-notes (get-in s [:page/id :lean-canvas-builder :lean-canvas/notes] {})]
+                           (if (seq undo-stack)
+                             (-> s
+                                 (assoc-in [:page/id :lean-canvas-builder :lean-canvas/notes] (peek undo-stack))
+                                 (assoc-in [:page/id :lean-canvas-builder :ui :ui/undo-stack] (pop undo-stack))
+                                 (assoc-in [:page/id :lean-canvas-builder :ui :ui/redo-stack] (conj redo-stack current-notes)))
+                             s))))))
+
+(m/defmutation redo-canvas
+  "Redo last undone notes change"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [undo-stack (get-in s [:page/id :lean-canvas-builder :ui :ui/undo-stack] [])
+                               redo-stack (get-in s [:page/id :lean-canvas-builder :ui :ui/redo-stack] [])
+                               current-notes (get-in s [:page/id :lean-canvas-builder :lean-canvas/notes] {})]
+                           (if (seq redo-stack)
+                             (-> s
+                                 (assoc-in [:page/id :lean-canvas-builder :lean-canvas/notes] (peek redo-stack))
+                                 (assoc-in [:page/id :lean-canvas-builder :ui :ui/redo-stack] (pop redo-stack))
+                                 (assoc-in [:page/id :lean-canvas-builder :ui :ui/undo-stack] (conj undo-stack current-notes)))
+                             s))))))
+
+(m/defmutation clear-canvas-notes
+  "Clear all notes with undo support"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)]
+                           (assoc-in s [:page/id :lean-canvas-builder :lean-canvas/notes] {}))))))
 
 ;; ============================================================================
 ;; Tutorial Modal Component
@@ -387,22 +441,27 @@
                    :lean-canvas/session
                    :lean-canvas/notes
                    {:ui [:ui/show-tutorial :ui/tutorial-step
-                         :ui/show-help :ui/show-add-modal :ui/active-block]}
+                          :ui/show-help :ui/show-add-modal :ui/active-block
+                          :ui/undo-stack :ui/redo-stack]}
                    [df/marker-table :lean-canvas-builder]]
    :ident         (fn [] [:page/id :lean-canvas-builder])
    :route-segment ["project" :project-id "canvas"]
    :initial-state (fn [_] {:lean-canvas/notes {}
-                           :ui {:ui/show-tutorial true
-                                :ui/tutorial-step 1
-                                :ui/show-help false
-                                :ui/show-add-modal false
-                                :ui/active-block nil}})
+                            :ui {:ui/show-tutorial true
+                                 :ui/tutorial-step 1
+                                 :ui/show-help false
+                                 :ui/show-add-modal false
+                                 :ui/active-block nil
+                                 :ui/undo-stack []
+                                 :ui/redo-stack []}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
-                    (let [default-ui {:ui/show-tutorial true
-                                      :ui/tutorial-step 1
-                                      :ui/show-help false
-                                      :ui/show-add-modal false
-                                      :ui/active-block nil}
+                     (let [default-ui {:ui/show-tutorial true
+                                       :ui/tutorial-step 1
+                                       :ui/show-help false
+                                       :ui/show-add-modal false
+                                       :ui/active-block nil
+                                       :ui/undo-stack []
+                                       :ui/redo-stack []}
                           existing-ui (:ui current-normalized)
                           ui-val (if (and existing-ui (seq existing-ui))
                                    existing-ui
@@ -428,7 +487,8 @@
         session-data (or session {})
         notes-map (or notes {})
         {:keys [ui/show-tutorial ui/tutorial-step ui/show-help
-                ui/show-add-modal ui/active-block]} (or ui {})
+                 ui/show-add-modal ui/active-block
+                 ui/undo-stack ui/redo-stack]} (or ui {})
         tutorial-step (or tutorial-step 1)
 
         ;; Organize notes by block
@@ -504,9 +564,11 @@
           :on-present (fn [] (js/alert "Present mode activated!"))
           :on-clear (fn []
                       (when (js/confirm "Clear all notes? This cannot be undone.")
-                        (comp/transact! this [(m/set-props {:lean-canvas/notes {}})])))
-          :can-undo? false
-          :can-redo? false})
+                        (comp/transact! this [(clear-canvas-notes {})])))
+          :on-undo (fn [] (comp/transact! this [(undo-canvas {})]))
+          :on-redo (fn [] (comp/transact! this [(redo-canvas {})]))
+          :can-undo? (seq undo-stack)
+          :can-redo? (seq redo-stack)})
 
         ;; Progress
         (canvas-progress-bar {:completed completed-count

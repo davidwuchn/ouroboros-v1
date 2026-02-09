@@ -157,28 +157,83 @@
     :details ""}])
 
 ;; ============================================================================
-;; Mutations
+;; Note Mutations (with undo/redo history)
 ;; ============================================================================
+
+(defn- push-undo!
+  "Snapshot current notes onto undo stack before a mutation. Clears redo stack."
+  [state]
+  (let [current-notes (get-in state [:page/id :empathy-builder :empathy/notes] {})
+        undo-stack (get-in state [:page/id :empathy-builder :ui :ui/undo-stack] [])]
+    (-> state
+        (assoc-in [:page/id :empathy-builder :ui :ui/undo-stack]
+                  (conj undo-stack current-notes))
+        (assoc-in [:page/id :empathy-builder :ui :ui/redo-stack] []))))
 
 (m/defmutation add-empathy-note
   "Add a sticky note to an empathy section (client-only for now)"
   [{:keys [session-id section-key content]}]
   (action [{:keys [state]}]
-          (let [new-note (canvas/create-sticky-note section-key content)]
-            (swap! state update-in [:page/id :empathy-builder :empathy/notes]
-                   (fnil assoc {}) (:item/id new-note) new-note))))
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)
+                               new-note (canvas/create-sticky-note section-key content)]
+                           (update-in s [:page/id :empathy-builder :empathy/notes]
+                                      (fnil assoc {}) (:item/id new-note) new-note))))))
 
 (m/defmutation update-empathy-note
   "Update a sticky note (client-only for now)"
   [{:keys [note-id updates]}]
   (action [{:keys [state]}]
-          (swap! state update-in [:page/id :empathy-builder :empathy/notes note-id] merge updates)))
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)]
+                           (update-in s [:page/id :empathy-builder :empathy/notes note-id] merge updates))))))
 
 (m/defmutation delete-empathy-note
   "Delete a sticky note (client-only for now)"
   [{:keys [note-id]}]
   (action [{:keys [state]}]
-          (swap! state update-in [:page/id :empathy-builder :empathy/notes] dissoc note-id)))
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)]
+                           (update-in s [:page/id :empathy-builder :empathy/notes] dissoc note-id))))))
+
+(m/defmutation undo-empathy
+  "Undo last notes change"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [undo-stack (get-in s [:page/id :empathy-builder :ui :ui/undo-stack] [])
+                               redo-stack (get-in s [:page/id :empathy-builder :ui :ui/redo-stack] [])
+                               current-notes (get-in s [:page/id :empathy-builder :empathy/notes] {})]
+                           (if (seq undo-stack)
+                             (-> s
+                                 (assoc-in [:page/id :empathy-builder :empathy/notes] (peek undo-stack))
+                                 (assoc-in [:page/id :empathy-builder :ui :ui/undo-stack] (pop undo-stack))
+                                 (assoc-in [:page/id :empathy-builder :ui :ui/redo-stack] (conj redo-stack current-notes)))
+                             s))))))
+
+(m/defmutation redo-empathy
+  "Redo last undone notes change"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [undo-stack (get-in s [:page/id :empathy-builder :ui :ui/undo-stack] [])
+                               redo-stack (get-in s [:page/id :empathy-builder :ui :ui/redo-stack] [])
+                               current-notes (get-in s [:page/id :empathy-builder :empathy/notes] {})]
+                           (if (seq redo-stack)
+                             (-> s
+                                 (assoc-in [:page/id :empathy-builder :empathy/notes] (peek redo-stack))
+                                 (assoc-in [:page/id :empathy-builder :ui :ui/redo-stack] (pop redo-stack))
+                                 (assoc-in [:page/id :empathy-builder :ui :ui/undo-stack] (conj undo-stack current-notes)))
+                             s))))))
+
+(m/defmutation clear-empathy-notes
+  "Clear all notes with undo support"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)]
+                           (assoc-in s [:page/id :empathy-builder :empathy/notes] {}))))))
+
 
 ;; ============================================================================
 ;; Tutorial Modal Component
@@ -236,52 +291,55 @@
 (defn persona-modal
   "Persona modal that reads from DOM inputs at submit time"
   [{:keys [on-submit]}]
-  (dom/div :.modal-overlay
-           (dom/div :.modal-content.persona-modal
-                    (dom/h2 "👤 Who are you building for?")
-                    (dom/p :.modal-subtitle "Define your target customer persona. Be specific!")
+   (dom/div :.modal-overlay
+            (dom/div :.modal-content.persona-modal
+                     (dom/h2 "👤 Who are you building for?")
+                     (dom/p :.modal-subtitle "Define your target customer persona. Be specific!")
 
-                    ;; Template selector
-                    (dom/div :.persona-templates
-                             (dom/h4 "Start from a template (optional)")
-                             (dom/div :.template-grid
-                                      (for [{:keys [name details]} persona-templates]
-                                        (dom/div
-                                         {:key name
-                                          :className "template-card"
-                                          :onClick (fn []
-                                                     ;; Update DOM inputs directly when template is clicked
-                                                     (when-let [name-input (js/document.getElementById "persona-name-input")]
-                                                       (set! (.-value name-input) name))
-                                                     (when-let [details-input (js/document.getElementById "persona-details-input")]
-                                                       (set! (.-value details-input) details)))}
-                                         (dom/span :.template-name name)))))
+                     ;; Scrollable body
+                     (dom/div :.modal-body
 
-                    ;; Form fields
-                    (dom/div :.form-group
-                             (dom/label "Persona Name *")
-                             (dom/input
-                              {:id "persona-name-input"
-                               :type "text"
-                               :placeholder "e.g., Sarah, the Busy Product Manager"}))
+                       ;; Template selector
+                       (dom/div :.persona-templates
+                                (dom/h4 "Start from a template (optional)")
+                                (dom/div :.template-grid
+                                         (for [{:keys [name details]} persona-templates]
+                                           (dom/div
+                                            {:key name
+                                             :className "template-card"
+                                             :onClick (fn []
+                                                        ;; Update DOM inputs directly when template is clicked
+                                                        (when-let [name-input (js/document.getElementById "persona-name-input")]
+                                                          (set! (.-value name-input) name))
+                                                        (when-let [details-input (js/document.getElementById "persona-details-input")]
+                                                          (set! (.-value details-input) details)))}
+                                            (dom/span :.template-name name)))))
 
-                    (dom/div :.form-group
-                             (dom/label "Key Details")
-                             (dom/textarea
-                              {:id "persona-details-input"
-                               :placeholder "Age, role, key characteristics, goals, challenges..."
-                               :rows 4}))
+                       ;; Form fields
+                       (dom/div :.form-group
+                                (dom/label "Persona Name *")
+                                (dom/input
+                                 {:id "persona-name-input"
+                                  :type "text"
+                                  :placeholder "e.g., Sarah, the Busy Product Manager"}))
 
-                    ;; Tips
-                    (dom/div :.persona-tips
-                             (dom/h4 "💡 Tips for a great persona:")
-                             (dom/ul
-                              (dom/li "Give them a real name - it makes them feel human")
-                              (dom/li "Be specific about their role and context")
-                              (dom/li "Focus on ONE type of customer, not everyone")))
+                       (dom/div :.form-group
+                                (dom/label "Key Details")
+                                (dom/textarea
+                                 {:id "persona-details-input"
+                                  :placeholder "Age, role, key characteristics, goals, challenges..."
+                                  :rows 4}))
 
-                    ;; Actions
-                    (dom/div :.modal-actions
+                       ;; Tips
+                       (dom/div :.persona-tips
+                                (dom/h4 "Tips for a great persona:")
+                                (dom/ul
+                                 (dom/li "Give them a real name - it makes them feel human")
+                                 (dom/li "Be specific about their role and context")
+                                 (dom/li "Focus on ONE type of customer, not everyone"))))
+
+                     ;; Actions (pinned at bottom)
+                     (dom/div :.modal-actions
                              (ui/button
                               {:on-click (fn []
                                            (let [name-input (js/document.getElementById "persona-name-input")
@@ -434,37 +492,42 @@
 (defsc EmpathyBuilderPage
   "Empathy Map builder with visual canvas interface and guided UX"
   [this {:keys [project/id empathy/session empathy/notes ui] :as props}]
-  {:query         [:project/id :project/name
-                   :empathy/session
-                   :empathy/notes
-                   {:ui [:ui/persona-name :ui/persona-details :ui/selected-template
-                         :ui/show-persona-modal :ui/show-tutorial :ui/tutorial-step
-                         :ui/show-help :ui/show-section-modal :ui/active-section]}
-                   [df/marker-table :empathy-builder]]
-   :ident         (fn [] [:page/id :empathy-builder])
-   :route-segment ["project" :project-id "empathy"]
-   :initial-state (fn [_] {:empathy/notes {}
-                           :ui {:ui/persona-name ""
-                                :ui/persona-details ""
-                                :ui/selected-template nil
-                                :ui/show-persona-modal false
-                                :ui/show-tutorial true
-                                :ui/tutorial-step 1
-                                :ui/show-help false
-                                :ui/show-section-modal false
-                                :ui/active-section nil}})
+   {:query         [:project/id :project/name
+                    :empathy/session
+                    :empathy/notes
+                    {:ui [:ui/persona-name :ui/persona-details :ui/selected-template
+                          :ui/show-persona-modal :ui/show-tutorial :ui/tutorial-step
+                          :ui/show-help :ui/show-section-modal :ui/active-section
+                          :ui/undo-stack :ui/redo-stack]}
+                    [df/marker-table :empathy-builder]]
+    :ident         (fn [] [:page/id :empathy-builder])
+    :route-segment ["project" :project-id "empathy"]
+    :initial-state (fn [_] {:empathy/notes {}
+                            :ui {:ui/persona-name ""
+                                 :ui/persona-details ""
+                                 :ui/selected-template nil
+                                 :ui/show-persona-modal false
+                                 :ui/show-tutorial true
+                                 :ui/tutorial-step 1
+                                 :ui/show-help false
+                                 :ui/show-section-modal false
+                                 :ui/active-section nil
+                                 :ui/undo-stack []
+                                 :ui/redo-stack []}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
                     ;; Preserve client-only UI state during server loads
                     ;; Remove empty/nil :ui from server data so it doesn't overwrite client state
                     (let [default-ui {:ui/persona-name ""
-                                      :ui/persona-details ""
-                                      :ui/selected-template nil
-                                      :ui/show-persona-modal false
-                                      :ui/show-tutorial true
-                                      :ui/tutorial-step 1
-                                      :ui/show-help false
-                                      :ui/show-section-modal false
-                                      :ui/active-section nil}
+                                       :ui/persona-details ""
+                                       :ui/selected-template nil
+                                       :ui/show-persona-modal false
+                                       :ui/show-tutorial true
+                                       :ui/tutorial-step 1
+                                       :ui/show-help false
+                                       :ui/show-section-modal false
+                                       :ui/active-section nil
+                                       :ui/undo-stack []
+                                       :ui/redo-stack []}
                           ;; Use existing client UI if it has real keys, otherwise use defaults
                           existing-ui (:ui current-normalized)
                           ui-val (if (and existing-ui (seq existing-ui))
@@ -493,7 +556,8 @@
         notes-map (or notes {})
         {:keys [ui/persona-name ui/persona-details ui/selected-template
                 ui/show-persona-modal ui/show-tutorial ui/tutorial-step
-                ui/show-help ui/show-section-modal ui/active-section]} (or ui {})
+                ui/show-help ui/show-section-modal ui/active-section
+                ui/undo-stack ui/redo-stack]} (or ui {})
         ;; Ensure form values are never nil
         persona-name (or persona-name "")
         persona-details (or persona-details "")
@@ -592,9 +656,11 @@
           :on-present (fn [] (js/alert "Present mode activated!"))
           :on-clear (fn []
                       (when (js/confirm "Clear all notes? This cannot be undone.")
-                        (comp/transact! this [(m/set-props {:empathy/notes {}})])))
-          :can-undo? false
-          :can-redo? false})
+                        (comp/transact! this [(clear-empathy-notes {})])))
+          :on-undo (fn [] (comp/transact! this [(undo-empathy {})]))
+          :on-redo (fn [] (comp/transact! this [(redo-empathy {})]))
+          :can-undo? (seq undo-stack)
+          :can-redo? (seq redo-stack)})
 
         ;; Progress
         (empathy-progress-bar {:completed completed-count

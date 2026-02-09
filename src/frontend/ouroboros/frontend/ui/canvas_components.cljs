@@ -361,7 +361,7 @@
 
 (defn canvas-toolbar
   "Toolbar for canvas actions"
-  [{:keys [on-export on-share on-present on-clear can-undo? can-redo?]}]
+  [{:keys [on-export on-share on-present on-clear on-undo on-redo can-undo? can-redo?]}]
   (dom/div :.canvas-toolbar
            (dom/div :.canvas-toolbar-group
                     (dom/button
@@ -382,13 +382,13 @@
            (dom/div :.canvas-toolbar-group
                     (dom/button
                      {:className "btn btn-sm"
-                      :onClick on-clear
+                      :onClick on-undo
                       :disabled (not can-undo?)
                       :title "Undo"}
                      "↩ Undo")
                     (dom/button
                      {:className "btn btn-sm"
-                      :onClick on-clear
+                      :onClick on-redo
                       :disabled (not can-redo?)
                       :title "Redo"}
                      "↪ Redo"))
