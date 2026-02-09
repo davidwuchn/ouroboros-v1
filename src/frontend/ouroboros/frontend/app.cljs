@@ -26,8 +26,9 @@
 (defn init-websocket!
   "Initialize WebSocket connection"
   []
-  ;; Pass the state atom to websocket namespace for data merging
+  ;; Pass the state atom and render callback for WS-driven updates
   (ws/set-app-state-atom! (::app/state-atom app))
+  (ws/set-render-callback! #(app/schedule-render! app))
   (ws/init!))
 
 (defn destroy-websocket!

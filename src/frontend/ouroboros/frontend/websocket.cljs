@@ -11,11 +11,23 @@
 ;; ============================================================================
 
 (defonce app-state-atom (atom nil))
+(defonce render-callback (atom nil))
 
 (defn set-app-state-atom!
   "Set the app state atom for merging data"
   [state-atom]
   (reset! app-state-atom state-atom))
+
+(defn set-render-callback!
+  "Set a callback to trigger UI re-render after state mutation"
+  [cb]
+  (reset! render-callback cb))
+
+(defn- schedule-render!
+  "Schedule a UI re-render after direct state mutation"
+  []
+  (when-let [cb @render-callback]
+    (cb)))
 
 ;; ============================================================================
 ;; Connection State
@@ -84,7 +96,8 @@
                                {:role :assistant
                                 :content text
                                 :timestamp (js/Date.now)})
-                     (assoc-in [:chat/id :global :chat/loading?] false))))))))
+                     (assoc-in [:chat/id :global :chat/loading?] false))))
+        (schedule-render!)))))
 
 (defmethod handle-message :eca/chat-token
   [{:keys [token]}]
@@ -95,7 +108,8 @@
       (when (and (>= idx 0)
                  (= :assistant (:role (nth messages idx))))
         (swap! state-atom update-in
-               [:chat/id :global :chat/messages idx :content] str token)))))
+               [:chat/id :global :chat/messages idx :content] str token)
+        (schedule-render!)))))
 
 (defmethod handle-message :eca/chat-done
   [_]
@@ -109,7 +123,8 @@
                (fn [s]
                  (-> s
                      (update-in [:chat/id :global :chat/messages idx] dissoc :streaming?)
-                     (assoc-in [:chat/id :global :chat/loading?] false))))))))
+                     (assoc-in [:chat/id :global :chat/loading?] false))))
+        (schedule-render!)))))
 
 ;; ============================================================================
 ;; Connection Management

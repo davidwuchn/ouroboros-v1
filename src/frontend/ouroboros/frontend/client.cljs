@@ -4,6 +4,7 @@
    [com.fulcrologic.fulcro.application :as app]
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
    [ouroboros.frontend.app :refer [app init-websocket! destroy-websocket!]]
+   [ouroboros.frontend.websocket :as ws]
    [ouroboros.frontend.ui.root :as root]))
 
 (defn ^:export init
@@ -27,6 +28,8 @@
   "Hot reload callback"
   []
   (app/mount! app root/Root "app" {:initialize-state? false})
+  ;; Re-set render callback (defonce preserves atom, but callback may be stale)
+  (ws/set-render-callback! #(app/schedule-render! app))
   (js/console.log "Hot reload"))
 
 (defn ^:export stop
