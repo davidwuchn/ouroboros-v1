@@ -300,7 +300,8 @@
 (defn metric-card
   "Display a metric with label"
   [{:keys [value label className key]}]
-  (dom/div {:className (str "metric-card " className) :key key}
+  (dom/div {:className (str "metric-card " className)
+            :key (or key label)}
            (dom/div {:className (str "metric-value " className)} value)
            (dom/div :.metric-label label)))
 
@@ -369,23 +370,28 @@
 
 (defn data-table
   "Generic data table"
-  [{:keys [columns rows empty-message]}]
+  [{:keys [columns rows empty-message on-row-click]}]
   (if (seq rows)
     (dom/div :.table-container
              (dom/table :.data-table
                         (dom/thead
                          (apply dom/tr
-                                (for [col columns]
-                                  (dom/th {:key (name (:key col))} (:label col)))))
+                                (for [[idx col] (map-indexed vector columns)]
+                                  (dom/th {:key (or (some-> (:key col) name) (str "col-" idx))}
+                                          (:label col)))))
                         (apply dom/tbody
                                (for [[idx row] (map-indexed vector rows)]
-                                 (apply dom/tr {:key (str (or (:id row) idx))}
-                                        (for [col columns]
+                                 (apply dom/tr {:key (str (or (:id row) idx))
+                                                :className (when on-row-click "data-row-clickable")
+                                                :onClick (when on-row-click
+                                                           (fn [_] (on-row-click row)))}
+                                        (for [[cidx col] (map-indexed vector columns)]
                                           (let [key (:key col)
                                                 value (get row key)
                                                 formatter (:format col identity)
                                                 rendered (formatter value row)]
-                                            (dom/td {:key (name key)} (safe-render-value rendered))))))))
+                                            (dom/td {:key (or (some-> key name) (str "cell-" cidx))}
+                                                    (safe-render-value rendered))))))))
              (empty-state {:message (or empty-message "No data available")}))))
 
 ;; ============================================================================
@@ -426,8 +432,8 @@
     :description "Complete business model"}])
 
 (defn flywheel-indicator
-  "Shows the 4-phase product development progression.
-   Highlights current step and shows completion state.
+  "Compact 4-phase product development stepper.
+   Shows progression as numbered circles connected by lines.
    
    Props:
    - current-step: keyword (:empathy, :valueprop, :mvp, :canvas)
@@ -436,30 +442,39 @@
   [{:keys [current-step project-id on-navigate]}]
   (let [step-order [:empathy :valueprop :mvp :canvas]
         current-idx (.indexOf step-order current-step)]
-    (dom/div :.flywheel-indicator
-             (dom/div :.flywheel-steps
-                      (for [[idx step] (map-indexed vector flywheel-steps)]
-                        (let [is-current? (= (:key step) current-step)
-                              is-past? (< idx current-idx)
-                              is-future? (> idx current-idx)
-                              step-class (str "flywheel-step "
-                                              (when is-current? "flywheel-current ")
-                                              (when is-past? "flywheel-completed ")
-                                              (when is-future? "flywheel-future "))]
-                          (dom/div {:key (name (:key step))}
-              ;; Connector line (except before first)
-                                   (when (> idx 0)
-                                     (dom/div {:className (str "flywheel-connector "
-                                                               (when is-past? "flywheel-connector-done ")
-                                                               (when is-current? "flywheel-connector-done "))}))
-                                   (dom/div {:className step-class
-                                             :onClick (when on-navigate
-                                                        #(on-navigate (:route step)))
-                                             :title (:description step)}
-                                            (dom/span :.flywheel-icon (:icon step))
-                                            (dom/span :.flywheel-label (:label step))
-                                            (when is-past?
-                                              (dom/span :.flywheel-check "✓"))))))))))
+    (dom/nav :.fw-stepper
+             {:aria-label "Product development progress"}
+             (for [[idx step] (map-indexed vector flywheel-steps)]
+               (let [is-current? (= (:key step) current-step)
+                     is-past? (< idx current-idx)
+                     is-future? (> idx current-idx)
+                     state (cond is-current? "current"
+                                 is-past? "done"
+                                 :else "pending")]
+                 (dom/div {:key (name (:key step))
+                           :className (str "fw-node fw-" state)}
+                          ;; Connector line (except before first)
+                          (when (> idx 0)
+                            (dom/div {:className (str "fw-line"
+                                                      (when (or is-past? is-current?) " fw-line-done"))}))
+                          ;; Clickable step
+                          (dom/button {:className "fw-dot"
+                                       :onClick (when on-navigate
+                                                  #(on-navigate (:route step)))
+                                       :title (:description step)
+                                       :aria-current (when is-current? "step")}
+                                      (if is-past?
+                                        (dom/svg {:width 12 :height 12 :viewBox "0 0 12 12"
+                                                  :className "fw-check-svg"}
+                                                 (dom/path {:d "M2 6l3 3 5-5"
+                                                            :fill "none"
+                                                            :stroke "currentColor"
+                                                            :strokeWidth "2"
+                                                            :strokeLinecap "round"
+                                                            :strokeLinejoin "round"}))
+                                        (dom/span :.fw-num (str (inc idx)))))
+                          ;; Label
+                          (dom/span :.fw-label (:label step))))))))
 
 ;; ============================================================================
 ;; Wisdom Tips - Contextual guidance per builder phase

@@ -6220,105 +6220,130 @@ pre.code-block {
 }
 
 /* ==========================================================================
-   Flywheel Steps Indicator
+   Flywheel Steps Indicator  --  compact numbered-circle stepper
    ========================================================================== */
 
-.flywheel-indicator {
-  padding: 1rem 0;
-  margin-bottom: 1.5rem;
-}
-
-.flywheel-steps {
+.fw-stepper {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  flex-wrap: wrap;
+  padding: 0.5rem 0;
+  margin-bottom: 0.75rem;
+  user-select: none;
 }
 
-.flywheel-step {
+/* Each node = optional line + dot + label, laid out inline */
+.fw-node {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1.2rem;
-  border-radius: 2rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: var(--color-bg-secondary, #ffffff);
-  border: 2px solid transparent;
-  position: relative;
+  gap: 0;
 }
 
-.flywheel-step:hover {
-  background: var(--color-bg-tertiary, #eef1f5);
-  transform: translateY(-1px);
-}
-
-.flywheel-current {
-  background: var(--color-primary) !important;
-  color: white !important;
-  border-color: var(--color-primary-light);
-  box-shadow: 0 0 12px rgba(47, 143, 78, 0.35);
-}
-
-.flywheel-current .flywheel-label {
-  color: white;
-  font-weight: 600;
-}
-
-.flywheel-completed {
-  background: var(--color-bg-secondary, #ffffff);
-  border-color: var(--color-success);
-  opacity: 0.85;
-}
-
-.flywheel-completed .flywheel-label {
-  color: var(--color-success, #22c55e);
-}
-
-.flywheel-future {
-  opacity: 0.5;
-}
-
-.flywheel-icon {
-  font-size: 1.2rem;
-}
-
-.flywheel-label {
-  font-size: 0.85rem;
-  color: var(--color-text-muted, #6b7280);
-  white-space: nowrap;
-}
-
-.flywheel-check {
-  font-size: 0.75rem;
-  color: var(--color-success, #22c55e);
-  margin-left: 0.25rem;
-}
-
-.flywheel-connector {
+/* Connector line between steps */
+.fw-line {
   width: 2rem;
   height: 2px;
   background: var(--color-border, #d6dae1);
   flex-shrink: 0;
+  transition: background 0.25s ease;
 }
-
-.flywheel-connector-done {
+.fw-line-done {
   background: var(--color-success, #22c55e);
 }
 
+/* The clickable circle */
+.fw-dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-border, #d6dae1);
+  background: var(--color-bg-secondary, #fff);
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+  position: relative;
+}
+.fw-dot:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: scale(1.1);
+}
+.fw-dot:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Number inside the dot */
+.fw-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* SVG checkmark for completed steps */
+.fw-check-svg {
+  display: block;
+}
+
+/* Label next to the dot */
+.fw-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  margin-left: 0.3rem;
+  margin-right: 0.25rem;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+/* ---- State: done ---- */
+.fw-done .fw-dot {
+  border-color: var(--color-success, #22c55e);
+  background: var(--color-success, #22c55e);
+  color: #fff;
+}
+.fw-done .fw-label {
+  color: var(--color-success, #22c55e);
+}
+
+/* ---- State: current ---- */
+.fw-current .fw-dot {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(47, 143, 78, 0.18);
+}
+.fw-current .fw-label {
+  color: var(--color-text, #1e293b);
+  font-weight: 600;
+}
+
+/* ---- State: pending ---- */
+.fw-pending .fw-dot {
+  opacity: 0.55;
+}
+.fw-pending .fw-label {
+  opacity: 0.55;
+}
+
+/* ---- Mobile ---- */
 @media (max-width: 768px) {
-  .flywheel-steps {
-    gap: 0.25rem;
-  }
-  .flywheel-step {
-    padding: 0.4rem 0.8rem;
-  }
-  .flywheel-label {
-    font-size: 0.75rem;
-  }
-  .flywheel-connector {
+  .fw-line {
     width: 1rem;
+  }
+  .fw-label {
+    display: none;
+  }
+  .fw-dot {
+    width: 1.35rem;
+    height: 1.35rem;
+    font-size: 0.6rem;
   }
 }
 
@@ -7703,6 +7728,100 @@ pre.code-block {
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--color-primary);
+}
+
+/* Debug Toggle */
+.telem-debug-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-card);
+}
+
+.telem-debug-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Recent Events Drawer */
+.data-row-clickable {
+  cursor: pointer;
+}
+
+.data-row-clickable:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.telem-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 60;
+}
+
+.telem-drawer {
+  width: min(560px, 92vw);
+  height: 100vh;
+  background: var(--color-card);
+  border-left: 1px solid var(--color-border);
+  box-shadow: -18px 0 40px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+.telem-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.telem-drawer-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.telem-drawer-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.telem-drawer-body {
+  padding: 1rem 1.5rem 1.5rem;
+  overflow: auto;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.telem-detail-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.telem-detail-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.telem-detail-value {
+  font-size: 0.95rem;
+  color: var(--color-text);
+  word-break: break-word;
 }
 
 /* Skeleton */
