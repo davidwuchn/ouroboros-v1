@@ -7,6 +7,79 @@
    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
+;; Markdown Rendering
+;; ============================================================================
+
+(defn markdown->html
+  "Simple markdown to HTML converter.
+   Supports: headers, bold, italic, lists, blockquotes, code, tables."
+  [text]
+  (when (seq text)
+    (-> text
+        ;; Headers (must be before other replacements)
+        (str/replace #"(?m)^### (.+)$" "<h4>$1</h4>")
+        (str/replace #"(?m)^## (.+)$" "<h3>$1</h3>")
+        (str/replace #"(?m)^# (.+)$" "<h2>$1</h2>")
+        ;; Bold and italic
+        (str/replace #"\*\*\*(.+?)\*\*\*" "<strong><em>$1</em></strong>")
+        (str/replace #"\*\*(.+?)\*\*" "<strong>$1</strong>")
+        (str/replace #"\*(.+?)\*" "<em>$1</em>")
+        ;; Inline code
+        (str/replace #"`([^`]+)`" "<code>$1</code>")
+        ;; Blockquotes
+        (str/replace #"(?m)^>\s*(.+)$" "<blockquote>$1</blockquote>")
+        ;; Code blocks
+        (str/replace #"```\n?([^`]+)```" "<pre><code>$1</code></pre>")
+        ;; Lists
+        (str/replace #"(?m)^\d+\.\s+(.+)$" "<li>$1</li>")
+        (str/replace #"(?m)^[-\*]\s+(.+)$" "<li>$1</li>")
+        ;; Tables - simple conversion
+        (str/replace #"\|([^|]+)\|([^|]+)\|([^|]+)\|" "<tr><td>$1</td><td>$2</td><td>$3</td></tr>")
+        ;; Line breaks (preserve paragraphs)
+        (str/replace #"\n\n" "</p><p>")
+        ;; Wrap in paragraph if not already wrapped
+        (#(if (str/starts-with? % "<") % (str "<p>" % "</p>"))))))
+
+(defn render-markdown
+  "Render markdown text as DOM elements with proper styling."
+  ([text class-name]
+   (let [html (markdown->html text)]
+     (dom/div {:className (str "markdown-content " class-name)
+               :dangerouslySetInnerHTML {:__html html}})))
+  ([text]
+   (render-markdown text "")))
+
+(defn extract-plain-text-from-markdown
+  "Extract plain text summary from markdown for card preview.
+   Strips markdown syntax and returns first sentence or short excerpt."
+  ([text max-length]
+   (let [max-len (or max-length 120)
+         plain-text (-> text
+                        ;; Remove headers
+                        (str/replace #"(?m)^#+\s*" "")
+                        ;; Remove bold/italic markers
+                        (str/replace #"\*\*\*" "")
+                        (str/replace #"\*\*" "")
+                        (str/replace #"\*" "")
+                        ;; Remove code markers
+                        (str/replace #"`" "")
+                        ;; Remove blockquote markers
+                        (str/replace #"^>\s*" "")
+                        ;; Remove table markers
+                        (str/replace #"\|" " ")
+                        ;; Remove list markers
+                        (str/replace #"^[-\*\d\.]\s*" "")
+                        ;; Collapse multiple spaces
+                        (str/replace #"\s+" " ")
+                        ;; Trim
+                        str/trim)]
+     (if (> (count plain-text) max-len)
+       (str (subs plain-text 0 max-len) "...")
+       plain-text)))
+  ([text]
+   (extract-plain-text-from-markdown text 120)))
+
+;; ============================================================================
 ;; Button
 ;; ============================================================================
 
@@ -337,7 +410,7 @@
             (dom/span :.wisdom-auto-insight-title "Builder Insight"))
           (if has-auto-insight?
             (dom/div :.wisdom-auto-insight-content
-              (dom/div :.wisdom-eca-text auto-insight-content)
+              (render-markdown auto-insight-content "wisdom-eca-text")
               (when auto-insight-streaming?
                 (dom/span :.wisdom-streaming-indicator "...")))
             (when auto-insight-loading?
@@ -347,7 +420,7 @@
       ;; ECA-powered content (streaming or complete)
       (if has-eca-content?
         (dom/div :.wisdom-eca-content
-          (dom/div :.wisdom-eca-text eca-content)
+          (render-markdown eca-content "wisdom-eca-text")
           (when eca-streaming?
             (dom/span :.wisdom-streaming-indicator "...")))
         ;; Fallback static tips while ECA loads

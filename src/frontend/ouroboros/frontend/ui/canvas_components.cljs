@@ -104,6 +104,64 @@
 (def ui-sticky-note (comp/factory StickyNote {:keyfn :item/id}))
 
 ;; ============================================================================
+;; Editable Sticky Note (callback-driven, no hardcoded mutations)
+;; ============================================================================
+
+(defsc EditableStickyNote
+  "Sticky note with click-to-edit inline editing.
+   Accepts :on-save (fn [note-id new-content]) and :on-delete (fn [note-id])
+   via computed props."
+  [this {:item/keys [id content color section] :as props}]
+  {:query [:item/id :item/content :item/color :item/section :item/position]
+   :ident :item/id
+   :initLocalState (fn [_ _] {:editing? false :edit-content ""})}
+  (let [editing? (comp/get-state this :editing?)
+        edit-content (comp/get-state this :edit-content)
+        {:keys [on-save on-delete]} (comp/get-computed this)
+        finish-edit (fn []
+                      (let [trimmed (when edit-content (.trim edit-content))]
+                        (when (and on-save (seq trimmed) (not= trimmed content))
+                          (on-save id trimmed))
+                        (comp/set-state! this {:editing? false})))]
+    (dom/div
+     {:className (str "sticky-note sticky-note-" (or color "yellow")
+                      (when editing? " sticky-note-editing"))
+      :data-item-id (str id)}
+     ;; Content area: textarea when editing, div when reading
+     (if editing?
+       (dom/textarea
+        {:className "sticky-note-edit-input"
+         :value (or edit-content "")
+         :autoFocus true
+         :onChange #(comp/set-state! this {:edit-content (.. % -target -value)})
+         :onBlur (fn [_] (finish-edit))
+         :onKeyDown (fn [e]
+                      (cond
+                        ;; Shift+Enter: save and close
+                        (and (= "Enter" (.-key e)) (.-shiftKey e))
+                        (do (.preventDefault e) (finish-edit))
+                        ;; Escape: cancel edit
+                        (= "Escape" (.-key e))
+                        (comp/set-state! this {:editing? false})))})
+       (dom/div
+        {:className "sticky-note-content sticky-note-clickable"
+         :onClick #(comp/set-state! this {:editing? true
+                                          :edit-content (or content "")})
+         :title "Click to edit"}
+        (or content "Click to edit...")))
+     ;; Delete button (always visible on hover via CSS)
+     (when on-delete
+       (dom/button
+        {:className "sticky-note-delete-btn"
+         :onClick (fn [e]
+                    (.stopPropagation e)
+                    (on-delete id))
+         :title "Delete note"}
+        "x")))))
+
+(def ui-editable-sticky-note (comp/factory EditableStickyNote {:keyfn :item/id}))
+
+;; ============================================================================
 ;; Canvas Section Component
 ;; ============================================================================
 
@@ -181,56 +239,76 @@
     :grid-area "pains-gains" :color "purple"}])
 
 (defn- render-canvas-section
-  "Render a single canvas section as plain DOM (no defsc normalization)"
-  [{:section/keys [key title description hint items editable?]} on-add-item]
-  (let [key-str (if (keyword? key) (name key) (str key))]
-    (dom/div
-     {:className (str "canvas-section canvas-section-" key-str)
-      :data-section key-str}
-     ;; Section Header
-     (dom/div :.canvas-section-header
-              (dom/h3 :.canvas-section-title title)
-              (when description
-                (dom/p :.canvas-section-description description))
-              (when hint
-                (dom/p :.canvas-section-hint
-                       (dom/span :.hint-icon "💡")
-                       hint)))
-     ;; Drop Zone
+  "Render a single canvas section as plain DOM.
+   When opts contains :on-item-edit and/or :on-item-delete, notes become
+   click-to-edit inline with a delete button. Otherwise notes are read-only."
+  ([section on-add-item] (render-canvas-section section on-add-item nil))
+  ([{:section/keys [key title description hint items editable?]} on-add-item opts]
+   (let [key-str (if (keyword? key) (name key) (str key))
+         {:keys [on-item-edit on-item-delete]} opts
+         editable-notes? (or on-item-edit on-item-delete)]
      (dom/div
-      {:className "canvas-section-content"
-       :data-drop-zone key-str}
-      (if (seq items)
-        (map (fn [item]
-               (when (:item/id item)
-                 (dom/div {:key (:item/id item)
-                           :className (str "sticky-note sticky-note-" (or (:item/color item) "yellow"))}
-                          (dom/div :.sticky-note-content (:item/content item)))))
-             items)
-        (dom/div :.canvas-section-empty
-                 {:onClick #(when on-add-item (on-add-item key))}
-                 (dom/span :.empty-icon "+")
-                 (dom/span "Click to add your first insight"))))
-     ;; Add Button
-     (when editable?
-       (dom/div :.canvas-section-actions
-                (dom/button
-                 {:className "btn btn-sm btn-add"
-                  :onClick #(when on-add-item (on-add-item key))}
-                 "+ Add Note"))))))
+      {:className (str "canvas-section canvas-section-" key-str)
+       :data-section key-str}
+      ;; Section Header
+      (dom/div :.canvas-section-header
+               (dom/h3 :.canvas-section-title title)
+               (when description
+                 (dom/p :.canvas-section-description description))
+               (when hint
+                 (dom/p :.canvas-section-hint
+                        (dom/span :.hint-icon "💡")
+                        hint)))
+      ;; Drop Zone
+      (dom/div
+       {:className "canvas-section-content"
+        :data-drop-zone key-str}
+       (if (seq items)
+         (if editable-notes?
+           ;; Editable: use EditableStickyNote with callbacks
+           (map (fn [item]
+                  (when (:item/id item)
+                    (ui-editable-sticky-note
+                     (comp/computed item {:on-save on-item-edit
+                                          :on-delete on-item-delete}))))
+                items)
+           ;; Read-only: simple divs
+           (map (fn [item]
+                  (when (:item/id item)
+                    (dom/div {:key (:item/id item)
+                              :className (str "sticky-note sticky-note-" (or (:item/color item) "yellow"))}
+                             (dom/div :.sticky-note-content (:item/content item)))))
+                items))
+         (dom/div :.canvas-section-empty
+                  {:onClick #(when on-add-item (on-add-item key))}
+                  (dom/span :.empty-icon "+")
+                  (dom/span "Click to add your first insight"))))
+      ;; Add Button
+      (when editable?
+        (dom/div :.canvas-section-actions
+                 (dom/button
+                  {:className "btn btn-sm btn-add"
+                   :onClick #(when on-add-item (on-add-item key))}
+                  "+ Add Note")))))))
 
 (defn render-empathy-map
-  "Visual empathy map with 2x3 grid layout (plain function, no defsc)"
-  [{:keys [sections items on-item-add]}]
+  "Visual empathy map with 2x3 grid layout (plain function, no defsc).
+   Accepts optional :on-item-edit (fn [note-id new-content]) and
+   :on-item-delete (fn [note-id]) to make notes editable."
+  [{:keys [sections items on-item-add on-item-edit on-item-delete]}]
   (let [find-section (fn [k] (first (filter #(= (:section/key %) k) sections)))
         items-for (fn [k] (filter #(= (:item/section %) k) items))
+        edit-opts (when (or on-item-edit on-item-delete)
+                    {:on-item-edit on-item-edit
+                     :on-item-delete on-item-delete})
         render-section (fn [section-key]
                          (when-let [section (find-section section-key)]
                            (render-canvas-section
                             (assoc section
                                    :section/items (items-for section-key)
                                    :section/editable? true)
-                            on-item-add)))]
+                            on-item-add
+                            edit-opts)))]
     (dom/div :.empathy-map-canvas
              ;; Grid Layout
              (dom/div :.empathy-map-grid

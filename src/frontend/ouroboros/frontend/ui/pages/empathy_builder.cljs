@@ -760,9 +760,19 @@
                 {:sections (:canvas/sections init-data)
                  :items (vals notes-map)
                  :on-item-add (fn [section-key]
-                                (comp/transact! this
-                                  [(m/set-props {:ui (-> ui
-                                                         (assoc :ui/show-section-modal true)
-                                                         (assoc :ui/active-section section-key))})]))}))))))))
+                                 (comp/transact! this
+                                   [(m/set-props {:ui (-> ui
+                                                          (assoc :ui/show-section-modal true)
+                                                          (assoc :ui/active-section section-key))})]))
+                 :on-item-edit (fn [note-id new-content]
+                                 (comp/transact! this
+                                   [(update-empathy-note
+                                     {:note-id note-id
+                                      :updates {:item/content new-content}})]))
+                 :on-item-delete (fn [note-id]
+                                   (comp/transact! this
+                                     [(delete-empathy-note
+                                       {:note-id note-id})]))}))))))))
+
 
 

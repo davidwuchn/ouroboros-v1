@@ -725,6 +725,73 @@ pre.code-block {
   background: rgba(244, 67, 54, 0.2);
 }
 
+/* Editable Sticky Note (click-to-edit inline) */
+.sticky-note-clickable {
+  cursor: text;
+}
+
+.sticky-note-clickable:hover {
+  background: rgba(255,255,255,0.35);
+  outline: 1px dashed rgba(0,0,0,0.15);
+  outline-offset: 2px;
+}
+
+.sticky-note-editing {
+  box-shadow: 3px 5px 14px rgba(0,0,0,0.25);
+  z-index: 5;
+}
+
+.sticky-note-edit-input {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: rgba(255,255,255,0.85);
+  border-radius: 3px;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 60px;
+  outline: none;
+  color: inherit;
+}
+
+.sticky-note-edit-input:focus {
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+}
+
+/* Delete button for editable notes */
+.sticky-note-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(244, 67, 54, 0.1);
+  border: none;
+  color: rgba(244, 67, 54, 0.7);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.sticky-note:hover .sticky-note-delete-btn {
+  opacity: 1;
+}
+
+.sticky-note-delete-btn:hover {
+  background: rgba(244, 67, 54, 0.25);
+  color: #d32f2f;
+}
+
 /* ============================================================================
    CANVAS SECTIONS
    ============================================================================ */
@@ -4417,10 +4484,11 @@ pre.code-block {
   max-width: 1200px;
   margin: 0 auto;
   min-height: 60vh;
+  padding-bottom: 2rem;
 }
 
 .wisdom-page-header {
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
 .wisdom-page-header h1 {
@@ -4441,10 +4509,14 @@ pre.code-block {
 
 .wisdom-section-header {
   margin-bottom: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
 }
 
 .wisdom-section-header h2 {
-  margin: 0 0 0.25rem 0;
+  margin: 0;
   font-size: 1.4rem;
 }
 
@@ -4452,12 +4524,30 @@ pre.code-block {
   color: var(--color-text-muted);
   font-size: 0.95rem;
   margin: 0;
+  width: 100%;
+}
+
+.wisdom-loading-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  animation: wisdom-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes wisdom-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 /* Template Grid */
 .wisdom-template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.25rem;
 }
 
@@ -4470,6 +4560,24 @@ pre.code-block {
   gap: 1rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+}
+
+.wisdom-template-card::after {
+  content: ">";
+  position: absolute;
+  top: 1.25rem;
+  right: 1rem;
+  font-size: 1.1rem;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateX(-4px);
+}
+
+.wisdom-template-card:hover::after {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .wisdom-template-card:focus {
@@ -4483,10 +4591,22 @@ pre.code-block {
   box-shadow: var(--shadow-hover);
 }
 
+.wisdom-template-card:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow);
+}
+
 .wisdom-template-icon {
   font-size: 2rem;
   flex-shrink: 0;
   line-height: 1;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  border-radius: 10px;
 }
 
 .wisdom-template-body {
@@ -4505,6 +4625,10 @@ pre.code-block {
   font-size: 0.88rem;
   margin: 0 0 0.75rem 0;
   line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .wisdom-template-tags {
@@ -4520,6 +4644,7 @@ pre.code-block {
   border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 500;
+  border: 1px solid var(--color-border);
 }
 
 /* Category Grid */
@@ -4537,6 +4662,7 @@ pre.code-block {
   display: flex;
   gap: 1rem;
   align-items: center;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -4545,27 +4671,140 @@ pre.code-block {
   outline-offset: 2px;
 }
 
+.wisdom-category-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.wisdom-category-card:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow);
+}
+
+.wisdom-category-icon {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+  line-height: 1;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  border-radius: 10px;
+}
+
+.wisdom-category-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.wisdom-category-body h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+}
+
+.wisdom-category-body p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wisdom-category-count {
+  text-align: center;
+  flex-shrink: 0;
+  min-width: 3rem;
+}
+
+.wisdom-count-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.wisdom-count-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0.2rem;
+}
+
 /* Wisdom Drawer */
 .wisdom-drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(18, 27, 39, 0.25);
+  background: rgba(18, 27, 39, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 600;
+  animation: wisdom-backdrop-in 0.15s ease;
+}
+
+@keyframes wisdom-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .wisdom-drawer {
-  width: min(720px, 92vw);
+  min-width: 400px;
+  max-width: 95vw;
   max-height: 80vh;
   background: var(--color-card);
   border-radius: 16px;
   border: 1px solid var(--color-border);
-  box-shadow: 0 20px 40px rgba(18, 27, 39, 0.2);
+  box-shadow: 0 20px 40px rgba(18, 27, 39, 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: wisdom-drawer-in 0.2s ease;
+  position: relative;
+}
+
+/* Resize handle - left edge drag bar */
+.wisdom-drawer-resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 10;
+  transition: background 0.15s ease;
+}
+
+.wisdom-drawer-resize-handle:hover,
+.wisdom-drawer-resize-handle:active {
+  background: var(--color-primary);
+  opacity: 0.5;
+}
+
+/* During active resize: prevent content from capturing pointer events */
+.wisdom-drawer-resizing {
+  user-select: none;
+}
+
+.wisdom-drawer-resizing * {
+  pointer-events: none;
+}
+
+.wisdom-drawer-resizing .wisdom-drawer-resize-handle {
+  pointer-events: auto;
+}
+
+@keyframes wisdom-drawer-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .wisdom-drawer-header {
@@ -4589,17 +4828,85 @@ pre.code-block {
 }
 
 .wisdom-drawer-subtitle {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.85rem;
+  margin: 0 0 0.75rem 0;
+  font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
+  font-weight: 600;
 }
 
 .wisdom-drawer-body {
-  padding: 1rem 1.25rem;
+  padding: 1.5rem 1.25rem;
   overflow: auto;
   flex: 1;
+}
+
+.wisdom-drawer-markdown {
+  padding: 1.5rem 1.75rem;
+  background: var(--color-bg);
+}
+
+.wisdom-drawer-markdown .markdown-content h2 {
+  color: var(--color-primary);
+}
+
+.wisdom-drawer-markdown .markdown-content table {
+  box-shadow: var(--shadow);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Template Preview Grid in Drawer */
+.wisdom-drawer-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.wisdom-preview-section {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+}
+
+.wisdom-preview-section h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wisdom-preview-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.wisdom-preview-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.wisdom-preview-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.wisdom-preview-value {
+  font-size: 0.82rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wisdom-drawer-preview {
@@ -4643,74 +4950,203 @@ pre.code-block {
   font-size: 0.9rem;
 }
 
-.wisdom-category-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow);
-}
-
-.wisdom-category-icon {
-  font-size: 2rem;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.wisdom-category-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.wisdom-category-body h4 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1rem;
-}
-
-.wisdom-category-body p {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  line-height: 1.4;
-}
-
-.wisdom-category-count {
+/* Empty State */
+.wisdom-empty-state {
   text-align: center;
-  flex-shrink: 0;
-}
-
-.wisdom-count-value {
-  display: block;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  line-height: 1;
-}
-
-.wisdom-count-label {
-  display: block;
-  font-size: 0.7rem;
+  padding: 2.5rem 1rem;
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-top: 0.2rem;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius);
+  border: 1px dashed var(--color-border);
 }
 
-/* Tips Grid */
+.wisdom-empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.6;
+}
+
+.wisdom-empty-state p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Markdown Content Styling */
+.markdown-content {
+  line-height: 1.6;
+}
+
+.markdown-content h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.75rem 0;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.5rem;
+}
+
+.markdown-content h2:first-child {
+  margin-top: 0;
+}
+
+.markdown-content h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem 0;
+  color: var(--color-text);
+}
+
+.markdown-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem 0;
+  color: var(--color-text-muted);
+}
+
+.markdown-content p {
+  margin: 0.75rem 0;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.markdown-content em {
+  font-style: italic;
+}
+
+.markdown-content blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-bg-tertiary);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
+.markdown-content code {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 0.85em;
+  background: var(--color-bg-tertiary);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  color: var(--color-primary);
+}
+
+.markdown-content pre {
+  background: var(--color-bg-tertiary);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.markdown-content pre code {
+  background: none;
+  padding: 0;
+  color: var(--color-text);
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.markdown-content li {
+  margin: 0.35rem 0;
+}
+
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.markdown-content th,
+.markdown-content td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.markdown-content th {
+  font-weight: 600;
+  background: var(--color-bg-tertiary);
+}
+
+.markdown-content tr:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.markdown-content tr:first-child {
+  font-weight: 600;
+  background: var(--color-bg-tertiary);
+}
+
+/* Drawer Footer */
+.wisdom-drawer-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.insight-meta {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.insight-source {
+  font-weight: 500;
+}
+
+.insight-files {
+  font-family: 'SF Mono', Monaco, monospace;
+  background: var(--color-bg);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+/* Tips Grid (Contextual Wisdom cards) */
 .wisdom-tips-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 .wisdom-tip-card {
   background: var(--color-card);
+  border: 2px solid var(--color-border);
   border-radius: var(--radius);
   padding: 1.25rem;
-  box-shadow: var(--shadow);
+  cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+}
+
+.wisdom-tip-card:focus {
+  outline: 3px solid rgba(47, 143, 78, 0.3);
+  outline-offset: 2px;
 }
 
 .wisdom-tip-card:hover {
+  border-color: var(--color-primary);
   transform: translateY(-2px);
   box-shadow: var(--shadow-hover);
+}
+
+.wisdom-tip-card:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow);
 }
 
 .wisdom-tip-icon {
@@ -4728,6 +5164,92 @@ pre.code-block {
   font-size: 0.88rem;
   color: var(--color-text-muted);
   line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ECA Panel within Contextual Wisdom */
+.wisdom-eca-panel {
+  margin-top: 0.5rem;
+  border: 1px solid var(--color-border);
+}
+
+.wisdom-eca-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.wisdom-eca-badge {
+  display: inline-block;
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Tip Detail Drawer Content */
+.wisdom-tip-detail {
+  padding: 0;
+}
+
+.wisdom-tip-detail-desc {
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--color-text);
+  margin: 0 0 1.5rem 0;
+}
+
+.wisdom-related-tips {
+  border-top: 1px solid var(--color-border);
+  padding-top: 1rem;
+}
+
+.wisdom-related-tips h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.88rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.wisdom-related-tip {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--color-bg);
+  margin-bottom: 0.5rem;
+}
+
+.wisdom-related-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.wisdom-related-tip strong {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.15rem;
+}
+
+.wisdom-related-tip p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
 }
 
 .wisdom-panel-inline {
@@ -4744,6 +5266,26 @@ pre.code-block {
   .wisdom-category-grid,
   .wisdom-tips-grid {
     grid-template-columns: 1fr;
+  }
+
+  .wisdom-drawer-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wisdom-page-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .wisdom-drawer {
+    width: 100vw !important;
+    min-width: 0;
+    max-width: 100vw;
+    border-radius: 16px 16px 0 0;
+    max-height: 90vh;
+  }
+
+  .wisdom-drawer-resize-handle {
+    display: none;
   }
 }
 
