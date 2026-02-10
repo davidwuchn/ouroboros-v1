@@ -73,11 +73,11 @@
                          (dom/span :.dash-fw-label label)))))
 
 (defn project-overview-card
-  "Project info card for the dashboard - shows name, status, description, flywheel progress"
-  [{:keys [project-name project-status project-description project-id]}]
-  (let [ws-state (when-let [sa @ws/app-state-atom] @sa)
-        progress (when project-id (get-in ws-state [:flywheel/progress project-id]))
-        encoded-id (when project-id (str/replace (str project-id) "/" "~"))
+  "Project info card for the dashboard - shows name, status, description, flywheel progress.
+   All data passed via props from parent (no independent atom reads)."
+  [{:keys [project-name project-status project-description project-id
+           progress board]}]
+  (let [encoded-id (when project-id (str/replace (str project-id) "/" "~"))
         current-step (or (when progress
                            (let [step (:current-step progress)]
                              (case step
@@ -89,14 +89,7 @@
                          :empathy)
         step-order {:empathy 0 :valueprop 1 :mvp 2 :canvas 3}
         current-idx (get step-order current-step 0)
-        ;; Kanban summary
-        board (when project-id (get-in ws-state [:kanban/board project-id]))
         summary (:summary board)]
-    ;; Request data if not loaded
-    (when (and project-id (not progress))
-      (ws/request-flywheel-progress! project-id))
-    (when (and project-id (not board))
-      (ws/request-kanban-board! project-id))
     (dom/div :.dash-project-card
              ;; Project header
              (dom/div :.dash-project-header
@@ -202,17 +195,31 @@
                                                     :post-mutation-params {:target [:page/id :dashboard]}
                                                     :fallback `handle-load-error
                                                     :fallback-params {:page-id :dashboard
-                                                                      :error-message "Failed to load dashboard data"}}))))}
+                                                                      :error-message "Failed to load dashboard data"}}))))
+   ;; Request WS data on mount instead of during render
+   :componentDidMount
+   (fn [this]
+     (let [ws-state (when-let [sa @ws/app-state-atom] @sa)
+           ws-project (get ws-state :workspace/project)
+           project-id (:project/id ws-project)]
+       (when project-id
+         (when-not (get-in ws-state [:flywheel/progress project-id])
+           (ws/request-flywheel-progress! project-id))
+         (when-not (get-in ws-state [:kanban/board project-id])
+           (ws/request-kanban-board! project-id)))))}
 
   (let [loading? (df/loading? (get props [df/marker-table :dashboard]))
         error-msg (get-in props [:page/error :dashboard])
-        ;; Read workspace project from WS state
+        ;; Read workspace project from WS state (schedule-render! triggers re-render when WS data arrives)
         ws-state (when-let [sa @ws/app-state-atom] @sa)
         ws-project (get ws-state :workspace/project)
         project-id (:project/id ws-project)
         project-name (:project/name ws-project)
         project-status (:project/status ws-project)
-        project-desc (:project/description ws-project)]
+        project-desc (:project/description ws-project)
+        ;; Read WS data for child components (passed via props, not re-read by children)
+        progress (when project-id (get-in ws-state [:flywheel/progress project-id]))
+        board (when project-id (get-in ws-state [:kanban/board project-id]))]
     (cond
       error-msg
       (error-state
@@ -232,13 +239,15 @@
       (dom/div :.dash-page
                (dom/h1 :.dash-title "Dashboard")
 
-               ;; Project overview (moved from project page)
+               ;; Project overview - pass all data via props
                (when ws-project
                  (project-overview-card
                   {:project-name project-name
                    :project-status project-status
                    :project-description project-desc
-                   :project-id project-id}))
+                   :project-id project-id
+                   :progress progress
+                   :board board}))
 
                ;; System info row
                (dom/div :.dash-info-row

@@ -17,7 +17,8 @@
     [ouroboros.frontend.ui.pages.lean-canvas-builder :as lean-canvas-builder]
     [ouroboros.frontend.ui.pages.wisdom :as wisdom]
     [goog.events :as gevents]
-   [goog.events.EventType :as event-type]))
+   [goog.events.EventType :as event-type]
+   ["react" :as react]))
 
 ;; ============================================================================
 ;; Navigation Handler
@@ -49,6 +50,66 @@
    :ident (fn [] [:router/id :main-router])})
 
 (def ui-main-router (comp/factory MainRouter {:keyfn :router-id}))
+
+;; ============================================================================
+;; Error Boundary (raw React class - required for getDerivedStateFromError)
+;; ============================================================================
+
+(def ErrorBoundary
+  "React error boundary - catches render errors in children and shows fallback UI.
+   Prevents the entire app from white-screening when a page component throws.
+   Must be a raw React class component since React hooks don't support error boundaries."
+  (let [cls (fn ErrorBoundary [props]
+              (this-as this
+                (.call react/Component this props)
+                (set! (.-state this) #js {:hasError false :errorMessage nil})
+                this))]
+    ;; Set up prototype chain
+    (set! (.-prototype cls) (js/Object.create (.-prototype react/Component)))
+    (set! (.. cls -prototype -constructor) cls)
+
+    ;; getDerivedStateFromError (static method)
+    (set! (.-getDerivedStateFromError cls)
+          (fn [error]
+            #js {:hasError true
+                 :errorMessage (.-message error)}))
+
+    ;; componentDidCatch
+    (set! (.. ^js cls -prototype -componentDidCatch)
+          (fn [error info]
+            (js/console.error "ErrorBoundary caught an error:" error)
+            (js/console.error "Component stack:" (.-componentStack info))))
+
+    ;; render
+    (set! (.. ^js cls -prototype -render)
+          (fn []
+            (this-as this
+              (let [has-error? (.-hasError ^js (.-state this))
+                    error-msg (.-errorMessage ^js (.-state this))]
+                (if has-error?
+                  (react/createElement "div"
+                    #js {:className "error-boundary-fallback"
+                         :style #js {:padding "2rem"
+                                     :textAlign "center"
+                                     :color "var(--color-text, #e0e0e0)"}}
+                    (react/createElement "h2"
+                      #js {:style #js {:marginBottom "1rem"}}
+                      "Something went wrong")
+                    (react/createElement "p"
+                      #js {:style #js {:marginBottom "1rem"
+                                       :color "var(--color-text-muted, #888)"}}
+                      (or error-msg "An unexpected error occurred while rendering this page."))
+                    (react/createElement "button"
+                      #js {:className "btn btn-primary"
+                           :style #js {:padding "0.5rem 1.5rem"
+                                       :cursor "pointer"}
+                           :onClick (fn []
+                                      (.setState this #js {:hasError false :errorMessage nil})
+                                      (dr/change-route! app ["dashboard"]))}
+                      "Back to Dashboard"))
+                  ;; No error - render children normally
+                  (.-children (.-props this)))))))
+    cls))
 
 ;; ============================================================================
 ;; Root Component
@@ -100,6 +161,7 @@
                :on-toggle-chat #(comp/transact! this [(chat/toggle-chat {})])
                :chat-open? chat-open?})
               (dom/main {:className (str "main-content " (when chat-open? "main-content-shifted"))}
-                        (ui-main-router main-router))
+                        (react/createElement ErrorBoundary nil
+                                             (ui-main-router main-router)))
              ;; Global chat sidebar (pass current route as context)
              (chat/ui-chat-panel (assoc chat-panel :chat/context current-route)))))

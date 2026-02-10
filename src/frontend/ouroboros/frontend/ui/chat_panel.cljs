@@ -433,18 +433,15 @@
 
 (defn get-context-info
   "Get context label, icon, and suggestions for current route.
-   Uses ECA-generated suggestions if available, falls back to static."
+   Uses ECA-generated suggestions if available, falls back to static.
+   Pure function - does not trigger side-effects."
   [route]
   (let [ctx (detect-context route)
         ;; Check for ECA-generated suggestions
         state-atom @ws/app-state-atom
         eca-suggestions (when state-atom (get-in @state-atom [:content/generated :chat-suggestions]))
-        eca-loading? (when state-atom (get-in @state-atom [:content/loading? :chat-suggestions]))
         fallback (get fallback-context-suggestions (or ctx :default)
                       (get fallback-context-suggestions :default))]
-    ;; Request ECA suggestions if not loaded
-    (when (and state-atom (not eca-suggestions) (not eca-loading?))
-      (ws/request-content! :chat-suggestions :context (or ctx "general")))
     ;; Use ECA suggestions if available for this context
     (if-let [eca-ctx (and eca-suggestions (get eca-suggestions (or ctx :default)))]
       (merge fallback eca-ctx)
@@ -683,7 +680,17 @@
                        :chat/context nil
                        :chat/active-tab :chat
                        :chat/active-conversation new-id
-                       :chat/show-conversations? false}))}
+                       :chat/show-conversations? false}))
+   ;; Request ECA-generated chat suggestions on mount (not during render)
+   :componentDidMount
+   (fn [this]
+     (let [state-atom @ws/app-state-atom
+           eca-suggestions (when state-atom (get-in @state-atom [:content/generated :chat-suggestions]))
+           eca-loading? (when state-atom (get-in @state-atom [:content/loading? :chat-suggestions]))]
+       (when (and state-atom (not eca-suggestions) (not eca-loading?))
+         (let [route (:chat/context (comp/props this))
+               ctx (detect-context route)]
+           (ws/request-content! :chat-suggestions :context (or ctx "general"))))))}
 
   (let [input-text (or (comp/get-state this :input) "")
         editing-idx (comp/get-state this :editing-idx)

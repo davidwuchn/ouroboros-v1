@@ -124,7 +124,16 @@
                                                      {:marker :project-detail
                                                       :params {:project-id decoded-id}
                                                       :post-mutation `dr/target-ready
-                                                      :post-mutation-params {:target [:page/id :project-detail]}})))))}
+                                                      :post-mutation-params {:target [:page/id :project-detail]}})))))
+   ;; Request Kanban board data on mount (not during render)
+   :componentDidMount
+   (fn [this]
+     (let [ws-state (when-let [sa @ws/app-state-atom] @sa)
+           ws-project (get ws-state :workspace/project)
+           effective-id (or (:project/id (comp/props this)) (:project/id ws-project))]
+       (when (and effective-id
+                  (not (get-in ws-state [:kanban/board effective-id])))
+         (ws/request-kanban-board! effective-id))))}
 
   (let [loading? (df/loading? (get props [df/marker-table :project-detail]))
         ;; Fallback: read project from WS state if Pathom hasn't loaded yet
@@ -139,9 +148,6 @@
         ;; Kanban board for status indicators
         board (when effective-id
                 (get-in ws-state [:kanban/board effective-id]))]
-    ;; Request board data for status indicators
-    (when (and effective-id (not board))
-      (ws/request-kanban-board! effective-id))
     (if (and loading? (not ws-project))
       (dom/div :.pd-loading
                (dom/div :.pd-loading-spinner)
