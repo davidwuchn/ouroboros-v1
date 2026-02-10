@@ -1,22 +1,22 @@
 [
   {
     "key": "empathy",
-    "tagline": "Understand the developer who craves an AI that never locks them out",
-    "description": "Technical users who live in terminals need an assistant that's always accessible across any platform, respects their data sovereignty, and never forces them into a vendor ecosystem they can't escape."
+    "tagline": "Know your user before you build for them",
+    "description": "Your target developer wants an AI assistant that works everywhere— Telegram, Discord, Slack— without vendor lock-in. The empathy map reveals they crave flexibility over shiny features, and security over speed."
   },
   {
     "key": "valueprop",
-    "tagline": "Your personal AI with zero vendor lock-in and enterprise-grade guardrails",
-    "description": "The snake way delivers cross-platform AI assistance through ECA integration, where you own your data, configure your tools, and approve every sensitive operation before it happens — no surprises, no opaque AI decisions."
+    "tagline": "Why you, not them?",
+    "description": "Ouroboros differentiates through chat platform unification AND a learning flywheel that remembers insights across sessions. The ECA delegation means you focus on unique value while leveraging battle-tested AI tooling."
   },
   {
     "key": "mvp",
-    "tagline": "Ship chat adapters, a safety-first ECA bridge, and a wisdom-accumulating flywheel",
-    "description": "Core value: Telegram/Discord/Slack integration with streaming responses, human-in-the-loop approvals for all dangerous tools, and a progressive learning system that grows smarter with every builder session completed."
+    "tagline": "Ship the minimum, learn the maximum",
+    "description": "Your MVP is working: 58 passing tests, 268 assertions, ECA streaming to chat platforms, and a functional Web UX flywheel. The next iteration should validate real user adoption— get it into developers' hands via Docker."
   },
   {
     "key": "canvas",
-    "tagline": "Open-source the guidance, own the assistant",
-    "description": "Business model: Clojure developers and security-conscious teams are your target. Revenue streams include self-hosted deployments, premium wisdom features, and enterprise governance add-ons — all powered by transparent AI that explains its reasoning."
+    "tagline": "Map the model, find the gaps",
+    "description": "Problem: Fragmented AI tooling. Solution: Unified chat platform interface. Key Partners: ECA for AI, users for feedback. Channels: GitHub, Docker Hub. Revenue Stream: Open source with potential enterprise tiers for container isolation."
   }
 ]
