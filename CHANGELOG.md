@@ -4,9 +4,51 @@
 
 ## [Unreleased]
 
+### Resilience & UI Polish Sweep (2026-02-10)
+
+- `b2194fa` ⚒ Harden ECA client -- auto-restart on failure, alive checks, graceful shutdown, debug mode
+  - `send-request!` validates process alive before writing, catches write failures
+  - `chat-prompt` split into `chat-prompt-once` + retry wrapper with auto-restart
+  - New functions: `alive?`, `restart!`, `ensure-alive!`
+  - Ack timeout reduced 60s → 10s for faster failure detection
+  - `stop!` waits 2s for clean shutdown then force-kills
+
+- `ab40cc4` ⚒ Add WebSocket resilience -- content caching in localStorage, safety timeouts, debug toggle
+  - `schedule-render!` promoted from private to public
+  - Content cache persistence to localStorage for generated content
+  - Telemetry event handler properly updates Fulcro-normalized state
+  - New `handle-message :eca/debug-status` handler
+  - 25-second safety timeouts on `request-wisdom!` and `request-content!`
+
+- `21f4cd1` ⚒ Add chat panel resilience -- WS connectivity check before send, 25s safety timeout
+  - `send-message` mutation checks `ws/connected?` before sending; shows error if disconnected
+  - 25-second safety timeout fires if streaming placeholder is still empty
+
+- `71a1a41` ⚒ Overhaul telemetry UI -- debug toggle, event detail drawer, remove monkey-patching
+  - Debug mode toggle button (sends `eca/debug` via WS, triggers ECA restart with `--log-level debug`)
+  - Event detail drawer: clicking any row opens slide-out panel showing all fields via `pprint`
+  - Removed fragile `componentDidMount` monkey-patching of `ws/handle-message`
+
+- `b65939a` ⊘ Fix nil-safety and React key warnings across 9 frontend components
+  - Systematic sweep: `(map render (filter :key items))` replacing `(map #(when (:key %) ...) items)`
+  - Files: analytics, canvas, collaboration, wisdom components + 5 builder pages
+  - Fixes syntax bug in `CursorOverlay`
+
+- `161b5ef` ⚒ Polish frontend UI -- flywheel circle stepper, clickable data-table rows, telemetry drawer CSS
+  - Flywheel indicator redesigned: pill buttons → compact numbered-circle stepper (1-2-3-4)
+  - SVG checkmarks for completed steps, `<nav>`/`<button>` for accessibility
+  - `data-table` gets `on-row-click` prop; `metric-card` gets fallback key
+  - All `.flywheel-*` → `.fw-*` CSS classes (~130 lines rewritten)
+  - New telemetry CSS: drawer backdrop, slide-out panel, clickable rows (~94 lines)
+
+- `654e1b5` ◈ Refresh product templates and add ECA-generated strategy data
+  - `product-templates.json` — all 4 templates refreshed
+  - `.flywheel-guidance.json` / `flywheel-guidance.json` — 4-phase flywheel guidance
+  - `product-archetypes.json` / `product-strategy-archetypes.json` — strategy data
+
 ### Developer Experience — Debug & Auto-Download
 
-- `???????` ⚒ λ Add terminal introspection API (idle, prompt, cursor, dimensions)
+- ⚒ λ Add terminal introspection API (idle, prompt, cursor, dimensions)
   - `bb process idle <name> [ms]` — Check if session is idle (default 5000ms)
   - `bb process prompt <name>` — Detect shell prompt (bash, zsh, fish, git, plan9)
   - `bb process terminal <name>` — Get terminal dimensions and cursor position
@@ -16,7 +58,7 @@
   - Cross-platform timestamp handling (macOS date limitations)
   - Activity tracking via persistent timestamp file
 
-- `???????` ⚒ λ Add `bb debug` task and `ouroboros.debug` namespace
+- ⚒ λ Add `bb debug` task and `ouroboros.debug` namespace
   - `bb debug` — CLI access to ECA status, system health, tools
   - `bb debug eca|system|tools|menu` — Subcommands for specific checks
   - `ouroboros.debug/eca-status` — Programmatic ECA binary status
@@ -25,7 +67,7 @@
   - `ouroboros.debug/tool-registry` — List registered tools
   - `ouroboros.debug/debug-menu` — Interactive debug command reference
   
-- `???????` ⚒ λ Add auto-download to `bb test:eca`
+- ⚒ λ Add auto-download to `bb test:eca`
   - Auto-detects platform (macOS/Linux/Windows) and architecture (arm64/amd64)
   - Downloads ECA binary from GitHub releases if missing
   - Extracts ZIP, sets executable permissions, verifies with `--version`
@@ -196,11 +238,11 @@ git log --grep="Telemetry" --oneline
 
 | Symbol | Meaning | Count |
 |--------|---------|-------|
-| ⚒ | Build | 9 |
-| ◈ | Reflect | 6 |
+| ⚒ | Build | 14 |
+| ◈ | Reflect | 7 |
 | ∿ | Play | 2 |
 | · | Atom | 2 |
-| ⊘ | Debug | 2 |
+| ⊘ | Debug | 3 |
 | ◇ | Explore | 1 |
 | λ | Lambda | 0 (embedded in others) |
 

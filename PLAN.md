@@ -1,7 +1,7 @@
 # PLAN.md
 
 > Next steps and future directions for Ouroboros.
-> Last Updated: 2026-02-09
+> Last Updated: 2026-02-10
 
 ## Summary of External Project Analysis
 
@@ -775,6 +775,8 @@ These are now handled by ECA:
 | 2026-02-08 | **UI Cleanup: Remove Users/Sessions** -- Removed chat-platform pages (empty in single-project model), cleaned navbar/router/dashboard/backend query resolver, deleted orphaned files |
 | 2026-02-09 | **Kanban Board** -- Auto-derived Kanban board on Project page: backend handler computes card status from builder session data, WS message protocol, frontend components with view toggle (Flywheel/Kanban), CSS styling |
 | 2026-02-09 | **Phase D: Dynamic Content** -- Replaced all hardcoded static content with ECA-powered dynamic content. New `analytics/dashboard` (real data + ECA prediction) and `content/generate` (7 content types) WS handlers. Frontend ECA-first with static fallback across 7 files. 58 tests, 268 assertions pass. |
+| 2026-02-10 | **Resilience & UI Polish** -- ECA client auto-restart on failure (`alive?`, `restart!`, `ensure-alive!`). WebSocket content caching in localStorage. Chat panel WS connectivity checks. Telemetry UI overhaul (event detail drawer, debug toggle). Nil-safety sweep across 9 frontend components. Flywheel indicator redesigned as circle stepper with ARIA accessibility. |
+| 2026-02-10 | **Dashboard flywheel alignment** -- Migrated dashboard from old `.dash-fw-*` pill-style flywheel to shared `ui/flywheel-indicator` circle stepper. Removed ~60 lines dead CSS. Single component for all flywheel nav across app. |
 
 ## Lessons from NanoClaw Analysis
 

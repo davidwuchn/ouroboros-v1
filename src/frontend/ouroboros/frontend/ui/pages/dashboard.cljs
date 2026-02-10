@@ -55,24 +55,6 @@
 ;; Project Overview Card (moved from project-detail page)
 ;; ============================================================================
 
-(defn- flywheel-step-indicator
-  "Compact flywheel step for the dashboard progress bar"
-  [{:keys [step idx current-idx on-navigate encoded-id]}]
-  (let [{:keys [key icon label route]} step
-        is-current? (= idx current-idx)
-        is-past? (< idx current-idx)
-        cls (str "dash-fw-step"
-                 (when is-current? " dash-fw-current")
-                 (when is-past? " dash-fw-done"))]
-    (dom/div {:key (name key)}
-             (when (> idx 0)
-               (dom/div {:className (str "dash-fw-connector"
-                                         (when (or is-past? is-current?) " dash-fw-connector-done"))}))
-             (dom/button {:className cls
-                          :onClick #(dr/change-route! app ["project" encoded-id route])}
-                         (dom/span :.dash-fw-icon icon)
-                         (dom/span :.dash-fw-label label)))))
-
 (defn project-overview-card
   "Project info card for the dashboard - shows name, status, description, flywheel progress.
    All data passed via props from parent (no independent atom reads)."
@@ -88,8 +70,6 @@
                                :lean-canvas :canvas
                                :empathy)))
                          :empathy)
-        step-order {:empathy 0 :valueprop 1 :mvp 2 :canvas 3}
-        current-idx (get step-order current-step 0)
         summary (:summary board)]
     (dom/div :.dash-project-card
              ;; Project header
@@ -121,12 +101,12 @@
                           (dom/div :.dash-progress-bar
                                    (dom/div {:className "dash-progress-bar-fill"
                                              :style {:width (str pct "%")}})))))
-             ;; Flywheel nav
-             (dom/div :.dash-flywheel-nav
-                      (for [[idx step] (map-indexed vector ui/flywheel-steps)]
-                        (flywheel-step-indicator
-                         {:step step :idx idx :current-idx current-idx
-                          :on-navigate #() :encoded-id encoded-id}))))))
+             ;; Flywheel nav -- uses shared circle stepper
+             (ui/flywheel-indicator
+              {:current-step current-step
+               :project-id encoded-id
+               :on-navigate (when encoded-id
+                              #(dr/change-route! app ["project" encoded-id %]))}))))
 
 ;; ============================================================================
 ;; Wisdom Overview Card
