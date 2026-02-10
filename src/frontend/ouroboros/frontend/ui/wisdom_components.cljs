@@ -270,7 +270,7 @@
            :wisdom/eca-prompt]
    :ident (fn [] [:component/id :wisdom-sidebar])
    :initial-state (fn [_] {:wisdom/show-chat? false})}
-  (dom/div :.wisdom-sidebar
+   (dom/div :.wisdom-page-sidebar
     ;; Header with toggle
     (dom/div :.wisdom-header
       (dom/h3 "✨ Wisdom")

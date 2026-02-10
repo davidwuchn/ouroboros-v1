@@ -325,12 +325,11 @@
    clj->js on the frontend converts keyword values to strings.
    json/parse-string with keyword only keywordizes map keys, not values.
    This function restores keyword values for known fields:
-   - :item/section values (e.g. \"persona\" -> :persona)
-   - :section-key values (e.g. \"customer-job\" -> :customer-job)"
+   - :item/section values (e.g. \"persona\" -> :persona)"
   [builder-type data]
   (case builder-type
     ;; Sticky note builders: normalize :item/section values in each note
-    (:empathy-map :lean-canvas)
+    (:empathy-map :lean-canvas :value-proposition :mvp-planning)
     (reduce-kv (fn [m k note]
                  (let [str-key (if (keyword? k) (name k) k)]
                    (assoc m str-key
@@ -339,34 +338,19 @@
                             (update :item/section keyword)))))
                {} (or data {}))
 
-    ;; Form builders: normalize :section-key values in each response
-    (:value-proposition :mvp-planning)
-    (mapv (fn [resp]
-            (cond-> resp
-              (string? (:section-key resp))
-              (update :section-key keyword)))
-          (or data []))
-
     ;; Unknown builder type - pass through
     data))
 
 (defn- count-completed-sections
   "Count how many sections have data in the builder data map.
-   For sticky-note builders (empathy, lean-canvas): data is {note-id -> note-map}, grouped by :item/section.
-   For form builders (value-prop, mvp): data is [{:section-key ... :response ...}]."
+   All builders use sticky-note format: data is {note-id -> note-map}, grouped by :item/section."
   [builder-type data]
   (case builder-type
     ;; Sticky note builders: data is a flat map of {note-id -> {:item/section :key ...}}
-    (:empathy-map :lean-canvas)
+    (:empathy-map :lean-canvas :value-proposition :mvp-planning)
     (let [notes (vals (or data {}))
           sections-with-notes (set (map :item/section notes))]
       (count sections-with-notes))
-
-    ;; Form builders: data is a vector of {:section-key :response}
-    (:value-proposition :mvp-planning)
-    (let [responses (or data [])
-          section-keys (set (map :section-key responses))]
-      (count section-keys))
 
     ;; Unknown builder type
     0))

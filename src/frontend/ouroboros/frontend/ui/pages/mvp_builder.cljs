@@ -1,12 +1,13 @@
 (ns ouroboros.frontend.ui.pages.mvp-builder
-  "MVP Planning builder page with guided UX
+  "MVP Planning builder page with visual canvas interface
 
    Features:
-   - Step-by-step tutorial
-   - Guided prompts for each section
-   - Example responses
-   - Prioritization framework
-   - Progress tracking"
+   - Visual structured grid canvas layout
+   - Sticky notes with click-to-edit
+   - Undo/redo history
+   - Guided onboarding and tutorials
+   - Section prompts and examples
+   - Presentation mode"
    (:require
     [clojure.string :as str]
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
@@ -15,6 +16,7 @@
     [com.fulcrologic.fulcro.data-fetch :as df]
     [com.fulcrologic.fulcro.mutations :as m]
     [ouroboros.frontend.ui.components :as ui]
+    [ouroboros.frontend.ui.canvas-components :as canvas]
     [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
@@ -181,52 +183,104 @@
     :tip "Aim for 2-6 weeks. If it takes longer, your scope is too big."}])
 
 ;; ============================================================================
-;; Mutations
+;; Note Mutations (with undo/redo history)
 ;; ============================================================================
 
-(defn- sync-mvp-responses!
-  "Sync responses to backend via WebSocket"
+(defn- push-undo!
+  "Snapshot current notes onto undo stack before a mutation. Clears redo stack."
   [state]
-  (let [s @state
-        project-id (get-in s [:page/id :mvp-builder :project/id])
-        responses (get-in s [:page/id :mvp-builder :completed-responses] [])
-        session-id (str "mvp-" project-id)]
-    (when project-id
-      (ws/save-builder-data! project-id session-id :mvp-planning responses))))
+  (let [current-notes (get-in state [:page/id :mvp-builder :mvp/notes] {})
+        undo-stack (get-in state [:page/id :mvp-builder :ui :ui/undo-stack] [])]
+    (-> state
+        (assoc-in [:page/id :mvp-builder :ui :ui/undo-stack]
+                  (conj undo-stack current-notes))
+        (assoc-in [:page/id :mvp-builder :ui :ui/redo-stack] []))))
 
-(m/defmutation submit-mvp-response
-  "Save a section response"
-  [{:keys [section-key response]}]
-  (action [{:keys [state]}]
-    (swap! state update-in [:page/id :mvp-builder :completed-responses]
-           (fnil conj [])
-           {:section-key section-key
-            :response response
-            :completed-at (js/Date.now)})
-    (sync-mvp-responses! state)))
+(defonce ^:private mvp-sync-timer (atom nil))
 
-(m/defmutation update-mvp-response
-  "Update an existing section response in-place"
-  [{:keys [section-key response]}]
-  (action [{:keys [state]}]
-    (swap! state update-in [:page/id :mvp-builder :completed-responses]
-           (fn [responses]
-             (let [responses (or responses [])]
-               (mapv (fn [r]
-                       (if (= (:section-key r) section-key)
-                         (assoc r :response response :completed-at (js/Date.now))
-                         r))
-                     responses))))
-    (sync-mvp-responses! state)))
+(defn- sync-mvp-notes!
+  "Send current MVP notes to backend for persistence (debounced 500ms)"
+  [state-atom]
+  (when-let [t @mvp-sync-timer]
+    (js/clearTimeout t))
+  (reset! mvp-sync-timer
+    (js/setTimeout
+      (fn []
+        (let [s @state-atom
+              project-id (get-in s [:page/id :mvp-builder :project/id])
+              session-id (str "mvp-" project-id)
+              notes (get-in s [:page/id :mvp-builder :mvp/notes] {})]
+          (when project-id
+            (ws/save-builder-data! project-id session-id :mvp-planning notes))))
+      500)))
 
-(m/defmutation delete-mvp-response
-  "Delete a section response"
-  [{:keys [section-key]}]
+(m/defmutation add-mvp-note
+  "Add a sticky note to an MVP section"
+  [{:keys [section-key content]}]
   (action [{:keys [state]}]
-    (swap! state update-in [:page/id :mvp-builder :completed-responses]
-           (fn [responses]
-             (vec (remove #(= (:section-key %) section-key) responses))))
-    (sync-mvp-responses! state)))
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)
+                               new-note (canvas/create-sticky-note section-key content)]
+                           (update-in s [:page/id :mvp-builder :mvp/notes]
+                                      (fnil assoc {}) (:item/id new-note) new-note))))
+          (sync-mvp-notes! state)))
+
+(m/defmutation update-mvp-note
+  "Update a sticky note"
+  [{:keys [note-id updates]}]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)]
+                           (update-in s [:page/id :mvp-builder :mvp/notes note-id] merge updates))))
+          (sync-mvp-notes! state)))
+
+(m/defmutation delete-mvp-note
+  "Delete a sticky note"
+  [{:keys [note-id]}]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)]
+                           (update-in s [:page/id :mvp-builder :mvp/notes] dissoc note-id))))
+          (sync-mvp-notes! state)))
+
+(m/defmutation undo-mvp
+  "Undo last notes change"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [undo-stack (get-in s [:page/id :mvp-builder :ui :ui/undo-stack] [])
+                               redo-stack (get-in s [:page/id :mvp-builder :ui :ui/redo-stack] [])
+                               current-notes (get-in s [:page/id :mvp-builder :mvp/notes] {})]
+                           (if (seq undo-stack)
+                             (-> s
+                                 (assoc-in [:page/id :mvp-builder :mvp/notes] (peek undo-stack))
+                                 (assoc-in [:page/id :mvp-builder :ui :ui/undo-stack] (pop undo-stack))
+                                 (assoc-in [:page/id :mvp-builder :ui :ui/redo-stack] (conj redo-stack current-notes)))
+                             s))))))
+
+(m/defmutation redo-mvp
+  "Redo last undone notes change"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [undo-stack (get-in s [:page/id :mvp-builder :ui :ui/undo-stack] [])
+                               redo-stack (get-in s [:page/id :mvp-builder :ui :ui/redo-stack] [])
+                               current-notes (get-in s [:page/id :mvp-builder :mvp/notes] {})]
+                           (if (seq redo-stack)
+                             (-> s
+                                 (assoc-in [:page/id :mvp-builder :mvp/notes] (peek redo-stack))
+                                 (assoc-in [:page/id :mvp-builder :ui :ui/redo-stack] (pop redo-stack))
+                                 (assoc-in [:page/id :mvp-builder :ui :ui/undo-stack] (conj undo-stack current-notes)))
+                             s))))))
+
+(m/defmutation clear-mvp-notes
+  "Clear all notes with undo support"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [s]
+                         (let [s (push-undo! s)]
+                           (assoc-in s [:page/id :mvp-builder :mvp/notes] {}))))
+          (sync-mvp-notes! state)))
 
 ;; ============================================================================
 ;; Tutorial Modal Component
@@ -278,13 +332,14 @@
                                            "Next >"))))))))
 
 ;; ============================================================================
-;; Section Input Modal with Prompts and Examples
+;; Section Add Modal with Prompts and Examples
 ;; ============================================================================
 
-(defn section-input-modal
-  "Modal for adding section content with guided prompts"
-  [{:keys [section on-submit on-cancel current-value on-value-change]}]
-  (let [{:keys [title icon description prompts examples hint]} section]
+(defn section-add-modal
+  "Modal for adding notes with guided prompts"
+  [{:keys [section-key on-add on-cancel]}]
+  (let [section-config (first (filter #(= (:key %) section-key) mvp-sections))
+        {:keys [title icon prompts examples hint]} section-config]
     (dom/div :.modal-overlay
              (dom/div :.modal-content.section-modal
                       (dom/div :.section-modal-header
@@ -292,8 +347,6 @@
                                (dom/h2 title))
 
                       (dom/div :.modal-body
-                               (dom/p :.section-description-inline description)
-
                                (dom/div :.prompts-section
                                         (dom/h4 "Think about:")
                                         (dom/ul :.prompt-list
@@ -301,26 +354,23 @@
                                                   (dom/li {:key prompt} prompt))))
 
                                (dom/div :.examples-section
-                                        (dom/h4 "Examples (click to use):")
+                                        (dom/h4 "Examples (click to add):")
                                         (dom/div :.example-chips
                                                  (for [example examples]
                                                    (dom/span
                                                     {:key example
                                                      :className "example-chip"
-                                                     :onClick #(on-value-change (if (str/blank? current-value)
-                                                                                  example
-                                                                                  (str current-value "\n" example)))
-                                                     :title "Click to add this example"}
+                                                     :onClick #(on-add example)
+                                                     :title "Click to add this as a note"}
                                                     example))))
 
                                (dom/div :.form-group
-                                        (dom/label "Your answer:")
+                                        (dom/label "Add your insight:")
                                         (when hint
                                           (dom/p :.input-hint (str "💡 " hint)))
                                         (dom/textarea
-                                         {:value (or current-value "")
-                                          :onChange #(on-value-change (.. % -target -value))
-                                          :placeholder "Type your response here..."
+                                         {:id "section-note-input"
+                                          :placeholder "Type your insight here..."
                                           :rows 3})))
 
                       (dom/div :.modal-actions
@@ -330,9 +380,11 @@
                                 "Cancel")
                                (dom/button
                                 {:className "btn btn-primary"
-                                 :onClick #(on-submit current-value)
-                                 :disabled (str/blank? current-value)}
-                                "Save & Continue"))))))
+                                 :onClick #(let [input (js/document.getElementById "section-note-input")
+                                                 value (.-value input)]
+                                             (when (seq (str/trim value))
+                                               (on-add value)))}
+                                "Add Note"))))))
 
 ;; ============================================================================
 ;; Help Panel Component
@@ -382,7 +434,7 @@
 ;; Progress Component
 ;; ============================================================================
 
-(defn mvp-progress [{:keys [completed total sections completed-keys]}]
+(defn mvp-progress [{:keys [completed total sections notes-by-section]}]
   (let [percentage (if (> total 0) (* 100 (/ completed total)) 0)]
     (dom/div :.builder-progress
              (dom/div :.progress-header
@@ -394,99 +446,61 @@
              ;; Section breakdown
              (dom/div :.section-status
                       (for [{:keys [key icon title]} sections]
-                        (let [is-completed? (contains? completed-keys key)]
+                        (let [has-notes? (seq (get notes-by-section key))]
                           (dom/span
                            {:key (name key)
-                            :className (str "status-item " (when is-completed? "completed"))
-                            :title (str title ": " (if is-completed? "Done" "Not started"))}
+                            :className (str "status-item " (when has-notes? "completed"))
+                            :title (str title ": " (if has-notes? "Done" "Not started"))}
                            icon)))))))
-
-;; ============================================================================
-;; Section Card Component
-;; ============================================================================
-
-(defn section-card
-  "Displays a section card with response or prompt to fill.
-   Supports inline editing (click response text) and delete."
-  [{:keys [key section response on-click on-edit on-delete]}]
-  (let [{:keys [title icon hint]} section]
-    (dom/div {:key (name key)
-              :className (str "mvp-card " (when response "completed"))
-              :onClick (when-not response on-click)}
-              (dom/div :.card-header
-                       (dom/span :.card-icon icon)
-                       (dom/h4 title)
-                       (when response
-                         (dom/div {:style {:display "flex" :alignItems "center" :gap "4px"}}
-                           (dom/span :.completed-badge "✓")
-                           (dom/button {:className "btn-inline-delete"
-                                        :onClick (fn [e]
-                                                   (.stopPropagation e)
-                                                   (when (js/confirm (str "Remove " title " response?"))
-                                                     (on-delete)))
-                                        :title "Remove response"}
-                                      "\u00D7"))))
-             (if response
-               (dom/div :.card-response
-                        (dom/p {:className "editable-response"
-                                :onClick (fn [e]
-                                           (.stopPropagation e)
-                                           (on-edit))
-                                :title "Click to edit"}
-                               response)
-                        (dom/button {:className "btn btn-sm btn-link"
-                                     :onClick (fn [e]
-                                                (.stopPropagation e)
-                                                (on-edit))}
-                                    "Edit"))
-               (dom/div :.card-prompt
-                        (dom/p :.hint hint)
-                        (dom/button {:className "btn btn-primary btn-sm"}
-                                    "+ Add Response"))))))
 
 ;; ============================================================================
 ;; Main Builder Page
 ;; ============================================================================
 
 (defsc MVPBuilderPage
-  "MVP Planning builder page with guided UX"
-  [this {:keys [project/id completed-responses ui] :as props}]
+  "MVP Planning builder page with visual canvas interface"
+  [this {:keys [project/id mvp/notes ui] :as props}]
   {:query         [:project/id :project/name
-                   :completed-responses
+                   :mvp/notes
                    {:ui [:ui/show-tutorial :ui/tutorial-step
                          :ui/show-help :ui/show-section-modal
-                         :ui/active-section :ui/section-value
+                         :ui/active-section
+                         :ui/undo-stack :ui/redo-stack :ui/presenting?
                          :ui/show-wisdom]}
                    [df/marker-table :mvp-builder]]
    :ident         (fn [] [:page/id :mvp-builder])
    :route-segment ["project" :project-id "mvp"]
-   :initial-state (fn [_] {:completed-responses []
-                            :ui {:ui/show-tutorial true
-                                 :ui/tutorial-step 1
-                                 :ui/show-help false
-                                 :ui/show-section-modal false
+   :initial-state (fn [_] {:mvp/notes {}
+                             :ui {:ui/show-tutorial false
+                                  :ui/tutorial-step 1
+                                  :ui/show-help false
+                                  :ui/show-section-modal false
                                  :ui/active-section nil
-                                 :ui/section-value ""
+                                 :ui/undo-stack []
+                                 :ui/redo-stack []
+                                 :ui/presenting? false
                                  :ui/show-wisdom false}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
-                     (let [default-ui {:ui/show-tutorial true
+                      (let [default-ui {:ui/show-tutorial false
                                        :ui/tutorial-step 1
                                        :ui/show-help false
                                        :ui/show-section-modal false
                                        :ui/active-section nil
-                                       :ui/section-value ""
+                                       :ui/undo-stack []
+                                       :ui/redo-stack []
+                                       :ui/presenting? false
                                        :ui/show-wisdom false}
                           existing-ui (:ui current-normalized)
                           ui-val (if (and existing-ui (seq existing-ui))
                                    existing-ui
                                    default-ui)
-                          clean-data (dissoc data-tree :ui :completed-responses)
-                          ;; Prefer client responses if non-empty, otherwise use server responses
-                          client-responses (:completed-responses current-normalized)
-                          server-responses (:completed-responses data-tree)]
+                          clean-data (dissoc data-tree :ui :mvp/notes :completed-responses)
+                          ;; Prefer client notes if non-empty, otherwise use server notes
+                          client-notes (:mvp/notes current-normalized)
+                          server-notes (:mvp/notes data-tree)]
                       (merge
                        {:ui ui-val
-                        :completed-responses (or (not-empty client-responses) (not-empty server-responses) [])}
+                        :mvp/notes (or (not-empty client-notes) (not-empty server-notes) {})}
                        clean-data)))
    :will-enter    (fn [app {:keys [project-id]}]
                     (let [decoded-id (str/replace (or project-id "") "~" "/")]
@@ -501,25 +515,21 @@
   (let [loading? (df/loading? (get props [df/marker-table :mvp-builder]))
         project-id id
         project-name (or (:project/name props) "")
-        responses (or completed-responses [])
+        notes-map (or notes {})
         {:keys [ui/show-tutorial ui/tutorial-step ui/show-help
-                ui/show-section-modal ui/active-section ui/section-value
-                ui/show-wisdom]} (or ui {})
+                ui/show-section-modal ui/active-section
+                ui/undo-stack ui/redo-stack ui/presenting? ui/show-wisdom]} (or ui {})
         tutorial-step (or tutorial-step 1)
-        section-value (or section-value "")
 
-        ;; Build response map by section key
-        response-map (reduce (fn [acc {:keys [section-key response]}]
-                               (assoc acc section-key response))
-                             {} responses)
-        completed-keys (set (keys response-map))
-        completed-count (count completed-keys)
-        total-sections (count mvp-sections)
-        is-complete? (= completed-count total-sections)
+        ;; Organize notes by section
+        notes-by-section (group-by :item/section (vals notes-map))
 
-        ;; Get current section config for modal
-        active-section-config (when active-section
-                                (first (filter #(= (:key %) active-section) mvp-sections)))]
+        ;; Calculate progress
+        section-keys [:core-problem :target-user :success-metric :must-have-features
+                      :nice-to-have :out-of-scope :timeline :risks]
+        completed-count (count (filter #(seq (get notes-by-section %)) section-keys))
+        total-sections (count section-keys)
+        is-complete? (= completed-count total-sections)]
 
     (if loading?
       (dom/div :.loading
@@ -527,6 +537,16 @@
                (dom/p "Loading MVP planner..."))
 
       (dom/div :.builder-page.mvp-builder
+
+        ;; Present Mode (fullscreen overlay)
+        (when presenting?
+          (canvas/presentation
+           {:title "MVP Planning Canvas"
+            :sections (mapv (fn [{:keys [key title icon]}]
+                              {:key key :title title :icon icon})
+                            mvp-sections)
+            :notes-by-section notes-by-section
+            :on-exit #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? false)})])}))
 
         ;; Tutorial Modal
         (when show-tutorial
@@ -537,26 +557,21 @@
             :on-skip #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-tutorial false)})])
             :on-complete #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-tutorial false)})])}))
 
-        ;; Section Input Modal
-        (when (and show-section-modal active-section-config)
-          (section-input-modal
-           {:section active-section-config
-            :current-value section-value
-            :on-value-change (fn [v]
-                               (comp/transact! this [(m/set-props {:ui (assoc ui :ui/section-value v)})]))
-            :on-submit (fn [response]
-                         (comp/transact! this
-                                         [(submit-mvp-response
-                                           {:section-key active-section
-                                            :response response})
-                                          (m/set-props {:ui (-> ui
-                                                                (assoc :ui/show-section-modal false)
-                                                                (assoc :ui/active-section nil)
-                                                                (assoc :ui/section-value ""))})]))
+        ;; Section Add Modal (when adding notes with guidance)
+        (when (and show-section-modal active-section)
+          (section-add-modal
+           {:section-key active-section
+            :on-add (fn [content]
+                      (comp/transact! this
+                                      [(add-mvp-note
+                                        {:section-key active-section
+                                         :content content})
+                                       (m/set-props {:ui (-> ui
+                                                             (assoc :ui/show-section-modal false)
+                                                             (assoc :ui/active-section nil))})]))
             :on-cancel #(comp/transact! this [(m/set-props {:ui (-> ui
                                                                     (assoc :ui/show-section-modal false)
-                                                                    (assoc :ui/active-section nil)
-                                                                    (assoc :ui/section-value ""))})])}))
+                                                                    (assoc :ui/active-section nil))})])}))
 
         ;; Help Panel
         (when show-help
@@ -598,11 +613,26 @@
            :project-id project-id
            :on-close #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-wisdom false)})])})
 
+        ;; Toolbar
+        (canvas/toolbar
+         {:on-export (fn []
+                       (let [json-data (canvas/export-canvas-to-json (vals notes-map))]
+                         (canvas/download-json (str "mvp-plan-" project-id ".json") json-data)))
+          :on-share (fn [] (js/alert "Share link copied to clipboard!"))
+          :on-present (fn [] (comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? true)})]))
+          :on-clear (fn []
+                      (when (js/confirm "Clear all notes? This cannot be undone.")
+                        (comp/transact! this [(clear-mvp-notes {})])))
+          :on-undo (fn [] (comp/transact! this [(undo-mvp {})]))
+          :on-redo (fn [] (comp/transact! this [(redo-mvp {})]))
+          :can-undo? (seq undo-stack)
+          :can-redo? (seq redo-stack)})
+
         ;; Progress
         (mvp-progress {:completed completed-count
                        :total total-sections
                        :sections mvp-sections
-                       :completed-keys completed-keys})
+                       :notes-by-section notes-by-section})
 
         (if is-complete?
           ;; Completion State
@@ -614,10 +644,13 @@
                             (dom/h4 "Your MVP Plan:")
                             (dom/div :.mvp-summary
                                      (for [{:keys [key title icon]} mvp-sections]
-                                       (when-let [response (get response-map key)]
-                                         (dom/div {:key (name key) :className "summary-item"}
-                                                  (dom/strong (str icon " " title ": "))
-                                                  (dom/p response))))))
+                                       (let [section-notes (get notes-by-section key)]
+                                         (when (seq section-notes)
+                                           (dom/div {:key (name key) :className "summary-item"}
+                                                    (dom/strong (str icon " " title ": "))
+                                                    (dom/ul
+                                                     (for [note section-notes]
+                                                       (dom/li {:key (:item/id note)} (:item/content note))))))))))
                    (dom/div :.completion-actions
                             (ui/button
                              {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~")])
@@ -628,23 +661,23 @@
                               :variant :primary}
                              "Continue to Lean Canvas >")))
 
-           ;; Section Cards Grid
-           (dom/div :.mvp-grid
-                    (for [{:keys [key] :as section} mvp-sections]
-                      (section-card
-                       {:key key
-                        :section section
-                        :response (get response-map key)
-                        :on-click #(comp/transact! this
-                                                   [(m/set-props {:ui (-> ui
-                                                                          (assoc :ui/show-section-modal true)
-                                                                          (assoc :ui/active-section key)
-                                                                          (assoc :ui/section-value ""))})])
-                        :on-edit #(comp/transact! this
-                                                  [(m/set-props {:ui (-> ui
-                                                                         (assoc :ui/show-section-modal true)
-                                                                         (assoc :ui/active-section key)
-                                                                         (assoc :ui/section-value (get response-map key "")))})])
-                        :on-delete #(comp/transact! this
-                                                    [(delete-mvp-response
-                                                      {:section-key key})])}))))))))
+           ;; Visual Canvas
+           (let [init-data (canvas/initialize-mvp)]
+             (dom/div :.canvas-container
+               (canvas/mvp-canvas
+                 {:sections (:canvas/sections init-data)
+                  :items (vals notes-map)
+                  :on-item-add (fn [section-key]
+                                 (comp/transact! this
+                                   [(m/set-props {:ui (-> ui
+                                                          (assoc :ui/show-section-modal true)
+                                                          (assoc :ui/active-section section-key))})]))
+                  :on-item-edit (fn [note-id new-content]
+                                  (comp/transact! this
+                                    [(update-mvp-note
+                                      {:note-id note-id
+                                       :updates {:item/content new-content}})]))
+                  :on-item-delete (fn [note-id]
+                                    (comp/transact! this
+                                      [(delete-mvp-note
+                                        {:note-id note-id})]))}))))))))

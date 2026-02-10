@@ -98,11 +98,13 @@
                   :project/status
                   :project/sessions
                    :empathy/session
-                  :empathy/notes
-                  :session/ui
-                  :session/data
-                   :lean-canvas/session
-                   :lean-canvas/notes
+                   :empathy/notes
+                   :valueprop/notes
+                   :mvp/notes
+                   :session/ui
+                   :session/data
+                    :lean-canvas/session
+                    :lean-canvas/notes
                    :completed-responses
                    :ui
                    :ui.fulcro.client.data-fetch.load-markers/by-id
@@ -155,28 +157,17 @@
            session (when session-id (get all-sessions session-id))
            session-data (:session/data session)
            ;; Defensive normalization: data stored before the websocket fix
-           ;; may have string values for :item/section and :section-key.
+           ;; may have string values for :item/section.
            ;; Ensure they are keywords for frontend compatibility.
-           normalized-data (cond
-                             (#{:empathy-builder :lean-canvas-builder} id)
-                              (when session-data
-                                (reduce-kv (fn [m k note]
-                                             (let [str-key (if (keyword? k) (name k) k)]
-                                               (assoc m str-key
-                                                      (cond-> note
-                                                        (string? (:item/section note))
-                                                        (update :item/section keyword)))))
-                                           {} session-data))
-                             
-                             (#{:value-prop-builder :mvp-builder} id)
-                             (when session-data
-                               (mapv (fn [resp]
-                                       (cond-> resp
-                                         (string? (:section-key resp))
-                                         (update :section-key keyword)))
-                                     session-data))
-                             
-                             :else session-data)
+           ;; All builders now use sticky-note format: {note-id -> note-map}
+            normalized-data (when session-data
+                              (reduce-kv (fn [m k note]
+                                           (let [str-key (if (keyword? k) (name k) k)]
+                                             (assoc m str-key
+                                                    (cond-> note
+                                                      (string? (:item/section note))
+                                                      (update :item/section keyword)))))
+                                         {} session-data))
            ;; Extract data in the right format for each builder type
            empathy-notes (if (= id :empathy-builder)
                            (or normalized-data {})
@@ -184,9 +175,9 @@
            lean-canvas-notes (if (= id :lean-canvas-builder)
                                (or normalized-data {})
                                {})
-           completed-responses (if (#{:value-prop-builder :mvp-builder} id)
-                                 (or normalized-data [])
-                                 [])]
+            valueprop-notes (if (= id :value-prop-builder) (or normalized-data {}) {})
+            mvp-notes (if (= id :mvp-builder) (or normalized-data {}) {})
+            completed-responses []]
       {:page/id id
        :project/id (or (:project/id project) project-id)
        :project/name (or (:project/name project) "Unknown Project")
@@ -194,7 +185,11 @@
        :empathy/session (when (= id :empathy-builder)
                           {:session/id (or session-id "")})
        :empathy/notes empathy-notes
-       ;; MVP/Value Prop builder attributes
+       ;; Value Prop builder attributes
+       :valueprop/notes valueprop-notes
+       ;; MVP builder attributes
+       :mvp/notes mvp-notes
+       ;; Legacy MVP/Value Prop builder attributes (kept for backward compat)
        :session/ui {:ui/current-section 0
                     :ui/total-sections 6
                     :ui/prompt nil

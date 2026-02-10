@@ -10,35 +10,156 @@
 ;; Markdown Rendering
 ;; ============================================================================
 
-(defn markdown->html
-  "Simple markdown to HTML converter.
-   Supports: headers, bold, italic, lists, blockquotes, code, tables."
+(defn- process-inline
+  "Convert inline markdown syntax to HTML.
+   Handles: bold, italic, bold+italic, inline code, links, strikethrough."
   [text]
   (when (seq text)
     (-> text
-        ;; Headers (must be before other replacements)
-        (str/replace #"(?m)^### (.+)$" "<h4>$1</h4>")
-        (str/replace #"(?m)^## (.+)$" "<h3>$1</h3>")
-        (str/replace #"(?m)^# (.+)$" "<h2>$1</h2>")
-        ;; Bold and italic
-        (str/replace #"\*\*\*(.+?)\*\*\*" "<strong><em>$1</em></strong>")
-        (str/replace #"\*\*(.+?)\*\*" "<strong>$1</strong>")
-        (str/replace #"\*(.+?)\*" "<em>$1</em>")
-        ;; Inline code
+        ;; Inline code first (protect from other transforms)
         (str/replace #"`([^`]+)`" "<code>$1</code>")
-        ;; Blockquotes
-        (str/replace #"(?m)^>\s*(.+)$" "<blockquote>$1</blockquote>")
-        ;; Code blocks
-        (str/replace #"```\n?([^`]+)```" "<pre><code>$1</code></pre>")
-        ;; Lists
-        (str/replace #"(?m)^\d+\.\s+(.+)$" "<li>$1</li>")
-        (str/replace #"(?m)^[-\*]\s+(.+)$" "<li>$1</li>")
-        ;; Tables - simple conversion
-        (str/replace #"\|([^|]+)\|([^|]+)\|([^|]+)\|" "<tr><td>$1</td><td>$2</td><td>$3</td></tr>")
-        ;; Line breaks (preserve paragraphs)
-        (str/replace #"\n\n" "</p><p>")
-        ;; Wrap in paragraph if not already wrapped
-        (#(if (str/starts-with? % "<") % (str "<p>" % "</p>"))))))
+        ;; Links [text](url)
+        (str/replace #"\[([^\]]+)\]\(([^)]+)\)" "<a href=\"$2\" target=\"_blank\" rel=\"noopener\">$1</a>")
+        ;; Bold+italic
+        (str/replace #"\*\*\*(.+?)\*\*\*" "<strong><em>$1</em></strong>")
+        ;; Bold
+        (str/replace #"\*\*(.+?)\*\*" "<strong>$1</strong>")
+        ;; Italic
+        (str/replace #"(?<![*])\*([^*]+?)\*(?![*])" "<em>$1</em>")
+        ;; Strikethrough
+        (str/replace #"~~(.+?)~~" "<del>$1</del>"))))
+
+(defn- classify-line
+  "Classify a markdown line by its type."
+  [line]
+  (cond
+    (re-matches #"^#{1,4}\s+.+" line) :heading
+    (re-matches #"^>\s*.*" line) :blockquote
+    (re-matches #"^```.*" line) :code-fence
+    (re-matches #"^---+$|^\*\*\*+$|^___+$" line) :hr
+    (re-matches #"^\d+\.\s+.+" line) :ol-item
+    (re-matches #"^[-*+]\s+.+" line) :ul-item
+    (re-matches #"^\|.+\|$" line) :table-row
+    (re-matches #"^\s*$" line) :blank
+    :else :text))
+
+(defn markdown->html
+  "Markdown to HTML converter with proper block structure.
+   Supports: headers, bold, italic, links, lists (ul/ol), blockquotes,
+   code blocks, inline code, tables, horizontal rules, paragraphs."
+  [text]
+  (when (seq text)
+    (let [lines (str/split-lines text)
+          out (volatile! [])
+          ;; Mutable state for tracking block context
+          state (volatile! {:in-code false :in-ul false :in-ol false
+                            :in-blockquote false :in-table false :in-p false})
+          emit! (fn [s] (vswap! out conj s))
+          close-open-blocks!
+          (fn []
+            (let [s @state]
+              (when (:in-p s) (emit! "</p>") (vswap! state assoc :in-p false))
+              (when (:in-ul s) (emit! "</ul>") (vswap! state assoc :in-ul false))
+              (when (:in-ol s) (emit! "</ol>") (vswap! state assoc :in-ol false))
+              (when (:in-blockquote s) (emit! "</blockquote>") (vswap! state assoc :in-blockquote false))
+              (when (:in-table s) (emit! "</table>") (vswap! state assoc :in-table false))))]
+      (doseq [line lines]
+        (let [s @state
+              line-type (if (:in-code s) :code-content (classify-line line))]
+          (case line-type
+            ;; Code fence toggle
+            :code-fence
+            (if (:in-code s)
+              (do (emit! "</code></pre>") (vswap! state assoc :in-code false))
+              (do (close-open-blocks!)
+                  (emit! "<pre><code>") (vswap! state assoc :in-code true)))
+
+            ;; Inside code block - emit raw (escaped)
+            :code-content
+            (emit! (-> line
+                       (str/replace "&" "&amp;")
+                       (str/replace "<" "&lt;")
+                       (str/replace ">" "&gt;")
+                       (str "\n")))
+
+            ;; Headings
+            :heading
+            (let [[_ hashes content] (re-matches #"^(#{1,4})\s+(.+)" line)
+                  level (count hashes)
+                  tag (str "h" (min (inc level) 5))]
+              (close-open-blocks!)
+              (emit! (str "<" tag ">" (process-inline content) "</" tag ">")))
+
+            ;; Horizontal rule
+            :hr
+            (do (close-open-blocks!)
+                (emit! "<hr>"))
+
+            ;; Blockquote
+            :blockquote
+            (let [content (str/replace line #"^>\s*" "")]
+              (when-not (:in-blockquote s)
+                (close-open-blocks!)
+                (vswap! state assoc :in-blockquote true)
+                (emit! "<blockquote>"))
+              (emit! (str (process-inline content) " ")))
+
+            ;; Unordered list item
+            :ul-item
+            (let [content (str/replace line #"^[-*+]\s+" "")]
+              (when-not (:in-ul s)
+                (close-open-blocks!)
+                (vswap! state assoc :in-ul true)
+                (emit! "<ul>"))
+              (emit! (str "<li>" (process-inline content) "</li>")))
+
+            ;; Ordered list item
+            :ol-item
+            (let [content (str/replace line #"^\d+\.\s+" "")]
+              (when-not (:in-ol s)
+                (close-open-blocks!)
+                (vswap! state assoc :in-ol true)
+                (emit! "<ol>"))
+              (emit! (str "<li>" (process-inline content) "</li>")))
+
+            ;; Table row
+            :table-row
+            (let [cells (->> (str/split line #"\|")
+                             (remove str/blank?)
+                             (map str/trim))]
+              ;; Skip separator rows like |---|---|
+              (when-not (every? #(re-matches #"[-:]+\s*" %) cells)
+                (when-not (:in-table s)
+                  (close-open-blocks!)
+                  (vswap! state assoc :in-table true)
+                  (emit! "<table>"))
+                (let [is-first-row (not (some #(str/includes? % "<tr>") @out))
+                      tag (if is-first-row "th" "td")]
+                  (emit! "<tr>")
+                  (doseq [cell cells]
+                    (emit! (str "<" tag ">" (process-inline cell) "</" tag ">")))
+                  (emit! "</tr>"))))
+
+            ;; Blank line - close paragraphs
+            :blank
+            (when (:in-p s)
+              (emit! "</p>")
+              (vswap! state assoc :in-p false))
+
+            ;; Regular text - wrap in paragraph
+            :text
+            (do
+              (when (or (:in-ul s) (:in-ol s) (:in-blockquote s) (:in-table s))
+                (close-open-blocks!))
+              (when-not (:in-p s)
+                (emit! "<p>")
+                (vswap! state assoc :in-p true))
+              (emit! (str (process-inline line) " "))))))
+      ;; Close any remaining open blocks
+      (close-open-blocks!)
+      (when (:in-code @state)
+        (emit! "</code></pre>"))
+      (str/join @out))))
 
 (defn render-markdown
   "Render markdown text as DOM elements with proper styling."
@@ -390,6 +511,7 @@
         eca-content (:wisdom/content wisdom-state)
         eca-loading? (:wisdom/loading? wisdom-state)
         eca-streaming? (:wisdom/streaming? wisdom-state)
+        request-type (or (:wisdom/request-type wisdom-state) :tips)
         has-eca-content? (and eca-content (seq eca-content))
         ;; Read auto-insight state
         auto-insight (when (and state-atom project-id)
@@ -397,11 +519,29 @@
         auto-insight-content (:auto-insight/content auto-insight)
         auto-insight-loading? (:auto-insight/loading? auto-insight)
         auto-insight-streaming? (:auto-insight/streaming? auto-insight)
-        has-auto-insight? (and auto-insight-content (seq auto-insight-content))]
+        has-auto-insight? (and auto-insight-content (seq auto-insight-content))
+        ;; Request type tabs
+        request-types [{:key :tips :label "Tips" :icon "💡"}
+                       {:key :analysis :label "Analysis" :icon "🔍"}
+                       {:key :suggestions :label "Ideas" :icon "🎯"}]]
     ;; Request tips from ECA on first render if not already loading
     (when (and project-id (not eca-loading?) (not has-eca-content?))
       (ws/request-wisdom! project-id phase :tips))
     (dom/div :.wisdom-panel-body
+      ;; Request type tabs
+      (when project-id
+        (dom/div :.wisdom-tabs
+          (for [{:keys [key label icon]} request-types]
+            (dom/button
+              {:key (name key)
+               :className (str "wisdom-tab" (when (= request-type key) " active"))
+               :onClick (fn []
+                          (when-let [sa @ws/app-state-atom]
+                            (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
+                          (ws/request-wisdom! project-id phase key))
+               :disabled eca-loading?}
+              (dom/span :.wisdom-tab-icon icon)
+              (dom/span label)))))
       ;; Auto-insight notification (proactive, from builder completion)
       (when (or has-auto-insight? auto-insight-loading?)
         (dom/div :.wisdom-auto-insight
@@ -412,42 +552,53 @@
             (dom/div :.wisdom-auto-insight-content
               (render-markdown auto-insight-content "wisdom-eca-text")
               (when auto-insight-streaming?
-                (dom/span :.wisdom-streaming-indicator "...")))
+                (dom/span :.wisdom-typing-cursor)))
             (when auto-insight-loading?
               (dom/div :.wisdom-loading
-                (dom/span :.wisdom-loading-icon "🤖")
+                (dom/div :.wisdom-loading-dots
+                  (dom/span :.dot)
+                  (dom/span :.dot)
+                  (dom/span :.dot))
                 (dom/span "Analyzing your work..."))))))
-      ;; ECA-powered content (streaming or complete)
-      (if has-eca-content?
-        (dom/div :.wisdom-eca-content
-          (render-markdown eca-content "wisdom-eca-text")
-          (when eca-streaming?
-            (dom/span :.wisdom-streaming-indicator "...")))
-        ;; Fallback static tips while ECA loads
-        (dom/div :.wisdom-tips-list
-          (when eca-loading?
-            (dom/div :.wisdom-loading
-              (dom/span :.wisdom-loading-icon "🤖")
-              (dom/span "AI is thinking...")))
-          (for [tip (:tips fallback)]
-            (dom/div {:key tip :className "wisdom-tip-item"}
-              (dom/span :.wisdom-bullet "→")
-              (dom/span tip)))))
+      ;; Main content area (scrollable)
+      (dom/div :.wisdom-content-area
+        (if has-eca-content?
+          ;; ECA-powered markdown content
+          (dom/div :.wisdom-eca-content
+            (render-markdown eca-content "wisdom-eca-text")
+            (when eca-streaming?
+              (dom/span :.wisdom-typing-cursor)))
+          ;; Fallback static tips while ECA loads
+          (dom/div :.wisdom-fallback
+            (when eca-loading?
+              (dom/div :.wisdom-loading
+                (dom/div :.wisdom-loading-dots
+                  (dom/span :.dot)
+                  (dom/span :.dot)
+                  (dom/span :.dot))
+                (dom/span "AI is thinking...")))
+            (when-not eca-loading?
+              (dom/div :.wisdom-tips-list
+                (for [tip (:tips fallback)]
+                  (dom/div {:key tip :className "wisdom-tip-item"}
+                    (dom/span :.wisdom-bullet "->")
+                    (dom/span tip))))))))
+      ;; Next hint
       (when-let [next-hint (:next-hint fallback)]
         (dom/div :.wisdom-next-hint
-          (dom/span :.wisdom-hint-icon "⏭")
+          (dom/span :.wisdom-hint-icon ">>")
           (dom/span next-hint)))
-      ;; Refresh button to get new ECA tips
+      ;; Refresh button
       (when has-eca-content?
         (dom/div :.wisdom-actions
           (dom/button
-            {:className "btn btn-secondary wisdom-refresh-btn"
+            {:className "wisdom-refresh-btn"
              :onClick (fn []
                         (when-let [sa @ws/app-state-atom]
                           (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
-                        (ws/request-wisdom! project-id phase :tips))
+                        (ws/request-wisdom! project-id phase request-type))
              :disabled eca-loading?}
-            "🔄 Get fresh tips"))))))
+            "Refresh"))))))
 
 (defn wisdom-sidebar
   "Contextual wisdom tips panel for the current builder phase.
@@ -463,8 +614,13 @@
     (let [fallback (get wisdom-tips phase)]
       (dom/div :.wisdom-sidebar
         (dom/div :.wisdom-sidebar-header
-          (dom/h3 (str "💡 " (:title fallback)))
-          (dom/button {:className "btn btn-close"
-                       :onClick on-close} "x"))
-        (dom/p :.wisdom-tagline (:tagline fallback))
+          (dom/div :.wisdom-sidebar-title
+            (dom/span :.wisdom-sidebar-icon "💡")
+            (dom/div
+              (dom/h3 (:title fallback))
+              (dom/p :.wisdom-tagline (:tagline fallback))))
+          (dom/button {:className "wisdom-close-btn"
+                       :onClick on-close
+                       :aria-label "Close wisdom panel"}
+            "\u00D7"))
         (wisdom-panel-body {:phase phase :project-id project-id})))))

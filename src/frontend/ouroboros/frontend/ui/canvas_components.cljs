@@ -397,6 +397,137 @@
                       (render-box :revenue-streams "canvas-revenue-streams")))))
 
 ;; ============================================================================
+;; Value Proposition Canvas (2-column: Customer Profile | Value Map)
+;; ============================================================================
+
+(defn value-prop-sections
+  "Define the 6 Value Proposition Canvas sections.
+   Left side: Customer Profile (Jobs, Pains, Gains)
+   Right side: Value Map (Products, Pain Relievers, Gain Creators)"
+  []
+  [{:key :customer-job :title "🎯 Customer Job"
+    :description "What job is the customer trying to get done?"
+    :grid-area "customer-job" :color "blue"}
+   {:key :pains :title "😫 Customer Pains"
+    :description "What frustrates them about current solutions?"
+    :grid-area "pains" :color "red"}
+   {:key :gains :title "🌟 Customer Gains"
+    :description "What outcomes do they desire?"
+    :grid-area "gains" :color "green"}
+   {:key :products :title "📦 Products & Services"
+    :description "What will you offer?"
+    :grid-area "products" :color "purple"}
+   {:key :pain-relievers :title "💊 Pain Relievers"
+    :description "How does your product reduce pains?"
+    :grid-area "pain-relievers" :color "orange"}
+   {:key :gain-creators :title "🚀 Gain Creators"
+    :description "How does your product create gains?"
+    :grid-area "gain-creators" :color "teal"}])
+
+(defn render-value-prop-canvas
+  "Visual Value Proposition Canvas with 2-column layout.
+   Left: Customer Profile (circle). Right: Value Map (square).
+   Accepts :on-item-edit and :on-item-delete for editable notes."
+  [{:keys [sections items on-item-add on-item-edit on-item-delete]}]
+  (let [find-section (fn [k] (first (filter #(= (:section/key %) k) sections)))
+        items-for (fn [k] (filter #(= (:item/section %) k) items))
+        edit-opts (when (or on-item-edit on-item-delete)
+                    {:on-item-edit on-item-edit
+                     :on-item-delete on-item-delete})
+        render-box (fn [section-key css-class]
+                     (when-let [section (find-section section-key)]
+                       (dom/div {:className (str "vp-canvas-box " css-class)}
+                                (render-canvas-section
+                                 (assoc section
+                                        :section/items (items-for section-key)
+                                        :section/editable? true)
+                                 on-item-add
+                                 edit-opts))))]
+    (dom/div :.value-prop-canvas-container
+             ;; Column labels
+             (dom/div :.vp-canvas-labels
+                      (dom/div :.vp-label-customer "Customer Profile")
+                      (dom/div :.vp-label-value "Value Map"))
+             (dom/div :.value-prop-canvas-grid
+                      ;; Left side: Customer Profile
+                      (dom/div :.vp-customer-profile
+                               (render-box :customer-job "vp-customer-job")
+                               (render-box :pains "vp-pains")
+                               (render-box :gains "vp-gains"))
+                      ;; Right side: Value Map
+                      (dom/div :.vp-value-map
+                               (render-box :products "vp-products")
+                               (render-box :pain-relievers "vp-pain-relievers")
+                               (render-box :gain-creators "vp-gain-creators"))))))
+
+;; ============================================================================
+;; MVP Planning Canvas (structured grid)
+;; ============================================================================
+
+(defn mvp-sections
+  "Define the 8 MVP Planning sections in a structured grid."
+  []
+  [{:key :core-problem :title "🎯 Core Problem"
+    :description "The ONE problem to solve"
+    :grid-area "core-problem" :color "red"}
+   {:key :target-user :title "👤 Target User"
+    :description "Your first specific customer"
+    :grid-area "target-user" :color "blue"}
+   {:key :success-metric :title "📊 Success Metric"
+    :description "How you measure success"
+    :grid-area "success-metric" :color "teal"}
+   {:key :must-have-features :title "✅ Must-Have Features"
+    :description "Essential features only"
+    :grid-area "must-have" :color "green"}
+   {:key :nice-to-have :title "💭 Nice-to-Have (V2)"
+    :description "Features for later"
+    :grid-area "nice-to-have" :color "yellow"}
+   {:key :out-of-scope :title "🚫 Out of Scope"
+    :description "What you won't build"
+    :grid-area "out-of-scope" :color "pink"}
+   {:key :timeline :title "📅 Timeline"
+    :description "Your launch deadline"
+    :grid-area "timeline" :color "purple"}
+   {:key :risks :title "⚠️ Risks & Assumptions"
+    :description "What could go wrong"
+    :grid-area "risks" :color "orange"}])
+
+(defn render-mvp-canvas
+  "Visual MVP Planning Canvas with structured grid.
+   Top row: Core Problem (wide), Target User, Success Metric
+   Middle row: Must-Have (wide), Nice-to-Have, Out of Scope
+   Bottom row: Timeline, Risks
+   Accepts :on-item-edit and :on-item-delete for editable notes."
+  [{:keys [sections items on-item-add on-item-edit on-item-delete]}]
+  (let [find-section (fn [k] (first (filter #(= (:section/key %) k) sections)))
+        items-for (fn [k] (filter #(= (:item/section %) k) items))
+        edit-opts (when (or on-item-edit on-item-delete)
+                    {:on-item-edit on-item-edit
+                     :on-item-delete on-item-delete})
+        render-box (fn [section-key css-class]
+                     (when-let [section (find-section section-key)]
+                       (dom/div {:className (str "mvp-canvas-box " css-class)}
+                                (render-canvas-section
+                                 (assoc section
+                                        :section/items (items-for section-key)
+                                        :section/editable? true)
+                                 on-item-add
+                                 edit-opts))))]
+    (dom/div :.mvp-canvas-container
+             (dom/div :.mvp-canvas-grid
+                      ;; Row 1: Problem definition
+                      (render-box :core-problem "mvp-core-problem")
+                      (render-box :target-user "mvp-target-user")
+                      (render-box :success-metric "mvp-success-metric")
+                      ;; Row 2: Feature scoping
+                      (render-box :must-have-features "mvp-must-have")
+                      (render-box :nice-to-have "mvp-nice-to-have")
+                      (render-box :out-of-scope "mvp-out-of-scope")
+                      ;; Row 3: Execution
+                      (render-box :timeline "mvp-timeline")
+                      (render-box :risks "mvp-risks")))))
+
+;; ============================================================================
 ;; Connection Lines (SVG)
 ;; ============================================================================
 
@@ -621,9 +752,37 @@
   {:canvas/sections (lean-canvas-sections)
    :canvas/items []})
 
+(defn initialize-value-prop
+  "Initialize value proposition canvas with default sections (convert to :section/ namespace)"
+  []
+  {:canvas/sections (mapv (fn [{:keys [key title description grid-area color]}]
+                            {:section/key key
+                             :section/title title
+                             :section/description description
+                             :section/hint ""
+                             :section/grid-area grid-area
+                             :section/color color})
+                          (value-prop-sections))
+   :canvas/items []})
+
+(defn initialize-mvp
+  "Initialize MVP planning canvas with default sections (convert to :section/ namespace)"
+  []
+  {:canvas/sections (mapv (fn [{:keys [key title description grid-area color]}]
+                            {:section/key key
+                             :section/title title
+                             :section/description description
+                             :section/hint ""
+                             :section/grid-area grid-area
+                             :section/color color})
+                          (mvp-sections))
+   :canvas/items []})
+
 ;; Export components
 (def empathy-map render-empathy-map)
 (def lean-canvas render-lean-canvas)
+(def value-prop-canvas render-value-prop-canvas)
+(def mvp-canvas render-mvp-canvas)
 (def sticky-note ui-sticky-note)
 (def canvas-section ui-canvas-section)
 (def toolbar canvas-toolbar)

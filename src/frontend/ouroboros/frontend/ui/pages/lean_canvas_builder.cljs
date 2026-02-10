@@ -472,17 +472,17 @@
    :ident         (fn [] [:page/id :lean-canvas-builder])
    :route-segment ["project" :project-id "canvas"]
    :initial-state (fn [_] {:lean-canvas/notes {}
-                            :ui {:ui/show-tutorial true
-                                 :ui/tutorial-step 1
-                                 :ui/show-help false
-                                 :ui/show-add-modal false
+                             :ui {:ui/show-tutorial false
+                                  :ui/tutorial-step 1
+                                  :ui/show-help false
+                                  :ui/show-add-modal false
                                  :ui/active-block nil
                                  :ui/undo-stack []
                                  :ui/redo-stack []
                                  :ui/presenting? false
                                  :ui/show-wisdom false}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
-                      (let [default-ui {:ui/show-tutorial true
+                       (let [default-ui {:ui/show-tutorial false
                                         :ui/tutorial-step 1
                                         :ui/show-help false
                                         :ui/show-add-modal false

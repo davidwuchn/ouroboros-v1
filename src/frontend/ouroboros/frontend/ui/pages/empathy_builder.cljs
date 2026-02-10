@@ -313,68 +313,93 @@
 ;; ============================================================================
 
 (defn persona-modal
-  "Persona modal that reads from DOM inputs at submit time"
-  [{:keys [on-submit]}]
-   (dom/div :.modal-overlay
-            (dom/div :.modal-content.persona-modal
-                     (dom/h2 "👤 Who are you building for?")
-                     (dom/p :.modal-subtitle "Define your target customer persona. Be specific!")
+  "Persona modal with managed state, template selection, validation, and skip"
+  [{:keys [on-submit on-skip on-attempt-submit persona-name persona-details selected-template
+           attempted-submit? on-change-name on-change-details on-select-template]}]
+  (let [name-empty? (str/blank? persona-name)
+        show-error? (and attempted-submit? name-empty?)]
+    (dom/div :.modal-overlay
+             (dom/div :.modal-content.persona-modal
 
-                     ;; Scrollable body
-                     (dom/div :.modal-body
+                      ;; Header with close button
+                      (dom/div :.persona-modal-header
+                               (dom/h2 "Who are you building for?")
+                               (when on-skip
+                                 (dom/button
+                                  {:className "btn-modal-close"
+                                   :onClick on-skip
+                                   :title "Skip for now"}
+                                  "\u00D7")))
 
-                       ;; Template selector
-                       (dom/div :.persona-templates
-                                (dom/h4 "Start from a template (optional)")
-                                (dom/div :.template-grid
-                                         (for [{:keys [name details]} persona-templates]
-                                           (dom/div
-                                            {:key name
-                                             :className "template-card"
-                                             :onClick (fn []
-                                                        ;; Update DOM inputs directly when template is clicked
-                                                        (when-let [name-input (js/document.getElementById "persona-name-input")]
-                                                          (set! (.-value name-input) name))
-                                                        (when-let [details-input (js/document.getElementById "persona-details-input")]
-                                                          (set! (.-value details-input) details)))}
-                                            (dom/span :.template-name name)))))
+                      (dom/p :.modal-subtitle "Define your target customer persona. Be specific -- it's the foundation of everything you'll build.")
 
-                       ;; Form fields
-                       (dom/div :.form-group
-                                (dom/label "Persona Name *")
-                                (dom/input
-                                 {:id "persona-name-input"
-                                  :type "text"
-                                  :placeholder "e.g., Sarah, the Busy Product Manager"}))
+                      ;; Scrollable body
+                      (dom/div :.modal-body
 
-                       (dom/div :.form-group
-                                (dom/label "Key Details")
-                                (dom/textarea
-                                 {:id "persona-details-input"
-                                  :placeholder "Age, role, key characteristics, goals, challenges..."
-                                  :rows 4}))
+                        ;; Template selector
+                        (dom/div :.persona-templates
+                                 (dom/h4 "Quick start from a template")
+                                 (dom/div :.template-grid
+                                          (for [{tname :name tdetails :details} persona-templates]
+                                            (let [is-selected? (= selected-template tname)
+                                                  is-custom? (= tname "Custom Persona")]
+                                              (dom/div
+                                               {:key tname
+                                                :className (str "template-card"
+                                                                (when is-selected? " selected")
+                                                                (when is-custom? " custom"))
+                                                :onClick #(on-select-template tname tdetails)}
+                                               (dom/div :.template-card-icon
+                                                        (if is-custom? "+" (subs tname 0 1)))
+                                               (dom/span :.template-name tname)
+                                               (when (and (not is-custom?) (seq tdetails))
+                                                 (dom/span :.template-details tdetails)))))))
 
-                       ;; Tips
-                       (dom/div :.persona-tips
-                                (dom/h4 "Tips for a great persona:")
-                                (dom/ul
-                                 (dom/li "Give them a real name - it makes them feel human")
-                                 (dom/li "Be specific about their role and context")
-                                 (dom/li "Focus on ONE type of customer, not everyone"))))
+                        ;; Form fields
+                        (dom/div {:className (str "form-group" (when show-error? " has-error"))}
+                                 (dom/label "Persona Name "
+                                            (dom/span :.required "*"))
+                                 (dom/input
+                                  {:type "text"
+                                   :value (or persona-name "")
+                                   :autoFocus true
+                                   :className (when show-error? "input-error")
+                                   :placeholder "e.g., Sarah, the Busy Product Manager"
+                                   :onChange #(on-change-name (.. % -target -value))})
+                                 (when show-error?
+                                   (dom/span :.field-error "Give your persona a name to get started")))
 
-                     ;; Actions (pinned at bottom)
-                     (dom/div :.modal-actions
-                             (ui/button
-                              {:on-click (fn []
-                                           (let [name-input (js/document.getElementById "persona-name-input")
-                                                 details-input (js/document.getElementById "persona-details-input")
-                                                 pname (when name-input (.-value name-input))
-                                                 pdetails (when details-input (.-value details-input))]
-                                             (when (and pname (seq (str/trim pname)))
-                                               (on-submit {:persona-name pname
-                                                           :persona-details pdetails}))))
-                               :variant :primary}
-                              "Create Persona & Start Mapping →")))))
+                        (dom/div :.form-group
+                                 (dom/label "Key Details")
+                                 (dom/textarea
+                                  {:value (or persona-details "")
+                                   :placeholder "Age, role, key characteristics, goals, challenges..."
+                                   :rows 4
+                                   :onChange #(on-change-details (.. % -target -value))}))
+
+                        ;; Tips
+                        (dom/div :.persona-tips
+                                 (dom/h4 "Tips for a great persona:")
+                                 (dom/ul
+                                  (dom/li (dom/strong "Name them") " -- \"Sarah, 32\" beats \"busy professionals\"")
+                                  (dom/li (dom/strong "Be specific") " -- one role, one context, one story")
+                                  (dom/li (dom/strong "Make it real") " -- base on interviews, not assumptions"))))
+
+                      ;; Actions (pinned at bottom)
+                      (dom/div :.modal-actions
+                               (when on-skip
+                                 (dom/button
+                                  {:className "btn btn-link persona-skip-link"
+                                   :onClick on-skip}
+                                  "Skip for now"))
+                               (ui/button
+                                {:on-click (fn []
+                                             (if name-empty?
+                                               (on-attempt-submit)
+                                               (on-submit {:persona-name persona-name
+                                                           :persona-details persona-details})))
+                                 :variant :primary}
+                                "Create Persona & Start Mapping"))))))
 
 ;; ============================================================================
 ;; Section Add Modal with Prompts
@@ -520,6 +545,7 @@
                     :empathy/session
                     :empathy/notes
                     {:ui [:ui/persona-name :ui/persona-details :ui/selected-template
+                          :ui/attempted-submit
                           :ui/show-persona-modal :ui/show-tutorial :ui/tutorial-step
                           :ui/show-help :ui/show-section-modal :ui/active-section
                           :ui/undo-stack :ui/redo-stack :ui/presenting?
@@ -531,24 +557,26 @@
                              :ui {:ui/persona-name ""
                                   :ui/persona-details ""
                                   :ui/selected-template nil
+                                  :ui/attempted-submit false
                                   :ui/show-persona-modal false
-                                  :ui/show-tutorial true
-                                  :ui/tutorial-step 1
-                                  :ui/show-help false
-                                  :ui/show-section-modal false
-                                  :ui/active-section nil
-                                  :ui/undo-stack []
-                                  :ui/redo-stack []
-                                  :ui/presenting? false
-                                  :ui/show-wisdom false}})
+                                   :ui/show-tutorial false
+                                   :ui/tutorial-step 1
+                                   :ui/show-help false
+                                   :ui/show-section-modal false
+                                   :ui/active-section nil
+                                   :ui/undo-stack []
+                                   :ui/redo-stack []
+                                   :ui/presenting? false
+                                   :ui/show-wisdom false}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
-                    ;; Preserve client-only UI state during server loads
-                    ;; Remove empty/nil :ui from server data so it doesn't overwrite client state
+                     ;; Preserve client-only UI state during server loads
+                     ;; Remove empty/nil :ui from server data so it doesn't overwrite client state
                       (let [default-ui {:ui/persona-name ""
                                         :ui/persona-details ""
                                         :ui/selected-template nil
+                                        :ui/attempted-submit false
                                         :ui/show-persona-modal false
-                                        :ui/show-tutorial true
+                                        :ui/show-tutorial false
                                         :ui/tutorial-step 1
                                         :ui/show-help false
                                         :ui/show-section-modal false
@@ -587,6 +615,7 @@
         project-name (or (:project/name props) "")
         notes-map (or notes {})
         {:keys [ui/persona-name ui/persona-details ui/selected-template
+                ui/attempted-submit
                 ui/show-persona-modal ui/show-tutorial ui/tutorial-step
                 ui/show-help ui/show-section-modal ui/active-section
                 ui/undo-stack ui/redo-stack ui/presenting? ui/show-wisdom]} (or ui {})
@@ -638,7 +667,34 @@
         ;; Persona Modal (after tutorial or if no persona defined)
         (when (and show-persona-modal (not has-persona?))
           (persona-modal
-           {:on-submit (fn [{:keys [persona-name persona-details]}]
+           {:persona-name persona-name
+            :persona-details persona-details
+            :selected-template selected-template
+            :attempted-submit? attempted-submit
+            :on-change-name (fn [v]
+                              (comp/transact! this
+                                [(m/set-props {:ui (assoc ui
+                                                          :ui/persona-name v
+                                                          :ui/attempted-submit false)})]))
+            :on-change-details (fn [v]
+                                 (comp/transact! this
+                                   [(m/set-props {:ui (assoc ui :ui/persona-details v)})]))
+            :on-select-template (fn [tname tdetails]
+                                  (if (= tname "Custom Persona")
+                                    (comp/transact! this
+                                      [(m/set-props {:ui (assoc ui
+                                                                :ui/selected-template tname
+                                                                :ui/persona-name ""
+                                                                :ui/persona-details "")})])
+                                    (comp/transact! this
+                                      [(m/set-props {:ui (assoc ui
+                                                                :ui/selected-template tname
+                                                                :ui/persona-name tname
+                                                                :ui/persona-details tdetails)})])))
+            :on-attempt-submit (fn []
+                                 (comp/transact! this
+                                   [(m/set-props {:ui (assoc ui :ui/attempted-submit true)})]))
+            :on-submit (fn [{:keys [persona-name persona-details]}]
                          (let [content (str persona-name 
                                             (when (seq persona-details)
                                               (str " - " persona-details)))]
@@ -647,7 +703,20 @@
                                              {:session-id (:session/id session-data)
                                               :section-key :persona
                                               :content content})
-                                            (m/set-props {:ui (assoc ui :ui/show-persona-modal false)})])))}))
+                                            (m/set-props {:ui (assoc ui
+                                                                     :ui/show-persona-modal false
+                                                                     :ui/persona-name ""
+                                                                     :ui/persona-details ""
+                                                                     :ui/selected-template nil
+                                                                     :ui/attempted-submit false)})])))
+            :on-skip (fn []
+                       (comp/transact! this
+                                       [(m/set-props {:ui (assoc ui
+                                                                  :ui/show-persona-modal false
+                                                                  :ui/persona-name ""
+                                                                  :ui/persona-details ""
+                                                                  :ui/selected-template nil
+                                                                  :ui/attempted-submit false)})]))}))
 
         ;; Section Add Modal (when adding notes with guidance)
         (when (and show-section-modal active-section)
