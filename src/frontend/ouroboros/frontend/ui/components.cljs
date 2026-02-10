@@ -212,19 +212,19 @@
                         :danger "btn-danger"
                         "btn-primary")]
     (apply dom/button
-     {:className (str "btn " variant-class " " className)
-      :disabled disabled
-      :onClick on-click}
-     children)))
+           {:className (str "btn " variant-class " " className)
+            :disabled disabled
+            :onClick on-click}
+           children)))
 
 ;; ============================================================================
 ;; Error Display Component
 ;; ============================================================================
 
 (defsc ErrorDisplay [this props]
-   {:query [:message]
-    :ident (fn [] [:component/id :error-display])
-    :initial-state (fn [_] {:message nil})}
+  {:query [:message]
+   :ident (fn [] [:component/id :error-display])
+   :initial-state (fn [_] {:message nil})}
   (let [message (:message props)
         retry-fn (:on-retry props)]
     (dom/div :.error-state
@@ -259,9 +259,9 @@
                     {:onClick #(on-navigate "dashboard")}
                     "🐍 Ouroboros")
              (dom/ul :.navbar-nav
-                     (dom/li (dom/a {:className (str "nav-link" (when (is? "dashboard") " active"))
-                                     :onClick #(on-navigate "dashboard")}
-                                    "Dashboard"))
+                      (dom/li (dom/a {:className (str "nav-link" (when (is? "dashboard") " active"))
+                                      :onClick #(on-navigate "dashboard")}
+                                     "Dashboard"))
                       (dom/li (dom/a {:className (str "nav-link" (when (is? "projects" "project") " active"))
                                       :onClick (fn [_]
                                                  (let [ws-state (when-let [sa @ws/app-state-atom] @sa)
@@ -275,7 +275,7 @@
                                       :onClick #(on-navigate "wisdom")}
                                      "Wisdom"))
                       (dom/li (dom/a {:className (str "nav-link" (when (is? "telemetry") " active"))
-                                      :onClick #(on-navigate "telemetry")}
+                                       :onClick #(on-navigate "telemetry")}
                                       "Telemetry")))
              ;; Chat toggle button
              (dom/button
@@ -298,23 +298,23 @@
 ;; ============================================================================
 
 (defn metric-card
-   "Display a metric with label"
-   [{:keys [value label className key]}]
-   (dom/div {:className (str "metric-card " className) :key key}
-            (dom/div {:className (str "metric-value " className)} value)
-            (dom/div :.metric-label label)))
+  "Display a metric with label"
+  [{:keys [value label className key]}]
+  (dom/div {:className (str "metric-card " className) :key key}
+           (dom/div {:className (str "metric-value " className)} value)
+           (dom/div :.metric-label label)))
 
 (defn card
-   "Card container with optional title"
-   [{:keys [title className actions key]} & children]
-   (apply dom/div {:className (str "card " className) :key key}
-            (when (or title actions)
-              (dom/div :.card-header
-                       (when title
-                         (dom/h2 :.card-title title))
-                       (when actions
-                         (dom/div :.card-actions actions))))
-            children))
+  "Card container with optional title"
+  [{:keys [title className actions key]} & children]
+  (apply dom/div {:className (str "card " className) :key key}
+         (when (or title actions)
+           (dom/div :.card-header
+                    (when title
+                      (dom/h2 :.card-title title))
+                    (when actions
+                      (dom/div :.card-actions actions))))
+         children))
 
 ;; ============================================================================
 ;; Status Components
@@ -375,18 +375,18 @@
              (dom/table :.data-table
                         (dom/thead
                          (apply dom/tr
-                          (for [col columns]
-                            (dom/th {:key (name (:key col))} (:label col)))))
+                                (for [col columns]
+                                  (dom/th {:key (name (:key col))} (:label col)))))
                         (apply dom/tbody
-                         (for [[idx row] (map-indexed vector rows)]
-                           (apply dom/tr {:key (str (or (:id row) idx))}
-                                   (for [col columns]
-                                     (let [key (:key col)
-                                           value (get row key)
-                                           formatter (:format col identity)
-                                           rendered (formatter value row)]
-                                       (dom/td {:key (name key)} (safe-render-value rendered)))))))))
-     (empty-state {:message (or empty-message "No data available")})))
+                               (for [[idx row] (map-indexed vector rows)]
+                                 (apply dom/tr {:key (str (or (:id row) idx))}
+                                        (for [col columns]
+                                          (let [key (:key col)
+                                                value (get row key)
+                                                formatter (:format col identity)
+                                                rendered (formatter value row)]
+                                            (dom/td {:key (name key)} (safe-render-value rendered))))))))
+             (empty-state {:message (or empty-message "No data available")}))))
 
 ;; ============================================================================
 ;; Code Block
@@ -437,29 +437,29 @@
   (let [step-order [:empathy :valueprop :mvp :canvas]
         current-idx (.indexOf step-order current-step)]
     (dom/div :.flywheel-indicator
-      (dom/div :.flywheel-steps
-        (for [[idx step] (map-indexed vector flywheel-steps)]
-          (let [is-current? (= (:key step) current-step)
-                is-past? (< idx current-idx)
-                is-future? (> idx current-idx)
-                step-class (str "flywheel-step "
-                                (when is-current? "flywheel-current ")
-                                (when is-past? "flywheel-completed ")
-                                (when is-future? "flywheel-future "))]
-            (dom/div {:key (name (:key step))}
+             (dom/div :.flywheel-steps
+                      (for [[idx step] (map-indexed vector flywheel-steps)]
+                        (let [is-current? (= (:key step) current-step)
+                              is-past? (< idx current-idx)
+                              is-future? (> idx current-idx)
+                              step-class (str "flywheel-step "
+                                              (when is-current? "flywheel-current ")
+                                              (when is-past? "flywheel-completed ")
+                                              (when is-future? "flywheel-future "))]
+                          (dom/div {:key (name (:key step))}
               ;; Connector line (except before first)
-              (when (> idx 0)
-                (dom/div {:className (str "flywheel-connector "
-                                          (when is-past? "flywheel-connector-done ")
-                                          (when is-current? "flywheel-connector-done "))}))
-              (dom/div {:className step-class
-                        :onClick (when on-navigate
-                                   #(on-navigate (:route step)))
-                        :title (:description step)}
-                (dom/span :.flywheel-icon (:icon step))
-                (dom/span :.flywheel-label (:label step))
-                (when is-past?
-                  (dom/span :.flywheel-check "✓"))))))))))
+                                   (when (> idx 0)
+                                     (dom/div {:className (str "flywheel-connector "
+                                                               (when is-past? "flywheel-connector-done ")
+                                                               (when is-current? "flywheel-connector-done "))}))
+                                   (dom/div {:className step-class
+                                             :onClick (when on-navigate
+                                                        #(on-navigate (:route step)))
+                                             :title (:description step)}
+                                            (dom/span :.flywheel-icon (:icon step))
+                                            (dom/span :.flywheel-label (:label step))
+                                            (when is-past?
+                                              (dom/span :.flywheel-check "✓"))))))))))
 
 ;; ============================================================================
 ;; Wisdom Tips - Contextual guidance per builder phase
@@ -513,6 +513,12 @@
         eca-streaming? (:wisdom/streaming? wisdom-state)
         request-type (or (:wisdom/request-type wisdom-state) :tips)
         has-eca-content? (and eca-content (seq eca-content))
+        ;; Read cached content for this phase+request-type
+        cached-content (when state-atom
+                         (get-in @state-atom [:wisdom/cache [phase request-type]]))
+        has-cached? (and cached-content (seq cached-content))
+        ;; Show cached content when loading and no live content yet
+        show-cached? (and has-cached? eca-loading? (not has-eca-content?))
         ;; Read auto-insight state
         auto-insight (when (and state-atom project-id)
                        (get-in @state-atom [:auto-insight/id project-id]))
@@ -529,76 +535,94 @@
       (ws/request-wisdom! project-id phase :tips))
     (dom/div :.wisdom-panel-body
       ;; Request type tabs
-      (when project-id
-        (dom/div :.wisdom-tabs
-          (for [{:keys [key label icon]} request-types]
-            (dom/button
-              {:key (name key)
-               :className (str "wisdom-tab" (when (= request-type key) " active"))
-               :onClick (fn []
-                          (when-let [sa @ws/app-state-atom]
-                            (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
-                          (ws/request-wisdom! project-id phase key))
-               :disabled eca-loading?}
-              (dom/span :.wisdom-tab-icon icon)
-              (dom/span label)))))
+             (when project-id
+               (dom/div :.wisdom-tabs
+                        (for [{:keys [key label icon]} request-types]
+                          (let [has-cache? (when state-atom
+                                             (seq (get-in @state-atom [:wisdom/cache [phase key]])))]
+                            (dom/button
+                             {:key (name key)
+                              :className (str "wisdom-tab"
+                                              (when (= request-type key) " active")
+                                              (when has-cache? " has-cache"))
+                              :onClick (fn []
+                                         (when-let [sa @ws/app-state-atom]
+                                           (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
+                                         (ws/request-wisdom! project-id phase key))
+                              :disabled (and eca-loading? (= request-type key))}
+                             (dom/span :.wisdom-tab-icon icon)
+                             (dom/span label))))))
       ;; Auto-insight notification (proactive, from builder completion)
-      (when (or has-auto-insight? auto-insight-loading?)
-        (dom/div :.wisdom-auto-insight
-          (dom/div :.wisdom-auto-insight-header
-            (dom/span :.wisdom-auto-insight-icon "🎯")
-            (dom/span :.wisdom-auto-insight-title "Builder Insight"))
-          (if has-auto-insight?
-            (dom/div :.wisdom-auto-insight-content
-              (render-markdown auto-insight-content "wisdom-eca-text")
-              (when auto-insight-streaming?
-                (dom/span :.wisdom-typing-cursor)))
-            (when auto-insight-loading?
-              (dom/div :.wisdom-loading
-                (dom/div :.wisdom-loading-dots
-                  (dom/span :.dot)
-                  (dom/span :.dot)
-                  (dom/span :.dot))
-                (dom/span "Analyzing your work..."))))))
+             (when (or has-auto-insight? auto-insight-loading?)
+               (dom/div :.wisdom-auto-insight
+                        (dom/div :.wisdom-auto-insight-header
+                                 (dom/span :.wisdom-auto-insight-icon "🎯")
+                                 (dom/span :.wisdom-auto-insight-title "Builder Insight"))
+                        (if has-auto-insight?
+                          (dom/div :.wisdom-auto-insight-content
+                                   (render-markdown auto-insight-content "wisdom-eca-text")
+                                   (when auto-insight-streaming?
+                                     (dom/span :.wisdom-typing-cursor)))
+                          (when auto-insight-loading?
+                            (dom/div :.wisdom-loading
+                                     (dom/div :.wisdom-loading-dots
+                                              (dom/span :.dot)
+                                              (dom/span :.dot)
+                                              (dom/span :.dot))
+                                     (dom/span "Analyzing your work..."))))))
       ;; Main content area (scrollable)
-      (dom/div :.wisdom-content-area
-        (if has-eca-content?
-          ;; ECA-powered markdown content
-          (dom/div :.wisdom-eca-content
-            (render-markdown eca-content "wisdom-eca-text")
-            (when eca-streaming?
-              (dom/span :.wisdom-typing-cursor)))
-          ;; Fallback static tips while ECA loads
-          (dom/div :.wisdom-fallback
-            (when eca-loading?
-              (dom/div :.wisdom-loading
-                (dom/div :.wisdom-loading-dots
-                  (dom/span :.dot)
-                  (dom/span :.dot)
-                  (dom/span :.dot))
-                (dom/span "AI is thinking...")))
-            (when-not eca-loading?
-              (dom/div :.wisdom-tips-list
-                (for [tip (:tips fallback)]
-                  (dom/div {:key tip :className "wisdom-tip-item"}
-                    (dom/span :.wisdom-bullet "->")
-                    (dom/span tip))))))))
+             (dom/div :.wisdom-content-area
+                      (cond
+          ;; Live ECA content (streaming or complete)
+                        has-eca-content?
+                        (dom/div :.wisdom-eca-content
+                                 (render-markdown eca-content "wisdom-eca-text")
+                                 (when eca-streaming?
+                                   (dom/span :.wisdom-typing-cursor)))
+
+          ;; Cached content shown while fresh request loads
+                        show-cached?
+                        (dom/div :.wisdom-eca-content.wisdom-cached
+                                 (dom/div :.wisdom-updating-badge
+                                          (dom/div :.wisdom-loading-dots
+                                                   (dom/span :.dot)
+                                                   (dom/span :.dot)
+                                                   (dom/span :.dot))
+                                          (dom/span "Updating..."))
+                                 (render-markdown cached-content "wisdom-eca-text"))
+
+          ;; No cache, no content - show fallback
+                        :else
+                        (dom/div :.wisdom-fallback
+                                 (when eca-loading?
+                                   (dom/div :.wisdom-loading
+                                            (dom/div :.wisdom-loading-dots
+                                                     (dom/span :.dot)
+                                                     (dom/span :.dot)
+                                                     (dom/span :.dot))
+                                            (dom/span "AI is thinking...")))
+                                 (when-not eca-loading?
+                                   (dom/div :.wisdom-tips-list
+                                            (for [tip (:tips fallback)]
+                                              (dom/div {:key tip :className "wisdom-tip-item"}
+                                                       (dom/span :.wisdom-bullet "->")
+                                                       (dom/span tip))))))))
       ;; Next hint
-      (when-let [next-hint (:next-hint fallback)]
-        (dom/div :.wisdom-next-hint
-          (dom/span :.wisdom-hint-icon ">>")
-          (dom/span next-hint)))
-      ;; Refresh button
-      (when has-eca-content?
-        (dom/div :.wisdom-actions
-          (dom/button
-            {:className "wisdom-refresh-btn"
-             :onClick (fn []
-                        (when-let [sa @ws/app-state-atom]
-                          (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
-                        (ws/request-wisdom! project-id phase request-type))
-             :disabled eca-loading?}
-            "Refresh"))))))
+             (when-let [next-hint (:next-hint fallback)]
+               (dom/div :.wisdom-next-hint
+                        (dom/span :.wisdom-hint-icon ">>")
+                        (dom/span next-hint)))
+      ;; Refresh button (always visible when there's content or not loading)
+             (when (and project-id (or has-eca-content? (not eca-loading?)))
+               (dom/div :.wisdom-actions
+                        (dom/button
+                         {:className "wisdom-refresh-btn"
+                          :onClick (fn []
+                                     (when-let [sa @ws/app-state-atom]
+                                       (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
+                                     (ws/request-wisdom! project-id phase request-type))
+                          :disabled (or eca-loading? eca-streaming?)}
+                         "Refresh"))))))
 
 (defn wisdom-sidebar
   "Contextual wisdom tips panel for the current builder phase.
@@ -613,14 +637,14 @@
   (when show?
     (let [fallback (get wisdom-tips phase)]
       (dom/div :.wisdom-sidebar
-        (dom/div :.wisdom-sidebar-header
-          (dom/div :.wisdom-sidebar-title
-            (dom/span :.wisdom-sidebar-icon "💡")
-            (dom/div
-              (dom/h3 (:title fallback))
-              (dom/p :.wisdom-tagline (:tagline fallback))))
-          (dom/button {:className "wisdom-close-btn"
-                       :onClick on-close
-                       :aria-label "Close wisdom panel"}
-            "\u00D7"))
-        (wisdom-panel-body {:phase phase :project-id project-id})))))
+               (dom/div :.wisdom-sidebar-header
+                        (dom/div :.wisdom-sidebar-title
+                                 (dom/span :.wisdom-sidebar-icon "💡")
+                                 (dom/div
+                                  (dom/h3 (:title fallback))
+                                  (dom/p :.wisdom-tagline (:tagline fallback))))
+                        (dom/button {:className "wisdom-close-btn"
+                                     :onClick on-close
+                                     :aria-label "Close wisdom panel"}
+                                    "\u00D7"))
+               (wisdom-panel-body {:phase phase :project-id project-id})))))

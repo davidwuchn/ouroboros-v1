@@ -64,11 +64,24 @@
 
    :componentDidMount
    (fn [this]
-     ;; Global keyboard shortcut: Ctrl+/ to toggle chat
+     ;; Global keyboard shortcuts
      (let [handler (fn [e]
-                     (when (and (.-ctrlKey e) (= "/" (.-key e)))
-                       (.preventDefault e)
-                       (comp/transact! this [(chat/toggle-chat {})])))]
+                     (let [chat-open? (get-in (comp/props this) [:chat-panel :chat/open?])]
+                       (cond
+                         ;; Ctrl+/ to toggle chat
+                         (and (.-ctrlKey e) (= "/" (.-key e)))
+                         (do (.preventDefault e)
+                             (comp/transact! this [(chat/toggle-chat {})]))
+
+                         ;; Escape to close chat (when open)
+                         (and (= "Escape" (.-key e)) chat-open?)
+                         (do (.preventDefault e)
+                             (comp/transact! this [(chat/close-chat {})]))
+
+                         ;; Ctrl+L to clear chat (when open)
+                         (and (.-ctrlKey e) (= "l" (.-key e)) chat-open?)
+                         (do (.preventDefault e)
+                             (comp/transact! this [(chat/clear-chat {})])))))]
        (let [key (gevents/listen js/document event-type/KEYDOWN handler)]
          (comp/set-state! this {:kbd-listener-key key}))))
 

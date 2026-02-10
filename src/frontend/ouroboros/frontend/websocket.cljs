@@ -15,10 +15,49 @@
 (defonce render-callback (atom nil))
 (defonce navigate-callback (atom nil))
 
+;; ============================================================================
+;; Wisdom Cache Persistence (localStorage)
+;; ============================================================================
+
+(def ^:private wisdom-cache-key "ouroboros.wisdom-cache")
+
+(defn- load-wisdom-cache
+  "Load wisdom cache from localStorage. Returns map or nil."
+  []
+  (try
+    (when-let [raw (.getItem js/localStorage wisdom-cache-key)]
+      (let [parsed (js/JSON.parse raw)
+            m (js->clj parsed :keywordize-keys true)]
+        ;; Convert string keys back to [phase request-type] vectors
+        ;; Stored as {"empathy:tips" "content"} -> {[:empathy :tips] "content"}
+        (into {}
+              (keep (fn [[k v]]
+                      (let [parts (str/split (name k) #":")]
+                        (when (= 2 (count parts))
+                          [[(keyword (first parts)) (keyword (second parts))] v]))))
+              m)))
+    (catch :default _e nil)))
+
+(defn- save-wisdom-cache!
+  "Persist wisdom cache to localStorage."
+  [cache-map]
+  (try
+    ;; Convert [phase request-type] keys to strings: "empathy:tips"
+    (let [serializable (into {}
+                             (map (fn [[[phase req-type] content]]
+                                    [(str (name phase) ":" (name req-type)) content]))
+                             cache-map)]
+      (.setItem js/localStorage wisdom-cache-key
+                (js/JSON.stringify (clj->js serializable))))
+    (catch :default _e nil)))
+
 (defn set-app-state-atom!
   "Set the app state atom for merging data"
   [state-atom]
-  (reset! app-state-atom state-atom))
+  (reset! app-state-atom state-atom)
+  ;; Hydrate wisdom cache from localStorage
+  (when-let [cached (load-wisdom-cache)]
+    (swap! state-atom assoc :wisdom/cache cached)))
 
 (defn set-render-callback!
   "Set a callback to trigger UI re-render after state mutation"
@@ -133,6 +172,25 @@
                      (assoc-in [:chat/id :global :chat/loading?] false))))
         (schedule-render!)))))
 
+(defmethod handle-message :eca/chat-error
+  [{:keys [error]}]
+  ;; Chat error from ECA - mark last assistant message as errored
+  (when-let [state-atom @app-state-atom]
+    (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
+          idx (dec (count messages))]
+      (when (and (>= idx 0)
+                 (= :assistant (:role (nth messages idx))))
+        (swap! state-atom
+               (fn [s]
+                 (-> s
+                     (update-in [:chat/id :global :chat/messages idx]
+                                assoc
+                                :error? true
+                                :streaming? false
+                                :content (or error "Something went wrong. Click retry to try again."))
+                     (assoc-in [:chat/id :global :chat/loading?] false))))
+        (schedule-render!)))))
+
 ;; ============================================================================
 ;; ECA Wisdom Message Handlers
 ;; ============================================================================
@@ -147,25 +205,44 @@
 
 (defmethod handle-message :eca/wisdom-done
   [{:keys [request-type]}]
-  ;; Wisdom streaming complete
+  ;; Wisdom streaming complete - cache the result and persist
   (when-let [state-atom @app-state-atom]
     (swap! state-atom
            (fn [s]
-             (-> s
-                 (assoc-in [:wisdom/id :global :wisdom/loading?] false)
-                 (assoc-in [:wisdom/id :global :wisdom/streaming?] false))))
+             (let [content (get-in s [:wisdom/id :global :wisdom/content])
+                   phase (get-in s [:wisdom/id :global :wisdom/phase])
+                   req-type (or (when (string? request-type) (keyword request-type))
+                                (when (keyword? request-type) request-type)
+                                (get-in s [:wisdom/id :global :wisdom/request-type]))]
+               (cond-> (-> s
+                           (assoc-in [:wisdom/id :global :wisdom/loading?] false)
+                           (assoc-in [:wisdom/id :global :wisdom/streaming?] false))
+                 ;; Cache the completed content keyed by [phase request-type]
+                 (and phase req-type (seq content))
+                 (assoc-in [:wisdom/cache [phase req-type]] content)))))
+    ;; Persist cache to localStorage
+    (save-wisdom-cache! (:wisdom/cache @state-atom))
     (schedule-render!)))
 
 (defmethod handle-message :eca/wisdom-response
   [{:keys [text request-type]}]
-  ;; Complete (non-streaming) wisdom response or error
+  ;; Complete (non-streaming) wisdom response or error - cache and persist
   (when-let [state-atom @app-state-atom]
     (swap! state-atom
            (fn [s]
-             (-> s
-                 (assoc-in [:wisdom/id :global :wisdom/content] text)
-                 (assoc-in [:wisdom/id :global :wisdom/loading?] false)
-                 (assoc-in [:wisdom/id :global :wisdom/streaming?] false))))
+             (let [phase (get-in s [:wisdom/id :global :wisdom/phase])
+                   req-type (or (when (string? request-type) (keyword request-type))
+                                (when (keyword? request-type) request-type)
+                                (get-in s [:wisdom/id :global :wisdom/request-type]))]
+               (cond-> (-> s
+                           (assoc-in [:wisdom/id :global :wisdom/content] text)
+                           (assoc-in [:wisdom/id :global :wisdom/loading?] false)
+                           (assoc-in [:wisdom/id :global :wisdom/streaming?] false))
+                 ;; Cache the completed content
+                 (and phase req-type (seq text))
+                 (assoc-in [:wisdom/cache [phase req-type]] text)))))
+    ;; Persist cache to localStorage
+    (save-wisdom-cache! (:wisdom/cache @state-atom))
     (schedule-render!)))
 
 ;; ============================================================================
@@ -426,7 +503,7 @@
   "Request ECA wisdom for a project phase.
    request-type: :tips, :next-steps, :analysis, :suggestions, :templates"
   [project-id phase request-type]
-  ;; Reset wisdom state before sending
+  ;; Reset live wisdom state before sending (cache is preserved)
   (when-let [state-atom @app-state-atom]
     (swap! state-atom
            (fn [s]
@@ -434,7 +511,8 @@
                  (assoc-in [:wisdom/id :global :wisdom/content] "")
                  (assoc-in [:wisdom/id :global :wisdom/loading?] true)
                  (assoc-in [:wisdom/id :global :wisdom/streaming?] true)
-                 (assoc-in [:wisdom/id :global :wisdom/request-type] request-type))))
+                 (assoc-in [:wisdom/id :global :wisdom/request-type] request-type)
+                 (assoc-in [:wisdom/id :global :wisdom/phase] phase))))
     (schedule-render!))
   (send! (cond-> {:type "eca/wisdom"
                   :project-id project-id

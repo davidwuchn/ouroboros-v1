@@ -4,18 +4,81 @@
    A slide-out panel accessible from every page that provides:
    - Context-aware AI chat (detects current page/builder)
    - Message history with user/assistant roles
-   - Streaming response display
+   - Streaming response display with markdown rendering
    - Quick action suggestions based on current context
-   - Keyboard shortcut (Ctrl+/) to toggle"
+   - Multiple conversations with localStorage persistence
+   - Copy-to-clipboard, error recovery, message edit/delete
+   - Keyboard shortcuts: Ctrl+/ toggle, Escape close, Ctrl+L clear
+   - Tabbed sidebar: Chat / Wisdom / Context
+   - Auto-resize textarea"
   (:require
    [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.mutations :as m]
+   [ouroboros.frontend.ui.components :as ui]
    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
-;; Chat State (stored in app state at [:chat/id :global])
+;; localStorage Persistence
+;; ============================================================================
+
+(def ^:private storage-key "ouroboros.chat-conversations")
+(def ^:private active-conv-key "ouroboros.chat-active-conversation")
+(def ^:private max-conversations 20)
+
+(defn- generate-id
+  "Generate a simple unique conversation ID"
+  []
+  (str "conv-" (js/Date.now) "-" (rand-int 10000)))
+
+(defn- load-conversations
+  "Load all conversations from localStorage"
+  []
+  (try
+    (when-let [raw (.getItem js/localStorage storage-key)]
+      (let [parsed (js/JSON.parse raw)]
+        (js->clj parsed :keywordize-keys true)))
+    (catch :default _e nil)))
+
+(defn- save-conversations!
+  "Persist conversations to localStorage"
+  [conversations]
+  (try
+    (.setItem js/localStorage storage-key
+              (js/JSON.stringify (clj->js conversations)))
+    (catch :default _e nil)))
+
+(defn- load-active-conversation-id
+  "Load the active conversation ID from localStorage"
+  []
+  (try
+    (.getItem js/localStorage active-conv-key)
+    (catch :default _e nil)))
+
+(defn- save-active-conversation-id!
+  "Persist the active conversation ID to localStorage"
+  [conv-id]
+  (try
+    (.setItem js/localStorage active-conv-key conv-id)
+    (catch :default _e nil)))
+
+(defn- conversation->storable
+  "Convert a conversation map for storage (strip streaming state)"
+  [conv]
+  (-> conv
+      (update :messages
+              (fn [msgs]
+                (mapv (fn [msg]
+                        (-> msg
+                            (dissoc :streaming? :error?)
+                            ;; Ensure role is stored as string
+                            (update :role name)))
+                      (or msgs []))))
+      (dissoc :loading?)))
+
+;; ============================================================================
+;; Chat State Mutations
 ;; ============================================================================
 
 (m/defmutation toggle-chat
@@ -36,6 +99,12 @@
   (action [{:keys [state]}]
           (swap! state assoc-in [:chat/id :global :chat/open?] false)))
 
+(m/defmutation set-active-tab
+  "Set the active sidebar tab (:chat, :wisdom, :context)"
+  [{:keys [tab]}]
+  (action [{:keys [state]}]
+          (swap! state assoc-in [:chat/id :global :chat/active-tab] tab)))
+
 (m/defmutation send-chat-message
   "Send a message and add to chat history"
   [{:keys [text context]}]
@@ -46,7 +115,8 @@
                 assistant-placeholder {:role :assistant
                                        :content ""
                                        :streaming? true
-                                       :timestamp (js/Date.now)}]
+                                       :timestamp (js/Date.now)}
+                conv-id (get-in @state [:chat/id :global :chat/active-conversation])]
             (swap! state
                    (fn [s]
                      (-> s
@@ -55,6 +125,22 @@
                          (update-in [:chat/id :global :chat/messages]
                                     conj assistant-placeholder)
                          (assoc-in [:chat/id :global :chat/loading?] true))))
+            ;; Persist to localStorage
+            (let [convs (or (load-conversations) [])
+                  updated (mapv (fn [c]
+                                  (if (= (:id c) conv-id)
+                                    (-> c
+                                        (update :messages (fnil conj [])
+                                                (conversation->storable {:messages [user-msg]}))
+                                        (assoc :messages
+                                               (mapv #(-> % (dissoc :streaming? :error?) (update :role name))
+                                                     (get-in @state [:chat/id :global :chat/messages])))
+                                        (assoc :updated-at (js/Date.now))
+                                        (assoc :title (or (:title c)
+                                                          (subs text 0 (min 50 (count text))))))
+                                    c))
+                                convs)]
+              (save-conversations! updated))
             ;; Send via WebSocket
             (ws/send! {:type "eca/chat"
                        :text text
@@ -86,7 +172,19 @@
                        (-> s
                            (update-in [:chat/id :global :chat/messages idx] dissoc :streaming?)
                            (assoc-in [:chat/id :global :chat/loading?] false))
-                       (assoc-in s [:chat/id :global :chat/loading?] false)))))))
+                       (assoc-in s [:chat/id :global :chat/loading?] false)))))
+          ;; Persist completed message
+          (let [conv-id (get-in @state [:chat/id :global :chat/active-conversation])
+                messages (get-in @state [:chat/id :global :chat/messages] [])
+                convs (or (load-conversations) [])
+                updated (mapv (fn [c]
+                                (if (= (:id c) conv-id)
+                                  (assoc c :messages
+                                         (mapv #(-> % (dissoc :streaming? :error?) (update :role name)) messages)
+                                         :updated-at (js/Date.now))
+                                  c))
+                              convs)]
+            (save-conversations! updated))))
 
 (m/defmutation receive-chat-response
   "Receive a complete (non-streaming) response from ECA"
@@ -115,21 +213,174 @@
                                        :timestamp (js/Date.now)})
                            (assoc-in [:chat/id :global :chat/loading?] false))))))))
 
-(m/defmutation clear-chat
-  "Clear chat history"
-  [_]
+(m/defmutation mark-error
+  "Mark the last assistant message as errored"
+  [{:keys [error-text]}]
   (action [{:keys [state]}]
           (swap! state
                  (fn [s]
-                   (-> s
-                       (assoc-in [:chat/id :global :chat/messages] [])
-                       (assoc-in [:chat/id :global :chat/loading?] false))))))
+                   (let [messages (get-in s [:chat/id :global :chat/messages] [])
+                         idx (dec (count messages))]
+                     (if (and (>= idx 0)
+                              (= :assistant (:role (nth messages idx))))
+                       (-> s
+                           (update-in [:chat/id :global :chat/messages idx]
+                                      assoc
+                                      :error? true
+                                      :streaming? false
+                                      :content (or error-text "Something went wrong. Click retry to try again."))
+                           (assoc-in [:chat/id :global :chat/loading?] false))
+                       s))))))
+
+(m/defmutation clear-chat
+  "Clear chat history for the active conversation"
+  [_]
+  (action [{:keys [state]}]
+          (let [conv-id (get-in @state [:chat/id :global :chat/active-conversation])]
+            (swap! state
+                   (fn [s]
+                     (-> s
+                         (assoc-in [:chat/id :global :chat/messages] [])
+                         (assoc-in [:chat/id :global :chat/loading?] false))))
+            ;; Update localStorage
+            (let [convs (or (load-conversations) [])
+                  updated (mapv (fn [c]
+                                  (if (= (:id c) conv-id)
+                                    (assoc c :messages [] :updated-at (js/Date.now))
+                                    c))
+                                convs)]
+              (save-conversations! updated)))))
 
 (m/defmutation set-chat-context
   "Update the current chat context based on active page"
   [{:keys [context]}]
   (action [{:keys [state]}]
           (swap! state assoc-in [:chat/id :global :chat/context] context)))
+
+(m/defmutation delete-message
+  "Delete a message at the given index"
+  [{:keys [idx]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (let [messages (get-in s [:chat/id :global :chat/messages] [])
+                         updated (into (subvec messages 0 idx)
+                                       (subvec messages (inc idx)))]
+                     (assoc-in s [:chat/id :global :chat/messages] updated))))
+          ;; Persist
+          (let [conv-id (get-in @state [:chat/id :global :chat/active-conversation])
+                messages (get-in @state [:chat/id :global :chat/messages] [])
+                convs (or (load-conversations) [])
+                updated (mapv (fn [c]
+                                (if (= (:id c) conv-id)
+                                  (assoc c :messages
+                                         (mapv #(-> % (dissoc :streaming? :error?) (update :role name)) messages))
+                                  c))
+                              convs)]
+            (save-conversations! updated))))
+
+(m/defmutation edit-user-message
+  "Replace user message content at index, remove all messages after it"
+  [{:keys [idx text context]}]
+  (action [{:keys [state]}]
+          (let [assistant-placeholder {:role :assistant
+                                       :content ""
+                                       :streaming? true
+                                       :timestamp (js/Date.now)}]
+            (swap! state
+                   (fn [s]
+                     (let [messages (get-in s [:chat/id :global :chat/messages] [])
+                           updated-msg (assoc (nth messages idx) :content text :timestamp (js/Date.now))]
+                       (-> s
+                           (assoc-in [:chat/id :global :chat/messages]
+                                     (conj (into [] (take idx messages))
+                                           updated-msg
+                                           assistant-placeholder))
+                           (assoc-in [:chat/id :global :chat/loading?] true)))))
+            ;; Re-send via WebSocket
+            (ws/send! {:type "eca/chat"
+                       :text text
+                       :context (or context "")}))))
+
+(m/defmutation switch-conversation
+  "Switch to a different conversation"
+  [{:keys [conv-id]}]
+  (action [{:keys [state]}]
+          (let [convs (or (load-conversations) [])
+                conv (some #(when (= (:id %) conv-id) %) convs)
+                messages (if conv
+                           (mapv (fn [msg] (update msg :role keyword)) (:messages conv))
+                           [])]
+            (swap! state
+                   (fn [s]
+                     (-> s
+                         (assoc-in [:chat/id :global :chat/messages] messages)
+                         (assoc-in [:chat/id :global :chat/active-conversation] conv-id)
+                         (assoc-in [:chat/id :global :chat/loading?] false)
+                         (assoc-in [:chat/id :global :chat/show-conversations?] false))))
+            (save-active-conversation-id! conv-id))))
+
+(m/defmutation new-conversation
+  "Create a new conversation"
+  [_]
+  (action [{:keys [state]}]
+          (let [conv-id (generate-id)
+                convs (or (load-conversations) [])
+                new-conv {:id conv-id
+                          :title nil
+                          :messages []
+                          :created-at (js/Date.now)
+                          :updated-at (js/Date.now)}
+                ;; Limit total conversations
+                updated (take max-conversations (cons new-conv convs))]
+            (save-conversations! (vec updated))
+            (save-active-conversation-id! conv-id)
+            (swap! state
+                   (fn [s]
+                     (-> s
+                         (assoc-in [:chat/id :global :chat/messages] [])
+                         (assoc-in [:chat/id :global :chat/active-conversation] conv-id)
+                         (assoc-in [:chat/id :global :chat/loading?] false)
+                         (assoc-in [:chat/id :global :chat/show-conversations?] false)))))))
+
+(m/defmutation delete-conversation
+  "Delete a conversation by ID"
+  [{:keys [conv-id]}]
+  (action [{:keys [state]}]
+          (let [convs (or (load-conversations) [])
+                updated (vec (remove #(= (:id %) conv-id) convs))
+                active (get-in @state [:chat/id :global :chat/active-conversation])]
+            (save-conversations! updated)
+            ;; If we deleted the active conversation, switch to another
+            (when (= conv-id active)
+              (if (seq updated)
+                (let [next-id (:id (first updated))]
+                  (save-active-conversation-id! next-id)
+                  (swap! state
+                         (fn [s]
+                           (let [next-conv (first updated)
+                                 messages (mapv (fn [msg] (update msg :role keyword))
+                                                (:messages next-conv))]
+                             (-> s
+                                 (assoc-in [:chat/id :global :chat/messages] messages)
+                                 (assoc-in [:chat/id :global :chat/active-conversation] next-id))))))
+                ;; No conversations left, create a fresh one
+                (let [new-id (generate-id)
+                      new-conv {:id new-id :title nil :messages []
+                                :created-at (js/Date.now) :updated-at (js/Date.now)}]
+                  (save-conversations! [new-conv])
+                  (save-active-conversation-id! new-id)
+                  (swap! state
+                         (fn [s]
+                           (-> s
+                               (assoc-in [:chat/id :global :chat/messages] [])
+                               (assoc-in [:chat/id :global :chat/active-conversation] new-id))))))))))
+
+(m/defmutation toggle-conversations-list
+  "Toggle the conversations list panel"
+  [_]
+  (action [{:keys [state]}]
+          (swap! state update-in [:chat/id :global :chat/show-conversations?] not)))
 
 ;; ============================================================================
 ;; Context Detection
@@ -190,7 +441,7 @@
         eca-suggestions (when state-atom (get-in @state-atom [:content/generated :chat-suggestions]))
         eca-loading? (when state-atom (get-in @state-atom [:content/loading? :chat-suggestions]))
         fallback (get fallback-context-suggestions (or ctx :default)
-                     (get fallback-context-suggestions :default))]
+                      (get fallback-context-suggestions :default))]
     ;; Request ECA suggestions if not loaded
     (when (and state-atom (not eca-suggestions) (not eca-loading?))
       (ws/request-content! :chat-suggestions :context (or ctx "general")))
@@ -200,26 +451,103 @@
       fallback)))
 
 ;; ============================================================================
+;; Clipboard Utility
+;; ============================================================================
+
+(defn- copy-to-clipboard!
+  "Copy text to clipboard, returns a promise"
+  [text]
+  (when (and js/navigator (.-clipboard js/navigator))
+    (.writeText (.-clipboard js/navigator) text)))
+
+;; ============================================================================
+;; Auto-resize textarea
+;; ============================================================================
+
+(defn- auto-resize-textarea!
+  "Auto-resize a textarea element to fit its content"
+  [el]
+  (when el
+    (set! (.-height (.-style el)) "auto")
+    (let [scroll-height (.-scrollHeight el)
+          max-height 160
+          new-height (min scroll-height max-height)]
+      (set! (.-height (.-style el)) (str new-height "px")))))
+
+;; ============================================================================
 ;; Chat Message Component
 ;; ============================================================================
 
 (defn chat-message
-  "Render a single chat message"
-  [{:keys [role content streaming?]} idx]
-  (dom/div {:key idx
-            :className (str "chat-msg chat-msg-" (name role))}
-           (dom/div :.chat-msg-avatar
-                    (if (= role :user) "👤" "🤖"))
-           (dom/div :.chat-msg-body
-                    (dom/div :.chat-msg-role
-                             (if (= role :user) "You" "AI Assistant"))
-                    (dom/div :.chat-msg-content
-                             (if (and streaming? (empty? content))
-                               (dom/span :.chat-typing
-                                         (dom/span :.typing-dot)
-                                         (dom/span :.typing-dot)
-                                         (dom/span :.typing-dot))
-                               content)))))
+  "Render a single chat message with markdown, copy, edit/delete actions"
+  [{:keys [role content streaming? error?]} idx {:keys [on-retry on-copy on-delete on-edit editing-idx]}]
+  (let [is-user? (= role :user)]
+    (dom/div {:key idx
+              :className (str "chat-msg chat-msg-" (name role)
+                              (when error? " chat-msg-error"))}
+             (dom/div :.chat-msg-avatar
+                      (if is-user? "👤" "🤖"))
+             (dom/div :.chat-msg-body
+                      (dom/div :.chat-msg-header
+                               (dom/span :.chat-msg-role
+                                         (if is-user? "You" "AI Assistant"))
+                               ;; Action buttons
+                               (dom/div :.chat-msg-actions
+                                        ;; Copy button (for assistant messages with content)
+                                        (when (and (not is-user?) (seq content) (not streaming?))
+                                          (dom/button
+                                           {:className "chat-msg-action-btn"
+                                            :title "Copy to clipboard"
+                                            :onClick (fn []
+                                                       (copy-to-clipboard! content)
+                                                       (on-copy idx))}
+                                           "Copy"))
+                                        ;; Edit button (for user messages)
+                                        (when (and is-user? (not streaming?))
+                                          (dom/button
+                                           {:className "chat-msg-action-btn"
+                                            :title "Edit and resend"
+                                            :onClick #(on-edit idx)}
+                                           "Edit"))
+                                        ;; Delete button
+                                        (when (and (not streaming?) (not error?))
+                                          (dom/button
+                                           {:className "chat-msg-action-btn chat-msg-action-delete"
+                                            :title "Delete message"
+                                            :onClick #(on-delete idx)}
+                                           "Del"))
+                                        ;; Retry button (for error state)
+                                        (when error?
+                                          (dom/button
+                                           {:className "chat-msg-action-btn chat-msg-action-retry"
+                                            :title "Retry this message"
+                                            :onClick #(on-retry idx)}
+                                           "Retry"))))
+                      ;; Message content
+                      (dom/div {:className (str "chat-msg-content"
+                                                (when (and (not is-user?) (not streaming?) (seq content))
+                                                  " chat-msg-markdown"))}
+                               (cond
+                                 ;; Typing indicator
+                                 (and streaming? (empty? content))
+                                 (dom/span :.chat-typing
+                                           (dom/span :.typing-dot)
+                                           (dom/span :.typing-dot)
+                                           (dom/span :.typing-dot))
+
+                                 ;; Error state
+                                 error?
+                                 (dom/div :.chat-msg-error-content
+                                          (dom/span :.chat-msg-error-icon "!")
+                                          (dom/span content))
+
+                                 ;; Markdown rendering for assistant messages
+                                 (and (not is-user?) (seq content))
+                                 (ui/render-markdown content "chat-markdown")
+
+                                 ;; User messages as plain text
+                                 :else
+                                 content))))))
 
 ;; ============================================================================
 ;; Quick Suggestions Component
@@ -239,24 +567,136 @@
                        suggestion)))))
 
 ;; ============================================================================
+;; Conversations List Component
+;; ============================================================================
+
+(defn conversations-list
+  "Render the list of saved conversations"
+  [{:keys [active-id on-switch on-delete on-new]}]
+  (let [convs (or (load-conversations) [])]
+    (dom/div :.chat-conversations
+             (dom/div :.chat-conversations-header
+                      (dom/span "Conversations")
+                      (dom/button
+                       {:className "chat-conv-new-btn"
+                        :onClick on-new
+                        :title "New conversation"}
+                       "+"))
+             (dom/div :.chat-conversations-list
+                      (if (seq convs)
+                        (for [conv convs]
+                          (let [conv-id (:id conv)
+                                is-active? (= conv-id active-id)
+                                title (or (:title conv) "New conversation")
+                                msg-count (count (:messages conv))]
+                            (dom/div {:key conv-id
+                                      :className (str "chat-conv-item"
+                                                      (when is-active? " chat-conv-active"))}
+                                     (dom/div {:className "chat-conv-info"
+                                               :onClick #(on-switch conv-id)}
+                                              (dom/div :.chat-conv-title
+                                                       (if (> (count title) 40)
+                                                         (str (subs title 0 40) "...")
+                                                         title))
+                                              (dom/div :.chat-conv-meta
+                                                       (str msg-count " messages")))
+                                     (when (not is-active?)
+                                       (dom/button
+                                        {:className "chat-conv-delete-btn"
+                                         :onClick (fn [e]
+                                                    (.stopPropagation e)
+                                                    (on-delete conv-id))
+                                         :title "Delete conversation"}
+                                        "x")))))
+                        (dom/div :.chat-conv-empty "No conversations yet"))))))
+
+;; ============================================================================
+;; Wisdom Tab Component (inline from components.cljs)
+;; ============================================================================
+
+(defn wisdom-tab-content
+  "Wisdom content rendered inside the sidebar tab"
+  [{:keys [route project-id]}]
+  (let [ctx (detect-context route)
+        phase (keyword (or ctx "empathy"))]
+    (dom/div :.chat-wisdom-tab
+             (dom/div :.chat-wisdom-tab-header
+                      (dom/span "💡 Wisdom")
+                      (dom/span :.chat-wisdom-tab-phase
+                                (str "Phase: " (str/capitalize (or ctx "general")))))
+             (ui/wisdom-panel-body {:phase phase :project-id project-id}))))
+
+;; ============================================================================
+;; Context Tab Component
+;; ============================================================================
+
+(defn context-tab-content
+  "Show current context information"
+  [{:keys [route]}]
+  (let [ctx-info (get-context-info route)]
+    (dom/div :.chat-context-tab
+             (dom/div :.chat-context-tab-header
+                      (dom/span (str (:icon ctx-info) " " (:label ctx-info)))
+                      (dom/span :.chat-context-tab-route
+                                (str "Route: " (str/join "/" (or route ["dashboard"])))))
+             (dom/div :.chat-context-tab-info
+                      (dom/p "The AI assistant is aware of your current page context. It tailors suggestions and responses based on where you are in the product development flywheel.")
+                      (dom/h4 "Current phase suggestions:")
+                      (dom/ul
+                       (for [s (:suggestions ctx-info)]
+                         (dom/li {:key s} s)))))))
+
+;; ============================================================================
 ;; Chat Panel Component
 ;; ============================================================================
 
 (defsc ChatPanel
-  "Global slide-out chat sidebar.
+  "Global slide-out chat sidebar with tabs: Chat / Wisdom / Context.
    Mounted in Root, accessible from every page."
-  [this {:chat/keys [open? messages loading? context]}]
-  {:query [:chat/open? :chat/messages :chat/loading? :chat/context]
+  [this {:chat/keys [open? messages loading? context active-tab
+                     active-conversation show-conversations?]}]
+  {:query [:chat/open? :chat/messages :chat/loading? :chat/context
+           :chat/active-tab :chat/active-conversation :chat/show-conversations?]
    :ident (fn [] [:chat/id :global])
-   :initial-state (fn [_] {:chat/open? false
-                            :chat/messages []
-                            :chat/loading? false
-                            :chat/context nil})}
+   :initial-state (fn [_]
+                    (let [;; Restore from localStorage on init
+                          saved-id (load-active-conversation-id)
+                          convs (or (load-conversations) [])
+                          ;; If we have a saved conversation, restore it
+                          active-conv (when saved-id
+                                        (some #(when (= (:id %) saved-id) %) convs))
+                          ;; If no saved conversation, create one
+                          new-id (or saved-id (generate-id))
+                          initial-messages (if active-conv
+                                             (mapv (fn [msg] (update msg :role keyword))
+                                                   (:messages active-conv))
+                                             [])]
+                      ;; If we created a new conversation, persist it
+                      (when-not active-conv
+                        (let [new-conv {:id new-id :title nil :messages []
+                                        :created-at (js/Date.now) :updated-at (js/Date.now)}]
+                          (save-conversations! (vec (cons new-conv convs)))
+                          (save-active-conversation-id! new-id)))
+                      {:chat/open? false
+                       :chat/messages initial-messages
+                       :chat/loading? false
+                       :chat/context nil
+                       :chat/active-tab :chat
+                       :chat/active-conversation new-id
+                       :chat/show-conversations? false}))}
 
   (let [input-text (or (comp/get-state this :input) "")
+        editing-idx (comp/get-state this :editing-idx)
+        edit-text (or (comp/get-state this :edit-text) "")
         current-route (or context [])
         ctx-info (get-context-info current-route)
         has-messages? (seq messages)
+        active-tab (or active-tab :chat)
+
+        ;; Get project ID from workspace state
+        state-atom @ws/app-state-atom
+        project-id (when state-atom
+                     (get-in @state-atom [:workspace/project :project/id]))
 
         do-send (fn []
                   (let [text (str/trim input-text)]
@@ -264,7 +704,16 @@
                       (comp/transact! this [(send-chat-message
                                              {:text text
                                               :context (str (:label ctx-info) ": " (str/join "/" current-route))})])
-                      (comp/set-state! this {:input ""}))))]
+                      (comp/set-state! this {:input "" :editing-idx nil :edit-text ""}))))
+
+        do-edit-send (fn []
+                       (let [text (str/trim edit-text)]
+                         (when (and (some? editing-idx) (seq text))
+                           (comp/transact! this [(edit-user-message
+                                                  {:idx editing-idx
+                                                   :text text
+                                                   :context (str (:label ctx-info) ": " (str/join "/" current-route))})])
+                           (comp/set-state! this {:editing-idx nil :edit-text ""}))))]
 
     ;; Overlay backdrop (click to close)
     (dom/div {:className (str "chat-sidebar-wrapper " (when open? "chat-open"))}
@@ -273,16 +722,31 @@
 
              ;; Sidebar panel
              (dom/div :.chat-sidebar
-                      ;; Header
+                      ;; Header with tabs
                       (dom/div :.chat-header
                                (dom/div :.chat-header-left
-                                        (dom/span :.chat-header-icon "🤖")
-                                        (dom/div :.chat-header-text
-                                                 (dom/h3 "AI Assistant")
-                                                 (dom/span :.chat-context-badge
-                                                           (str (:icon ctx-info) " " (:label ctx-info)))))
+                                        (dom/div :.chat-header-tabs
+                                                 (dom/button
+                                                  {:className (str "chat-tab-btn" (when (= active-tab :chat) " active"))
+                                                   :onClick #(comp/transact! this [(set-active-tab {:tab :chat})])}
+                                                  "🤖 Chat")
+                                                 (dom/button
+                                                  {:className (str "chat-tab-btn" (when (= active-tab :wisdom) " active"))
+                                                   :onClick #(comp/transact! this [(set-active-tab {:tab :wisdom})])}
+                                                  "💡 Wisdom")
+                                                 (dom/button
+                                                  {:className (str "chat-tab-btn" (when (= active-tab :context) " active"))
+                                                   :onClick #(comp/transact! this [(set-active-tab {:tab :context})])}
+                                                  "📍 Context")))
                                (dom/div :.chat-header-actions
-                                        (when has-messages?
+                                        ;; Conversations list toggle (only in chat tab)
+                                        (when (= active-tab :chat)
+                                          (dom/button
+                                           {:className (str "chat-action-btn" (when show-conversations? " active"))
+                                            :onClick #(comp/transact! this [(toggle-conversations-list {})])
+                                            :title "Conversations"}
+                                           "☰"))
+                                        (when (and (= active-tab :chat) has-messages?)
                                           (dom/button
                                            {:className "chat-action-btn"
                                             :onClick #(comp/transact! this [(clear-chat {})])
@@ -293,50 +757,147 @@
                                           :onClick #(comp/transact! this [(close-chat {})])}
                                          "x")))
 
-                      ;; Messages area
-                      (dom/div :.chat-messages
-                               {:ref (fn [el]
-                                       (when el
-                                         (set! (.-scrollTop el) (.-scrollHeight el))))}
-                               (if has-messages?
-                                 (map-indexed
-                                  (fn [idx msg]
-                                    (chat-message msg idx))
-                                  messages)
-                                 ;; Welcome state
-                                 (dom/div :.chat-welcome
-                                          (dom/div :.chat-welcome-icon "🤖")
-                                          (dom/h3 "How can I help?")
-                                          (dom/p "I'm your AI assistant, powered by ECA. I can help you with your product development - from empathy mapping to lean canvas.")))
+                      ;; Conversations list overlay
+                      (when (and show-conversations? (= active-tab :chat))
+                        (conversations-list
+                         {:active-id active-conversation
+                          :on-switch (fn [conv-id]
+                                       (comp/transact! this [(switch-conversation {:conv-id conv-id})]))
+                          :on-delete (fn [conv-id]
+                                       (comp/transact! this [(delete-conversation {:conv-id conv-id})]))
+                          :on-new (fn []
+                                    (comp/transact! this [(new-conversation {})]))}))
 
-                               ;; Quick suggestions (shown when few/no messages)
-                               (when (< (count messages) 3)
-                                 (quick-suggestions
-                                  {:suggestions (:suggestions ctx-info)
-                                   :on-select (fn [text]
-                                                (comp/transact! this [(send-chat-message
-                                                                       {:text text
-                                                                        :context (str (:label ctx-info) ": " (str/join "/" current-route))})]))})))
+                      ;; Tab content
+                      (case active-tab
+                        ;; ===== CHAT TAB =====
+                        :chat
+                        (dom/div :.chat-tab-content
+                                 ;; Messages area
+                                 (dom/div :.chat-messages
+                                          {:ref (fn [el]
+                                                  (when el
+                                                    ;; Scroll to bottom on next animation frame (avoids re-render loop)
+                                                    (js/requestAnimationFrame
+                                                     (fn [] (set! (.-scrollTop el) (.-scrollHeight el))))))}
+                                          (if has-messages?
+                                            (map-indexed
+                                             (fn [idx msg]
+                                               ;; Inline edit form for user messages
+                                               (if (and (= idx editing-idx) (= :user (:role msg)))
+                                                 (dom/div {:key idx :className "chat-msg chat-msg-user chat-msg-editing"}
+                                                          (dom/div :.chat-msg-avatar "👤")
+                                                          (dom/div :.chat-msg-body
+                                                                   (dom/textarea
+                                                                    {:className "chat-edit-input"
+                                                                     :value edit-text
+                                                                     :autoFocus true
+                                                                     :onChange #(comp/set-state! this {:edit-text (.. % -target -value)})
+                                                                     :onKeyDown (fn [e]
+                                                                                  (when (and (= "Enter" (.-key e))
+                                                                                             (not (.-shiftKey e)))
+                                                                                    (.preventDefault e)
+                                                                                    (do-edit-send))
+                                                                                  (when (= "Escape" (.-key e))
+                                                                                    (comp/set-state! this {:editing-idx nil :edit-text ""})))})
+                                                                   (dom/div :.chat-edit-actions
+                                                                            (dom/button
+                                                                             {:className "chat-edit-save-btn"
+                                                                              :onClick do-edit-send}
+                                                                             "Save & Resend")
+                                                                            (dom/button
+                                                                             {:className "chat-edit-cancel-btn"
+                                                                              :onClick #(comp/set-state! this {:editing-idx nil :edit-text ""})}
+                                                                             "Cancel"))))
+                                                 ;; Normal message rendering
+                                                 (chat-message msg idx
+                                                               {:on-retry (fn [_idx]
+                                                                            ;; Find the user message before this assistant message
+                                                                            (let [prev-idx (dec _idx)
+                                                                                  prev-msg (when (>= prev-idx 0)
+                                                                                             (nth messages prev-idx))]
+                                                                              (when (and prev-msg (= :user (:role prev-msg)))
+                                                                                ;; Delete the error message and resend
+                                                                                (comp/transact! this [(delete-message {:idx _idx})])
+                                                                                (comp/transact! this [(send-chat-message
+                                                                                                       {:text (:content prev-msg)
+                                                                                                        :context (str (:label ctx-info) ": "
+                                                                                                                      (str/join "/" current-route))})]))))
+                                                                :on-copy (fn [_idx]
+                                                                           (comp/set-state! this {:copied-idx _idx})
+                                                                           (js/setTimeout
+                                                                            #(comp/set-state! this {:copied-idx nil})
+                                                                            2000))
+                                                                :on-delete (fn [_idx]
+                                                                             (comp/transact! this [(delete-message {:idx _idx})]))
+                                                                :on-edit (fn [_idx]
+                                                                           (comp/set-state! this
+                                                                                            {:editing-idx _idx
+                                                                                             :edit-text (:content (nth messages _idx))}))
+                                                                :editing-idx editing-idx})))
+                                             messages)
+                                            ;; Welcome state
+                                            (dom/div :.chat-welcome
+                                                     (dom/div :.chat-welcome-icon "🤖")
+                                                     (dom/h3 "How can I help?")
+                                                     (dom/p "I'm your AI assistant, powered by ECA. I can help you with your product development - from empathy mapping to lean canvas.")))
 
-                      ;; Input area
-                      (dom/div :.chat-input-area
-                               (dom/textarea
-                                {:className "chat-input"
-                                 :value (or input-text "")
-                                 :placeholder (str "Ask about " (:label ctx-info) "...")
-                                 :rows 1
-                                 :onChange #(comp/set-state! this {:input (.. % -target -value)})
-                                 :onKeyDown (fn [e]
-                                              (when (and (= "Enter" (.-key e))
-                                                         (not (.-shiftKey e)))
-                                                (.preventDefault e)
-                                                (do-send)))})
-                               (dom/button
-                                {:className (str "chat-send-btn "
-                                                 (when (or loading? (empty? (str/trim input-text)))
-                                                   "disabled"))
-                                 :disabled (or loading? (empty? (str/trim input-text)))
-                                 :onClick do-send}
-                                (if loading? "..." "↑")))))))
+                                          ;; Quick suggestions (shown when few/no messages)
+                                          (when (< (count messages) 3)
+                                            (quick-suggestions
+                                             {:suggestions (:suggestions ctx-info)
+                                              :on-select (fn [text]
+                                                           (comp/transact! this [(send-chat-message
+                                                                                  {:text text
+                                                                                   :context (str (:label ctx-info) ": " (str/join "/" current-route))})]))})))
+
+                                 ;; Input area
+                                 (dom/div :.chat-input-area
+                                           (dom/textarea
+                                            {:className "chat-input"
+                                             :value (or input-text "")
+                                             :placeholder (str "Ask about " (:label ctx-info) "...")
+                                             :rows 1
+                                             :onChange (fn [e]
+                                                        (comp/set-state! this {:input (.. e -target -value)})
+                                                        (auto-resize-textarea! (.-target e)))
+                                            :onKeyDown (fn [e]
+                                                         (cond
+                                                           ;; Enter to send (without shift)
+                                                           (and (= "Enter" (.-key e))
+                                                                (not (.-shiftKey e)))
+                                                           (do (.preventDefault e)
+                                                               (do-send))
+
+                                                           ;; Up arrow in empty input = edit last user message
+                                                           (and (= "ArrowUp" (.-key e))
+                                                                (empty? (str/trim input-text)))
+                                                           (let [last-user-idx (some (fn [i]
+                                                                                       (when (= :user (:role (nth messages i)))
+                                                                                         i))
+                                                                                     (reverse (range (count messages))))]
+                                                             (when last-user-idx
+                                                               (.preventDefault e)
+                                                               (comp/set-state! this
+                                                                                {:editing-idx last-user-idx
+                                                                                 :edit-text (:content (nth messages last-user-idx))})))))})
+                                          (dom/button
+                                           {:className (str "chat-send-btn "
+                                                            (when (or loading? (empty? (str/trim input-text)))
+                                                              "disabled"))
+                                            :disabled (or loading? (empty? (str/trim input-text)))
+                                            :onClick do-send}
+                                           (if loading? "..." "↑"))))
+
+                        ;; ===== WISDOM TAB =====
+                        :wisdom
+                        (dom/div :.chat-tab-content
+                                 (wisdom-tab-content {:route current-route
+                                                      :project-id project-id}))
+
+                        ;; ===== CONTEXT TAB =====
+                        :context
+                        (dom/div :.chat-tab-content
+                                 (context-tab-content {:route current-route})))))))
 
 (def ui-chat-panel (comp/factory ChatPanel))
