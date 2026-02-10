@@ -6,18 +6,18 @@
    
    Uses resolver-registry to avoid circular dependencies.
    Resolvers register themselves; this namespace just aggregates them."
-  (:require
-   [clojure.string :as str]
-   [com.wsscode.pathom3.interface.eql :as p.eql]
-   [com.wsscode.pathom3.connect.indexes :as pci]
-   [com.wsscode.pathom3.connect.operation :as pco]
-   [ouroboros.resolver-registry :as registry]
-   [ouroboros.engine :as engine]
-   ;; For resolver-based tool registration
-   [ouroboros.history]
-   [ouroboros.memory] [ouroboros.webux]
-   ;; Additional resolvers for page queries
-   [ouroboros.telemetry])
+   (:require
+    [clojure.string :as str]
+    [com.wsscode.pathom3.interface.eql :as p.eql]
+    [com.wsscode.pathom3.connect.indexes :as pci]
+    [com.wsscode.pathom3.connect.operation :as pco]
+    [ouroboros.resolver-registry :as registry]
+    [ouroboros.engine :as engine]
+    ;; For resolver-based tool registration
+    [ouroboros.history]
+    [ouroboros.memory] [ouroboros.webux]
+    ;; Additional resolvers for page queries
+    [ouroboros.telemetry :as telemetry])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -92,6 +92,7 @@
                   :telemetry/query-executions
                   :telemetry/error-rate
                   :telemetry/events
+                  :debug/enabled?
                   :project/id
                   :project/name
                   :project/description
@@ -239,6 +240,8 @@
                                   :duration-ms (:duration-ms evt)
                                   :success? (:success? evt)})
                                telemetry-data)
+       ;; Debug flag
+       :debug/enabled? false
        ;; Project fields (empty for non-project pages)
        :project/id nil
        :project/name nil
@@ -318,13 +321,13 @@
           (q [:system/healthy? :system/meta])
           (q [{[:page/id :project-detail] [...]}] {:project-id \"...\"})"
   ([query] (q query nil))
-  ([query params]
-   (when-let [env @query-env]
-     (let [;; Merge params into environment so resolvers can access them
-           env-with-params (if params
-                             (merge env params)
-                             env)]
-       (p.eql/process env-with-params query)))))
+   ([query params]
+    (when-let [env @query-env]
+      (let [;; Merge params into environment so resolvers can access them
+            env-with-params (if params
+                              (merge env params)
+                              env)]
+        (telemetry/instrument-query query env-with-params)))))
 
 (defn m
   "Execute a mutation on the system

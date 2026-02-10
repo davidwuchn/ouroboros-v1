@@ -290,25 +290,12 @@
      :telemetry/last-event (:event/timestamp last-event)
      :telemetry/events-per-minute (count recent-events)}))
 
-(pco/defresolver page-telemetry [_]
-  {::pco/output [:page/id :telemetry
-                 :telemetry/total-events :telemetry/tool-invocations
-                 :telemetry/query-executions :telemetry/errors
-                 :telemetry/error-rate
-                 {:telemetry/events [:event/id :event/timestamp :event :tool :duration-ms :success?]}]}
-  (let [events (get-events)
-        tool-events (filter #(= :tool/invoke (:event %)) events)
-        query-events (filter #(= :query/execute (:event %)) events)
-        errors (filter #(false? (:success? %)) events)]
-    {:page/id :telemetry
-     :telemetry/total-events (count events)
-     :telemetry/tool-invocations (count tool-events)
-     :telemetry/query-executions (count query-events)
-     :telemetry/errors (count errors)
-     :telemetry/error-rate (if (seq events)
-                            (/ (count errors) (count events) 0.01)
-                            0)
-     :telemetry/events (vec events)}))
+;; NOTE: page-telemetry resolver was removed because it conflicted with
+;; page-by-id in query.clj. The page-by-id resolver already handles
+;; the :telemetry page case via its :else branch (lines 210-250).
+;; The conflict arose because this global resolver declared :page/id as
+;; output, confusing Pathom's planner when resolving ident queries
+;; like {[:page/id :telemetry] [...]}.
 
 (pco/defmutation telemetry-clear! [_]
   {::pco/output [:status]}
@@ -326,8 +313,7 @@
    telemetry-tool-summary
    telemetry-event-types
    telemetry-time-series
-   telemetry-health
-   page-telemetry])
+   telemetry-health])
 
 (def mutations
   [telemetry-clear!])

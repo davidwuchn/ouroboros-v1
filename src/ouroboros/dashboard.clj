@@ -158,6 +158,14 @@
     (and (map? data) (:query data))
     {:query (:query data) :params nil}
     
+    ;; Join map with ident key (e.g., {[:page/id :telemetry] [:system/healthy? ...]})
+    ;; Transit decodes Fulcro load queries as a map when there's a single join.
+    ;; Pathom expects this wrapped in a vector: [{[:page/id :telemetry] [...]}]
+    (and (map? data)
+         (= 1 (count data))
+         (vector? (ffirst data)))
+    {:query [data] :params nil}
+    
     :else
     {:query data :params nil}))
 
