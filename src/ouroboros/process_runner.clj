@@ -636,11 +636,12 @@
                  (send! (first rest-args) (second rest-args))
                  (do (println "Error: send requires <name> <input>")
                      (System/exit 1)))
-        "logs" (let [opts (cli/parse-opts rest-args {:coerce {:follow? [:boolean]}
-                                                     :alias {:f :follow?}})
-                     name (first (:args opts))
-                     follow? (:follow? opts)
-                     lines (or (:lines opts) 50)]
+         "logs" (let [opts (cli/parse-opts rest-args {:args->opts [:name]
+                                                      :coerce {:follow? [:boolean]}
+                                                      :alias {:f :follow?}})
+                      name (:name opts)
+                      follow? (:follow? opts)
+                      lines (or (:lines opts) 50)]
                  (if name
                    (if follow?
                      (logs name :follow? true)
