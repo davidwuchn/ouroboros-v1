@@ -685,5 +685,14 @@
                                       (comp/transact! this
                                                       [(m/set-props {:ui (-> ui
                                                                              (assoc :ui/show-add-modal true)
-                                                                              (assoc :ui/active-block block-key))})]))}))))))))
+                                                                              (assoc :ui/active-block block-key))})]))
+                       :on-item-edit (fn [note-id new-content]
+                                       (comp/transact! this
+                                         [(update-canvas-note
+                                           {:note-id note-id
+                                            :updates {:item/content new-content}})]))
+                       :on-item-delete (fn [note-id]
+                                         (comp/transact! this
+                                           [(delete-canvas-note
+                                             {:note-id note-id})]))}))))))))
 

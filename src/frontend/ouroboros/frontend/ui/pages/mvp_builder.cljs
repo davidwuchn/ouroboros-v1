@@ -184,6 +184,16 @@
 ;; Mutations
 ;; ============================================================================
 
+(defn- sync-mvp-responses!
+  "Sync responses to backend via WebSocket"
+  [state]
+  (let [s @state
+        project-id (get-in s [:page/id :mvp-builder :project/id])
+        responses (get-in s [:page/id :mvp-builder :completed-responses] [])
+        session-id (str "mvp-" project-id)]
+    (when project-id
+      (ws/save-builder-data! project-id session-id :mvp-planning responses))))
+
 (m/defmutation submit-mvp-response
   "Save a section response"
   [{:keys [section-key response]}]
@@ -193,13 +203,30 @@
            {:section-key section-key
             :response response
             :completed-at (js/Date.now)})
-    ;; Sync to backend
-    (let [s @state
-          project-id (get-in s [:page/id :mvp-builder :project/id])
-          responses (get-in s [:page/id :mvp-builder :completed-responses] [])
-          session-id (str "mvp-" project-id)]
-      (when project-id
-        (ws/save-builder-data! project-id session-id :mvp-planning responses)))))
+    (sync-mvp-responses! state)))
+
+(m/defmutation update-mvp-response
+  "Update an existing section response in-place"
+  [{:keys [section-key response]}]
+  (action [{:keys [state]}]
+    (swap! state update-in [:page/id :mvp-builder :completed-responses]
+           (fn [responses]
+             (let [responses (or responses [])]
+               (mapv (fn [r]
+                       (if (= (:section-key r) section-key)
+                         (assoc r :response response :completed-at (js/Date.now))
+                         r))
+                     responses))))
+    (sync-mvp-responses! state)))
+
+(m/defmutation delete-mvp-response
+  "Delete a section response"
+  [{:keys [section-key]}]
+  (action [{:keys [state]}]
+    (swap! state update-in [:page/id :mvp-builder :completed-responses]
+           (fn [responses]
+             (vec (remove #(= (:section-key %) section-key) responses))))
+    (sync-mvp-responses! state)))
 
 ;; ============================================================================
 ;; Tutorial Modal Component
@@ -379,20 +406,34 @@
 ;; ============================================================================
 
 (defn section-card
-  "Displays a section card with response or prompt to fill"
-  [{:keys [key section response on-click on-edit]}]
+  "Displays a section card with response or prompt to fill.
+   Supports inline editing (click response text) and delete."
+  [{:keys [key section response on-click on-edit on-delete]}]
   (let [{:keys [title icon hint]} section]
     (dom/div {:key (name key)
               :className (str "mvp-card " (when response "completed"))
-              :onClick (if response on-edit on-click)}
+              :onClick (when-not response on-click)}
               (dom/div :.card-header
                        (dom/span :.card-icon icon)
                        (dom/h4 title)
                        (when response
-                         (dom/span :.completed-badge "✓")))
+                         (dom/div {:style {:display "flex" :alignItems "center" :gap "4px"}}
+                           (dom/span :.completed-badge "✓")
+                           (dom/button {:className "btn-inline-delete"
+                                        :onClick (fn [e]
+                                                   (.stopPropagation e)
+                                                   (when (js/confirm (str "Remove " title " response?"))
+                                                     (on-delete)))
+                                        :title "Remove response"}
+                                      "\u00D7"))))
              (if response
                (dom/div :.card-response
-                        (dom/p response)
+                        (dom/p {:className "editable-response"
+                                :onClick (fn [e]
+                                           (.stopPropagation e)
+                                           (on-edit))
+                                :title "Click to edit"}
+                               response)
                         (dom/button {:className "btn btn-sm btn-link"
                                      :onClick (fn [e]
                                                 (.stopPropagation e)
@@ -603,4 +644,7 @@
                                                   [(m/set-props {:ui (-> ui
                                                                          (assoc :ui/show-section-modal true)
                                                                          (assoc :ui/active-section key)
-                                                                         (assoc :ui/section-value (get response-map key "")))})])}))))))))
+                                                                         (assoc :ui/section-value (get response-map key "")))})])
+                        :on-delete #(comp/transact! this
+                                                    [(delete-mvp-response
+                                                      {:section-key key})])}))))))))

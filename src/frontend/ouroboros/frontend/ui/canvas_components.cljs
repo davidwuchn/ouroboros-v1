@@ -368,9 +368,13 @@
 
 (defn render-lean-canvas
   "Visual Lean Canvas with business model layout (plain function)"
-  [{:keys [sections items on-item-add]}]
+  [{:keys [sections items on-item-add on-item-edit on-item-delete]}]
   (let [find-section (fn [k] (first (filter #(= (:section/key %) k) sections)))
         items-for (fn [k] (filter #(= (:item/section %) k) items))
+        edit-opts (when (or on-item-edit on-item-delete)
+                    (cond-> {}
+                      on-item-edit   (assoc :on-item-edit on-item-edit)
+                      on-item-delete (assoc :on-item-delete on-item-delete)))
         render-box (fn [section-key css-class]
                      (when-let [section (find-section section-key)]
                        (dom/div {:className (str "canvas-box " css-class)}
@@ -378,7 +382,8 @@
                                  (assoc section
                                         :section/items (items-for section-key)
                                         :section/editable? true)
-                                 on-item-add))))]
+                                 on-item-add
+                                 edit-opts))))]
     (dom/div :.lean-canvas-container
              (dom/div :.lean-canvas-grid
                       (render-box :problems "canvas-problems")

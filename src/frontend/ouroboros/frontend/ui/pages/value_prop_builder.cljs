@@ -153,6 +153,16 @@
 ;; Mutations
 ;; ============================================================================
 
+(defn- sync-value-prop-responses!
+  "Sync responses to backend via WebSocket"
+  [state]
+  (let [s @state
+        project-id (get-in s [:page/id :value-prop-builder :project/id])
+        responses (get-in s [:page/id :value-prop-builder :completed-responses] [])
+        session-id (str "valueprop-" project-id)]
+    (when project-id
+      (ws/save-builder-data! project-id session-id :value-proposition responses))))
+
 (m/defmutation submit-value-prop-response
   "Save a section response"
   [{:keys [section-key response]}]
@@ -162,13 +172,30 @@
            {:section-key section-key
             :response response
             :completed-at (js/Date.now)})
-    ;; Sync to backend
-    (let [s @state
-          project-id (get-in s [:page/id :value-prop-builder :project/id])
-          responses (get-in s [:page/id :value-prop-builder :completed-responses] [])
-          session-id (str "valueprop-" project-id)]
-      (when project-id
-        (ws/save-builder-data! project-id session-id :value-proposition responses)))))
+    (sync-value-prop-responses! state)))
+
+(m/defmutation update-value-prop-response
+  "Update an existing section response in-place"
+  [{:keys [section-key response]}]
+  (action [{:keys [state]}]
+    (swap! state update-in [:page/id :value-prop-builder :completed-responses]
+           (fn [responses]
+             (let [responses (or responses [])]
+               (mapv (fn [r]
+                       (if (= (:section-key r) section-key)
+                         (assoc r :response response :completed-at (js/Date.now))
+                         r))
+                     responses))))
+    (sync-value-prop-responses! state)))
+
+(m/defmutation delete-value-prop-response
+  "Delete a section response"
+  [{:keys [section-key]}]
+  (action [{:keys [state]}]
+    (swap! state update-in [:page/id :value-prop-builder :completed-responses]
+           (fn [responses]
+             (vec (remove #(= (:section-key %) section-key) responses))))
+    (sync-value-prop-responses! state)))
 
 ;; ============================================================================
 ;; Tutorial Modal Component
@@ -349,20 +376,37 @@
 ;; ============================================================================
 
 (defn section-card
-  "Displays a section card with response or prompt to fill"
-  [{:keys [key section response on-click on-edit]}]
-  (let [{:keys [title icon hint]} section]
+  "Displays a section card with response or prompt to fill.
+   Supports inline editing (click response text) and delete."
+  [{:keys [key section response on-click on-edit on-inline-save on-delete]}]
+  (let [{:keys [title icon hint]} section
+        editing? (and (some? response) (.-editing (js/document.getElementById (str "vp-card-" (name key)))))
+        card-id (str "vp-card-" (name key))]
     (dom/div {:key (name key)
+              :id card-id
               :className (str "value-prop-card " (when response "completed"))
-              :onClick (if response on-edit on-click)}
+              :onClick (when-not response on-click)}
               (dom/div :.card-header
                        (dom/span :.card-icon icon)
                        (dom/h4 title)
                        (when response
-                         (dom/span :.completed-badge "✓")))
+                         (dom/div {:style {:display "flex" :alignItems "center" :gap "4px"}}
+                           (dom/span :.completed-badge "✓")
+                           (dom/button {:className "btn-inline-delete"
+                                        :onClick (fn [e]
+                                                   (.stopPropagation e)
+                                                   (when (js/confirm (str "Remove " title " response?"))
+                                                     (on-delete)))
+                                        :title "Remove response"}
+                                      "\u00D7"))))
              (if response
                (dom/div :.card-response
-                        (dom/p response)
+                        (dom/p {:className "editable-response"
+                                :onClick (fn [e]
+                                           (.stopPropagation e)
+                                           (on-edit))
+                                :title "Click to edit"}
+                               response)
                         (dom/button {:className "btn btn-sm btn-link"
                                      :onClick (fn [e]
                                                 (.stopPropagation e)
@@ -573,4 +617,7 @@
                                                   [(m/set-props {:ui (-> ui
                                                                          (assoc :ui/show-section-modal true)
                                                                          (assoc :ui/active-section key)
-                                                                         (assoc :ui/section-value (get response-map key "")))})])}))))))))
+                                                                         (assoc :ui/section-value (get response-map key "")))})])
+                        :on-delete #(comp/transact! this
+                                                    [(delete-value-prop-response
+                                                      {:section-key key})])}))))))))
