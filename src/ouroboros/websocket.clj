@@ -187,25 +187,16 @@
    Registers a per-request ECA callback that streams tokens back to the
    specific WebSocket client, then cleans up when done."
   [client-id {:keys [text context]}]
-  ;; Auto-start ECA if not running
-  (when-not (:running (eca/status))
+  ;; Use ensure-alive! for robust startup with auto-restart
+  (when-not (eca/alive?)
     (telemetry/emit! {:event :ws/eca-auto-start :client-id client-id})
-    (try
-      (eca/start!)
-      (catch Exception e
-        (send-to! client-id {:type :eca/chat-response
-                             :text (str "Failed to start ECA: " (.getMessage e))
-                             :timestamp (System/currentTimeMillis)})
-        (telemetry/emit! {:event :ws/eca-auto-start-failed
-                          :client-id client-id
-                          :error (.getMessage e)}))))
+    (when-not (eca/ensure-alive!)
+      (send-to! client-id {:type :eca/chat-error
+                           :error "ECA could not be started. Ensure the ECA binary is installed and try again."
+                           :timestamp (System/currentTimeMillis)})
+      (telemetry/emit! {:event :ws/eca-auto-start-failed :client-id client-id})))
 
-  (if-not (:running (eca/status))
-    ;; Still not running after start attempt
-    (send-to! client-id {:type :eca/chat-response
-                         :text "ECA could not be started. Ensure the ECA binary is installed."
-                         :timestamp (System/currentTimeMillis)})
-
+  (when (eca/alive?)
     ;; ECA is running - proceed with chat
     (let [chat-id (str "ws-" client-id "-" (System/currentTimeMillis))
           listener-id (keyword (str "ws-chat-" client-id))]
@@ -247,16 +238,22 @@
                 :else nil)))))
 
       ;; Send prompt to ECA (fast mode - returns immediately after ack)
+      ;; chat-prompt now auto-retries on timeout with ECA restart
       (try
         (let [result (eca/chat-prompt text {:chat-id chat-id})]
           (when (= :error (:status result))
-            (send-to! client-id {:type :eca/chat-response
-                                 :text (str "Error: " (or (:message result) (:error result)))
-                                 :timestamp (System/currentTimeMillis)})
-            (eca/unregister-callback! "chat/contentReceived" listener-id)))
+            (let [error-msg (or (:message result)
+                                (when (keyword? (:error result)) (name (:error result)))
+                                (str (:error result)))]
+              (send-to! client-id {:type :eca/chat-error
+                                   :error (str "AI error: " error-msg
+                                               ". Click retry to try again.")
+                                   :timestamp (System/currentTimeMillis)})
+              (eca/unregister-callback! "chat/contentReceived" listener-id))))
         (catch Exception e
-          (send-to! client-id {:type :eca/chat-response
-                               :text (str "ECA error: " (.getMessage e))
+          (send-to! client-id {:type :eca/chat-error
+                               :error (str "ECA error: " (.getMessage e)
+                                           ". Click retry to try again.")
                                :timestamp (System/currentTimeMillis)})
           (eca/unregister-callback! "chat/contentReceived" listener-id)
           (telemetry/emit! {:event :ws/eca-chat-error
@@ -452,8 +449,8 @@
         builder-type-kw (if (string? builder-type) (keyword builder-type) builder-type)
         builder-label (get phase-labels builder-type-kw (name (or builder-type-kw :unknown)))]
 
-    ;; Only proceed if ECA is running (don't auto-start for background insights)
-    (when (:running (eca/status))
+    ;; Only proceed if ECA is truly alive (don't auto-start for background insights)
+    (when (eca/alive?)
       (let [chat-id (str "ws-insight-" client-id "-" (System/currentTimeMillis))
             listener-id (keyword (str "ws-insight-" client-id))
             ;; Accumulate streamed text for saving to learning
@@ -729,7 +726,7 @@
                          :timestamp (System/currentTimeMillis)})
 
     ;; Also request ECA to generate a contextual prediction message
-    (when (:running (eca/status))
+    (when (eca/alive?)
       (future
         (try
           (let [chat-id (str "ws-analytics-" client-id "-" (System/currentTimeMillis))
@@ -810,17 +807,11 @@
   (let [user-id (current-user-id)
         content-type-kw (if (string? content-type) (keyword content-type) content-type)]
 
-    ;; Auto-start ECA if not running
-    (when-not (:running (eca/status))
-      (try
-        (eca/start!)
-        (catch Exception e
-          (send-to! client-id {:type :content/error
-                               :content-type content-type-kw
-                               :error (str "Failed to start ECA: " (.getMessage e))
-                               :timestamp (System/currentTimeMillis)}))))
+    ;; Auto-start ECA if not running (use ensure-alive! for robust startup)
+    (when-not (eca/alive?)
+      (eca/ensure-alive!))
 
-    (if-not (:running (eca/status))
+    (if-not (eca/alive?)
       (send-to! client-id {:type :content/error
                            :content-type content-type-kw
                            :error "ECA not available"
@@ -910,10 +901,7 @@
    "You are a product development assistant. Based on the project context and current phase, generate 4 specific questions or prompts the user could ask to deepen their understanding. Each should be a complete sentence that the user can click to ask. Format as a numbered list."
 
    :templates
-   "You are a product strategy advisor. Based on the project description, suggest which product development template/archetype best fits this project (SaaS B2B, Marketplace, Consumer App, API Platform, Creator/Content, Hardware/IoT) and explain why in 2-3 sentences. Then provide 2-3 specific tips for that archetype."
-
-   :cross-project
-   "You are a product portfolio strategist. The user has multiple projects in development. Based on all their project data below, analyze:\n1. Common patterns across projects (shared customer segments, similar problems, etc.)\n2. Potential synergies or conflicts between projects\n3. Which project appears most mature/ready to launch\n4. Cross-project insights they might be missing\n\nBe specific to their actual data. Keep it to 4-5 concise paragraphs."})
+   "You are a product strategy advisor. Based on the project description, suggest which product development template/archetype best fits this project (SaaS B2B, Marketplace, Consumer App, API Platform, Creator/Content, Hardware/IoT) and explain why in 2-3 sentences. Then provide 2-3 specific tips for that archetype."})
 
 (defn- assemble-project-context
   "Build a rich context string from project data for ECA.
@@ -984,21 +972,6 @@
                                                    (:categories patterns)))))]]
     (str/join "\n" (remove nil? context-parts))))
 
-(defn- assemble-cross-project-context
-  "Build context string from ALL projects for a user, for cross-project analysis."
-  [user-id]
-  (let [projects-key (keyword (str "projects/" (name user-id)))
-        projects (vals (or (memory/get-value projects-key) {}))
-        ;; Build context for each project
-        project-contexts
-        (for [project projects
-              :let [pid (:project/id project)]]
-          (assemble-project-context user-id pid nil))]
-    (if (seq project-contexts)
-      (str "# All Projects (" (count projects) " total)\n\n"
-           (str/join "\n\n---\n\n" project-contexts))
-      "No projects found for this user.")))
-
 (defn- handle-eca-wisdom!
   "Handle an eca/wisdom message from the frontend.
    Assembles project context, sends to ECA with a phase-specific prompt,
@@ -1008,21 +981,17 @@
         request-type-kw (if (string? request-type) (keyword request-type) (or request-type :tips))
         user-id (current-user-id)]
 
-    ;; Auto-start ECA if not running
-    (when-not (:running (eca/status))
+    ;; Use ensure-alive! for robust startup with auto-restart
+    (when-not (eca/alive?)
       (telemetry/emit! {:event :ws/eca-wisdom-auto-start :client-id client-id})
-      (try
-        (eca/start!)
-        (catch Exception e
-          (send-to! client-id {:type :eca/wisdom-response
-                               :text (str "Failed to start ECA: " (.getMessage e))
-                               :request-type request-type-kw
-                               :timestamp (System/currentTimeMillis)})
-          (telemetry/emit! {:event :ws/eca-wisdom-auto-start-failed
-                            :client-id client-id
-                            :error (.getMessage e)}))))
+      (when-not (eca/ensure-alive!)
+        (send-to! client-id {:type :eca/wisdom-response
+                             :text "ECA could not be started. Ensure the ECA binary is installed."
+                             :request-type request-type-kw
+                             :timestamp (System/currentTimeMillis)})
+        (telemetry/emit! {:event :ws/eca-wisdom-auto-start-failed :client-id client-id})))
 
-    (if-not (:running (eca/status))
+    (if-not (eca/alive?)
       ;; ECA not available
       (send-to! client-id {:type :eca/wisdom-response
                            :text "ECA could not be started. Ensure the ECA binary is installed."
@@ -1032,10 +1001,8 @@
       ;; ECA running - assemble context and query
       (let [chat-id (str "ws-wisdom-" client-id "-" (System/currentTimeMillis))
             listener-id (keyword (str "ws-wisdom-" client-id))
-            ;; Build project context (cross-project loads ALL projects)
-            context-str (if (= request-type-kw :cross-project)
-                          (assemble-cross-project-context user-id)
-                          (assemble-project-context user-id project-id phase-kw))
+            ;; Build project context
+            context-str (assemble-project-context user-id project-id phase-kw)
             ;; Get system prompt for request type
             system-prompt (get wisdom-prompts request-type-kw (:tips wisdom-prompts))
             ;; Compose full prompt
@@ -1136,6 +1103,28 @@
 
         "eca/wisdom"
         (future (handle-eca-wisdom! id message))
+
+        "eca/debug"
+        (let [enabled? (boolean (:enabled? message))]
+          (telemetry/emit! {:event :eca/debug-toggle
+                            :enabled? enabled?
+                            :client-id id})
+          (future
+            (try
+              (eca/stop!)
+              (eca/start! {:debug? enabled?})
+              (send-to! id {:type :eca/debug-status
+                            :enabled? enabled?
+                            :timestamp (System/currentTimeMillis)})
+              (catch Exception e
+                (telemetry/emit! {:event :eca/debug-toggle-error
+                                  :enabled? enabled?
+                                  :client-id id
+                                  :error (.getMessage e)})
+                (send-to! id {:type :eca/debug-status
+                              :enabled? enabled?
+                              :error (.getMessage e)
+                              :timestamp (System/currentTimeMillis)})))))
 
         "flywheel/progress"
         (handle-flywheel-progress! id message)

@@ -57,7 +57,7 @@ See detailed analysis sections below for specific recommendations.
 | **Streaming Responses** | **✅ Done** | **5-layer pipeline: ECA -> chat platforms + frontend WebSocket chat sidebar** |
 | **Flywheel UI** | **✅ Done** | **Step indicator, wisdom sidebar, phase cards, auto-start Empathy Map** |
 | **ECA-Powered Wisdom (A+B)** | **✅ Done** | **Backend + Frontend complete. Wisdom sidebar, flywheel progress, wisdom page stream from ECA.** |
-| **Phase C: Continuous Wisdom** | **✅ Done** | **Builder persistence, auto-insights on completion, learning storage, cross-project analysis (backend). Phase D (production hardening) next.** |
+| **Phase C: Continuous Wisdom** | **✅ Done** | **Builder persistence, auto-insights on completion, learning storage. Phase D (production hardening) next.** |
 | **Workspace Auto-Detection** | **✅ Done** | **Single project per instance, auto-detect from cwd, no create form, `:project/detected` on WS connect** |
 | **UI Cleanup: Remove Users/Sessions** | **✅ Done** | **Removed chat-platform pages, cleaned navbar/router/dashboard/query. Single-project model.** |
 | **Kanban Board** | **✅ Done** | **Auto-derived task board on Project page: 29 cards, 3 columns, builder color-coding, view toggle (Flywheel/Kanban)** |
@@ -308,7 +308,7 @@ The user interacts with WebUX builders (drag sticky notes, fill empathy map sect
 #### Phase C: Continuous Wisdom (P1) -- COMPLETE ✅
 
 1. **Auto-insights**: ✅ When user completes a builder section, trigger ECA analysis in background. Streams as `:eca/auto-insight-token` events.
-2. **Cross-project patterns**: ◐ Backend `assemble-cross-project-context` + `:cross-project` wisdom prompt done. Frontend UI trigger not yet built.
+2. **Cross-project patterns**: ✗ Removed -- single project per instance model makes this N/A.
 3. **Wisdom memory**: ✅ Generated insights stored in learning memory via `learning/save-insight!` on auto-insight completion.
 4. **Progressive depth**: Deferred -- requires session history tracking per builder visit.
 
@@ -770,7 +770,7 @@ These are now handled by ECA:
 | 2026-02-09 | **Flywheel UI** -- Wisdom-guided flywheel: step indicator, contextual tips sidebar, phase cards |
 | 2026-02-09 | **Backend ECA Wisdom** -- `eca/wisdom` + `flywheel/progress` WebSocket handlers, context-enriched LLM queries |
 | 2026-02-09 | **Frontend ECA Wisdom** -- Streaming tips, real flywheel progress, project context across 9 files. 0 warnings, 58 tests pass. |
-| 2026-02-09 | **Phase C: Continuous Wisdom** -- Builder data persistence via WebSocket, auto-insights on builder completion, learning memory storage, cross-project analysis (backend), debounced sync for sticky-note builders |
+| 2026-02-09 | **Phase C: Continuous Wisdom** -- Builder data persistence via WebSocket, auto-insights on builder completion, learning memory storage, debounced sync for sticky-note builders |
 | 2026-02-08 | **Workspace Auto-Detection** -- Single project per instance, auto-detect from `user.dir`, no create form, `:project/detected` on WS connect, `:project/path` in Pathom resolver |
 | 2026-02-08 | **UI Cleanup: Remove Users/Sessions** -- Removed chat-platform pages (empty in single-project model), cleaned navbar/router/dashboard/backend query resolver, deleted orphaned files |
 | 2026-02-09 | **Kanban Board** -- Auto-derived Kanban board on Project page: backend handler computes card status from builder session data, WS message protocol, frontend components with view toggle (Flywheel/Kanban), CSS styling |

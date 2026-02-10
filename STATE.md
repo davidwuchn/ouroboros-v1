@@ -41,7 +41,7 @@
 | **Web UX Platform - Phase 3** | ✅ Done | **Multi-user collaboration: presence, cursors, comments, version history** |
 | **Web UX Platform - Phase 4** | ✅ Done | **Wisdom & AI: templates, insights, ECA chat integration, pattern recognition** |
 | **Web UX Platform - Phase 5** | ✅ Done | **Polish & Scale: offline sync, analytics, embedding API, onboarding tours** |
-| **Phase C: Continuous Wisdom** | ✅ Done | **Builder persistence, auto-insights on completion, learning storage, cross-project analysis (backend)** |
+| **Phase C: Continuous Wisdom** | ✅ Done | **Builder persistence, auto-insights on completion, learning storage** |
 | **Workspace Auto-Detection** | ✅ Done | **Single project per instance, auto-detect from cwd, no create form, project/path in Pathom** |
 | **UI Cleanup: Remove Users/Sessions** | ✅ Done | **Removed Users and Sessions pages (chat-platform data, empty in single-project model). Navbar: Dashboard, Project, Wisdom, Telemetry + AI Chat toggle** |
 | **Kanban Board** | ✅ Done | **Auto-derived Kanban board on Project page: 29 cards across 4 builders, 3 columns (Not Started/In Progress/Done), color-coded by builder, view toggle (Flywheel/Kanban)** |
@@ -231,7 +231,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 ## Current Focus / Next Steps
 
 1. **ECA-Powered Wisdom** -- ✅ Backend + Frontend complete. Wisdom sidebar, flywheel progress, wisdom page all stream from ECA. Static fallback tips remain as graceful degradation.
-2. **Continuous Wisdom (Phase C)** -- ✅ Builder persistence, auto-insights on completion, learning memory storage, cross-project analysis (backend). Debounced WebSocket sync for sticky-note builders.
+2. **Continuous Wisdom (Phase C)** -- ✅ Builder persistence, auto-insights on completion, learning memory storage. Debounced WebSocket sync for sticky-note builders.
 3. **Workspace Auto-Detection** -- ✅ Single project per instance. Backend auto-detects from `user.dir`, sends `:project/detected` on WS connect. No create form. Project page shows workspace project directly.
 4. **UI Cleanup: Remove Users/Sessions** -- ✅ Removed chat-platform pages (empty data in single-project model). Navbar: Dashboard, Project, Wisdom, Telemetry + AI Chat toggle.
 5. **Kanban Board** -- ✅ Auto-derived Kanban board on Project page. 29 cards across 4 builders (Empathy Map 6, Value Prop 6, MVP 8, Lean Canvas 9). 3 columns: Not Started, In Progress, Done. Cards derive status from actual builder session data. Color-coded by builder. View toggle (Flywheel/Kanban) on Project page.
@@ -258,7 +258,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✅ **Frontend Chat** -- Global AI chat sidebar with ECA streaming (WebSocket)
 - ✅ **Flywheel UI** -- Step indicator, wisdom sidebar, project detail dashboard
 - ✅ **ECA-Powered Wisdom** -- Wisdom sidebar, flywheel progress, wisdom page all stream from ECA with static fallback
-- ✅ **Phase C: Continuous Wisdom** -- Builder data persisted to backend via WebSocket, auto-insights on builder completion, learning memory storage, cross-project analysis (backend)
+- ✅ **Phase C: Continuous Wisdom** -- Builder data persisted to backend via WebSocket, auto-insights on builder completion, learning memory storage
 - ✅ **Workspace Auto-Detection** -- Single project per instance, auto-detect from `user.dir`, no create form, `:project/detected` on WS connect
 - ✅ **Remove Users/Sessions Pages** -- Removed orphaned chat-platform pages, cleaned navbar, router, dashboard cards, backend query resolver
 - ✅ **Kanban Board** -- Auto-derived task board on Project page with view toggle (Flywheel/Kanban), 29 cards across 4 builders, status from builder session data
@@ -272,7 +272,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✗ Internal AI/agent system (delegated to ECA)
 - ✗ Skill system (replaced by learning flywheel)
 
-**Next Phase**: Production hardening -- container isolation, metrics export, cross-project UI.
+**Next Phase**: Production hardening -- container isolation, metrics export.
 
 **Recent Architectural Changes**:
 - **Single project per instance** -- removed multi-project CRUD, workspace auto-detected from `user.dir`
@@ -356,8 +356,7 @@ Builder persistence and auto-insight pipeline fully wired:
 - ✅ Learning memory storage for generated insights
 - ✅ Frontend builder persistence with 500ms debounced WebSocket sync
 - ✅ Frontend auto-insight display in wisdom sidebar
-- ✅ Cross-project analysis (backend only, UI deferred)
-- ⚠️ Cross-project analysis UI not yet built (no trigger button)
+
 - ⚠️ Undo/redo mutations don't sync to backend yet
 
 ### Phase D: Dynamic Content -- COMPLETE ✅
@@ -374,9 +373,8 @@ All hardcoded static content replaced with ECA-powered dynamic content:
 - ✅ Frontend ECA-first pattern: request on mount, show fallback while loading
 
 ### Next Priorities
-1. **Cross-project analysis UI** -- Add trigger button for portfolio-level ECA analysis
-2. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
-3. **Container Isolation** -- OS-level isolation for ECA execution
+1. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
+2. **Container Isolation** -- OS-level isolation for ECA execution
 
 ---
 
