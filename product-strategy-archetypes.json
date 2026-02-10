@@ -1,0 +1,30 @@
+[
+  {
+    "key": "product-flywheel-builder",
+    "name": "Product Flywheel Builder",
+    "icon": "🎯",
+    "description": "Visual IDE for product thinking—guides teams through Empathy Mapping → Value Props → MVP Design → Lean Canvas in an interactive canvas.",
+    "tags": ["product-management", "visual-builder", "framework", "lean", "canvas"]
+  },
+  {
+    "key": "ai-workshop-facilitator",
+    "name": "AI Workshop Facilitator",
+    "icon": "🎭",
+    "description": "Real-time collaborative workspace where AI facilitates product exercises, captures insights, and auto-organizes team outputs.",
+    "tags": ["workshop", "facilitation", "collaboration", "ai-assistant", "real-time"]
+  },
+  {
+    "key": "chat-product-mentor",
+    "name": "Chat Product Mentor",
+    "icon": "💬",
+    "description": "Conversational AI that guides product teams through decisions, asks probing questions, and remembers context across sessions.",
+    "tags": ["chatbot", "mentor", "product-thinking", "telegram", "discord", "slack"]
+  },
+  {
+    "key": "lean-startup-toolkit",
+    "name": "Lean Startup Toolkit",
+    "icon": "🧰",
+    "description": "Integrated suite of lean methodology tools—hypothesis testing, experiment tracking, and validation scaffolds for MVP development.",
+    "tags": ["lean", "startup", "experiments", "hypothesis", "validation", "mvp"]
+  }
+]

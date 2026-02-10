@@ -1,0 +1,22 @@
+[
+  {
+    "key": "empathy",
+    "tagline": "Who are the developers yearning for a personal AI that respects their craft?",
+    "description": "Your Clojure-native architecture attracts developers who value REPL-driven workflows, tool transparency, and human-in-the-loop safety. Target users likely include solo builders, small teams, and AI enthusiasts who want powerful automation without sacrificing control or understanding."
+  },
+  {
+    "key": "valueprop",
+    "tagline": "Not just another AI—your personal co-pilot that speaks Clojure fluently.",
+    "description": "Ouroboros differentiates through chat-platform ubiquity (Telegram/Discord/Slack), ECA's battle-tested 10+ LLM providers, and a safety-first tool approval bridge. The unique value: powerful AI assistance that explains every step and never surprises you."
+  },
+  {
+    "key": "mvp",
+    "tagline": "Three chat platforms, one powerful brain, zero black boxes.",
+    "description": "Ship the core: chat adapters (pick one platform first), ECA integration with tool approval, and the Web UX flywheel visualization. Priority: make the tool approval flow delightful—users should feel empowered, not blocked. Skip: advanced collaboration features until core loop is validated."
+  },
+  {
+    "key": "canvas",
+    "tagline": "Open-source wisdom meets platform power.",
+    "description": "Your moat is the learning flywheel itself—users build better products while Ouroboros learns from their patterns. Revenue model: premium hosted version (managed ECA, analytics), community moat via learning network effects. Growth lever: every completed canvas becomes wisdom for future users."
+  }
+]

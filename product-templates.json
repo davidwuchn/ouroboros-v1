@@ -1,30 +1,30 @@
 [
   {
-    "key": "ai-collab-assistant",
-    "name": "AI Collaboration Assistant",
+    "key": "product-studio",
+    "name": "Product Development Studio",
+    "icon": "🛠️",
+    "description": "End-to-end environment for building products through empathy mapping, value proposition design, MVP prototyping, and lean canvas planning.",
+    "tags": ["product-management", "ideation", "prototyping", "lean-methodology", "collaborative"]
+  },
+  {
+    "key": "ai-collab-hub",
+    "name": "AI Collaboration Hub",
     "icon": "🤖",
-    "description": "AI-powered workspace that bridges human collaboration with intelligent automation and contextual insights.",
-    "tags": ["ai", "collaboration", "productivity", "workflow-automation"]
+    "description": "Chat-first workspace where teams collaborate with AI assistants across Telegram, Discord, and Slack with persistent context and memory.",
+    "tags": ["ai-assistant", "chat-platforms", "collaboration", "memory-system", "multi-channel"]
   },
   {
-    "key": "lean-canvas-builder",
-    "name": "Lean Canvas Builder",
-    "icon": "📊",
-    "description": "Guided product development toolkit for validating ideas through structured frameworks like Empathy Maps and Lean Canvas.",
-    "tags": ["product-development", "ideation", "validation", "frameworks"]
+    "key": "visual-canvas",
+    "name": "Visual Canvas Workspace",
+    "icon": "🎨",
+    "description": "Collaborative whiteboard and canvas for real-time ideation, cursors, comments, and visual project exploration.",
+    "tags": ["whiteboard", "real-time-presence", "visual-editing", "collaboration", "interactive"]
   },
   {
-    "key": "team-communication-hub",
-    "name": "Team Communication Hub",
-    "icon": "💬",
-    "description": "Unified messaging platform integrating multiple chat services with collaborative canvas features.",
-    "tags": ["communication", "chat", "integration", "team-collaboration"]
-  },
-  {
-    "key": "developer-knowledge-platform",
-    "name": "Developer Knowledge Platform",
-    "icon": "🧠",
-    "description": "Context-aware knowledge management system that captures learnings, patterns, and institutional memory for development teams.",
-    "tags": ["knowledge-management", "documentation", "developer-tools", "learning"]
+    "key": "strategy-observatory",
+    "name": "Strategy Observatory",
+    "icon": "🔭",
+    "description": "Analytics and insights dashboard tracking team progress, project health, predictions, and AI-augmented strategic recommendations.",
+    "tags": ["analytics", "metrics", "predictions", "strategy", "ai-insights"]
   }
 ]

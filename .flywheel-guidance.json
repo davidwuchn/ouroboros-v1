@@ -1,0 +1,22 @@
+[
+  {
+    "key": "empathy",
+    "tagline": "Know Your User Before You Build",
+    "description": "Your project serves developers and AI enthusiasts who crave powerful, portable tooling. Use the Empathy Map builder to deeply understand their frustrations with existing AI assistants—fragmented tools, vendor lock-in, and lack of privacy. Your single-project model and ECA integration already show user-centric thinking; now articulate exactly who you're liberating from the complexity of current AI frameworks."
+  },
+  {
+    "key": "valueprop",
+    "tagline": "The Only AI Assistant That Grows With You",
+    "description": "Ouroboros Chat's unique value lies in being both a powerful chat platform aggregator AND a structured product development workspace. Your 5-phase Web UX Platform with learning flywheel isn't just a feature—it's a differentiated approach where every conversation generates wisdom. Emphasize that users don't just get answers; they build products while learning how to build better ones."
+  },
+  {
+    "key": "mvp",
+    "tagline": "Ship the Core, Keep the Snake",
+    "description": "Your 29 cards across 4 builders (Empathy 6, Value Prop 6, MVP 8, Lean Canvas 9) show substantial progress—prioritize the minimum path through the flywheel that proves the value loop. Launch with: (1) one chat platform (Telegram is simplest), (2) empathy map builder, (3) ECA-powered wisdom sidebar. Everything else (Slack/Discord, full canvas, collaboration) is polish, not prerequisites for validation."
+  },
+  {
+    "key": "canvas",
+    "tagline": "Your Product Hypothesis, Visualized",
+    "description": "The Lean Canvas should crystallize: Problem (fragmented AI tooling), Solution (unified platform + structured building), Unfair Advantage (Clojure ecosystem + learning memory). Your architecture already proves technical viability; now validate market fit by asking: which persona (solo developer, small team, enterprise AI team) will pay for persistence, collaboration, and cross-project analysis? The canvas makes this explicit and testable."
+  }
+]

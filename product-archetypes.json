@@ -1,0 +1,30 @@
+[
+  {
+    "key": "ai-collaboration-hub",
+    "name": "AI Collaboration Hub",
+    "icon": "🤖🗣️",
+    "description": "Centralized workspace where AI assistants and humans collaborate in real-time on shared projects.",
+    "tags": ["ai", "collaboration", "workspace", "real-time", "team"]
+  },
+  {
+    "key": "smart-knowledge-graph",
+    "name": "Smart Knowledge Graph",
+    "icon": "🕸️",
+    "description": "Self-organizing knowledge base that grows through conversations and connects insights automatically.",
+    "tags": ["knowledge", "graph", "memory", "discovery", "ai"]
+  },
+  {
+    "key": "cross-platform-bridge",
+    "name": "Cross-Platform Bridge",
+    "icon": "🌉",
+    "description": "Unified communication layer that syncs conversations across multiple chat platforms seamlessly.",
+    "tags": ["integration", "chat", "telegram", "discord", "slack", "sync"]
+  },
+  {
+    "key": "agent-orchestration-platform",
+    "name": "Agent Orchestration Platform",
+    "icon": "🎼",
+    "description": "System for composing, managing, and coordinating multiple AI agents to accomplish complex tasks.",
+    "tags": ["agents", "orchestration", "workflow", "automation", "ai"]
+  }
+]
