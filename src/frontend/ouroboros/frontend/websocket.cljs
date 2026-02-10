@@ -51,13 +51,47 @@
                 (js/JSON.stringify (clj->js serializable))))
     (catch :default _e nil)))
 
+;; ============================================================================
+;; Content Cache Persistence (localStorage)
+;; ============================================================================
+
+(def ^:private content-cache-key "ouroboros.content-cache")
+
+;; Content types worth caching (expensive ECA calls with stable results)
+(def ^:private cacheable-content-types
+  #{:templates :learning-categories :chat-suggestions :flywheel-guide})
+
+(defn- load-content-cache
+  "Load cached content/generated data from localStorage.
+   Returns map of {content-type-kw -> data} or nil."
+  []
+  (try
+    (when-let [raw (.getItem js/localStorage content-cache-key)]
+      (let [parsed (js/JSON.parse raw)]
+        (js->clj parsed :keywordize-keys true)))
+    (catch :default _e nil)))
+
+(defn- save-content-cache!
+  "Persist content/generated data to localStorage.
+   Only caches content types in `cacheable-content-types`."
+  [generated-map]
+  (try
+    (let [to-cache (select-keys generated-map cacheable-content-types)]
+      (when (seq to-cache)
+        (.setItem js/localStorage content-cache-key
+                  (js/JSON.stringify (clj->js to-cache)))))
+    (catch :default _e nil)))
+
 (defn set-app-state-atom!
   "Set the app state atom for merging data"
   [state-atom]
   (reset! app-state-atom state-atom)
   ;; Hydrate wisdom cache from localStorage
   (when-let [cached (load-wisdom-cache)]
-    (swap! state-atom assoc :wisdom/cache cached)))
+    (swap! state-atom assoc :wisdom/cache cached))
+  ;; Hydrate content cache from localStorage
+  (when-let [cached-content (load-content-cache)]
+    (swap! state-atom update :content/generated merge cached-content)))
 
 (defn set-render-callback!
   "Set a callback to trigger UI re-render after state mutation"
@@ -69,8 +103,9 @@
   [cb]
   (reset! navigate-callback cb))
 
-(defn- schedule-render!
-  "Schedule a UI re-render after direct state mutation"
+(defn schedule-render!
+  "Schedule a UI re-render after direct state mutation.
+   Public to allow timeout callbacks in other namespaces."
   []
   (when-let [cb @render-callback]
     (cb)))
@@ -106,9 +141,22 @@
 (defmethod handle-message :telemetry/event
   [{:keys [data]}]
   (js/console.log "Telemetry event received:" data)
-  ;; Merge into app state - add to events list
   (when-let [state-atom @app-state-atom]
-    (swap! state-atom update-in [:telemetry/events] (fnil conj []) data)))
+    ;; Update shared state
+    (swap! state-atom update-in [:telemetry/events] (fnil conj []) data)
+    ;; Also update Fulcro normalized path for TelemetryPage component
+    (swap! state-atom (fn [s]
+                        (-> s
+                            (update-in [:page/id :telemetry :telemetry/events]
+                                       (fn [events]
+                                         (vec (cons data (take 49 events)))))
+                            (update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
+                            (cond->
+                              (= :tool/invoke (:event data))
+                              (update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0))
+                              (false? (:success? data))
+                              (update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0))))))
+    (schedule-render!)))
 
 (defmethod handle-message :builder-session/update
   [{:keys [session-id data]}]
@@ -190,6 +238,14 @@
                                 :content (or error "Something went wrong. Click retry to try again."))
                      (assoc-in [:chat/id :global :chat/loading?] false))))
         (schedule-render!)))))
+
+(defmethod handle-message :eca/debug-status
+  [{:keys [enabled? error]}]
+  (when error
+    (js/console.warn "ECA debug toggle failed:" error))
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in [:page/id :telemetry :debug/enabled?] (boolean enabled?))
+    (schedule-render!)))
 
 ;; ============================================================================
 ;; ECA Wisdom Message Handlers
@@ -336,6 +392,8 @@
                  (assoc-in [:content/generated content-type] content)
                  (update :content/streaming dissoc content-type)
                  (assoc-in [:content/loading? content-type] false))))
+    ;; Persist to localStorage for instant load on next visit
+    (save-content-cache! (:content/generated @state-atom))
     (schedule-render!)))
 
 (defmethod handle-message :content/error
@@ -501,7 +559,8 @@
 
 (defn request-wisdom!
   "Request ECA wisdom for a project phase.
-   request-type: :tips, :next-steps, :analysis, :suggestions, :templates"
+   request-type: :tips, :next-steps, :analysis, :suggestions, :templates
+   Includes a 25s safety timeout to clear loading state if no response."
   [project-id phase request-type]
   ;; Reset live wisdom state before sending (cache is preserved)
   (when-let [state-atom @app-state-atom]
@@ -517,7 +576,25 @@
   (send! (cond-> {:type "eca/wisdom"
                   :project-id project-id
                   :request-type (name request-type)}
-           phase (assoc :phase (name phase)))))
+           phase (assoc :phase (name phase))))
+  ;; Safety timeout: clear loading/streaming state if no response in 25s
+  (js/setTimeout
+   (fn []
+     (when-let [state-atom @app-state-atom]
+       (when (get-in @state-atom [:wisdom/id :global :wisdom/loading?])
+         (swap! state-atom
+                (fn [s]
+                  (-> s
+                      (assoc-in [:wisdom/id :global :wisdom/loading?] false)
+                      (assoc-in [:wisdom/id :global :wisdom/streaming?] false))))
+         (schedule-render!))))
+   25000))
+
+(defn request-eca-debug!
+  "Toggle ECA debug mode. Triggers ECA restart on backend."
+  [enabled?]
+  (send! {:type "eca/debug"
+          :enabled? (boolean enabled?)}))
 
 (defn request-flywheel-progress!
   "Request flywheel progress for a project"
@@ -543,7 +620,8 @@
 (defn request-content!
   "Request ECA-generated content by type.
    content-type: :insights, :blockers, :templates, :chat-suggestions,
-                  :flywheel-guide, :section-hints, :learning-categories"
+                  :flywheel-guide, :section-hints, :learning-categories
+   Includes a 25s safety timeout to clear loading state if no response."
   [content-type & {:keys [project-id context]}]
   (when-let [state-atom @app-state-atom]
     (swap! state-atom
@@ -554,7 +632,15 @@
     (send! (cond-> {:type "content/generate"
                     :content-type (name content-type)}
              project-id (assoc :project-id project-id)
-             context (assoc :context context))))
+             context (assoc :context context)))
+    ;; Safety timeout: clear loading state if no response in 25s
+    (js/setTimeout
+     (fn []
+       (when-let [state-atom @app-state-atom]
+         (when (get-in @state-atom [:content/loading? content-type])
+           (swap! state-atom assoc-in [:content/loading? content-type] false)
+           (schedule-render!))))
+     25000))
 
 (defn request-learning-save-examples!
   "Save builder contents as learning examples"
