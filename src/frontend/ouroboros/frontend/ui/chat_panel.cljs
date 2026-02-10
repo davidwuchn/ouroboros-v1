@@ -109,42 +109,84 @@
   "Send a message and add to chat history"
   [{:keys [text context]}]
   (action [{:keys [state]}]
-          (let [user-msg {:role :user
-                          :content text
-                          :timestamp (js/Date.now)}
-                assistant-placeholder {:role :assistant
-                                       :content ""
-                                       :streaming? true
-                                       :timestamp (js/Date.now)}
-                conv-id (get-in @state [:chat/id :global :chat/active-conversation])]
-            (swap! state
-                   (fn [s]
-                     (-> s
-                         (update-in [:chat/id :global :chat/messages]
-                                    (fnil conj []) user-msg)
-                         (update-in [:chat/id :global :chat/messages]
-                                    conj assistant-placeholder)
-                         (assoc-in [:chat/id :global :chat/loading?] true))))
-            ;; Persist to localStorage
-            (let [convs (or (load-conversations) [])
-                  updated (mapv (fn [c]
-                                  (if (= (:id c) conv-id)
-                                    (-> c
-                                        (update :messages (fnil conj [])
-                                                (conversation->storable {:messages [user-msg]}))
-                                        (assoc :messages
-                                               (mapv #(-> % (dissoc :streaming? :error?) (update :role name))
-                                                     (get-in @state [:chat/id :global :chat/messages])))
-                                        (assoc :updated-at (js/Date.now))
-                                        (assoc :title (or (:title c)
-                                                          (subs text 0 (min 50 (count text))))))
-                                    c))
-                                convs)]
-              (save-conversations! updated))
-            ;; Send via WebSocket
-            (ws/send! {:type "eca/chat"
-                       :text text
-                       :context (or context "")}))))
+          ;; Check WebSocket connection first
+          (if-not (ws/connected?)
+            ;; Not connected — show error immediately instead of hanging
+            (let [user-msg {:role :user
+                            :content text
+                            :timestamp (js/Date.now)}
+                  error-msg {:role :assistant
+                             :content "Cannot reach the server. Please check that the backend is running and refresh the page."
+                             :error? true
+                             :timestamp (js/Date.now)}]
+              (swap! state
+                     (fn [s]
+                       (-> s
+                           (update-in [:chat/id :global :chat/messages]
+                                      (fnil conj []) user-msg)
+                           (update-in [:chat/id :global :chat/messages]
+                                      conj error-msg)
+                           (assoc-in [:chat/id :global :chat/loading?] false)))))
+            ;; Connected — proceed normally
+            (let [user-msg {:role :user
+                            :content text
+                            :timestamp (js/Date.now)}
+                  assistant-placeholder {:role :assistant
+                                         :content ""
+                                         :streaming? true
+                                         :timestamp (js/Date.now)}
+                  conv-id (get-in @state [:chat/id :global :chat/active-conversation])]
+              (swap! state
+                     (fn [s]
+                       (-> s
+                           (update-in [:chat/id :global :chat/messages]
+                                      (fnil conj []) user-msg)
+                           (update-in [:chat/id :global :chat/messages]
+                                      conj assistant-placeholder)
+                           (assoc-in [:chat/id :global :chat/loading?] true))))
+              ;; Persist to localStorage
+              (let [convs (or (load-conversations) [])
+                    updated (mapv (fn [c]
+                                    (if (= (:id c) conv-id)
+                                      (-> c
+                                          (update :messages (fnil conj [])
+                                                  (conversation->storable {:messages [user-msg]}))
+                                          (assoc :messages
+                                                 (mapv #(-> % (dissoc :streaming? :error?) (update :role name))
+                                                       (get-in @state [:chat/id :global :chat/messages])))
+                                          (assoc :updated-at (js/Date.now))
+                                          (assoc :title (or (:title c)
+                                                            (subs text 0 (min 50 (count text))))))
+                                      c))
+                                  convs)]
+                (save-conversations! updated))
+              ;; Send via WebSocket
+              (ws/send! {:type "eca/chat"
+                         :text text
+                         :context (or context "")})
+              ;; Safety timeout: if no response in 25s, show error in frontend
+              ;; (Backend does 10s ack + restart + 10s retry, this is a last-resort fallback)
+              (js/setTimeout
+               (fn []
+                 (let [messages (get-in @state [:chat/id :global :chat/messages] [])
+                       idx (dec (count messages))
+                       last-msg (when (>= idx 0) (nth messages idx))]
+                   ;; Only fire if we're still in streaming state with no content
+                   (when (and last-msg
+                              (= :assistant (:role last-msg))
+                              (:streaming? last-msg)
+                              (empty? (:content last-msg)))
+                     (swap! state
+                            (fn [s]
+                              (-> s
+                                  (update-in [:chat/id :global :chat/messages idx]
+                                             assoc
+                                             :error? true
+                                             :streaming? false
+                                             :content "AI service is not responding. The backend attempted to restart the AI -- please click Retry.")
+                                  (assoc-in [:chat/id :global :chat/loading?] false))))
+                     (ws/schedule-render!))))
+               25000)))))
 
 (m/defmutation append-streaming-token
   "Append streaming token to the last assistant message"
