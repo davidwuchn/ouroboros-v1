@@ -86,10 +86,9 @@
   (dom/div :.funnel-chart
            (dom/h4 "Completion Funnel")
            (dom/div :.funnel-container
-                    (map (fn [stage-data]
-                           (when (:stage stage-data)
-                             (ui-funnel-stage (assoc stage-data :width 100))))
-                         stages))))
+                     (map (fn [stage-data]
+                            (ui-funnel-stage (assoc stage-data :width 100)))
+                          (filter :stage stages)))))
 
 ;; ============================================================================
 ;; Health Score Display
@@ -195,13 +194,13 @@
            (dom/div :.time-total
                     (dom/span :.time-label "Total Time:")
                     (dom/span :.time-value (time-display total-time)))
-            (dom/div :.time-by-stage
-                     (map (fn [stage]
-                            (dom/div :.time-stage
-                                     {:key (:stage stage)}
-                                     (dom/span :.stage-name (name (:stage stage)))
-                                     (dom/span :.stage-time (time-display (:stage/time stage)))))
-                          stages))))
+             (dom/div :.time-by-stage
+                       (map-indexed (fn [idx stage]
+                              (dom/div :.time-stage
+                                       {:key (or (some-> (:stage stage) name) (str "stage-" idx))}
+                                       (dom/span :.stage-name (if (:stage stage) (name (:stage stage)) "Unknown"))
+                                       (dom/span :.stage-time (time-display (:stage/time stage)))))
+                             (filter :stage stages)))))
 
 ;; ============================================================================
 ;; Predictions
@@ -290,7 +289,7 @@
                   (dom/div :.analytics-card.wide
                            (dom/h4 "Stage Progress")
                            (when-let [stages (:stages progress-data)]
-                             (map #(when (:stage/type %) (ui-stage-progress %)) stages)))
+                              (map ui-stage-progress (filter :stage/type stages))))
 
           ;; Funnel
                   (dom/div :.analytics-card

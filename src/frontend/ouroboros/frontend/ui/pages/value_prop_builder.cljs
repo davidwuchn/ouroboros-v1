@@ -611,13 +611,15 @@
                             (dom/h4 "Your Value Proposition:")
                             (dom/div :.vp-summary
                                      (for [{:keys [key title icon]} value-prop-sections]
-                                       (let [section-notes (get notes-by-section key)]
+                                       (let [section-key (or key :unknown)
+                                             section-notes (get notes-by-section section-key)]
                                          (when (seq section-notes)
-                                           (dom/div {:key (name key) :className "summary-item"}
+                                           (dom/div {:key (name section-key) :className "summary-item"}
                                                     (dom/strong (str icon " " title ": "))
                                                     (dom/ul
                                                      (for [note section-notes]
-                                                       (dom/li {:key (:item/id note)} (:item/content note))))))))))
+                                                        (dom/li {:key (or (:item/id note) (str "vp-note-" (hash note)))}
+                                                                (:item/content note))))))))))
                    (dom/div :.completion-actions
                             (ui/button
                              {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~")])

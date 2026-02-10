@@ -89,7 +89,7 @@
         "×"))
     (dom/div :.template-grid
       (if (seq templates)
-        (map #(when (:template/key %) (ui-template-card %)) templates)
+         (map ui-template-card (filter :template/key templates))
         (dom/div :.templates-empty
           "No templates available")))))
 
@@ -175,12 +175,11 @@
           (dom/span :.stat-label "Total Insights"))))
     (dom/div :.patterns-grid
       (if (seq categories)
-        (map (fn [[cat cnt]]
-               (when cat
-                 (ui-pattern-card {:pattern/category cat
+         (map (fn [[cat cnt]]
+                (ui-pattern-card {:pattern/category cat
                                   :pattern/count cnt
-                                  :pattern/recent? true})))
-             categories)
+                                  :pattern/recent? true}))
+              (filter (fn [[cat _]] cat) categories))
         (dom/div :.patterns-empty
           "Start building to see your patterns emerge!")))))
 
@@ -298,14 +297,14 @@
         (when (seq insights)
           (dom/div :.wisdom-section
             (dom/h4 "AI Insights")
-            (map #(when (:insight/type %) (ui-ai-insight %)) insights)))
+            (map ui-ai-insight (filter :insight/type insights))))
 
         ;; Template quick access
         (when (seq templates)
           (dom/div :.wisdom-section
             (dom/h4 "Quick Start Templates")
             (dom/div :.template-mini-list
-              (take 3 (map #(when (:template/key %) (ui-template-card %)) templates)))))
+              (map ui-template-card (take 3 (filter :template/key templates))))))
         
         ;; Generate context button
         (dom/div :.wisdom-actions

@@ -648,14 +648,15 @@
                             (dom/h4 "Your Business Model:")
                             (dom/div :.canvas-summary
                                      (for [{:keys [key icon title]} lean-canvas-blocks]
-                                       (let [block-notes (get notes-by-block key)]
+                                       (let [block-key (or key :unknown)
+                                             block-notes (get notes-by-block block-key)]
                                          (when (seq block-notes)
-                                           (dom/div {:key (name key) :className "summary-item"}
+                                           (dom/div {:key (name block-key) :className "summary-item"}
                                                     (dom/strong (str icon " " title ": "))
                                                     (dom/ul
                                                      (for [note block-notes]
-                                                       (dom/li {:key (:item/id note)}
-                                                               (:item/content note))))))))))
+                                                         (dom/li {:key (or (:item/id note) (str "canvas-note-" (hash note)))}
+                                                                 (:item/content note))))))))))
                    (dom/div :.completion-actions
                             (ui/button
                              {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~")])
@@ -695,4 +696,3 @@
                                          (comp/transact! this
                                            [(delete-canvas-note
                                              {:note-id note-id})]))}))))))))
-

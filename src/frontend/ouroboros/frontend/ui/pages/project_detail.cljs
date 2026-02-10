@@ -124,9 +124,10 @@
      ;; Section cards
      (dom/div :.kb-col-cards
       (if (seq section-cards)
-        (for [card section-cards]
-          (dom/div {:key (:id card)}
+        (map-indexed (fn [idx card]
+          (dom/div {:key (or (:id card) (str "card-" idx))}
            (kanban-card card)))
+         section-cards)
         (dom/div :.kb-col-empty "No sections yet"))))))
 
 ;; ============================================================================
@@ -184,10 +185,10 @@
                 pct (if (pos? total) (int (* 100 (/ done total))) 0)]
             (dom/span :.kb-header-progress (str pct "% complete - " done "/" total " sections done")))))
        ;; Kanban board - 4 columns
-       (dom/div :.kb-board
-        (for [col builder-columns]
-          (kanban-column
-           {:key (name (:key col))
-            :column col
-            :board board
-            :on-click navigate-fn})))))))
+        (dom/div :.kb-board
+         (for [col builder-columns]
+           (dom/div {:key (name (:key col))}
+            (kanban-column
+             {:column col
+              :board board
+              :on-click navigate-fn}))))))))

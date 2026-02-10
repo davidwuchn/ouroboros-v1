@@ -263,23 +263,26 @@
 ;; Category card component
 ;; ============================================================================
 
-(defn category-card [{:keys [icon label description count on-select]}]
-  (dom/div {:key label
-            :className "wisdom-category-card"
-            :role "button"
-            :tabIndex 0
-            :onClick #(when on-select (on-select label))
-            :onKeyDown (fn [e]
-                         (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
-                           (.preventDefault e)
-                           (when on-select (on-select label))))}
+(defn category-card [{:keys [icon label description count category on-select]}]
+  (let [key-id (or label
+                   (when category (str category))
+                   (str "category-" (hash (or description ""))))]
+    (dom/div {:key key-id
+             :className "wisdom-category-card"
+             :role "button"
+             :tabIndex 0
+             :onClick #(when on-select (on-select label))
+             :onKeyDown (fn [e]
+                          (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
+                            (.preventDefault e)
+                            (when on-select (on-select label))))}
     (dom/div :.wisdom-category-icon icon)
     (dom/div :.wisdom-category-body
       (dom/h4 label)
       (dom/p (ui/extract-plain-text-from-markdown description 120)))
     (dom/div :.wisdom-category-count
       (dom/span :.wisdom-count-value (str count))
-      (dom/span :.wisdom-count-label "insights"))))
+      (dom/span :.wisdom-count-label "insights")))))
 
 ;; ============================================================================
 ;; Contextual Wisdom Tip Card

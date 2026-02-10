@@ -191,7 +191,7 @@
       {:className "canvas-section-content"
        :data-drop-zone key-str}
        (if (seq items)
-         (map #(when (:item/id %) (ui-sticky-note %)) items)
+          (map ui-sticky-note (filter :item/id items))
          (dom/div :.canvas-section-empty
                   (dom/span :.empty-icon "+")
                   (dom/span "Click to add your first insight"))))
@@ -264,21 +264,19 @@
        {:className "canvas-section-content"
         :data-drop-zone key-str}
        (if (seq items)
-         (if editable-notes?
-           ;; Editable: use EditableStickyNote with callbacks
-           (map (fn [item]
-                  (when (:item/id item)
-                    (ui-editable-sticky-note
-                     (comp/computed item {:on-save on-item-edit
-                                          :on-delete on-item-delete}))))
-                items)
-           ;; Read-only: simple divs
-           (map (fn [item]
-                  (when (:item/id item)
-                    (dom/div {:key (:item/id item)
-                              :className (str "sticky-note sticky-note-" (or (:item/color item) "yellow"))}
-                             (dom/div :.sticky-note-content (:item/content item)))))
-                items))
+          (if editable-notes?
+            ;; Editable: use EditableStickyNote with callbacks
+            (map (fn [item]
+                   (ui-editable-sticky-note
+                    (comp/computed item {:on-save on-item-edit
+                                         :on-delete on-item-delete})))
+                 (filter :item/id items))
+            ;; Read-only: simple divs
+            (map (fn [item]
+                   (dom/div {:key (:item/id item)
+                             :className (str "sticky-note sticky-note-" (or (:item/color item) "yellow"))}
+                            (dom/div :.sticky-note-content (:item/content item))))
+                 (filter :item/id items)))
          (dom/div :.canvas-section-empty
                   {:onClick #(when on-add-item (on-add-item key))}
                   (dom/span :.empty-icon "+")
@@ -662,8 +660,8 @@
                     (if (seq notes)
                       (map-indexed
                        (fn [idx note]
-                         (dom/div {:key (or (:item/id note) idx)}
-                                  (present-note-card note)))
+                          (dom/div {:key (or (:item/id note) (str "present-note-" idx))}
+                                   (present-note-card note)))
                        notes)
                       (dom/div :.present-section-empty
                                (dom/span "No notes yet"))))))
