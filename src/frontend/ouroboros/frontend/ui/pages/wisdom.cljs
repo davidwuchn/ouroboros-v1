@@ -464,7 +464,7 @@
                                       (not (get-in state [:content/generated :learning-categories]))
                                       (not (get-in state [:content/loading? :learning-categories])))
                              (ws/request-content! :learning-categories))))}
-  (let [state-atom @ws/app-state-atom
+   (let [state-atom @ws/app-state-atom
         state (when state-atom @state-atom)
         eca-templates (when state (get-in state [:content/generated :templates]))
         templates-loading? (when state (get-in state [:content/loading? :templates]))
@@ -472,6 +472,10 @@
         eca-categories (when state (get-in state [:content/generated :learning-categories]))
         categories-loading? (when state (get-in state [:content/loading? :learning-categories]))
         categories (if (seq eca-categories) eca-categories fallback-learning-categories)
+        ;; Only show "Loading from AI..." when we have no content at all (no cache, no ECA response)
+        ;; Once we have content (cached or fallback), the badge is hidden -- ECA silently replaces in background
+        templates-show-loading? (and templates-loading? (not (seq eca-templates)))
+        categories-show-loading? (and categories-loading? (not (seq eca-categories)))
         current-route (or (get-in state [:ui/current-route]) [])
         route-info (parse-route current-route)
         stage (:stage route-info)
@@ -507,7 +511,7 @@
         (dom/div :.wisdom-section-header
           (dom/h2 "Templates")
           (dom/p :.wisdom-section-desc "Start with a proven framework for your product type.")
-          (when templates-loading?
+          (when templates-show-loading?
             (dom/span :.wisdom-loading-badge "Loading from AI...")))
         (if (seq templates)
           (dom/div {:className "wisdom-template-grid"}
@@ -523,7 +527,7 @@
                                                         :template-key (normalize-template-key k)}
                                          :resize/width (get-drawer-width :template)}))))))
           ;; Empty state for templates
-          (when-not templates-loading?
+          (when-not templates-show-loading?
             (dom/div :.wisdom-empty-state
               (dom/div :.wisdom-empty-icon "📭")
               (dom/p "No templates available yet. Connect ECA for AI-generated templates.")))))
@@ -533,7 +537,7 @@
         (dom/div :.wisdom-section-header
           (dom/h2 "Learning Patterns")
           (dom/p :.wisdom-section-desc "Insights discovered across your projects.")
-          (when categories-loading?
+          (when categories-show-loading?
             (dom/span :.wisdom-loading-badge "Loading from AI...")))
         (if (seq categories)
           (dom/div {:className "wisdom-category-grid"}
@@ -546,7 +550,7 @@
                                                                  :label label
                                                                  :description (:description c)}
                                          :resize/width (get-drawer-width :category)}))))))
-          (when-not categories-loading?
+          (when-not categories-show-loading?
             (dom/div :.wisdom-empty-state
               (dom/div :.wisdom-empty-icon "📚")
               (dom/p "Complete more projects to see patterns emerge.")))))

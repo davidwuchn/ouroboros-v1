@@ -1,5 +1,5 @@
 (ns ouroboros.frontend.ui.pages.dashboard
-  "Dashboard overview page - shows project info, flywheel progress, and system health"
+  "Dashboard overview page - shows project info, flywheel progress, wisdom summary, quick actions"
   (:require
    [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
@@ -9,6 +9,7 @@
    [com.fulcrologic.fulcro.mutations :as m]
    [ouroboros.frontend.app :refer [app]]
    [ouroboros.frontend.ui.components :as ui]
+   [ouroboros.frontend.ui.chat-panel :as chat]
    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
@@ -128,60 +129,115 @@
                           :on-navigate #() :encoded-id encoded-id}))))))
 
 ;; ============================================================================
-;; System Cards
+;; Wisdom Overview Card
 ;; ============================================================================
 
-(defn system-health-card
-  "System health status card"
-  [{:keys [healthy? current-state]}]
-  (dom/div :.dash-system-card
-           (dom/div :.dash-system-header
-                    (dom/span :.dash-system-icon (if healthy? "OK" "ERR"))
-                    (dom/span :.dash-system-title "System")
-                    (dom/span {:className (str "dash-system-badge "
-                                               (if healthy? "dash-badge-ok" "dash-badge-err"))}
-                              (if healthy? "Healthy" "Issue")))
-           (when current-state
-             (dom/div :.dash-system-detail
-                      (str (count (:state current-state)) " active states")))))
+(def ^:private fallback-wisdom-stats
+  "Static wisdom summary shown before ECA data loads."
+  {:templates 4
+   :learning-categories 5
+   :phase-tips 4})
 
-(defn telemetry-summary-card
-  "Telemetry statistics summary"
-  [{:keys [total-events tool-invocations errors]}]
-  (dom/div :.dash-telemetry-card
-           (dom/div :.dash-telemetry-header
-                    (dom/span :.dash-telemetry-title "Telemetry"))
-           (dom/div :.dash-telemetry-stats
-                    (dom/div :.dash-tstat
-                             (dom/span :.dash-tstat-value (str (or total-events 0)))
-                             (dom/span :.dash-tstat-label "Events"))
-                    (dom/div :.dash-tstat
-                             (dom/span :.dash-tstat-value (str (or tool-invocations 0)))
-                             (dom/span :.dash-tstat-label "Tools"))
-                    (dom/div {:className (str "dash-tstat" (when (and errors (> errors 0)) " dash-tstat-warn"))}
-                             (dom/span :.dash-tstat-value (str (or errors 0)))
-                             (dom/span :.dash-tstat-label "Errors")))))
+(defn wisdom-overview-card
+  "Shows a brief summary of available wisdom resources with link to Wisdom page.
+   Reads template/category counts from WS state (ECA content or fallbacks)."
+  [{:keys [ws-state]}]
+  (let [eca-templates (get-in ws-state [:content/generated :templates])
+        eca-categories (get-in ws-state [:content/generated :learning-categories])
+        template-count (if (seq eca-templates) (count eca-templates) (:templates fallback-wisdom-stats))
+        category-count (if (seq eca-categories) (count eca-categories) (:learning-categories fallback-wisdom-stats))
+        templates-loading? (get-in ws-state [:content/loading? :templates])
+        categories-loading? (get-in ws-state [:content/loading? :learning-categories])
+        ;; Only show loading when we have zero content (no cache, no ECA response, no fallback counts)
+        any-loading? (and (or templates-loading? categories-loading?)
+                          (not (seq eca-templates))
+                          (not (seq eca-categories)))
+        ;; Check wisdom cache for recent content
+        wisdom-cache (:wisdom/cache ws-state)
+        cached-count (count wisdom-cache)]
+    (dom/div :.dash-wisdom-card
+             (dom/div :.dash-wisdom-header
+                      (dom/div :.dash-wisdom-title-row
+                               (dom/span :.dash-wisdom-icon "~")
+                               (dom/h3 :.dash-wisdom-title "Wisdom Library"))
+                      (dom/button {:className "dash-wisdom-open-btn"
+                                   :onClick #(dr/change-route! app ["wisdom"])}
+                                  "Explore"))
+             (dom/p :.dash-wisdom-desc
+                    "Templates, learning patterns, and AI-powered insights to guide your product thinking.")
+             (dom/div :.dash-wisdom-stats
+                      (dom/div :.dash-wstat
+                               (dom/span :.dash-wstat-value (str template-count))
+                               (dom/span :.dash-wstat-label "Templates"))
+                      (dom/div :.dash-wstat
+                               (dom/span :.dash-wstat-value (str category-count))
+                               (dom/span :.dash-wstat-label "Learning Patterns"))
+                      (dom/div :.dash-wstat
+                               (dom/span :.dash-wstat-value (str cached-count))
+                               (dom/span :.dash-wstat-label "Cached Insights")))
+             (when any-loading?
+               (dom/div :.dash-wisdom-loading
+                        (dom/span :.dash-wisdom-loading-dot)
+                        (dom/span "Loading from AI..."))))))
+
+;; ============================================================================
+;; Quick Actions
+;; ============================================================================
+
+(defn quick-actions
+  "Quick action buttons for common tasks - navigate builders, open chat, view wisdom."
+  [{:keys [encoded-id this-comp]}]
+  (dom/div :.dash-actions
+           (dom/h3 :.dash-actions-title "Quick Actions")
+           (dom/div :.dash-actions-grid
+                    ;; Start with Empathy Map
+                    (dom/button {:className "dash-action-btn dash-action-empathy"
+                                 :onClick #(when encoded-id
+                                             (dr/change-route! app ["project" encoded-id "empathy"]))}
+                                (dom/span :.dash-action-icon "~")
+                                (dom/span :.dash-action-label "Empathy Map")
+                                (dom/span :.dash-action-hint "Start understanding your users"))
+                    ;; Value Proposition
+                    (dom/button {:className "dash-action-btn dash-action-valueprop"
+                                 :onClick #(when encoded-id
+                                             (dr/change-route! app ["project" encoded-id "valueprop"]))}
+                                (dom/span :.dash-action-icon "~")
+                                (dom/span :.dash-action-label "Value Proposition")
+                                (dom/span :.dash-action-hint "Define your unique value"))
+                    ;; MVP Planning
+                    (dom/button {:className "dash-action-btn dash-action-mvp"
+                                 :onClick #(when encoded-id
+                                             (dr/change-route! app ["project" encoded-id "mvp"]))}
+                                (dom/span :.dash-action-icon "~")
+                                (dom/span :.dash-action-label "MVP Planning")
+                                (dom/span :.dash-action-hint "Scope your minimum product"))
+                    ;; Lean Canvas
+                    (dom/button {:className "dash-action-btn dash-action-canvas"
+                                 :onClick #(when encoded-id
+                                             (dr/change-route! app ["project" encoded-id "canvas"]))}
+                                (dom/span :.dash-action-icon "~")
+                                (dom/span :.dash-action-label "Lean Canvas")
+                                (dom/span :.dash-action-hint "Map your business model"))
+                    ;; AI Chat
+                    (dom/button {:className "dash-action-btn dash-action-chat"
+                                 :onClick #(comp/transact! this-comp [(chat/toggle-chat {})])}
+                                (dom/span :.dash-action-icon "~")
+                                (dom/span :.dash-action-label "Ask AI")
+                                (dom/span :.dash-action-hint "Get guidance from ECA"))
+                    ;; Wisdom
+                    (dom/button {:className "dash-action-btn dash-action-wisdom"
+                                 :onClick #(dr/change-route! app ["wisdom"])}
+                                (dom/span :.dash-action-icon "~")
+                                (dom/span :.dash-action-label "Wisdom")
+                                (dom/span :.dash-action-hint "Templates and insights")))))
 
 ;; ============================================================================
 ;; Main Dashboard Page
 ;; ============================================================================
 
 (defsc DashboardPage
-  [this {:keys [system/healthy?
-                system/current-state
-                system/meta
-                telemetry/total-events
-                telemetry/tool-invocations
-                telemetry/errors
-                page/error]
-         :as props}]
-  {:query         [:system/healthy?
-                   :system/current-state
-                   :system/meta
-                   :telemetry/total-events
-                   :telemetry/tool-invocations
-                   :telemetry/errors
-                   [df/marker-table :dashboard]
+  [this {:keys [page/error] :as props}]
+  {:query         [[df/marker-table :dashboard]
                    :page/error]
     :ident         (fn [] [:page/id :dashboard])
     :initial-state (fn [_] {})
@@ -206,7 +262,12 @@
          (when-not (get-in ws-state [:flywheel/progress project-id])
            (ws/request-flywheel-progress! project-id))
          (when-not (get-in ws-state [:kanban/board project-id])
-           (ws/request-kanban-board! project-id)))))}
+           (ws/request-kanban-board! project-id)))
+       ;; Pre-fetch wisdom data for the overview card
+       (when-not (get-in ws-state [:content/generated :templates])
+         (ws/request-content! :templates))
+       (when-not (get-in ws-state [:content/generated :learning-categories])
+         (ws/request-content! :learning-categories))))}
 
   (let [loading? (df/loading? (get props [df/marker-table :dashboard]))
         error-msg (get-in props [:page/error :dashboard])
@@ -219,7 +280,8 @@
         project-desc (:project/description ws-project)
         ;; Read WS data for child components (passed via props, not re-read by children)
         progress (when project-id (get-in ws-state [:flywheel/progress project-id]))
-        board (when project-id (get-in ws-state [:kanban/board project-id]))]
+        board (when project-id (get-in ws-state [:kanban/board project-id]))
+        encoded-id (when project-id (str/replace (str project-id) "/" "~"))]
     (cond
       error-msg
       (error-state
@@ -239,28 +301,20 @@
       (dom/div :.dash-page
                (dom/h1 :.dash-title "Dashboard")
 
-               ;; Project overview - pass all data via props
-               (when ws-project
-                 (project-overview-card
-                  {:project-name project-name
-                   :project-status project-status
-                   :project-description project-desc
-                   :project-id project-id
-                   :progress progress
-                   :board board}))
+               ;; Two-column layout: project overview + wisdom summary
+               (dom/div :.dash-grid
+                        ;; Left column: Project overview
+                        (when ws-project
+                          (project-overview-card
+                           {:project-name project-name
+                            :project-status project-status
+                            :project-description project-desc
+                            :project-id project-id
+                            :progress progress
+                            :board board}))
+                        ;; Right column: Wisdom overview
+                        (wisdom-overview-card {:ws-state ws-state}))
 
-               ;; System info row
-               (dom/div :.dash-info-row
-                        (system-health-card
-                         {:healthy? healthy?
-                          :current-state current-state})
-                        (telemetry-summary-card
-                         {:total-events total-events
-                          :tool-invocations tool-invocations
-                          :errors errors}))
-
-               ;; System meta
-               (when meta
-                 (dom/div :.dash-meta-card
-                          (dom/div :.dash-meta-header "System Info")
-                          (dom/div :.code-block (pr-str meta))))))))
+               ;; Quick actions
+               (quick-actions {:encoded-id encoded-id
+                               :this-comp this})))))

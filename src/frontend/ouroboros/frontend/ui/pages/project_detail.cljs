@@ -1,7 +1,6 @@
 (ns ouroboros.frontend.ui.pages.project-detail
-  "Project page - 4 builder cards in a 2x2 grid.
-   Project info (name, status, flywheel nav) lives on the Dashboard now.
-   This page is purely for launching builders."
+  "Project page - kanban board with 4 builder columns.
+   Each column represents a builder phase, cards are the sections within."
   (:require
    [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
@@ -10,8 +9,6 @@
    [com.fulcrologic.fulcro.data-fetch :as df]
    [ouroboros.frontend.websocket :as ws]))
 
-;; Project IDs contain "/" (e.g. "davidwu/project-ouroboros-chat-1739012345678")
-;; which breaks URL routing. Encode/decode for safe URL use.
 (defn encode-project-id
   "Replace / with ~ for safe URL routing"
   [project-id]
@@ -23,109 +20,136 @@
   (str/replace (str encoded-id) "~" "/"))
 
 ;; ============================================================================
-;; Builder Card Data
+;; Builder Column Definitions
 ;; ============================================================================
 
-(def builder-cards
-  "The 4 builder phases displayed as cards"
-  [{:key :empathy
+(def builder-columns
+  "The 4 builder phases as kanban columns, left to right.
+   Sections are populated from the kanban board data."
+  [{:key :empathy-map
+    :route "empathy"
     :label "Empathy Map"
     :icon "🧠"
-    :route "empathy"
     :color "#8E24AA"
-    :tagline "Walk in their shoes"
-    :description "Understand your customer's pains, gains, thoughts, and feelings to build products they actually need."}
-   {:key :valueprop
-    :label "Value Proposition"
-    :icon "💎"
+    :brief "Understand your customer deeply"}
+   {:key :value-proposition
     :route "valueprop"
+    :label "Value Prop"
+    :icon "💎"
     :color "#1565C0"
-    :tagline "Connect needs to solution"
-    :description "Map customer jobs, pains, and gains to your product's pain relievers and gain creators."}
-   {:key :mvp
-    :label "MVP Planning"
-    :icon "🚀"
+    :brief "Map needs to your solution"}
+   {:key :mvp-planning
     :route "mvp"
+    :label "MVP"
+    :icon "🚀"
     :color "#E65100"
-    :tagline "Build the smallest thing that proves value"
-    :description "Define the core problem, must-have features, and success metrics for your first release."}
-   {:key :canvas
+    :brief "Define what to build first"}
+   {:key :lean-canvas
+    :route "canvas"
     :label "Lean Canvas"
     :icon "📊"
-    :route "canvas"
     :color "#2E7D32"
-    :tagline "Connect all the dots"
-    :description "Capture your complete business model: problem, solution, metrics, channels, and revenue."}])
+    :brief "Complete business model"}])
 
 ;; ============================================================================
-;; Builder Card Component
+;; Kanban Card
 ;; ============================================================================
 
-(defn- status-label
-  "Get status display info from kanban board data"
+(defn- status-icon [status]
+  (case status
+    :done "✓"
+    :in-progress "●"
+    :not-started "○"
+    "○"))
+
+(defn- status-class [status]
+  (case status
+    :done "kb-card-done"
+    :in-progress "kb-card-active"
+    :not-started "kb-card-pending"
+    "kb-card-pending"))
+
+(defn kanban-card
+  "A single section card within a builder column"
+  [{:keys [title icon description status note-count]}]
+  (dom/div {:className (str "kb-card " (status-class status))}
+   (dom/div :.kb-card-row
+    (dom/span :.kb-card-icon icon)
+    (dom/span :.kb-card-title title)
+    (dom/span {:className (str "kb-card-status " (status-class status))}
+              (status-icon status)))
+   (dom/p :.kb-card-desc description)
+   (when (and (= status :done) (pos? (or note-count 0)))
+     (dom/span :.kb-card-notes (str note-count " note" (when (not= note-count 1) "s"))))))
+
+;; ============================================================================
+;; Kanban Column
+;; ============================================================================
+
+(defn- column-progress
+  "Compute done/total for a builder column from board cards"
   [board builder-type]
   (when board
-    (let [columns (:columns board)
-          all-cards (for [col columns
-                          card (:cards col)]
-                      card)
+    (let [all-cards (mapcat :cards (:columns board))
           cards (filter #(= (name builder-type) (name (:builder-type %))) all-cards)
           total (count cards)
-          done (count (filter #(= "done" (name (:status %))) cards))]
-      (cond
-        (and (pos? total) (= done total)) {:text "Complete" :class "builder-status-done"}
-        (and (pos? total) (pos? done))    {:text (str done "/" total " done") :class "builder-status-progress"}
-        (pos? total)                      {:text "In Progress" :class "builder-status-progress"}
-        :else                             nil))))
+          done (count (filter #(= :done (:status %)) cards))]
+      {:total total :done done})))
 
-(defn builder-card
-  "A single builder card for the 2x2 grid"
-  [{:keys [card on-navigate board]}]
-  (let [{:keys [key label icon route color tagline description]} card
-        status (status-label board key)]
-    (dom/div {:className "builder-card"
-              :key (name key)
-              :onClick #(on-navigate route)}
-             (dom/div {:className "builder-card-icon-ring"
-                       :style {:borderColor color :color color}}
-                      icon)
-             (dom/div :.builder-card-body
-                      (dom/h3 :.builder-card-title label)
-                      (dom/p :.builder-card-tagline tagline)
-                      (dom/p :.builder-card-desc description))
-             (dom/div :.builder-card-footer
-                      (when status
-                        (dom/span {:className (str "builder-card-status " (:class status))}
-                                  (:text status)))
-                      (dom/span {:className "builder-card-action"
-                                 :style {:color color}}
-                                (if (and status (= "builder-status-done" (:class status)))
-                                  "Review"
-                                  "Start"))))))
+(defn kanban-column
+  "A builder column in the kanban board"
+  [{:keys [column board on-click]}]
+  (let [{:keys [key label icon color brief route]} column
+        {:keys [total done] :or {total 0 done 0}} (column-progress board key)
+        all-cards (mapcat :cards (:columns board))
+        section-cards (filter #(= (name key) (name (:builder-type %))) all-cards)
+        pct (if (pos? total) (int (* 100 (/ done total))) 0)
+        all-done? (and (pos? total) (= done total))]
+    (dom/div {:className (str "kb-column" (when all-done? " kb-column-done"))
+              :key (name key)}
+     ;; Column header
+     (dom/div {:className "kb-col-header"
+               :style {:borderColor color}
+               :onClick #(on-click route)}
+      (dom/div :.kb-col-title-row
+       (dom/span :.kb-col-icon icon)
+       (dom/span :.kb-col-label label))
+      (dom/p :.kb-col-brief brief)
+      (dom/div :.kb-col-progress
+       (dom/div :.kb-col-progress-bar
+        (dom/div {:className "kb-col-progress-fill"
+                  :style {:width (str pct "%")
+                          :background color}}))
+       (dom/span :.kb-col-progress-text (str done "/" total))))
+     ;; Section cards
+     (dom/div :.kb-col-cards
+      (if (seq section-cards)
+        (for [card section-cards]
+          (dom/div {:key (:id card)}
+           (kanban-card card)))
+        (dom/div :.kb-col-empty "No sections yet"))))))
 
 ;; ============================================================================
 ;; Main Page
 ;; ============================================================================
 
 (defsc ProjectDetailPage
-  "Project page - clean 2x2 grid of builder cards.
-   Project info has moved to the Dashboard."
+  "Project page - kanban board with 4 builder columns."
   [this {:keys [project/id] :as props}]
   {:query         [:project/id :project/name
                    [df/marker-table :project-detail]]
-    :ident         (fn [] [:page/id :project-detail])
-    :initial-state (fn [_] {})
-    :route-segment ["project" :project-id]
+   :ident         (fn [] [:page/id :project-detail])
+   :initial-state (fn [_] {})
+   :route-segment ["project" :project-id]
    :will-enter    (fn [app {:keys [project-id]}]
                     (let [decoded-id (decode-project-id (or project-id ""))]
                       (dr/route-deferred [:page/id :project-detail]
-                                         (fn []
-                                           (df/load! app [:page/id :project-detail] ProjectDetailPage
-                                                     {:marker :project-detail
-                                                      :params {:project-id decoded-id}
-                                                      :post-mutation `dr/target-ready
-                                                      :post-mutation-params {:target [:page/id :project-detail]}})))))
-   ;; Request Kanban board data on mount (not during render)
+                        (fn []
+                          (df/load! app [:page/id :project-detail] ProjectDetailPage
+                            {:marker :project-detail
+                             :params {:project-id decoded-id}
+                             :post-mutation `dr/target-ready
+                             :post-mutation-params {:target [:page/id :project-detail]}})))))
    :componentDidMount
    (fn [this]
      (let [ws-state (when-let [sa @ws/app-state-atom] @sa)
@@ -136,7 +160,6 @@
          (ws/request-kanban-board! effective-id))))}
 
   (let [loading? (df/loading? (get props [df/marker-table :project-detail]))
-        ;; Fallback: read project from WS state if Pathom hasn't loaded yet
         ws-state (when-let [sa @ws/app-state-atom] @sa)
         ws-project (get ws-state :workspace/project)
         effective-id (or id (:project/id ws-project))
@@ -145,23 +168,26 @@
         navigate-fn (fn [route]
                       (when effective-id
                         (dr/change-route! this ["project" encoded-id route])))
-        ;; Kanban board for status indicators
         board (when effective-id
                 (get-in ws-state [:kanban/board effective-id]))]
     (if (and loading? (not ws-project))
-      (dom/div :.pd-loading
-               (dom/div :.pd-loading-spinner)
-               (dom/span "Loading project..."))
-      (dom/div :.builders-page
-               ;; Page header - just project name, minimal
-               (dom/div :.builders-header
-                        (dom/h1 :.builders-title project-name)
-                        (dom/p :.builders-subtitle "Choose a builder to continue your product development journey."))
-               ;; 2x2 builder grid
-               (dom/div :.builders-grid
-                        (for [card builder-cards]
-                          (builder-card
-                           {:key (name (:key card))
-                            :card card
-                            :on-navigate navigate-fn
-                            :board board})))))))
+      (dom/div :.kb-loading
+       (dom/div :.kb-loading-spinner)
+       (dom/span "Loading project..."))
+      (dom/div :.kb-page
+       ;; Header
+       (dom/div :.kb-header
+        (dom/h1 :.kb-title project-name)
+        (when-let [summary (:summary board)]
+          (let [total (:total summary 0)
+                done (:done summary 0)
+                pct (if (pos? total) (int (* 100 (/ done total))) 0)]
+            (dom/span :.kb-header-progress (str pct "% complete - " done "/" total " sections done")))))
+       ;; Kanban board - 4 columns
+       (dom/div :.kb-board
+        (for [col builder-columns]
+          (kanban-column
+           {:key (name (:key col))
+            :column col
+            :board board
+            :on-click navigate-fn})))))))
