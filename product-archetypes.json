@@ -1,30 +1,30 @@
 [
   {
-    "key": "ai-collaboration-hub",
-    "name": "AI Collaboration Hub",
-    "icon": "🤖🗣️",
-    "description": "Centralized workspace where AI assistants and humans collaborate in real-time on shared projects.",
-    "tags": ["ai", "collaboration", "workspace", "real-time", "team"]
+    "key": "ai-assistant",
+    "name": "AI Chat Assistant",
+    "icon": "🤖",
+    "description": "Conversational AI interface that integrates with chat platforms to provide intelligent assistance and tool execution.",
+    "tags": ["ai", "chat", "bot", "llm", "conversation"]
   },
   {
-    "key": "smart-knowledge-graph",
-    "name": "Smart Knowledge Graph",
-    "icon": "🕸️",
-    "description": "Self-organizing knowledge base that grows through conversations and connects insights automatically.",
-    "tags": ["knowledge", "graph", "memory", "discovery", "ai"]
+    "key": "collaborative-canvas",
+    "name": "Collaborative Workspace",
+    "icon": "🛠️",
+    "description": "Real-time collaborative canvas for teams to ideate, plan, and build together with shared cursors and presence.",
+    "tags": ["collaboration", "canvas", "whiteboard", "realtime", "team"]
   },
   {
-    "key": "cross-platform-bridge",
-    "name": "Cross-Platform Bridge",
-    "icon": "🌉",
-    "description": "Unified communication layer that syncs conversations across multiple chat platforms seamlessly.",
-    "tags": ["integration", "chat", "telegram", "discord", "slack", "sync"]
+    "key": "dev-productivity",
+    "name": "Developer Productivity Suite",
+    "icon": "⚡",
+    "description": "CLI-integrated toolkit for developers with REPL workflows, process management, and code assistance.",
+    "tags": ["developer", "cli", "repl", "productivity", "workflow"]
   },
   {
-    "key": "agent-orchestration-platform",
-    "name": "Agent Orchestration Platform",
-    "icon": "🎼",
-    "description": "System for composing, managing, and coordinating multiple AI agents to accomplish complex tasks.",
-    "tags": ["agents", "orchestration", "workflow", "automation", "ai"]
+    "key": "lean-development",
+    "name": "Lean Product Studio",
+    "icon": "📊",
+    "description": "Product development platform guiding teams through empathy mapping, lean canvas, and MVP workflows.",
+    "tags": ["product", "lean", "mvp", "analytics", "strategy"]
   }
 ]

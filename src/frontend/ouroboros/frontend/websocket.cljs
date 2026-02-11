@@ -52,6 +52,182 @@
     (catch :default _e nil)))
 
 ;; ============================================================================
+;; Default Wisdom Cache (pre-fill for instant display)
+;; ============================================================================
+
+(def default-wisdom-cache
+  "Pre-filled wisdom content for instant display before ECA personalizes.
+   Keyed by [phase request-type] vectors matching the cache structure.
+   Provides genuinely useful content so first-time users see value immediately."
+  {;; -- Empathy Phase --
+   [:empathy :tips]
+   "## Empathy Tips
+
+1. **Start with observation, not assumptions** -- Watch how your target users currently solve this problem. What workarounds do they use?
+
+2. **Listen for emotions, not features** -- When users say \"it's fine,\" dig deeper. The strongest opportunities hide behind accepted frustrations.
+
+3. **Map the full journey** -- Don't focus only on the core task. Look at what happens before and after -- setup, cleanup, sharing results.
+
+4. **Separate what people say from what they do** -- Interview data and behavioral data often contradict. Both are valuable signals.
+
+5. **Find the non-consumers** -- Who *should* be using a solution but isn't? They often reveal unmet needs that current users have normalized."
+
+   [:empathy :analysis]
+   "## Empathy Analysis
+
+### What to look for
+
+Your empathy map captures four dimensions of your user's experience: what they **say**, **think**, **do**, and **feel**. The most valuable insights come from contradictions between these dimensions.
+
+### Common gaps at this stage
+
+- **Too solution-focused** -- If your pains and gains read like feature requests, go back to the human level. What job is the user trying to get done?
+- **Single persona trap** -- If all your insights describe one type of user, you may be missing important segments. Try mapping a second persona.
+- **Missing emotional context** -- Facts about user behavior are useful, but understanding *why* users feel frustrated, anxious, or delighted is what drives product decisions.
+
+### Strengthening your empathy work
+
+The best empathy maps are built from real conversations, not assumptions. Even 3-5 user interviews can dramatically shift your understanding of the problem space."
+
+   [:empathy :suggestions]
+   "## Ideas to Explore
+
+1. **\"What's the most frustrating part of your current workflow?\"** -- Ask this to real users. The answer often reveals the core pain point your product should address.
+
+2. **Shadow a user for 30 minutes** -- Watch someone go through their current process without interrupting. Note where they hesitate, backtrack, or express frustration.
+
+3. **Map competing alternatives** -- List every way users currently solve this problem (including doing nothing). What does each alternative get right?
+
+4. **Write a \"day in the life\" narrative** -- Describe a typical day for your target user. Where does your problem space fit into their priorities?"
+
+   ;; -- Value Proposition Phase --
+   [:valueprop :tips]
+   "## Value Proposition Tips
+
+1. **Start with jobs, not features** -- What is your customer trying to accomplish? Frame everything around their goal, not your solution.
+
+2. **Rank pains by severity** -- Not all problems are equal. A pain that costs users time every day matters more than an occasional annoyance.
+
+3. **Pain relievers beat gain creators** -- Removing a real frustration is more compelling than adding a nice-to-have improvement.
+
+4. **Test your fit statement** -- Can you complete this sentence clearly? \"My product helps [customer] who want to [job] by [value] unlike [alternative].\"
+
+5. **Validate with real language** -- Use the exact words your users use to describe their problems. If your value prop doesn't resonate in their vocabulary, it won't land."
+
+   [:valueprop :analysis]
+   "## Value Proposition Analysis
+
+### Evaluating your fit
+
+A strong value proposition connects three things: a specific customer segment, a clearly defined job-to-be-done, and a differentiated way you deliver value. Weakness in any leg makes the whole proposition fragile.
+
+### Common gaps at this stage
+
+- **Feature list disguised as value** -- If your gain creators are just product features, translate them into outcomes. \"Dashboard\" becomes \"see all metrics in one place without switching tools.\"
+- **Weak differentiation** -- If a competitor could make the same claim, your proposition isn't specific enough. What can only *you* deliver?
+- **Mismatched severity** -- The pains you're relieving should match the gains you're creating in intensity. Solving a minor annoyance with a complex solution won't work.
+
+### Next steps
+
+Validate your value proposition by sharing it with 3-5 potential users. If they immediately understand what you do and why it matters to them, you have product-market fit signal."
+
+   [:valueprop :suggestions]
+   "## Ideas to Explore
+
+1. **Run a \"fake door\" test** -- Create a simple landing page describing your value proposition. Measure how many people click \"Sign Up\" or \"Learn More.\"
+
+2. **Compare your top 3 pains against competitors** -- For each pain you address, how do existing solutions handle it? Where is the biggest gap?
+
+3. **Try the \"5 Whys\" on your primary gain** -- Why does your user want this gain? Keep asking why to find the deeper motivation driving demand.
+
+4. **Flip your proposition** -- What if you targeted the opposite user segment? Sometimes the best market is the one you haven't considered."
+
+   ;; -- MVP Phase --
+   [:mvp :tips]
+   "## MVP Tips
+
+1. **Cut features until it hurts, then cut one more** -- An MVP tests a hypothesis, not a product. Every extra feature delays learning.
+
+2. **Define success metrics before you build** -- What number proves your core assumption? If you can't measure it, you can't learn from it.
+
+3. **Focus on ONE user, ONE problem, ONE solution** -- Breadth comes later. Depth of learning comes from constraint.
+
+4. **Time-box your build** -- Set a deadline (2-4 weeks) and ship whatever you have. The goal is feedback, not perfection.
+
+5. **Make the manual version first** -- Before automating anything, can you deliver the value manually? A concierge MVP tests demand without engineering investment."
+
+   [:mvp :analysis]
+   "## MVP Analysis
+
+### Evaluating your MVP plan
+
+A good MVP is the smallest experiment that tests your riskiest assumption. It should be buildable in weeks, not months, and produce clear evidence of whether your value proposition works.
+
+### Common gaps at this stage
+
+- **Building too much** -- If your MVP has more than 3 core features, you're probably building a v1, not an MVP. Strip it down to one core flow.
+- **Unclear success criteria** -- \"Users like it\" is not a metric. Define specific, measurable outcomes: signups, retention rate, task completion time, willingness to pay.
+- **Missing the risky assumption** -- What's the one thing that must be true for your product to succeed? Your MVP should test exactly that.
+
+### De-risking your build
+
+Consider what you can learn *without* building software. Mockups, prototypes, landing pages, and manual processes can all validate assumptions faster and cheaper than code."
+
+   [:mvp :suggestions]
+   "## Ideas to Explore
+
+1. **Identify your riskiest assumption** -- What single belief, if wrong, would kill this project? Design your MVP to test exactly that.
+
+2. **Map the critical user journey** -- Draw the 3-5 steps your user takes from first touch to achieving their goal. Which step has the highest drop-off risk?
+
+3. **Create a \"wizard of oz\" prototype** -- Build the interface but handle the backend manually. Users get the experience; you get learning without engineering cost.
+
+4. **Set a 2-week build deadline** -- What's the most valuable thing you could ship in 14 days? That constraint often reveals the true MVP."
+
+   ;; -- Lean Canvas Phase --
+   [:canvas :tips]
+   "## Lean Canvas Tips
+
+1. **Fill Problem and Customer Segments first** -- Everything else flows from a clear understanding of who you serve and what problem you solve.
+
+2. **Your Unfair Advantage is the hardest box** -- It's not a feature. It's something that can't be easily copied: expertise, network, data, or community.
+
+3. **Key Metrics: pick 1-3 numbers** -- What metrics prove traction? Choose leading indicators (activation, retention) over vanity metrics (page views, downloads).
+
+4. **Revenue streams need specifics** -- \"Subscription\" isn't enough. What price point? What billing frequency? What's the willingness-to-pay evidence?
+
+5. **Iterate, don't perfect** -- A lean canvas is a living document. Update it as you learn. The first version is always wrong -- that's the point."
+
+   [:canvas :analysis]
+   "## Lean Canvas Analysis
+
+### Evaluating your canvas
+
+A complete lean canvas should tell a coherent story: a specific customer has a specific problem, your solution delivers unique value, and there's a viable path to revenue and growth.
+
+### Common gaps at this stage
+
+- **Disconnected boxes** -- If your Problem doesn't clearly connect to your Solution, or your Channels don't reach your Customer Segments, the canvas has internal contradictions.
+- **Generic advantages** -- \"Great UX\" or \"better technology\" are not unfair advantages. What do you have that competitors genuinely cannot replicate in 12 months?
+- **Missing cost structure** -- Many canvases detail revenue but skip realistic cost projections. Include customer acquisition cost, infrastructure, and team costs.
+
+### Strengthening your canvas
+
+The most useful exercise is sharing your canvas with someone outside your team. If they can't explain your business model back to you in 30 seconds, simplify further."
+
+   [:canvas :suggestions]
+   "## Ideas to Explore
+
+1. **Test your pricing** -- Ask 5 potential customers: \"Would you pay $X/month for this?\" Their hesitation (or enthusiasm) is more valuable than any spreadsheet model.
+
+2. **Map your channel strategy** -- How will your first 100 users find you? Be specific: which communities, platforms, or networks will you target?
+
+3. **Calculate your unit economics** -- What does it cost to acquire one customer? What's their lifetime value? If LTV < CAC, the business model needs work.
+
+4. **Review a competitor's canvas** -- Fill out a lean canvas for your strongest competitor. Where are the gaps in their model that you can exploit?"})
+
+;; ============================================================================
 ;; Content Cache Persistence (localStorage)
 ;; ============================================================================
 
@@ -86,9 +262,10 @@
   "Set the app state atom for merging data"
   [state-atom]
   (reset! app-state-atom state-atom)
-  ;; Hydrate wisdom cache from localStorage
-  (when-let [cached (load-wisdom-cache)]
-    (swap! state-atom assoc :wisdom/cache cached))
+  ;; Hydrate wisdom cache: defaults as base, localStorage overrides on top
+  (let [persisted (or (load-wisdom-cache) {})
+        merged (merge default-wisdom-cache persisted)]
+    (swap! state-atom assoc :wisdom/cache merged))
   ;; Hydrate content cache from localStorage
   (when-let [cached-content (load-content-cache)]
     (swap! state-atom update :content/generated merge cached-content)))
@@ -259,9 +436,19 @@
 (defmethod handle-message :eca/wisdom-token
   [{:keys [token request-type]}]
   ;; Streaming wisdom token from ECA
+  ;; During silent refresh: first token clears cached content and starts live stream
   (when-let [state-atom @app-state-atom]
-    (swap! state-atom update-in
-           [:wisdom/id :global :wisdom/content] str token)
+    (swap! state-atom
+           (fn [s]
+             (let [refreshing? (get-in s [:wisdom/id :global :wisdom/refreshing?])]
+               (if refreshing?
+                 ;; First token during silent refresh: swap from cache to live stream
+                 (-> s
+                     (assoc-in [:wisdom/id :global :wisdom/refreshing?] false)
+                     (assoc-in [:wisdom/id :global :wisdom/content] token)
+                     (assoc-in [:wisdom/id :global :wisdom/streaming?] true))
+                 ;; Normal token: append to existing content
+                 (update-in s [:wisdom/id :global :wisdom/content] str token)))))
     (schedule-render!)))
 
 (defmethod handle-message :eca/wisdom-done
@@ -277,7 +464,8 @@
                                 (get-in s [:wisdom/id :global :wisdom/request-type]))]
                (cond-> (-> s
                            (assoc-in [:wisdom/id :global :wisdom/loading?] false)
-                           (assoc-in [:wisdom/id :global :wisdom/streaming?] false))
+                           (assoc-in [:wisdom/id :global :wisdom/streaming?] false)
+                           (assoc-in [:wisdom/id :global :wisdom/refreshing?] false))
                  ;; Cache the completed content keyed by [phase request-type]
                  (and phase req-type (seq content))
                  (assoc-in [:wisdom/cache [phase req-type]] content)))))
@@ -298,7 +486,8 @@
                (cond-> (-> s
                            (assoc-in [:wisdom/id :global :wisdom/content] text)
                            (assoc-in [:wisdom/id :global :wisdom/loading?] false)
-                           (assoc-in [:wisdom/id :global :wisdom/streaming?] false))
+                           (assoc-in [:wisdom/id :global :wisdom/streaming?] false)
+                           (assoc-in [:wisdom/id :global :wisdom/refreshing?] false))
                  ;; Cache the completed content
                  (and phase req-type (seq text))
                  (assoc-in [:wisdom/cache [phase req-type]] text)))))
@@ -565,34 +754,47 @@
 (defn request-wisdom!
   "Request ECA wisdom for a project phase.
    request-type: :tips, :next-steps, :analysis, :suggestions, :templates
+   Options:
+     :silent? - When true, don't show loading UI (cache is already displayed).
+                ECA refreshes in background; first token triggers content swap.
    Includes a 25s safety timeout to clear loading state if no response."
-  [project-id phase request-type]
+  [project-id phase request-type & [{:keys [silent?]}]]
   ;; Reset live wisdom state before sending (cache is preserved)
   (when-let [state-atom @app-state-atom]
     (swap! state-atom
            (fn [s]
              (-> s
-                 (assoc-in [:wisdom/id :global :wisdom/content] "")
-                 (assoc-in [:wisdom/id :global :wisdom/loading?] true)
-                 (assoc-in [:wisdom/id :global :wisdom/streaming?] true)
+                 ;; In silent mode, keep current content visible (cache or default)
+                 ;; In normal mode, clear content to show loading UI
+                 (cond-> (not silent?)
+                   (-> (assoc-in [:wisdom/id :global :wisdom/content] "")
+                       (assoc-in [:wisdom/id :global :wisdom/loading?] true)
+                       (assoc-in [:wisdom/id :global :wisdom/streaming?] true)))
+                 ;; Always track the request type and phase
                  (assoc-in [:wisdom/id :global :wisdom/request-type] request-type)
-                 (assoc-in [:wisdom/id :global :wisdom/phase] phase))))
+                 (assoc-in [:wisdom/id :global :wisdom/phase] phase)
+                 ;; Track silent refresh so token handler knows to swap content
+                 (assoc-in [:wisdom/id :global :wisdom/refreshing?] (boolean silent?)))))
     (schedule-render!))
   (send! (cond-> {:type "eca/wisdom"
                   :project-id project-id
                   :request-type (name request-type)}
            phase (assoc :phase (name phase))))
-  ;; Safety timeout: clear loading/streaming state if no response in 25s
+  ;; Safety timeout: clear loading/streaming/refreshing state if no response in 25s
   (js/setTimeout
    (fn []
      (when-let [state-atom @app-state-atom]
-       (when (get-in @state-atom [:wisdom/id :global :wisdom/loading?])
-         (swap! state-atom
-                (fn [s]
-                  (-> s
-                      (assoc-in [:wisdom/id :global :wisdom/loading?] false)
-                      (assoc-in [:wisdom/id :global :wisdom/streaming?] false))))
-         (schedule-render!))))
+       (let [s @state-atom
+             loading? (get-in s [:wisdom/id :global :wisdom/loading?])
+             refreshing? (get-in s [:wisdom/id :global :wisdom/refreshing?])]
+         (when (or loading? refreshing?)
+           (swap! state-atom
+                  (fn [s]
+                    (-> s
+                        (assoc-in [:wisdom/id :global :wisdom/loading?] false)
+                        (assoc-in [:wisdom/id :global :wisdom/streaming?] false)
+                        (assoc-in [:wisdom/id :global :wisdom/refreshing?] false))))
+           (schedule-render!)))))
    25000))
 
 (defn request-eca-debug!

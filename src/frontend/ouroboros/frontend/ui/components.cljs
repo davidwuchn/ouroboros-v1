@@ -504,7 +504,7 @@
            "Focus on ONE user, ONE problem, ONE solution"
            "Define success metrics BEFORE you build"]
     :next-hint "Your MVP learnings will validate the business model."}
-   :canvas
+    :canvas
    {:title "Lean Canvas Phase"
     :tagline "Connect all the dots into a business model."
     :tips ["Fill in Problem and Customer Segments first"
@@ -514,6 +514,9 @@
 
 (defn wisdom-panel-body
   "Core wisdom content for a phase. Can be embedded in pages or sidebars.
+   Cache-first UX: shows cached/default content instantly, silent ECA refresh
+   in background. No visible 'Updating...' badge -- content silently swaps
+   when first streaming token arrives.
 
    Props:
    - phase: keyword (:empathy, :valueprop, :mvp, :canvas)
@@ -521,22 +524,21 @@
   [{:keys [phase project-id]}]
   (let [fallback (get wisdom-tips phase)
         ;; Read ECA wisdom state from app state atom
-        state-atom @ws/app-state-atom
-        wisdom-state (when state-atom (get-in @state-atom [:wisdom/id :global]))
+        sa @ws/app-state-atom
+        wisdom-state (when sa (get-in @sa [:wisdom/id :global]))
         eca-content (:wisdom/content wisdom-state)
         eca-loading? (:wisdom/loading? wisdom-state)
         eca-streaming? (:wisdom/streaming? wisdom-state)
+        eca-refreshing? (:wisdom/refreshing? wisdom-state)
         request-type (or (:wisdom/request-type wisdom-state) :tips)
         has-eca-content? (and eca-content (seq eca-content))
-        ;; Read cached content for this phase+request-type
-        cached-content (when state-atom
-                         (get-in @state-atom [:wisdom/cache [phase request-type]]))
+        ;; Look up cache for this phase+request-type (includes defaults)
+        cached-content (when sa
+                         (get-in @sa [:wisdom/cache [phase request-type]]))
         has-cached? (and cached-content (seq cached-content))
-        ;; Show cached content when loading and no live content yet
-        show-cached? (and has-cached? eca-loading? (not has-eca-content?))
         ;; Read auto-insight state
-        auto-insight (when (and state-atom project-id)
-                       (get-in @state-atom [:auto-insight/id project-id]))
+        auto-insight (when (and sa project-id)
+                       (get-in @sa [:auto-insight/id project-id]))
         auto-insight-content (:auto-insight/content auto-insight)
         auto-insight-loading? (:auto-insight/loading? auto-insight)
         auto-insight-streaming? (:auto-insight/streaming? auto-insight)
@@ -545,25 +547,47 @@
         request-types [{:key :tips :label "Tips" :icon "💡"}
                        {:key :analysis :label "Analysis" :icon "🔍"}
                        {:key :suggestions :label "Ideas" :icon "🎯"}]]
-    ;; Request tips from ECA on first render if not already loading
-    (when (and project-id (not eca-loading?) (not has-eca-content?))
-      (ws/request-wisdom! project-id phase :tips))
+    ;; On first render: show cache instantly, fire silent ECA refresh
+    (when (and project-id (not eca-loading?) (not eca-streaming?) (not eca-refreshing?)
+               (not has-eca-content?))
+      (if has-cached?
+        ;; Cache exists: display it, fire silent refresh
+        (do
+          (when sa
+            (swap! sa assoc-in [:wisdom/id :global :wisdom/content] cached-content))
+          (ws/request-wisdom! project-id phase :tips {:silent? true}))
+        ;; No cache at all (shouldn't happen with defaults): normal request
+        (ws/request-wisdom! project-id phase :tips)))
     (dom/div :.wisdom-panel-body
       ;; Request type tabs
              (when project-id
                (dom/div :.wisdom-tabs
                         (for [{:keys [key label icon]} request-types]
-                          (let [has-cache? (when state-atom
-                                             (seq (get-in @state-atom [:wisdom/cache [phase key]])))]
+                          (let [tab-cache (when sa
+                                           (get-in @sa [:wisdom/cache [phase key]]))]
                             (dom/button
                              {:key (name key)
                               :className (str "wisdom-tab"
                                               (when (= request-type key) " active")
-                                              (when has-cache? " has-cache"))
+                                              (when (seq tab-cache) " has-cache"))
                               :onClick (fn []
-                                         (when-let [sa @ws/app-state-atom]
-                                           (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
-                                         (ws/request-wisdom! project-id phase key))
+                                         (let [tab-cached (when sa
+                                                            (get-in @sa [:wisdom/cache [phase key]]))]
+                                           (if (seq tab-cached)
+                                             ;; Cache hit: show cached content instantly, silent ECA refresh
+                                             (do
+                                               (when sa
+                                                 (swap! sa
+                                                        (fn [s]
+                                                          (-> s
+                                                              (assoc-in [:wisdom/id :global :wisdom/content] tab-cached)
+                                                              (assoc-in [:wisdom/id :global :wisdom/request-type] key)))))
+                                               (ws/request-wisdom! project-id phase key {:silent? true}))
+                                             ;; No cache: normal request with loading UI
+                                             (do
+                                               (when sa
+                                                 (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
+                                               (ws/request-wisdom! project-id phase key)))))
                               :disabled (and eca-loading? (= request-type key))}
                              (dom/span :.wisdom-tab-icon icon)
                              (dom/span label))))))
@@ -588,40 +612,36 @@
       ;; Main content area (scrollable)
              (dom/div :.wisdom-content-area
                       (cond
-          ;; Live ECA content (streaming or complete)
+          ;; Live or cached content visible (may be streaming or complete)
                         has-eca-content?
                         (dom/div :.wisdom-eca-content
                                  (render-markdown eca-content "wisdom-eca-text")
                                  (when eca-streaming?
                                    (dom/span :.wisdom-typing-cursor)))
 
-          ;; Cached content shown while fresh request loads
-                        show-cached?
-                        (dom/div :.wisdom-eca-content.wisdom-cached
-                                 (dom/div :.wisdom-updating-badge
+          ;; Loading with no content at all - show loading dots + fallback tips
+                        eca-loading?
+                        (dom/div :.wisdom-fallback
+                                 (dom/div :.wisdom-loading
                                           (dom/div :.wisdom-loading-dots
                                                    (dom/span :.dot)
                                                    (dom/span :.dot)
                                                    (dom/span :.dot))
-                                          (dom/span "Updating..."))
-                                 (render-markdown cached-content "wisdom-eca-text"))
+                                          (dom/span "AI is thinking..."))
+                                 (dom/div :.wisdom-tips-list
+                                          (for [tip (:tips fallback)]
+                                            (dom/div {:key tip :className "wisdom-tip-item"}
+                                                     (dom/span :.wisdom-bullet "->")
+                                                     (dom/span tip)))))
 
-          ;; No cache, no content - show fallback
+          ;; Nothing at all - static fallback tips
                         :else
                         (dom/div :.wisdom-fallback
-                                 (when eca-loading?
-                                   (dom/div :.wisdom-loading
-                                            (dom/div :.wisdom-loading-dots
-                                                     (dom/span :.dot)
-                                                     (dom/span :.dot)
-                                                     (dom/span :.dot))
-                                            (dom/span "AI is thinking...")))
-                                 (when-not eca-loading?
-                                   (dom/div :.wisdom-tips-list
-                                            (for [tip (:tips fallback)]
-                                              (dom/div {:key tip :className "wisdom-tip-item"}
-                                                       (dom/span :.wisdom-bullet "->")
-                                                       (dom/span tip))))))))
+                                 (dom/div :.wisdom-tips-list
+                                          (for [tip (:tips fallback)]
+                                            (dom/div {:key tip :className "wisdom-tip-item"}
+                                                     (dom/span :.wisdom-bullet "->")
+                                                     (dom/span tip)))))))
       ;; Next hint
              (when-let [next-hint (:next-hint fallback)]
                (dom/div :.wisdom-next-hint
@@ -633,12 +653,11 @@
                         (dom/button
                          {:className "wisdom-refresh-btn"
                           :onClick (fn []
-                                     (when-let [sa @ws/app-state-atom]
+                                     (when sa
                                        (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
                                      (ws/request-wisdom! project-id phase request-type))
                           :disabled (or eca-loading? eca-streaming?)}
                          "Refresh"))))))
-
 (defn wisdom-sidebar
   "Contextual wisdom tips panel for the current builder phase.
    Fetches ECA-powered tips on open, shows fallback tips while loading.
