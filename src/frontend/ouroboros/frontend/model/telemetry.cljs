@@ -7,18 +7,10 @@
 ;; Event Entity
 ;; ============================================================================
 
-(defsc TelemetryEvent [this {:keys [:event/id :event/timestamp :event/seq
-                                    :event :tool :duration-ms :success?
-                                    :error-message :params]}]
+(defsc TelemetryEvent [this {:keys [:event/id :event/timestamp :event/extra]}]
   {:query [:event/id
            :event/timestamp
-           :event/seq
-           :event
-           :tool
-           :duration-ms
-           :success?
-           :error-message
-           :params]
+           :event/extra]
    :ident :event/id}
   {})
 

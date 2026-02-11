@@ -142,20 +142,25 @@
   [{:keys [data]}]
   (js/console.log "Telemetry event received:" data)
   (when-let [state-atom @app-state-atom]
-    ;; Update shared state
-    (swap! state-atom update-in [:telemetry/events] (fnil conj []) data)
-    ;; Also update Fulcro normalized path for TelemetryPage component
-    (swap! state-atom (fn [s]
-                        (-> s
-                            (update-in [:page/id :telemetry :telemetry/events]
-                                       (fn [events]
-                                         (vec (cons data (take 49 events)))))
-                            (update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
-                            (cond->
-                              (= :tool/invoke (:event data))
-                              (update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0))
-                              (false? (:success? data))
-                              (update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0))))))
+    ;; Normalize WS event to same shape as page-load events:
+    ;; {:event/id ..., :event/timestamp ..., :event/extra <raw-event>}
+    (let [normalized {:event/id (or (:event/id data) (str (random-uuid)))
+                      :event/timestamp (or (:event/timestamp data) (str (js/Date.)))
+                      :event/extra data}]
+      ;; Update shared state
+      (swap! state-atom update-in [:telemetry/events] (fnil conj []) normalized)
+      ;; Also update Fulcro normalized path for TelemetryPage component
+      (swap! state-atom (fn [s]
+                          (-> s
+                              (update-in [:page/id :telemetry :telemetry/events]
+                                         (fn [events]
+                                           (vec (cons normalized (take 49 events)))))
+                              (update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
+                              (cond->
+                                (= :tool/invoke (:event data))
+                                (update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0))
+                                (false? (:success? data))
+                                (update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0)))))))
     (schedule-render!)))
 
 (defmethod handle-message :builder-session/update

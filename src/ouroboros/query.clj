@@ -232,14 +232,11 @@
                               (/ (count (filter #(false? (:success? %)) telemetry-data))
                                  (count telemetry-data) 0.01)
                               0)
-        :telemetry/events (mapv (fn [evt]
-                                 {:event/id (or (:event/id evt) (str (java.util.UUID/randomUUID)))
-                                  :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
-                                  :event (:event evt)
-                                  :tool (:tool evt)
-                                  :duration-ms (:duration-ms evt)
-                                  :success? (:success? evt)})
-                               telemetry-data)
+         :telemetry/events (mapv (fn [evt]
+                                  {:event/id (or (:event/id evt) (str (java.util.UUID/randomUUID)))
+                                   :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
+                                   :event/extra evt})
+                                telemetry-data)
        ;; Debug flag
        :debug/enabled? false
        ;; Project fields (empty for non-project pages)

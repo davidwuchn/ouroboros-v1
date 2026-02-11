@@ -24,14 +24,15 @@
 
 (m/defmutation add-telemetry-event [{:keys [event]}]
   (action [{:keys [state]}]
-    (swap! state update-in [:page/id :telemetry :telemetry/events]
-           (fn [events]
-             (vec (cons event (take 49 events)))))
-    (swap! state update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
-    (when (= :tool/invoke (:event event))
-      (swap! state update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0)))
-    (when (false? (:success? event))
-      (swap! state update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0)))))
+    (let [extra (or (:event/extra event) event)]
+      (swap! state update-in [:page/id :telemetry :telemetry/events]
+             (fn [events]
+               (vec (cons event (take 49 events)))))
+      (swap! state update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
+      (when (= :tool/invoke (:event extra))
+        (swap! state update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0)))
+      (when (false? (:success? extra))
+        (swap! state update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0))))))
 
 (m/defmutation set-debug-enabled [{:keys [enabled?]}]
   (action [{:keys [state]}]
@@ -111,12 +112,20 @@
       (when (namespace k)
         (get m (str (namespace k) "/" (name k))))))
 
+(defn- get-event-field
+  "Get a field from an event, checking :event/extra first (page-load path),
+   then top-level keys (WebSocket path)."
+  [event k]
+  (let [extra (:event/extra event)]
+    (or (when (map? extra) (get-any extra k))
+        (get-any event k))))
+
 (defn- event-type-label
   "Return a safe display label for event type."
   [event]
-  (let [evt (or (get-any event :event)
-                (get-any event :event/type)
-                (get-any event :type))]
+  (let [evt (or (get-event-field event :event)
+                (get-event-field event :event/type)
+                (get-event-field event :type))]
     (cond
       (keyword? evt) (name evt)
       (string? evt) evt
@@ -125,13 +134,13 @@
 (defn- event-row
   "Format an event for display"
   [idx event]
-  {:id (str (or (get-any event :event/id) (hash event)) "-" idx)
-    :timestamp (get-any event :event/timestamp)
+  {:id (str (or (get-event-field event :event/id) (hash event)) "-" idx)
+    :timestamp (get-event-field event :event/timestamp)
     :event-type (event-type-label event)
-    :tool (get-any event :tool)
-    :duration (when-let [ms (get-any event :duration-ms)]
+    :tool (get-event-field event :tool)
+    :duration (when-let [ms (get-event-field event :duration-ms)]
                 (str (Math/round ms) "ms"))
-    :success? (get-any event :success?)
+    :success? (get-event-field event :success?)
     :raw event})
 
 (defn event-table
@@ -166,7 +175,7 @@
 
 (defsc TelemetryEvent
   [_this {:keys [event/id]}]
-  {:query [:event/id :event/timestamp :event :tool :duration-ms :success?]
+  {:query [:event/id :event/timestamp :event/extra]
    :ident :event/id}
   (dom/div (str id)))
 
@@ -281,10 +290,26 @@
              :message "No telemetry events recorded"})))
 
         (when drawer-open?
-          (let [{:event/keys [id timestamp seq]
-                 :keys [event tool duration-ms success? error-message params]
-                 :as evt} drawer-event
-                title (or (some-> event name) "Telemetry Event")]
+          (let [evt drawer-event
+                ;; Read fields from :event/extra (page-load) or top-level (websocket)
+                extra (or (:event/extra evt) evt)
+                id (get-event-field evt :event/id)
+                timestamp (get-event-field evt :event/timestamp)
+                event-type (get-event-field evt :event)
+                tool (get-event-field evt :tool)
+                duration-ms (get-event-field evt :duration-ms)
+                success? (get-event-field evt :success?)
+                error-message (get-event-field evt :error-message)
+                params (get-event-field evt :params)
+                payload (get-event-field evt :payload)
+                title (or (some-> event-type name) "Telemetry Event")
+                ;; Fields already rendered explicitly - skip in dynamic section
+                known-keys #{:event/id :event/timestamp :event/seq :event/extra
+                             :event :tool :duration-ms :success? :error-message :params :payload}
+                ;; Dynamic extra fields from the raw event data
+                extra-fields (when (map? extra)
+                               (into (sorted-map)
+                                     (remove (fn [[k _]] (contains? known-keys k)) extra)))]
             (dom/div :.telem-drawer-backdrop
               {:onClick #(comp/set-state! this {:drawer/open? false :drawer/event nil})}
               (dom/div :.telem-drawer
@@ -300,13 +325,16 @@
 
                 (dom/div :.telem-drawer-body
                   (event-detail-row "ID" id)
-                  (event-detail-row "Type" event)
+                  (event-detail-row "Type" event-type)
                   (event-detail-row "Tool" tool)
                   (event-detail-row "Duration" (when duration-ms (str (Math/round duration-ms) "ms")))
                   (event-detail-row "Success" success?)
-                  (event-detail-row "Sequence" seq)
                   (event-detail-row "Error" error-message)
                   (event-detail-row "Params" params)
-                  (when (:payload evt)
-                    (event-detail-row "Payload" (:payload evt)))
-                  (event-detail-row "Raw Event" evt))))))))))
+                  (when payload
+                    (event-detail-row "Payload" payload))
+                  ;; Dynamic rendering of all extra fields
+                  (when (seq extra-fields)
+                    (for [[k v] extra-fields]
+                      (event-detail-row (name k) v)))
+                  (event-detail-row "Raw Event" extra))))))))))
