@@ -713,7 +713,7 @@
           "Templates, insights, and patterns to accelerate your product thinking."))
 
       ;; ── Templates Section ──
-      (dom/section :.wisdom-section
+      (dom/section {:className "wisdom-section" :id "wisdom-templates"}
         (dom/div :.wisdom-section-header
           (dom/h2 "Templates")
           (dom/p :.wisdom-section-desc "Start with a proven framework for your product type.")
@@ -739,7 +739,7 @@
               (dom/p "No templates available yet. Connect ECA for AI-generated templates.")))))
 
       ;; ── Learning Patterns Section ──
-      (dom/section :.wisdom-section
+      (dom/section {:className "wisdom-section" :id "wisdom-learning"}
         (dom/div :.wisdom-section-header
           (dom/h2 "Learning Patterns")
           (dom/p :.wisdom-section-desc "Insights discovered across your projects.")
@@ -772,7 +772,7 @@
               (dom/p "Complete more projects to see patterns emerge.")))))
 
       ;; ── Contextual Wisdom Section ──
-      (dom/section :.wisdom-section
+      (dom/section {:className "wisdom-section" :id "wisdom-contextual"}
         (dom/div :.wisdom-section-header
           (dom/h2 "Contextual Wisdom")
           (dom/p :.wisdom-section-desc (str "Guidance for the " builder-label " phase.")))

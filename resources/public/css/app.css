@@ -7339,6 +7339,29 @@ pre.code-block {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+/* Clickable project card */
+.dash-project-clickable {
+  cursor: pointer;
+  outline: none;
+}
+
+.dash-project-clickable:hover {
+  border-color: var(--color-primary-light);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.dash-project-clickable:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow);
+}
+
+.dash-project-clickable:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(47, 143, 78, 0.2);
 }
 
 .dash-project-header {
@@ -7390,22 +7413,18 @@ pre.code-block {
   background: rgba(47, 111, 191, 0.12);
 }
 
-.dash-project-open-btn {
-  padding: 0.4rem 0.9rem;
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.78rem;
+/* Arrow affordance (replaces Open Builders button) */
+.dash-project-arrow {
+  font-size: 1.1rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease, color 0.2s ease;
   flex-shrink: 0;
 }
 
-.dash-project-open-btn:hover {
-  background: var(--color-primary-dark);
+.dash-project-clickable:hover .dash-project-arrow {
+  color: var(--color-primary);
+  transform: translateX(3px);
 }
 
 .dash-project-desc {
@@ -7473,6 +7492,29 @@ pre.code-block {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+/* Clickable card state */
+.dash-wisdom-clickable {
+  cursor: pointer;
+  outline: none;
+}
+
+.dash-wisdom-clickable:hover {
+  border-color: var(--color-primary-light);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.dash-wisdom-clickable:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow);
+}
+
+.dash-wisdom-clickable:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(47, 143, 78, 0.2);
 }
 
 .dash-wisdom-header {
@@ -7500,23 +7542,18 @@ pre.code-block {
   color: var(--color-text);
 }
 
-.dash-wisdom-open-btn {
-  padding: 0.35rem 0.8rem;
-  background: transparent;
-  color: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  border-radius: 6px;
-  font-size: 0.75rem;
+/* Arrow affordance (replaces Explore button) */
+.dash-wisdom-arrow {
+  font-size: 1.1rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease, color 0.2s ease;
   flex-shrink: 0;
 }
 
-.dash-wisdom-open-btn:hover {
-  background: var(--color-primary);
-  color: #fff;
+.dash-wisdom-clickable:hover .dash-wisdom-arrow {
+  color: var(--color-primary);
+  transform: translateX(3px);
 }
 
 .dash-wisdom-desc {
@@ -7540,12 +7577,39 @@ pre.code-block {
   padding: 0.5rem 0.25rem;
   background: var(--color-bg-tertiary);
   border-radius: 0.5rem;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Clickable stat boxes */
+.dash-wstat-clickable {
+  cursor: pointer;
+  outline: none;
+  position: relative;
+}
+
+.dash-wstat-clickable:hover {
+  background: rgba(47, 143, 78, 0.08);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(47, 143, 78, 0.1);
+}
+
+.dash-wstat-clickable:hover .dash-wstat-value {
+  color: var(--color-primary);
+}
+
+.dash-wstat-clickable:active {
+  transform: translateY(0);
+}
+
+.dash-wstat-clickable:focus-visible {
+  box-shadow: 0 0 0 2px rgba(47, 143, 78, 0.3);
 }
 
 .dash-wstat-value {
   font-size: 1.3rem;
   font-weight: 700;
   color: var(--color-text);
+  transition: color 0.15s ease;
 }
 
 .dash-wstat-label {

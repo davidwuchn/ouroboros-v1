@@ -52,15 +52,29 @@
             (dom/div :.skeleton-card))))
 
 ;; ============================================================================
+;; Shared Card Helpers
+;; ============================================================================
+
+(defn- handle-card-key
+  "Keyboard handler for clickable cards - activates on Enter or Space."
+  [on-click-fn e]
+  (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
+    (.preventDefault e)
+    (on-click-fn)))
+
+;; ============================================================================
 ;; Project Overview Card (moved from project-detail page)
 ;; ============================================================================
 
 (defn project-overview-card
   "Project info card for the dashboard - shows name, status, description, flywheel progress.
+   Entire card is clickable (navigates to project detail). Flywheel steps have their own nav.
    All data passed via props from parent (no independent atom reads)."
   [{:keys [project-name project-status project-description project-id
            progress board]}]
   (let [encoded-id (when project-id (str/replace (str project-id) "/" "~"))
+        navigate-project! (when encoded-id
+                            #(dr/change-route! app ["project" encoded-id]))
         current-step (or (when progress
                            (let [step (:current-step progress)]
                              (case step
@@ -71,7 +85,12 @@
                                :empathy)))
                          :empathy)
         summary (:summary board)]
-    (dom/div :.dash-project-card
+    (dom/div (cond-> {:className (str "dash-project-card"
+                                      (when encoded-id " dash-project-clickable"))}
+               encoded-id (assoc :role "button"
+                                 :tabIndex 0
+                                 :onClick navigate-project!
+                                 :onKeyDown #(handle-card-key navigate-project! %)))
              ;; Project header
              (dom/div :.dash-project-header
                       (dom/div :.dash-project-info
@@ -80,9 +99,7 @@
                                                           (name (or project-status :draft)))}
                                          (name (or project-status :draft))))
                       (when encoded-id
-                        (dom/button {:className "dash-project-open-btn"
-                                     :onClick #(dr/change-route! app ["project" encoded-id])}
-                                    "Open Builders")))
+                        (dom/span :.dash-project-arrow ">")))
              ;; Description
              (when (seq project-description)
                (dom/p :.dash-project-desc project-description))
@@ -101,12 +118,13 @@
                           (dom/div :.dash-progress-bar
                                    (dom/div {:className "dash-progress-bar-fill"
                                              :style {:width (str pct "%")}})))))
-             ;; Flywheel nav -- uses shared circle stepper
-             (ui/flywheel-indicator
-              {:current-step current-step
-               :project-id encoded-id
-               :on-navigate (when encoded-id
-                              #(dr/change-route! app ["project" encoded-id %]))}))))
+             ;; Flywheel nav -- uses shared circle stepper (clicks handled internally)
+             (dom/div {:onClick #(.stopPropagation %)}
+                      (ui/flywheel-indicator
+                       {:current-step current-step
+                        :project-id encoded-id
+                        :on-navigate (when encoded-id
+                                       #(dr/change-route! app ["project" encoded-id %]))})))))
 
 ;; ============================================================================
 ;; Wisdom Overview Card
@@ -118,9 +136,24 @@
    :learning-categories 5
    :phase-tips 4})
 
+(defn- navigate-wisdom!
+  "Navigate to Wisdom page, optionally scrolling to a section after route change."
+  ([] (dr/change-route! app ["wisdom"]))
+  ([section-id]
+   (dr/change-route! app ["wisdom"])
+   ;; Scroll to section after route renders (requestAnimationFrame to wait for DOM)
+   (js/requestAnimationFrame
+    (fn []
+      (js/setTimeout
+       (fn []
+         (when-let [el (.getElementById js/document section-id)]
+           (.scrollIntoView el #js {:behavior "smooth" :block "start"})))
+       120)))))
+
 (defn wisdom-overview-card
   "Shows a brief summary of available wisdom resources with link to Wisdom page.
-   Reads template/category counts from WS state (ECA content or fallbacks)."
+   Reads template/category counts from WS state (ECA content or fallbacks).
+   Entire card is clickable; stat boxes deep-link to sections."
   [{:keys [ws-state]}]
   (let [eca-templates (get-in ws-state [:content/generated :templates])
         eca-categories (get-in ws-state [:content/generated :learning-categories])
@@ -135,24 +168,50 @@
         ;; Check wisdom cache for recent content
         wisdom-cache (:wisdom/cache ws-state)
         cached-count (count wisdom-cache)]
-    (dom/div :.dash-wisdom-card
+    (dom/div {:className "dash-wisdom-card dash-wisdom-clickable"
+              :role "button"
+              :tabIndex 0
+              :onClick #(navigate-wisdom!)
+              :onKeyDown #(handle-card-key navigate-wisdom! %)}
              (dom/div :.dash-wisdom-header
                       (dom/div :.dash-wisdom-title-row
                                (dom/span :.dash-wisdom-icon "~")
                                (dom/h3 :.dash-wisdom-title "Wisdom Library"))
-                      (dom/button {:className "dash-wisdom-open-btn"
-                                   :onClick #(dr/change-route! app ["wisdom"])}
-                                  "Explore"))
+                      (dom/span :.dash-wisdom-arrow ">"))
              (dom/p :.dash-wisdom-desc
                     "Templates, learning patterns, and AI-powered insights to guide your product thinking.")
              (dom/div :.dash-wisdom-stats
-                      (dom/div :.dash-wstat
+                      (dom/div {:className "dash-wstat dash-wstat-clickable"
+                                :role "button"
+                                :tabIndex 0
+                                :onClick (fn [e]
+                                           (.stopPropagation e)
+                                           (navigate-wisdom! "wisdom-templates"))
+                                :onKeyDown (fn [e]
+                                             (.stopPropagation e)
+                                             (handle-card-key #(navigate-wisdom! "wisdom-templates") e))}
                                (dom/span :.dash-wstat-value (str template-count))
                                (dom/span :.dash-wstat-label "Templates"))
-                      (dom/div :.dash-wstat
+                      (dom/div {:className "dash-wstat dash-wstat-clickable"
+                                :role "button"
+                                :tabIndex 0
+                                :onClick (fn [e]
+                                           (.stopPropagation e)
+                                           (navigate-wisdom! "wisdom-learning"))
+                                :onKeyDown (fn [e]
+                                             (.stopPropagation e)
+                                             (handle-card-key #(navigate-wisdom! "wisdom-learning") e))}
                                (dom/span :.dash-wstat-value (str category-count))
                                (dom/span :.dash-wstat-label "Learning Patterns"))
-                      (dom/div :.dash-wstat
+                      (dom/div {:className "dash-wstat dash-wstat-clickable"
+                                :role "button"
+                                :tabIndex 0
+                                :onClick (fn [e]
+                                           (.stopPropagation e)
+                                           (navigate-wisdom! "wisdom-contextual"))
+                                :onKeyDown (fn [e]
+                                             (.stopPropagation e)
+                                             (handle-card-key #(navigate-wisdom! "wisdom-contextual") e))}
                                (dom/span :.dash-wstat-value (str cached-count))
                                (dom/span :.dash-wstat-label "Cached Insights")))
              (when any-loading?
