@@ -530,20 +530,22 @@ dev:backend
              (println "========================================")
              (println "⚠️  Requires: ECA binary installed")
              (println "   Download from: https://github.com/editor-code-assistant/eca/releases\n")
-             (require 'ouroboros.eca-client-test)
-             (require 'ouroboros.eca-approval-bridge-test)
-             (require 'ouroboros.eca-integration-test)
-             (require 'ouroboros.eca-protocol-test)
-             (let [sum-results (fn [results]
-                                 {:test (apply + (map :test results))
-                                  :pass (apply + (map :pass results))
-                                  :fail (apply + (map :fail results))
-                                  :error (apply + (map :error results))})
-                   results (sum-results
-                            [(t/run-tests 'ouroboros.eca-client-test)
-                             (t/run-tests 'ouroboros.eca-approval-bridge-test)
-                             (t/run-tests 'ouroboros.eca-integration-test)
-                             (t/run-tests 'ouroboros.eca-protocol-test)])]
+              (require 'ouroboros.eca-client-test)
+              (require 'ouroboros.eca-approval-bridge-test)
+              (require 'ouroboros.eca-integration-test)
+              (require 'ouroboros.eca-protocol-test)
+              (require 'ouroboros.eca-websocket-integration-test)
+              (let [sum-results (fn [results]
+                                  {:test (apply + (map :test results))
+                                   :pass (apply + (map :pass results))
+                                   :fail (apply + (map :fail results))
+                                   :error (apply + (map :error results))})
+                    results (sum-results
+                             [(t/run-tests 'ouroboros.eca-client-test)
+                              (t/run-tests 'ouroboros.eca-approval-bridge-test)
+                              (t/run-tests 'ouroboros.eca-integration-test)
+                              (t/run-tests 'ouroboros.eca-protocol-test)
+                              (t/run-tests 'ouroboros.eca-websocket-integration-test)])]
                (println "\n========================================")
                (println "  ECA Test Results")
                (println "========================================")

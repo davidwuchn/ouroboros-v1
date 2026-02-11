@@ -60,3 +60,6 @@ test_eca_live.clj
 # Downloaded binaries
 scripts/eca
 *.zip
+
+# ECA-generated analysis outputs
+product-insights*.json

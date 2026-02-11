@@ -7789,6 +7789,67 @@ pre.code-block {
   }
 }
 
+/* Event Type Filter */
+.telem-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.telem-filter-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.telem-filter-row select {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-card);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.telem-filter-row select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+/* Prompt/Response Section in Drawer */
+.telem-prompt-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.telem-prompt-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.telem-prompt-content {
+  max-height: 300px;
+  overflow: auto;
+}
+
+.telem-prompt-content .code-block {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ---- Dashboard Responsive ---- */
 
 @media (max-width: 900px) {

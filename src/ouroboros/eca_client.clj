@@ -672,9 +672,11 @@
           (if-not wait?
             ;; Fast mode: return immediately after ack
             (do
-              (telemetry/emit! {:event :eca/chat-response})
-              {:status :success
-               :response ack-response})
+              (telemetry/emit! {:event :eca/chat-response
+                                :message message
+                                :chat-id chat-id})
+               {:status :success
+                :response ack-response})
 
             ;; Wait mode: wait for full assistant response
              (let [contents (deref content-promise timeout-ms nil)]
@@ -685,7 +687,10 @@
                                            (filter #(= "text" (get-in % [:content :type])))
                                            (map #(get-in % [:content :text])))]
                   (telemetry/emit! {:event :eca/chat-response
-                                    :content-count (count contents)})
+                                     :content-count (count contents)
+                                     :message message
+                                     :chat-id chat-id
+                                     :response-text (str/join "\n" assistant-texts)})
                   {:status :success
                    :response ack-response
                    :content (str/join "\n" assistant-texts)
@@ -718,7 +723,9 @@
   ([message] (chat-prompt message {}))
   ([message opts]
    (telemetry/emit! {:event :eca/chat-prompt
-                     :message-length (count message)})
+                      :message-length (count message)
+                      :message message
+                      :chat-id (:chat-id opts)})
 
    (let [result (try
                   (chat-prompt-once message opts)

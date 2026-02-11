@@ -2,6 +2,7 @@
   "Telemetry & system health page with real-time updates"
    (:require
     [clojure.pprint :as pprint]
+    [clojure.string :as str]
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
     [com.fulcrologic.fulcro.dom :as dom]
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
@@ -60,6 +61,10 @@
 (defn- drawer-value
   [v]
   (cond
+    ;; Long strings get scrollable code-block treatment
+    (and (string? v) (> (count v) 200))
+    (ui/code-block {:content v})
+
     (keyword? v) (name v)
     (symbol? v) (str v)
     (map? v) (ui/code-block {:content (with-out-str (pprint/pprint v))})
@@ -213,7 +218,8 @@
     :route-segment ["telemetry"]
     :initLocalState (fn [_]
                       {:drawer/open? false
-                       :drawer/event nil})
+                       :drawer/event nil
+                       :filter/event-type "all"})
     :will-enter (fn [app _route-params]
                   (dr/route-deferred [:page/id :telemetry]
                     (fn []
@@ -230,7 +236,8 @@
         error-msg (get-in props [:page/error :telemetry])
         ws-connected? (ws/connected?)
         drawer-open? (boolean (comp/get-state this :drawer/open?))
-        drawer-event (comp/get-state this :drawer/event)]
+        drawer-event (comp/get-state this :drawer/event)
+        filter-type (or (comp/get-state this :filter/event-type) "all")]
     (cond
       error-msg
       (ui/error-state
@@ -281,13 +288,33 @@
 
        ;; Recent Events
         (ui/card {:title "Recent Events"}
-         (if (seq events)
-           (event-table events (fn [event]
-                                 (comp/set-state! this {:drawer/open? true
-                                                        :drawer/event event})))
-           (ui/empty-state
-            {:icon "Telemetry"
-             :message "No telemetry events recorded"})))
+          ;; Event type filter
+          (dom/div :.telem-filter-row
+            (dom/label :.telem-filter-label "Filter")
+            (dom/select {:value filter-type
+                         :onChange #(comp/set-state! this {:filter/event-type (.. % -target -value)})}
+              (dom/option {:value "all"} "All Events")
+              (dom/option {:value "eca"} "ECA / Prompts")
+              (dom/option {:value "tool"} "Tool Invocations")
+              (dom/option {:value "query"} "Queries")
+              (dom/option {:value "ws"} "WebSocket")
+              (dom/option {:value "engine"} "Engine")))
+          (let [filtered-events
+                (if (= filter-type "all")
+                  events
+                  (filter (fn [evt]
+                            (let [evt-name (name (or (get-event-field evt :event) "unknown"))]
+                              (str/starts-with? evt-name filter-type)))
+                          events))]
+            (if (seq filtered-events)
+              (event-table filtered-events (fn [event]
+                                             (comp/set-state! this {:drawer/open? true
+                                                                    :drawer/event event})))
+              (ui/empty-state
+               {:icon "Telemetry"
+                :message (if (= filter-type "all")
+                           "No telemetry events recorded"
+                           (str "No " filter-type " events recorded"))}))))
 
         (when drawer-open?
           (let [evt drawer-event
@@ -302,10 +329,19 @@
                 error-message (get-event-field evt :error-message)
                 params (get-event-field evt :params)
                 payload (get-event-field evt :payload)
+                ;; ECA prompt/response fields
+                prompt-message (get-event-field evt :message)
+                response-text (get-event-field evt :response-text)
+                chat-id (get-event-field evt :chat-id)
+                message-length (get-event-field evt :message-length)
                 title (or (some-> event-type name) "Telemetry Event")
+                ;; Is this an ECA prompt or response event?
+                eca-prompt? (= :eca/chat-prompt event-type)
+                eca-response? (= :eca/chat-response event-type)
                 ;; Fields already rendered explicitly - skip in dynamic section
                 known-keys #{:event/id :event/timestamp :event/seq :event/extra
-                             :event :tool :duration-ms :success? :error-message :params :payload}
+                             :event :tool :duration-ms :success? :error-message :params :payload
+                             :message :response-text :chat-id :message-length}
                 ;; Dynamic extra fields from the raw event data
                 extra-fields (when (map? extra)
                                (into (sorted-map)
@@ -326,10 +362,27 @@
                 (dom/div :.telem-drawer-body
                   (event-detail-row "ID" id)
                   (event-detail-row "Type" event-type)
+                  (when chat-id
+                    (event-detail-row "Chat ID" chat-id))
                   (event-detail-row "Tool" tool)
                   (event-detail-row "Duration" (when duration-ms (str (Math/round duration-ms) "ms")))
                   (event-detail-row "Success" success?)
                   (event-detail-row "Error" error-message)
+                  ;; ECA Prompt text - prominent display
+                  (when prompt-message
+                    (dom/div :.telem-prompt-section
+                      (dom/div :.telem-prompt-label
+                        (if eca-response? "Original Prompt" "Prompt"))
+                      (dom/div :.telem-prompt-content
+                        (ui/code-block {:content prompt-message}))))
+                  ;; ECA Response text (wait-mode responses)
+                  (when response-text
+                    (dom/div :.telem-prompt-section
+                      (dom/div :.telem-prompt-label "Response")
+                      (dom/div :.telem-prompt-content
+                        (ui/code-block {:content response-text}))))
+                  (when message-length
+                    (event-detail-row "Message Length" (str message-length " chars")))
                   (event-detail-row "Params" params)
                   (when payload
                     (event-detail-row "Payload" payload))
