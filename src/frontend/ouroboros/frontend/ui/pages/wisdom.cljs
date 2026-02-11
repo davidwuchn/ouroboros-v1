@@ -101,43 +101,21 @@
    {:key :mobile-app  :icon "📱" :name "Mobile App"            :description "Consumer mobile application with engagement loops, monetization strategies, and growth mechanics." :tags ["Consumer" "Mobile" "Growth"]}
    {:key :developer-tool :icon "🛠" :name "Developer Tool"     :description "Tools and APIs for developers with adoption funnels, documentation focus, and community building." :tags ["B2D" "API" "Open Source"]}])
 
-(def fallback-learning-categories
-  "Static learning categories shown while ECA content loads."
-  [{:icon "🧠" :label "Customer Understanding" :description "Patterns about user research, empathy mapping, and customer discovery. Includes interview techniques, persona development, and jobs-to-be-done analysis." :category "customer-understanding" :count 12}
-   {:icon "🎯" :label "Value Alignment"        :description "Insights on matching solutions to real customer needs. Covers pain-gain mapping, value proposition design, and product-market fit signals." :category "value-alignment" :count 8}
-   {:icon "⚡" :label "MVP Strategy"           :description "Lessons learned about minimum viable products, rapid prototyping, and lean experimentation. Build less, learn more." :category "mvp-strategy" :count 15}
-   {:icon "📊" :label "Business Model"         :description "Revenue models, pricing strategies, cost structures, and go-to-market patterns discovered across projects." :category "business-model" :count 6}
-   {:icon "🔄" :label "Iteration Patterns"     :description "How successful projects pivot, iterate, and evolve based on user feedback. Includes common pivot triggers and anti-patterns." :category "iteration" :count 10}])
+(def fallback-learning-categories-base
+  "Static learning categories metadata (icon, label, description).
+   :count is derived from default-category-insights to stay in sync."
+  [{:icon "🧠" :label "Customer Understanding" :description "Patterns about user research, empathy mapping, and customer discovery. Includes interview techniques, persona development, and jobs-to-be-done analysis." :category "customer-understanding"}
+   {:icon "🎯" :label "Value Alignment"        :description "Insights on matching solutions to real customer needs. Covers pain-gain mapping, value proposition design, and product-market fit signals." :category "value-alignment"}
+   {:icon "⚡" :label "MVP Strategy"           :description "Lessons learned about minimum viable products, rapid prototyping, and lean experimentation. Build less, learn more." :category "mvp-strategy"}
+   {:icon "📊" :label "Business Model"         :description "Revenue models, pricing strategies, cost structures, and go-to-market patterns discovered across projects." :category "business-model"}
+   {:icon "🔄" :label "Iteration Patterns"     :description "How successful projects pivot, iterate, and evolve based on user feedback. Includes common pivot triggers and anti-patterns." :category "iteration"}])
 
 (def category-metadata
   "Lookup map of UI-only metadata (icon, description) keyed by category string.
    Backend categories don't include these fields, so we merge them in on the frontend."
   (into {} (map (fn [{:keys [category] :as c}]
                   [category (select-keys c [:icon :description :label])])
-                fallback-learning-categories)))
-
-(defn enrich-categories
-  "Merge fallback metadata (icon, description, label) onto backend categories.
-   Backend provides real :count and :recent; fallback provides :icon and :description.
-   Categories from backend not in fallback get a default icon."
-  [backend-categories]
-  (let [;; Start with all fallback categories as a base (preserves order & ensures all appear)
-        fallback-by-cat (into {} (map (fn [c] [(:category c) c]) fallback-learning-categories))
-        ;; Merge backend data onto fallback, backend :count wins
-        merged (reduce (fn [acc {:keys [category] :as bc}]
-                         (let [fb (get fallback-by-cat category)
-                               enriched (merge {:icon "📝"} ;; default icon for unknown categories
-                                               fb           ;; fallback icon/description/label
-                                               bc)]         ;; backend count/recent wins
-                           (assoc acc category enriched)))
-                       fallback-by-cat
-                       backend-categories)]
-    ;; Return as vector, fallback categories first (stable order), then any extras
-    (let [fallback-order (map :category fallback-learning-categories)
-          fallback-set (set fallback-order)
-          extras (remove #(fallback-set (:category %)) backend-categories)]
-      (into (vec (keep #(get merged %) fallback-order))
-            (map #(merge {:icon "📝"} (get category-metadata (:category %)) %) extras)))))
+                fallback-learning-categories-base)))
 
 (def default-category-insights
   "Pre-filled insights shown instantly when clicking a Learning Patterns category card.
@@ -278,6 +256,46 @@
                 "Learning is the unit of progress, not features shipped"]
      :tags ["lean" "experimentation" "learning"]
      :confidence 5 :applied-count 0}]})
+
+(def fallback-learning-categories
+  "Learning categories with :count derived from default-category-insights.
+   Ensures the card count always matches the actual number of drawer items."
+  (mapv (fn [base]
+          (assoc base :count (count (get default-category-insights (:category base) []))))
+        fallback-learning-categories-base))
+
+(defn enrich-categories
+  "Merge fallback metadata (icon, description, label) onto backend categories.
+   Backend provides real :count and :recent; fallback provides :icon, :description, and default :count.
+   When backend returns :count 0, we keep the default insight count since defaults are still shown.
+   Categories from backend not in fallback get a default icon."
+  [backend-categories]
+  (let [;; Use fallback-learning-categories (with derived counts) as base
+        fallback-by-cat (into {} (map (fn [c] [(:category c) c]) fallback-learning-categories))
+        ;; Merge backend data onto fallback
+        merged (reduce (fn [acc {:keys [category] :as bc}]
+                         (let [fb (get fallback-by-cat category)
+                               ;; Count from fallback, or count from default-category-insights directly
+                               default-count (or (:count fb)
+                                                 (count (get default-category-insights category []))
+                                                 0)
+                               backend-count (or (:count bc) 0)
+                               ;; Use max of backend and default -- when backend returns 0,
+                               ;; we still display default insights in the drawer
+                               effective-count (max backend-count default-count)
+                               enriched (merge {:icon "📝"} ;; default icon for unknown categories
+                                               fb           ;; fallback icon/description/label/count (may be nil)
+                                               bc           ;; backend data wins
+                                               {:count effective-count})] ;; but count = max(backend, default)
+                           (assoc acc category enriched)))
+                       fallback-by-cat
+                       backend-categories)]
+    ;; Return as vector, fallback categories first (stable order), then any extras from merged
+    (let [fallback-order (map :category fallback-learning-categories-base)
+          fallback-set (set fallback-order)
+          extra-keys (remove fallback-set (keep :category backend-categories))]
+      (into (vec (keep #(get merged %) fallback-order))
+            (keep #(get merged %) extra-keys)))))
 
 (def fallback-template-data
   "Full template data keyed by template keyword, used when backend
@@ -902,10 +920,11 @@
       (let [category-drawer-open? (boolean (comp/get-state this :category-drawer/open?))
             category-drawer-state (or (comp/get-state this :category-drawer/state) {})]
         (when category-drawer-open?
-          (let [{:keys [label description category count]} category-drawer-state
+          (let [{:keys [label description category] card-count :count} category-drawer-state
                 dw (clamp-drawer-width (or resize-width default-drawer-width))
                 insights (when state (get-in state [:learning/category-insights category]))
-                insights-loading? (when state (get-in state [:learning/category-insights-loading? category]))]
+                insights-loading? (when state (get-in state [:learning/category-insights-loading? category]))
+                display-count (if (seq insights) (count insights) (or card-count 0))]
             (dom/div :.wisdom-drawer-backdrop
               {:onClick #(comp/set-state! this {:category-drawer/open? false})}
               (dom/div {:className (str "wisdom-drawer" (when resize-active? " wisdom-drawer-resizing"))
@@ -915,7 +934,7 @@
                 (dom/div :.wisdom-drawer-header
                   (dom/div
                     (dom/h3 (or label "Learning Pattern"))
-                    (dom/p (str (or count 0) " insights in " (or category "this category"))))
+                    (dom/p (str display-count " insights in " (or category "this category"))))
                   (dom/button {:className "btn btn-secondary"
                                :onClick #(comp/set-state! this {:category-drawer/open? false})}
                               "Close"))
