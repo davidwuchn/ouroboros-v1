@@ -189,14 +189,21 @@
 ;; ============================================================================
 
 (pco/defresolver telemetry-events [_]
-  {::pco/output [{:telemetry/events [:event/id :event/timestamp :event/seq
-                                     :event]}]}
-  {:telemetry/events (get-events)})
+  {::pco/output [{:telemetry/events [:event/id :event/timestamp :event/extra]}]}
+  {:telemetry/events (mapv (fn [evt]
+                             {:event/id (or (:event/id evt) (str (java.util.UUID/randomUUID)))
+                              :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
+                              :event/extra evt})
+                           (get-events))})
 
 (pco/defresolver telemetry-recent [{:keys [n]}]
   {::pco/input [:n]
-   ::pco/output [{:telemetry/recent [:event/id :event/timestamp :event]}]}
-  {:telemetry/recent (get-recent-events n)})
+   ::pco/output [{:telemetry/recent [:event/id :event/timestamp :event/extra]}]}
+  {:telemetry/recent (mapv (fn [evt]
+                             {:event/id (or (:event/id evt) (str (java.util.UUID/randomUUID)))
+                              :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
+                              :event/extra evt})
+                           (get-recent-events n))})
 
 (pco/defresolver telemetry-stats [_]
   {::pco/output [:telemetry/total-events :telemetry/tool-invocations :telemetry/query-executions

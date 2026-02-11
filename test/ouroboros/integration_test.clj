@@ -155,7 +155,7 @@
     (telemetry/emit! {:event :integration/test :message "hello"})
 
     ;; Query telemetry
-    (let [result (query/q [{:telemetry/events [:event/id :event/timestamp :event]}])]
+    (let [result (query/q [{:telemetry/events [:event/id :event/timestamp :event/extra]}])]
       (is (map? result)
           "Telemetry query should return a map")
       (is (contains? result :telemetry/events)
@@ -164,7 +164,12 @@
         (is (sequential? events)
             "Events should be a sequence")
         (is (>= (count events) 1)
-            "Should have at least 1 event")))
+            "Should have at least 1 event")
+        (when (seq events)
+          (is (contains? (first events) :event/extra)
+              "Each event should have :event/extra wrapping the raw event")
+          (is (= :integration/test (:event (:event/extra (first events))))
+              "Raw event should be accessible inside :event/extra"))))
 
     ;; Query telemetry stats
     (let [result (query/q [:telemetry/total-events])]
