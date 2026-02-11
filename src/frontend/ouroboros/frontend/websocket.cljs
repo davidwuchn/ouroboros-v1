@@ -268,7 +268,18 @@ The most useful exercise is sharing your canvas with someone outside your team. 
     (swap! state-atom assoc :wisdom/cache merged))
   ;; Hydrate content cache from localStorage
   (when-let [cached-content (load-content-cache)]
-    (swap! state-atom update :content/generated merge cached-content)))
+    (swap! state-atom update :content/generated merge cached-content))
+  ;; Hydrate learning categories cache from localStorage
+  (try
+    (when-let [raw (.getItem js/localStorage "ouroboros.learning-categories")]
+      (let [parsed (js->clj (js/JSON.parse raw) :keywordize-keys true)]
+        (when (seq (:categories parsed))
+          (swap! state-atom
+                 (fn [s]
+                   (-> s
+                       (assoc :learning/categories (:categories parsed))
+                       (assoc :learning/total-insights (:total-insights parsed))))))))
+    (catch :default _e nil)))
 
 (defn set-render-callback!
   "Set a callback to trigger UI re-render after state mutation"
@@ -436,28 +447,33 @@ The most useful exercise is sharing your canvas with someone outside your team. 
 (defmethod handle-message :eca/wisdom-token
   [{:keys [token request-type]}]
   ;; Streaming wisdom token from ECA
-  ;; During silent refresh: first token clears cached content and starts live stream
+  ;; During silent refresh: accumulate tokens in shadow buffer (no content flash)
+  ;; Normal mode: append tokens directly to visible content
   (when-let [state-atom @app-state-atom]
     (swap! state-atom
            (fn [s]
              (let [refreshing? (get-in s [:wisdom/id :global :wisdom/refreshing?])]
                (if refreshing?
-                 ;; First token during silent refresh: swap from cache to live stream
-                 (-> s
-                     (assoc-in [:wisdom/id :global :wisdom/refreshing?] false)
-                     (assoc-in [:wisdom/id :global :wisdom/content] token)
-                     (assoc-in [:wisdom/id :global :wisdom/streaming?] true))
-                 ;; Normal token: append to existing content
+                 ;; Silent refresh: accumulate in shadow buffer, keep cache visible
+                 (update-in s [:wisdom/id :global :wisdom/shadow-content] str token)
+                 ;; Normal token: append to visible content
                  (update-in s [:wisdom/id :global :wisdom/content] str token)))))
-    (schedule-render!)))
+    ;; Only schedule render for non-silent tokens (silent ones are invisible)
+    (when-not (get-in @state-atom [:wisdom/id :global :wisdom/refreshing?])
+      (schedule-render!))))
 
 (defmethod handle-message :eca/wisdom-done
   [{:keys [request-type]}]
-  ;; Wisdom streaming complete - cache the result and persist
+  ;; Wisdom streaming complete - swap shadow buffer (if silent refresh) or finalize
   (when-let [state-atom @app-state-atom]
     (swap! state-atom
            (fn [s]
-             (let [content (get-in s [:wisdom/id :global :wisdom/content])
+             (let [refreshing? (get-in s [:wisdom/id :global :wisdom/refreshing?])
+                   shadow (get-in s [:wisdom/id :global :wisdom/shadow-content])
+                   ;; If we were refreshing silently, use shadow buffer; else use visible content
+                   content (if (and refreshing? (seq shadow))
+                             shadow
+                             (get-in s [:wisdom/id :global :wisdom/content]))
                    phase (get-in s [:wisdom/id :global :wisdom/phase])
                    req-type (or (when (string? request-type) (keyword request-type))
                                 (when (keyword? request-type) request-type)
@@ -465,7 +481,13 @@ The most useful exercise is sharing your canvas with someone outside your team. 
                (cond-> (-> s
                            (assoc-in [:wisdom/id :global :wisdom/loading?] false)
                            (assoc-in [:wisdom/id :global :wisdom/streaming?] false)
-                           (assoc-in [:wisdom/id :global :wisdom/refreshing?] false))
+                           (assoc-in [:wisdom/id :global :wisdom/refreshing?] false)
+                           ;; Swap shadow content to visible (silent refresh complete)
+                           (cond->
+                             (and refreshing? (seq shadow))
+                             (assoc-in [:wisdom/id :global :wisdom/content] shadow))
+                           ;; Clear shadow buffer
+                           (assoc-in [:wisdom/id :global :wisdom/shadow-content] nil))
                  ;; Cache the completed content keyed by [phase request-type]
                  (and phase req-type (seq content))
                  (assoc-in [:wisdom/cache [phase req-type]] content)))))
@@ -596,6 +618,39 @@ The most useful exercise is sharing your canvas with someone outside your team. 
   (js/console.error "Content generation error:" content-type error)
   (when-let [state-atom @app-state-atom]
     (swap! state-atom assoc-in [:content/loading? content-type] false)
+    (schedule-render!)))
+
+;; ============================================================================
+;; Learning Categories Message Handlers
+;; ============================================================================
+
+(defmethod handle-message :learning/categories
+  [{:keys [categories total-insights]}]
+  ;; Real learning categories from backend memory (fast, no ECA)
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc :learning/categories categories)
+                 (assoc :learning/total-insights total-insights)
+                 (assoc :learning/categories-loading? false))))
+    ;; Cache in localStorage for instant load on next visit
+    (try
+      (.setItem js/localStorage "ouroboros.learning-categories"
+                (js/JSON.stringify (clj->js {:categories categories
+                                             :total-insights total-insights})))
+      (catch :default _e nil))
+    (schedule-render!)))
+
+(defmethod handle-message :learning/category-insights
+  [{:keys [category insights count]}]
+  ;; Actual insight records for a specific category
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc-in [:learning/category-insights category] insights)
+                 (assoc-in [:learning/category-insights-loading? category] false))))
     (schedule-render!)))
 
 ;; ============================================================================
@@ -865,6 +920,22 @@ The most useful exercise is sharing your canvas with someone outside your team. 
   [template-key]
   (send! {:type "wisdom/template"
           :template-key (name template-key)}))
+
+(defn request-learning-categories!
+  "Request real learning categories from backend memory.
+   Fast (no ECA) -- reads directly from learning storage."
+  []
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc :learning/categories-loading? true))
+  (send! {:type "learning/categories"}))
+
+(defn request-category-insights!
+  "Request actual insight records for a specific learning category."
+  [category]
+  (when-let [state-atom @app-state-atom]
+    (swap! state-atom assoc-in [:learning/category-insights-loading? category] true))
+  (send! {:type "learning/category-insights"
+          :category category}))
 
 (defn save-builder-data!
   "Send builder section data to backend for persistence.

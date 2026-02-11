@@ -463,22 +463,24 @@
                                       (not (get-in state [:content/generated :templates]))
                                       (not (get-in state [:content/loading? :templates])))
                              (ws/request-content! :templates))
+                           ;; Always request real learning categories from backend (fast, no ECA)
+                           ;; This silently updates cached/fallback data with real counts
                            (when (and state
-                                      (not (get-in state [:content/generated :learning-categories]))
-                                      (not (get-in state [:content/loading? :learning-categories])))
-                             (ws/request-content! :learning-categories))))}
+                                      (not (get state :learning/categories-loading?)))
+                             (ws/request-learning-categories!))))}
    (let [state-atom @ws/app-state-atom
         state (when state-atom @state-atom)
         eca-templates (when state (get-in state [:content/generated :templates]))
         templates-loading? (when state (get-in state [:content/loading? :templates]))
         templates (if (seq eca-templates) eca-templates fallback-templates)
-        eca-categories (when state (get-in state [:content/generated :learning-categories]))
-        categories-loading? (when state (get-in state [:content/loading? :learning-categories]))
-        categories (if (seq eca-categories) eca-categories fallback-learning-categories)
+        real-categories (when state (get state :learning/categories))
+        categories-loading? (when state (get state :learning/categories-loading?))
+        categories (if (seq real-categories) real-categories fallback-learning-categories)
         ;; Only show "Loading from AI..." when we have no content at all (no cache, no ECA response)
         ;; Once we have content (cached or fallback), the badge is hidden -- ECA silently replaces in background
         templates-show-loading? (and templates-loading? (not (seq eca-templates)))
-        categories-show-loading? (and categories-loading? (not (seq eca-categories)))
+        categories-show-loading? (and categories-loading? (not (seq real-categories))
+                                      (not (seq fallback-learning-categories)))
         current-route (or (get-in state [:ui/current-route]) [])
         route-info (parse-route current-route)
         stage (:stage route-info)
@@ -541,18 +543,22 @@
           (dom/h2 "Learning Patterns")
           (dom/p :.wisdom-section-desc "Insights discovered across your projects.")
           (when categories-show-loading?
-            (dom/span :.wisdom-loading-badge "Loading from AI...")))
+            (dom/span :.wisdom-loading-badge "Loading...")))
         (if (seq categories)
           (dom/div {:className "wisdom-category-grid"}
             (for [c categories]
               (category-card (assoc c :on-select
                                     (fn [label]
-                                      (comp/set-state! this
-                                        {:category-drawer/open? true
-                                         :category-drawer/state {:category (:category c)
-                                                                 :label label
-                                                                 :description (:description c)}
-                                         :resize/width (get-drawer-width :category)}))))))
+                                      (let [cat (:category c)]
+                                        ;; Request actual insights for this category
+                                        (ws/request-category-insights! cat)
+                                        (comp/set-state! this
+                                          {:category-drawer/open? true
+                                           :category-drawer/state {:category cat
+                                                                   :label label
+                                                                   :description (:description c)
+                                                                   :count (:count c)}
+                                           :resize/width (get-drawer-width :category)})))))))
           (when-not categories-show-loading?
             (dom/div :.wisdom-empty-state
               (dom/div :.wisdom-empty-icon "📚")
@@ -591,13 +597,7 @@
               (dom/h4 title)
               (dom/p description))))
 
-        ;; ECA-powered wisdom panel (below the cards)
-        (when project-id
-          (dom/div {:className "wisdom-panel-inline wisdom-eca-panel"}
-            (dom/div :.wisdom-eca-panel-header
-              (dom/span :.wisdom-eca-badge "AI-Powered")
-              (dom/span "Personalized guidance from your project context"))
-            (ui/wisdom-panel-body {:phase wisdom-phase :project-id project-id}))))
+)
 
       ;; ── Template Drawer ──
       (when drawer-open?
@@ -687,8 +687,10 @@
       (let [category-drawer-open? (boolean (comp/get-state this :category-drawer/open?))
             category-drawer-state (or (comp/get-state this :category-drawer/state) {})]
         (when category-drawer-open?
-          (let [{:keys [label description category]} category-drawer-state
-                dw (clamp-drawer-width (or resize-width default-drawer-width))]
+          (let [{:keys [label description category count]} category-drawer-state
+                dw (clamp-drawer-width (or resize-width default-drawer-width))
+                insights (when state (get-in state [:learning/category-insights category]))
+                insights-loading? (when state (get-in state [:learning/category-insights-loading? category]))]
             (dom/div :.wisdom-drawer-backdrop
               {:onClick #(comp/set-state! this {:category-drawer/open? false})}
               (dom/div {:className (str "wisdom-drawer" (when resize-active? " wisdom-drawer-resizing"))
@@ -698,24 +700,62 @@
                 (dom/div :.wisdom-drawer-header
                   (dom/div
                     (dom/h3 (or label "Learning Pattern"))
-                    (dom/p (str "Insights for " (or category "this category"))))
+                    (dom/p (str (or count 0) " insights in " (or category "this category"))))
                   (dom/button {:className "btn btn-secondary"
                                :onClick #(comp/set-state! this {:category-drawer/open? false})}
                               "Close"))
 
-                (dom/div :.wisdom-drawer-body.wisdom-drawer-markdown
-                  (if (seq description)
-                    (ui/render-markdown description "")
+                (dom/div :.wisdom-drawer-body
+                  ;; Category description
+                  (when (seq description)
+                    (dom/div {:className "category-drawer-description"}
+                      (dom/p description)))
+
+                  ;; Insights list
+                  (cond
+                    ;; Loading state
+                    insights-loading?
+                    (dom/div {:className "category-drawer-loading"}
+                      (dom/span "Loading insights..."))
+
+                    ;; Has real insights
+                    (seq insights)
+                    (dom/div {:className "category-drawer-insights"}
+                      (for [insight insights]
+                        (let [insight-id (or (:id insight) (str (hash insight)))]
+                          (dom/div {:key insight-id
+                                    :className "category-insight-card"}
+                            (dom/div {:className "category-insight-header"}
+                              (dom/h4 (or (:title insight) "Untitled Insight"))
+                              (when (:created insight)
+                                (dom/span {:className "category-insight-date"}
+                                  (let [created (:created insight)]
+                                    (if (> (count created) 10)
+                                      (subs created 0 10)
+                                      created)))))
+                            (when (seq (:insights insight))
+                              (dom/ul {:className "category-insight-points"}
+                                (for [[idx point] (map-indexed vector (:insights insight))]
+                                  (dom/li {:key idx} point))))
+                            (when (seq (:tags insight))
+                              (dom/div {:className "category-insight-tags"}
+                                (for [tag (:tags insight)]
+                                  (dom/span {:key tag :className "category-insight-tag"} tag))))
+                            (when (:confidence insight)
+                              (dom/div {:className "category-insight-meta"}
+                                (dom/span (str "Confidence: " (:confidence insight) "/5"))
+                                (when (pos? (or (:applied-count insight) 0))
+                                  (dom/span (str "Applied " (:applied-count insight) " times")))))))))
+
+                    ;; No insights found
+                    :else
                     (dom/div {:className "wisdom-drawer-feedback wisdom-drawer-info"}
-                      (dom/span "No detailed insights available yet. Complete more projects to see patterns emerge!"))))
+                      (dom/span "No insights recorded yet for this category. Insights are captured as you work through builders and apply templates."))))
 
                 (dom/div :.wisdom-drawer-footer
-                  (dom/div {:className "insight-meta"}
-                    (dom/span {:className "insight-source"} "Sourced from: ")
-                    (dom/span {:className "insight-files"} "STATE.md  PLAN.md  LEARNING.md"))
                   (dom/button {:className "btn btn-primary btn-sm"
                                :onClick #(comp/set-state! this {:category-drawer/open? false})}
-                                                             "Got it")))))))
+                              "Got it")))))))
 
       ;; ── Tip Drawer (Contextual Wisdom) ──
       (when tip-drawer-open?

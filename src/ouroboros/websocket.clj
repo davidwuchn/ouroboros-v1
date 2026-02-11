@@ -1079,6 +1079,60 @@
                          :progress progress
                           :timestamp (System/currentTimeMillis)})))
 
+(defn- handle-learning-categories!
+  "Return learning categories with real insight counts from memory.
+   Fast (no ECA) -- reads directly from learning memory."
+  [client-id _message]
+  (let [user-id (current-user-id)
+        patterns (wisdom/analyze-learning-patterns user-id)
+        all-learnings (learning/recall-by-pattern user-id "")
+        by-category (group-by :learning/category all-learnings)
+        categories (map (fn [[cat records]]
+                          {:category cat
+                           :label (str/capitalize (str/replace (or cat "general") #"[-_/]" " "))
+                           :count (count records)
+                           :recent (take 3 (reverse (sort-by :learning/created records)))})
+                        by-category)
+        ;; Include default categories with 0 count if no real data
+        default-cats ["customer-understanding" "product-development"
+                      "business-model" "general" "errors/fixes"]
+        existing-cats (set (map :category categories))
+        with-defaults (concat categories
+                              (for [c default-cats
+                                    :when (not (existing-cats c))]
+                                {:category c
+                                 :label (str/capitalize (str/replace c #"[-_/]" " "))
+                                 :count 0
+                                 :recent []}))]
+    (send-to! client-id {:type :learning/categories
+                         :categories (vec with-defaults)
+                         :total-insights (:total-insights patterns 0)
+                         :timestamp (System/currentTimeMillis)})))
+
+(defn- handle-learning-category-insights!
+  "Return actual insight records for a specific category."
+  [client-id {:keys [category]}]
+  (let [user-id (current-user-id)
+        records (learning/recall-by-category user-id (or category "general"))
+        sorted (reverse (sort-by :learning/created records))
+        insights (mapv (fn [r]
+                         {:id (:learning/id r)
+                          :title (:learning/title r)
+                          :category (:learning/category r)
+                          :pattern (:learning/pattern r)
+                          :insights (:learning/insights r)
+                          :examples (:learning/examples r)
+                          :tags (vec (:learning/tags r))
+                          :created (:learning/created r)
+                          :confidence (:learning/confidence r)
+                          :applied-count (:learning/applied-count r)})
+                       sorted)]
+    (send-to! client-id {:type :learning/category-insights
+                         :category (or category "general")
+                         :insights insights
+                         :count (count insights)
+                         :timestamp (System/currentTimeMillis)})))
+
 (defn handle-message
   "Handle incoming WebSocket message"
   [id message-str]
@@ -1134,6 +1188,12 @@
 
         "learning/save-examples"
         (handle-learning-save-examples! id message)
+
+        "learning/categories"
+        (handle-learning-categories! id message)
+
+        "learning/category-insights"
+        (handle-learning-category-insights! id message)
 
         "wisdom/template"
         (handle-wisdom-template! id message)

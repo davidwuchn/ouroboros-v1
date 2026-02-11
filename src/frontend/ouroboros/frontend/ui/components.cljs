@@ -571,23 +571,22 @@
                                               (when (= request-type key) " active")
                                               (when (seq tab-cache) " has-cache"))
                               :onClick (fn []
+                                         ;; Pure local switch: show cached content instantly, no ECA call.
+                                         ;; ECA refresh only happens once on initial mount (see below).
                                          (let [tab-cached (when sa
                                                             (get-in @sa [:wisdom/cache [phase key]]))]
-                                           (if (seq tab-cached)
-                                             ;; Cache hit: show cached content instantly, silent ECA refresh
-                                             (do
-                                               (when sa
-                                                 (swap! sa
-                                                        (fn [s]
-                                                          (-> s
-                                                              (assoc-in [:wisdom/id :global :wisdom/content] tab-cached)
-                                                              (assoc-in [:wisdom/id :global :wisdom/request-type] key)))))
-                                               (ws/request-wisdom! project-id phase key {:silent? true}))
-                                             ;; No cache: normal request with loading UI
-                                             (do
-                                               (when sa
-                                                 (swap! sa assoc-in [:wisdom/id :global :wisdom/content] ""))
-                                               (ws/request-wisdom! project-id phase key)))))
+                                           (when sa
+                                             (swap! sa
+                                                    (fn [s]
+                                                      (-> s
+                                                          (assoc-in [:wisdom/id :global :wisdom/content]
+                                                                    (or tab-cached ""))
+                                                          (assoc-in [:wisdom/id :global :wisdom/request-type] key)
+                                                          ;; Clear any in-flight streaming state so we don't
+                                                          ;; get content-flash from a previous tab's refresh
+                                                          (assoc-in [:wisdom/id :global :wisdom/loading?] false)
+                                                          (assoc-in [:wisdom/id :global :wisdom/streaming?] false)
+                                                          (assoc-in [:wisdom/id :global :wisdom/refreshing?] false)))))))
                               :disabled (and eca-loading? (= request-type key))}
                              (dom/span :.wisdom-tab-icon icon)
                              (dom/span label))))))
