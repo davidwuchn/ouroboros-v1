@@ -56,17 +56,17 @@
 ;; ============================================================================
 
 (defn- status-icon [status]
-  (case status
-    :done "✓"
-    :in-progress "●"
-    :not-started "○"
+  (case (name status)
+    "done" "✓"
+    "in-progress" "●"
+    "not-started" "○"
     "○"))
 
 (defn- status-class [status]
-  (case status
-    :done "kb-card-done"
-    :in-progress "kb-card-active"
-    :not-started "kb-card-pending"
+  (case (name status)
+    "done" "kb-card-done"
+    "in-progress" "kb-card-active"
+    "not-started" "kb-card-pending"
     "kb-card-pending"))
 
 (defn kanban-card
@@ -79,7 +79,7 @@
     (dom/span {:className (str "kb-card-status " (status-class status))}
               (status-icon status)))
    (dom/p :.kb-card-desc description)
-   (when (and (= status :done) (pos? (or note-count 0)))
+    (when (and (= "done" (name status)) (pos? (or note-count 0)))
      (dom/span :.kb-card-notes (str note-count " note" (when (not= note-count 1) "s"))))))
 
 ;; ============================================================================
@@ -93,7 +93,7 @@
     (let [all-cards (mapcat :cards (:columns board))
           cards (filter #(= (name builder-type) (name (:builder-type %))) all-cards)
           total (count cards)
-          done (count (filter #(= :done (:status %)) cards))]
+          done (count (filter #(= "done" (name (:status %))) cards))]
       {:total total :done done})))
 
 (defn kanban-column

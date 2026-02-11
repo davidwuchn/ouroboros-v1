@@ -1094,10 +1094,12 @@ Open your current Lean Canvas. Find one box that you're least confident about. W
 (defmethod handle-message :kanban/board
   [{:keys [project-id board]}]
   ;; Kanban board data from backend -- preserve existing if backend returns empty
+  ;; Use force-render! because ProjectDetailPage reads board from the WS atom
+  ;; outside Fulcro component queries, so schedule-render! won't re-render it
   (when-let [state-atom @app-state-atom]
     (when (seq board)
       (swap! state-atom assoc-in [:kanban/board project-id] board))
-    (schedule-render!)))
+    (force-render!)))
 
 ;; ============================================================================
 ;; Analytics Dashboard Message Handlers
