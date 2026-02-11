@@ -303,8 +303,12 @@
                 (if (= filter-type "all")
                   events
                   (filter (fn [evt]
-                            (let [evt-name (name (or (get-event-field evt :event) "unknown"))]
-                              (str/starts-with? evt-name filter-type)))
+                            (let [evt-kw (get-event-field evt :event)
+                                  evt-ns (cond
+                                           (keyword? evt-kw) (namespace evt-kw)
+                                           (string? evt-kw)  (first (str/split evt-kw #"/"))
+                                           :else             nil)]
+                              (= evt-ns filter-type)))
                           events))]
             (if (seq filtered-events)
               (event-table filtered-events (fn [event]

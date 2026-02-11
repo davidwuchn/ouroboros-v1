@@ -3,14 +3,15 @@
    
    States: uninitialized → initializing → running → stopped
    Query: Statechart as source of truth for system state"
-  (:require
-   [com.fulcrologic.statecharts :as sc]
-   [com.fulcrologic.statecharts.chart :refer [statechart]]
-   [com.fulcrologic.statecharts.elements :refer [state transition]]
-   [com.fulcrologic.statecharts.events :refer [new-event]]
-   [com.fulcrologic.statecharts.protocols :as sp]
-   [com.fulcrologic.statecharts.runtime :as rt]
-   [com.fulcrologic.statecharts.simple :as simple]))
+   (:require
+    [com.fulcrologic.statecharts :as sc]
+    [com.fulcrologic.statecharts.chart :refer [statechart]]
+    [com.fulcrologic.statecharts.elements :refer [state transition]]
+    [com.fulcrologic.statecharts.events :refer [new-event]]
+    [com.fulcrologic.statecharts.protocols :as sp]
+    [com.fulcrologic.statecharts.runtime :as rt]
+    [com.fulcrologic.statecharts.simple :as simple]
+    [ouroboros.telemetry :as telemetry]))
 
 ;; ============================================================================
 ;; Statechart Definition - The System Itself
@@ -69,8 +70,10 @@
       (reset! system-instance inst)
       ;; Trigger initialization - capture returned session with updated state
       (let [session-after-init (sp/process-event! processor env (:session inst) (new-event ::initialize))]
+        (telemetry/log-state-transition ::uninitialized ::initializing ::initialize)
         (Thread/sleep 50) ;; Allow transition
         (let [session-running (sp/process-event! processor env session-after-init (new-event ::initialized))]
+          (telemetry/log-state-transition ::initializing ::running ::initialized)
           ;; Update the instance with final session
           (swap! system-instance assoc :session session-running)
           (println "✓ Engine: running")
@@ -82,6 +85,7 @@
   (when-let [{:keys [env session]} @system-instance]
     (let [processor (::sc/processor env)]
       (sp/process-event! processor env session (new-event ::stop))
+      (telemetry/log-state-transition ::running ::stopped ::stop)
       (reset! system-instance nil))))
 
 ;; ============================================================================
