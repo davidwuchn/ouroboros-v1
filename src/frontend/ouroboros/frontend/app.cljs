@@ -29,6 +29,7 @@
   ;; Pass the state atom and render callback for WS-driven updates
   (ws/set-app-state-atom! (::app/state-atom app))
   (ws/set-render-callback! #(app/schedule-render! app))
+  (ws/set-force-render-callback! #(app/force-root-render! app))
   (ws/init!))
 
 (defn destroy-websocket!

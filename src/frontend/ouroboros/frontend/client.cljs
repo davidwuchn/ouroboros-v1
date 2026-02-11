@@ -25,6 +25,7 @@
   (app/mount! app root/Root "app" {:initialize-state? false})
   ;; Re-set render callback (defonce preserves atom, but callback may be stale)
   (ws/set-render-callback! #(app/schedule-render! app))
+  (ws/set-force-render-callback! #(app/force-root-render! app))
   (js/console.log "Hot reload"))
 
 (defn ^:export stop

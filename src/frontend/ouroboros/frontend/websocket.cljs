@@ -353,6 +353,13 @@ The most useful exercise is sharing your canvas with someone outside your team. 
   [cb]
   (reset! render-callback cb))
 
+(defonce force-render-callback (atom nil))
+
+(defn set-force-render-callback!
+  "Set a callback to force full root re-render (bypasses Fulcro optimization)"
+  [cb]
+  (reset! force-render-callback cb))
+
 (defn set-navigate-callback!
   "Set a callback for programmatic navigation: (fn [route-segments])"
   [cb]
@@ -363,6 +370,13 @@ The most useful exercise is sharing your canvas with someone outside your team. 
    Public to allow timeout callbacks in other namespaces."
   []
   (when-let [cb @render-callback]
+    (cb)))
+
+(defn force-render!
+  "Force a full root re-render. Use when state changes are outside
+   Fulcro component queries (e.g. wisdom state read from raw atom)."
+  []
+  (when-let [cb @force-render-callback]
     (cb)))
 
 ;; ============================================================================
