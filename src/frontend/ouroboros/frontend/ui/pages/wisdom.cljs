@@ -103,11 +103,151 @@
 
 (def fallback-learning-categories
   "Static learning categories shown while ECA content loads."
-  [{:icon "🧠" :label "Customer Understanding" :description "Patterns about user research, empathy mapping, and customer discovery. Includes interview techniques, persona development, and jobs-to-be-done analysis." :category "customer-understanding" :count 12}
+  [   {:icon "🧠" :label "Customer Understanding" :description "Patterns about user research, empathy mapping, and customer discovery. Includes interview techniques, persona development, and jobs-to-be-done analysis." :category "customer-understanding" :count 12}
    {:icon "🎯" :label "Value Alignment"        :description "Insights on matching solutions to real customer needs. Covers pain-gain mapping, value proposition design, and product-market fit signals." :category "value-alignment" :count 8}
    {:icon "⚡" :label "MVP Strategy"           :description "Lessons learned about minimum viable products, rapid prototyping, and lean experimentation. Build less, learn more." :category "mvp-strategy" :count 15}
    {:icon "📊" :label "Business Model"         :description "Revenue models, pricing strategies, cost structures, and go-to-market patterns discovered across projects." :category "business-model" :count 6}
    {:icon "🔄" :label "Iteration Patterns"     :description "How successful projects pivot, iterate, and evolve based on user feedback. Includes common pivot triggers and anti-patterns." :category "iteration" :count 10}])
+
+(def default-category-insights
+  "Pre-filled insights shown instantly when clicking a Learning Patterns category card.
+   Real backend data replaces these silently once loaded."
+  {"customer-understanding"
+   [{:id "default-cu-1"
+     :title "Interview Users Before Building"
+     :category "customer-understanding"
+     :insights ["Talk to at least 5 potential users before writing code"
+                "Ask about their current workflow, not what they want built"
+                "Listen for emotions and frustrations, not feature requests"]
+     :tags ["user-research" "interviews" "discovery"]
+     :confidence 5 :applied-count 0}
+    {:id "default-cu-2"
+     :title "Jobs-to-Be-Done Over Demographics"
+     :category "customer-understanding"
+     :insights ["Segment by the job users hire your product for"
+                "Demographics mislead -- a CEO and a student may have the same job"
+                "Map the full job chain: trigger, search, decide, use, evaluate"]
+     :tags ["jtbd" "segmentation" "personas"]
+     :confidence 4 :applied-count 0}
+    {:id "default-cu-3"
+     :title "Observe Before You Ask"
+     :category "customer-understanding"
+     :insights ["Watch users do the task before interviewing them"
+                "People describe idealized behavior, observation reveals reality"
+                "Note workarounds -- they signal unmet needs"]
+     :tags ["observation" "ethnography" "field-research"]
+     :confidence 4 :applied-count 0}]
+
+   "value-alignment"
+   [{:id "default-va-1"
+     :title "Pain Relievers Beat Gain Creators"
+     :category "value-alignment"
+     :insights ["Users pay faster for pain relief than for nice-to-haves"
+                "Rank pains by severity and frequency, then address the top one"
+                "A painkiller beats a vitamin every time in early-stage products"]
+     :tags ["value-prop" "pain-gain" "prioritization"]
+     :confidence 5 :applied-count 0}
+    {:id "default-va-2"
+     :title "Test Value Props with Landing Pages"
+     :category "value-alignment"
+     :insights ["Create a landing page before building the product"
+                "Measure sign-up conversion as a proxy for demand"
+                "A/B test different value propositions to find the strongest"]
+     :tags ["validation" "landing-page" "experiment"]
+     :confidence 4 :applied-count 0}]
+
+   "mvp-strategy"
+   [{:id "default-mvp-1"
+     :title "Scope Ruthlessly"
+     :category "mvp-strategy"
+     :insights ["An MVP is the smallest thing that tests your riskiest assumption"
+                "If it takes more than 2 weeks to build, scope it down further"
+                "Cut features until it hurts -- then cut one more"]
+     :tags ["scope" "lean" "timeboxing"]
+     :confidence 5 :applied-count 0}
+    {:id "default-mvp-2"
+     :title "Manual Before Automated"
+     :category "mvp-strategy"
+     :insights ["Wizard-of-Oz the backend: deliver value manually first"
+                "Concierge MVPs validate demand without engineering investment"
+                "Only automate what users repeatedly pay for"]
+     :tags ["concierge" "wizard-of-oz" "validation"]
+     :confidence 4 :applied-count 0}
+    {:id "default-mvp-3"
+     :title "One Metric That Matters"
+     :category "mvp-strategy"
+     :insights ["Pick a single success metric before launch"
+                "Vanity metrics (signups, page views) lie -- track activation"
+                "Define what 'success' looks like numerically, not emotionally"]
+     :tags ["metrics" "kpi" "measurement"]
+     :confidence 4 :applied-count 0}]
+
+   "business-model"
+   [{:id "default-bm-1"
+     :title "Pricing Is a Feature"
+     :category "business-model"
+     :insights ["Set pricing before building -- it shapes what you build"
+                "Talk to users about willingness to pay early"
+                "Three tiers work: anchor with expensive, sell the middle"]
+     :tags ["pricing" "monetization" "revenue"]
+     :confidence 4 :applied-count 0}
+    {:id "default-bm-2"
+     :title "Channel-Market Fit"
+     :category "business-model"
+     :insights ["Your distribution channel must match your customer"
+                "Enterprise: direct sales. Consumer: viral/content. SMB: self-serve"
+                "The best product loses to better distribution"]
+     :tags ["distribution" "channels" "go-to-market"]
+     :confidence 4 :applied-count 0}]
+
+   "iteration"
+   [{:id "default-it-1"
+     :title "Pivot Triggers"
+     :category "iteration"
+     :insights ["Pivot when metrics plateau despite 3+ experiments"
+                "A pivot changes strategy, not vision"
+                "Common pivots: zoom-in (one feature becomes the product), customer segment, channel"]
+     :tags ["pivot" "strategy" "adaptation"]
+     :confidence 4 :applied-count 0}
+    {:id "default-it-2"
+     :title "Feedback Loops Over Roadmaps"
+     :category "iteration"
+     :insights ["Ship weekly, learn weekly -- roadmaps beyond 2 weeks are fiction"
+                "Instrument everything: you cannot improve what you do not measure"
+                "Close the loop: tell users what you changed based on their feedback"]
+     :tags ["feedback" "iteration" "learning"]
+     :confidence 5 :applied-count 0}]
+
+   ;; Catch-all for categories not listed above
+   "general"
+   [{:id "default-gen-1"
+     :title "Start With Why"
+     :category "general"
+     :insights ["Document your hypothesis before each experiment"
+                "Review learnings weekly -- patterns emerge over time"
+                "Share insights across team members to avoid re-learning"]
+     :tags ["process" "documentation" "team"]
+     :confidence 3 :applied-count 0}]
+
+   "errors/fixes"
+   [{:id "default-ef-1"
+     :title "Fail Fast, Fix Forward"
+     :category "errors/fixes"
+     :insights ["Treat errors as data, not disasters"
+                "Post-mortem every significant failure within 48 hours"
+                "Track recurring issues -- they reveal systemic problems"]
+     :tags ["debugging" "post-mortem" "resilience"]
+     :confidence 4 :applied-count 0}]
+
+   "product-development"
+   [{:id "default-pd-1"
+     :title "Build-Measure-Learn"
+     :category "product-development"
+     :insights ["Each build cycle should test exactly one hypothesis"
+                "Measuring without a hypothesis is just collecting data"
+                "Learning is the unit of progress, not features shipped"]
+     :tags ["lean" "experimentation" "learning"]
+     :confidence 5 :applied-count 0}]})
 
 (def fallback-template-data
   "Full template data keyed by template keyword, used when backend
@@ -549,8 +689,16 @@
             (for [c categories]
               (category-card (assoc c :on-select
                                     (fn [label]
-                                      (let [cat (:category c)]
-                                        ;; Request actual insights for this category
+                                      (let [cat (:category c)
+                                            ;; Three-layer lookup: live state > localStorage cache > defaults
+                                            cached (or (when state (get-in state [:learning/category-insights cat]))
+                                                       (when state (get-in state [:learning/category-insights-cache cat]))
+                                                       (get default-category-insights cat))]
+                                        ;; Pre-fill insights immediately if we have any source
+                                        (when (and cached (nil? (when state (get-in state [:learning/category-insights cat]))))
+                                          (when-let [sa @ws/app-state-atom]
+                                            (swap! sa assoc-in [:learning/category-insights cat] cached)))
+                                        ;; Always request fresh data from backend (fast, no ECA)
                                         (ws/request-category-insights! cat)
                                         (comp/set-state! this
                                           {:category-drawer/open? true
@@ -739,8 +887,8 @@
 
                   ;; Insights list
                   (cond
-                    ;; Loading state
-                    insights-loading?
+                    ;; Loading state -- only show when no insights at all (no cache, no defaults)
+                    (and insights-loading? (not (seq insights)))
                     (dom/div {:className "category-drawer-loading"}
                       (dom/span "Loading insights..."))
 

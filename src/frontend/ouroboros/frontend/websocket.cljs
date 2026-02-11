@@ -87,6 +87,32 @@
     (catch :default _e nil)))
 
 ;; ============================================================================
+;; Category Insights Cache (Learning Patterns)
+;; ============================================================================
+
+(def ^:private category-insights-cache-key "ouroboros.category-insights-cache")
+
+(defn- load-category-insights-cache
+  "Load category-insights cache from localStorage.
+   Returns map of {category-string [insight-records]} or nil."
+  []
+  (try
+    (when-let [raw (.getItem js/localStorage category-insights-cache-key)]
+      (let [parsed (js/JSON.parse raw)]
+        (js->clj parsed :keywordize-keys true)))
+    (catch :default _e nil)))
+
+(defn- save-category-insights-cache!
+  "Persist category-insights cache to localStorage.
+   cache-map is {category-string [insight-records]}."
+  [cache-map]
+  (try
+    (when (seq cache-map)
+      (.setItem js/localStorage category-insights-cache-key
+                (js/JSON.stringify (clj->js cache-map))))
+    (catch :default _e nil)))
+
+;; ============================================================================
 ;; Default Wisdom Cache (pre-fill for instant display)
 ;; ============================================================================
 
@@ -315,9 +341,12 @@ The most useful exercise is sharing your canvas with someone outside your team. 
                        (assoc :learning/categories (:categories parsed))
                        (assoc :learning/total-insights (:total-insights parsed))))))))
     (catch :default _e nil))
-  ;; Hydrate tip-detail cache from localStorage
+   ;; Hydrate tip-detail cache from localStorage
   (when-let [tip-cache (load-tip-detail-cache)]
-    (swap! state-atom assoc :tip-detail/cache tip-cache)))
+    (swap! state-atom assoc :tip-detail/cache tip-cache))
+  ;; Hydrate category-insights cache from localStorage
+  (when-let [insights-cache (load-category-insights-cache)]
+    (swap! state-atom assoc :learning/category-insights-cache insights-cache)))
 
 (defn set-render-callback!
   "Set a callback to trigger UI re-render after state mutation"
@@ -752,7 +781,13 @@ The most useful exercise is sharing your canvas with someone outside your team. 
            (fn [s]
              (-> s
                  (assoc-in [:learning/category-insights category] insights)
-                 (assoc-in [:learning/category-insights-loading? category] false))))
+                 (assoc-in [:learning/category-insights-loading? category] false)
+                 ;; Also update the persistent cache
+                 (assoc-in [:learning/category-insights-cache category] insights))))
+    ;; Persist to localStorage for instant display on next visit
+    (when (seq insights)
+      (save-category-insights-cache!
+       (:learning/category-insights-cache @state-atom)))
     (schedule-render!)))
 
 ;; ============================================================================
