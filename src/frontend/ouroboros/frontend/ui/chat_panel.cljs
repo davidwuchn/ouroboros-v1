@@ -25,7 +25,11 @@
 
 (def ^:private storage-key "ouroboros.chat-conversations")
 (def ^:private active-conv-key "ouroboros.chat-active-conversation")
+(def ^:private sidebar-width-key "ouroboros.chat-sidebar-width")
 (def ^:private max-conversations 20)
+(def ^:private default-sidebar-width 400)
+(def ^:private min-sidebar-width 300)
+(def ^:private max-sidebar-width-vw 80)
 
 (defn- generate-id
   "Generate a simple unique conversation ID"
@@ -78,8 +82,61 @@
       (dissoc :loading?)))
 
 ;; ============================================================================
-;; Chat State Mutations
+;; Sidebar Width Persistence & Resize
 ;; ============================================================================
+
+(defn- load-sidebar-width
+  "Load persisted sidebar width from localStorage, or return default."
+  []
+  (try
+    (when-let [raw (.getItem js/localStorage sidebar-width-key)]
+      (let [w (js/parseInt raw 10)]
+        (when (and (number? w) (not (js/isNaN w)))
+          w)))
+    (catch :default _e nil)))
+
+(defn- save-sidebar-width!
+  "Persist sidebar width to localStorage."
+  [width]
+  (try
+    (.setItem js/localStorage sidebar-width-key (str width))
+    (catch :default _e nil)))
+
+(defn- clamp-sidebar-width
+  "Clamp width between min and max-vw of viewport."
+  [w]
+  (let [max-px (* (.-innerWidth js/window) (/ max-sidebar-width-vw 100))]
+    (max min-sidebar-width (min w max-px))))
+
+(defn- sync-sidebar-css-var!
+  "Set --chat-sidebar-width on :root so CSS can use it for margin-right."
+  [width-px]
+  (.setProperty (.-style (.-documentElement js/document))
+                "--chat-sidebar-width" (str width-px "px")))
+
+(defn- start-sidebar-resize!
+  "Begin resizing the chat sidebar. Sets up mousemove/mouseup listeners."
+  [this start-x start-width]
+  (let [on-move (fn [e]
+                  (.preventDefault e)
+                  ;; Dragging left edge: mouse moving left = wider
+                  (let [dx (- (.-clientX e) start-x)
+                        new-w (clamp-sidebar-width (- start-width dx))]
+                    (comp/set-state! this {:resize/width new-w})
+                    (sync-sidebar-css-var! new-w)))
+        on-up   (fn on-up-fn [_e]
+                  (let [final-w (comp/get-state this :resize/width)]
+                    (when (number? final-w)
+                      (save-sidebar-width! final-w))
+                    (comp/set-state! this {:resize/active? false})
+                    (.remove (.-classList (.-body js/document)) "chat-resizing-global")
+                    (.removeEventListener js/window "mousemove" (comp/get-state this :resize/move-fn))
+                    (.removeEventListener js/window "mouseup" on-up-fn)))]
+    (comp/set-state! this {:resize/active? true
+                           :resize/move-fn on-move})
+    (.add (.-classList (.-body js/document)) "chat-resizing-global")
+    (.addEventListener js/window "mousemove" on-move)
+    (.addEventListener js/window "mouseup" on-up)))
 
 (m/defmutation toggle-chat
   "Toggle chat panel open/closed"
@@ -724,15 +781,21 @@
                        :chat/active-conversation new-id
                        :chat/show-conversations? false}))
    ;; Request ECA-generated chat suggestions on mount (not during render)
-   :componentDidMount
-   (fn [this]
-     (let [state-atom @ws/app-state-atom
-           eca-suggestions (when state-atom (get-in @state-atom [:content/generated :chat-suggestions]))
-           eca-loading? (when state-atom (get-in @state-atom [:content/loading? :chat-suggestions]))]
-       (when (and state-atom (not eca-suggestions) (not eca-loading?))
-         (let [route (:chat/context (comp/props this))
-               ctx (detect-context route)]
-           (ws/request-content! :chat-suggestions :context (or ctx "general"))))))}
+    :componentDidMount
+    (fn [this]
+      ;; Sync persisted sidebar width to CSS variable
+      (let [w (or (comp/get-state this :resize/width) default-sidebar-width)]
+        (sync-sidebar-css-var! w))
+      (let [state-atom @ws/app-state-atom
+            eca-suggestions (when state-atom (get-in @state-atom [:content/generated :chat-suggestions]))
+            eca-loading? (when state-atom (get-in @state-atom [:content/loading? :chat-suggestions]))]
+        (when (and state-atom (not eca-suggestions) (not eca-loading?))
+          (let [route (:chat/context (comp/props this))
+                ctx (detect-context route)]
+            (ws/request-content! :chat-suggestions :context (or ctx "general"))))))
+    :initLocalState (fn [_]
+                      {:resize/width (or (load-sidebar-width) default-sidebar-width)
+                       :resize/active? false})}
 
   (let [input-text (or (comp/get-state this :input) "")
         editing-idx (comp/get-state this :editing-idx)
@@ -741,6 +804,8 @@
         ctx-info (get-context-info current-route)
         has-messages? (seq messages)
         active-tab (or active-tab :chat)
+        sidebar-width (or (comp/get-state this :resize/width) default-sidebar-width)
+        resizing? (comp/get-state this :resize/active?)
 
         ;; Get project ID from workspace state
         state-atom @ws/app-state-atom
@@ -765,12 +830,21 @@
                            (comp/set-state! this {:editing-idx nil :edit-text ""}))))]
 
     ;; Overlay backdrop (click to close)
-    (dom/div {:className (str "chat-sidebar-wrapper " (when open? "chat-open"))}
+    (dom/div {:className (str "chat-sidebar-wrapper "
+                              (when open? "chat-open ")
+                              (when resizing? "chat-resizing"))}
              (dom/div :.chat-backdrop
                       {:onClick #(comp/transact! this [(close-chat {})])})
 
              ;; Sidebar panel
-             (dom/div :.chat-sidebar
+             (dom/div {:className "chat-sidebar"
+                       :style {:width (str sidebar-width "px")}}
+                      ;; Resize handle (left edge)
+                      (dom/div {:className "chat-resize-handle"
+                                :onMouseDown (fn [e]
+                                               (.preventDefault e)
+                                               (.stopPropagation e)
+                                               (start-sidebar-resize! this (.-clientX e) sidebar-width))})
                       ;; Header with tabs
                       (dom/div :.chat-header
                                (dom/div :.chat-header-left
