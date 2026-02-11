@@ -1605,10 +1605,10 @@ Open your current Lean Canvas. Find one box that you're least confident about. W
       (swap! state-atom assoc-in [:page/id :lean-canvas-builder :lean-canvas/notes] data)
 
       :value-proposition
-      (swap! state-atom assoc-in [:page/id :value-prop-builder :completed-responses] data)
+      (swap! state-atom assoc-in [:page/id :value-prop-builder :valueprop/notes] data)
 
       :mvp-planning
-      (swap! state-atom assoc-in [:page/id :mvp-builder :completed-responses] data)
+      (swap! state-atom assoc-in [:page/id :mvp-builder :mvp/notes] data)
 
       nil)
     (schedule-render!)))

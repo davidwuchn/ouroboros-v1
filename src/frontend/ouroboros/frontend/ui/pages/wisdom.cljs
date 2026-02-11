@@ -581,18 +581,26 @@
     :value-proposition
     (let [sections (:value-proposition template)]
       (when (seq sections)
-        (vec (for [[k v] sections]
-               {:section-key k
-                :response v
-                :completed-at (js/Date.now)}))))
+        (into {}
+              (for [[k v] sections]
+                (let [id (str "wisdom-" (name k) "-" (random-uuid))]
+                  [id {:item/id id
+                       :item/section k
+                       :item/content v
+                       :item/color "yellow"
+                       :item/position {:x 0 :y 0}}])))))
 
     :mvp-planning
     (let [sections (:mvp-planning template)]
       (when (seq sections)
-        (vec (for [[k v] sections]
-               {:section-key k
-                :response v
-                :completed-at (js/Date.now)}))))
+        (into {}
+              (for [[k v] sections]
+                (let [id (str "wisdom-" (name k) "-" (random-uuid))]
+                  [id {:item/id id
+                       :item/section k
+                       :item/content v
+                       :item/color "yellow"
+                       :item/position {:x 0 :y 0}}])))))
 
     nil))
 

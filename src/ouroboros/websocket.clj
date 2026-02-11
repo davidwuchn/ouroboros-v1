@@ -593,21 +593,11 @@
 
 (defn- section-completed?
   "Check if a specific section has data in a builder session.
-   Canvas builders: notes map grouped by :item/section.
-   Form builders: vector of {:section-key ...} responses."
-  [builder-type section-key data]
-  (case builder-type
-    (:empathy-map :lean-canvas)
-    (let [notes (vals (or data {}))
-          sections-with-notes (set (map :item/section notes))]
-      (contains? sections-with-notes section-key))
-
-    (:value-proposition :mvp-planning)
-    (let [responses (or data [])
-          section-keys (set (map :section-key responses))]
-      (contains? section-keys section-key))
-
-    false))
+   All builders use sticky-note format: notes map with :item/section keys."
+  [_builder-type section-key data]
+  (let [notes (vals (or data {}))
+        sections-with-notes (set (map :item/section notes))]
+    (contains? sections-with-notes section-key)))
 
 (defn- compute-kanban-board
   "Compute the full Kanban board state for a project.
@@ -934,36 +924,14 @@
                               data (:session/data latest)]]
                     (str "### " (get phase-labels builder-type (name builder-type))
                          " (" (name (or (:session/state latest) :unknown)) ")\n"
-                         (cond
-                           ;; Empathy map data
-                           (= builder-type :empathy-map)
-                           (let [sections (or (:empathy/sections data) (:sections data) {})]
-                             (str/join "\n" (for [[k v] sections
-                                                  :when (and v (not (str/blank? (str v))))]
-                                              (str "- " (name k) ": " v))))
-
-                           ;; Value proposition data
-                           (= builder-type :value-proposition)
-                           (let [fields (or (:vp/fields data) data {})]
-                             (str/join "\n" (for [[k v] fields
-                                                  :when (and v (not (str/blank? (str v))))]
-                                              (str "- " (name k) ": " v))))
-
-                           ;; MVP planning data
-                           (= builder-type :mvp-planning)
-                           (let [features (or (:mvp/features data) (:features data) [])]
-                             (if (seq features)
-                               (str "Features: " (str/join ", " (map :name features)))
-                               "No features defined yet"))
-
-                           ;; Lean canvas data
-                           (= builder-type :lean-canvas)
-                           (let [blocks (or (:canvas/blocks data) data {})]
-                             (str/join "\n" (for [[k v] blocks
-                                                  :when (and v (not (str/blank? (str v))))]
-                                              (str "- " (name k) ": " v))))
-
-                           :else "No data yet"))))))
+                         (let [notes (vals (or data {}))]
+                           (if (seq notes)
+                             (str/join "\n" (for [note notes
+                                                  :let [section (:item/section note)
+                                                        content (:item/content note)]
+                                                  :when (and content (not (str/blank? (str content))))]
+                                              (str "- " (name section) ": " content)))
+                              "No data yet")))))))
          ;; Learning history summary
          (when (pos? (:total-insights patterns 0))
            (str "\n## User History\n"
@@ -1365,42 +1333,15 @@
                     :timestamp (System/currentTimeMillis)})))
 
 (defn- format-example-items
-  "Convert builder data into a list of example items"
-  [builder-type data]
-  (case builder-type
-    :empathy-map
-    (let [notes (vals (or data {}))]
-      (map (fn [note]
-             {:section (name (:item/section note))
-              :content (:item/content note)
-              :kind :sticky-note})
-           notes))
-
-    :lean-canvas
-    (let [notes (vals (or data {}))]
-      (map (fn [note]
-             {:section (name (:item/section note))
-              :content (:item/content note)
-              :kind :sticky-note})
-           notes))
-
-    :value-proposition
-    (let [responses (or data [])]
-      (map (fn [{:keys [section-key response]}]
-             {:section (name section-key)
-              :content response
-              :kind :response})
-           responses))
-
-    :mvp-planning
-    (let [responses (or data [])]
-      (map (fn [{:keys [section-key response]}]
-             {:section (name section-key)
-              :content response
-              :kind :response})
-           responses))
-
-    []))
+  "Convert builder data into a list of example items.
+   All builders use sticky-note format: notes map with :item/section and :item/content."
+  [_builder-type data]
+  (let [notes (vals (or data {}))]
+    (map (fn [note]
+           {:section (name (:item/section note))
+            :content (:item/content note)
+            :kind :sticky-note})
+         notes)))
 
 (defn- handle-learning-save-examples!
   "Persist builder contents as learning examples"
