@@ -576,23 +576,49 @@
                       :role "button"
                       :tabIndex 0
                       :onClick (fn [_]
-                                 (comp/set-state! this
-                                   {:tip-drawer/open? true
-                                    :tip-drawer/state {:icon icon
-                                                       :title title
-                                                       :description description
-                                                       :phase wisdom-phase}
-                                    :resize/width (get-drawer-width :tip)}))
+                                 ;; Show drawer immediately with cached/default content
+                                 ;; Then fire async ECA refresh in background
+                                 (let [cache-key [wisdom-phase title]
+                                       cached (when state
+                                                (get-in state [:tip-detail/cache cache-key]))]
+                                   ;; If we have cached ECA content, show it instantly
+                                   (when (and state-atom (seq cached))
+                                     (swap! state-atom
+                                            assoc-in [:tip-detail/content cache-key] cached))
+                                   ;; Open the drawer
+                                   (comp/set-state! this
+                                     {:tip-drawer/open? true
+                                      :tip-drawer/state {:icon icon
+                                                         :title title
+                                                         :description description
+                                                         :phase wisdom-phase}
+                                      :resize/width (get-drawer-width :tip)})
+                                   ;; Fire ECA enrichment (silent if cache exists)
+                                   (when project-id
+                                     (ws/request-tip-detail!
+                                      project-id wisdom-phase title description
+                                      (when (seq cached) {:silent? true})))))
                       :onKeyDown (fn [e]
-                                   (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
-                                     (.preventDefault e)
-                                     (comp/set-state! this
-                                       {:tip-drawer/open? true
-                                        :tip-drawer/state {:icon icon
-                                                           :title title
-                                                           :description description
-                                                           :phase wisdom-phase}
-                                        :resize/width (get-drawer-width :tip)})))}
+                                    (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
+                                      (.preventDefault e)
+                                      (let [cache-key [wisdom-phase title]
+                                            cached (when state
+                                                     (get-in state [:tip-detail/cache cache-key]))]
+                                        (when (and state-atom (seq cached))
+                                          (swap! state-atom
+                                                 assoc-in [:tip-detail/content cache-key] cached))
+                                        (comp/set-state! this
+                                          {:tip-drawer/open? true
+                                           :tip-drawer/state {:icon icon
+                                                              :title title
+                                                              :description description
+                                                              :phase wisdom-phase}
+                                           :resize/width (get-drawer-width :tip)})
+                                        (when project-id
+                                          (ws/request-tip-detail!
+                                           project-id wisdom-phase title description
+                                           (when (seq cached) {:silent? true}))))))}
+
               (dom/div :.wisdom-tip-icon icon)
               (dom/h4 title)
               (dom/p description))))
@@ -760,6 +786,13 @@
       ;; ── Tip Drawer (Contextual Wisdom) ──
       (when tip-drawer-open?
         (let [{:keys [icon title description phase]} tip-drawer-state
+              cache-key [phase title]
+              ;; ECA-enriched content (live streaming or cached)
+              eca-content (when state (get-in state [:tip-detail/content cache-key]))
+              eca-loading? (when state (get-in state [:tip-detail/loading? cache-key]))
+              eca-streaming? (when state (get-in state [:tip-detail/streaming? cache-key]))
+              has-eca-content? (and eca-content (seq eca-content))
+              ;; Related tips for fallback display
               phase-tips (get contextual-wisdom-cards phase)
               related-tips (remove #(= (:title %) title) phase-tips)
               dw (clamp-drawer-width (or resize-width default-drawer-width))]
@@ -778,18 +811,39 @@
                             "Close"))
 
               (dom/div :.wisdom-drawer-body
-                (dom/div :.wisdom-tip-detail
-                  (dom/p :.wisdom-tip-detail-desc description)
+                (cond
+                  ;; ECA-enriched content available (cached or streaming)
+                  has-eca-content?
+                  (dom/div :.wisdom-tip-detail
+                    (dom/div :.wisdom-drawer-markdown
+                      (ui/render-markdown eca-content "wisdom-eca-text"))
+                    (when eca-streaming?
+                      (dom/span :.wisdom-typing-cursor)))
 
-                  (when (seq related-tips)
-                    (dom/div :.wisdom-related-tips
-                      (dom/h4 "Related Tips")
-                      (for [rt related-tips]
-                        (dom/div {:key (:title rt) :className "wisdom-related-tip"}
-                          (dom/span :.wisdom-related-icon (:icon rt))
-                          (dom/div
-                            (dom/strong (:title rt))
-                            (dom/p (:description rt)))))))))
+                  ;; Loading (no cache, waiting for first token)
+                  eca-loading?
+                  (dom/div :.wisdom-tip-detail
+                    (dom/p :.wisdom-tip-detail-desc description)
+                    (dom/div :.wisdom-loading
+                      (dom/div :.wisdom-loading-dots
+                        (dom/span :.dot)
+                        (dom/span :.dot)
+                        (dom/span :.dot))
+                      (dom/span "Personalizing this tip...")))
+
+                  ;; Fallback: static content (no project-id or ECA unavailable)
+                  :else
+                  (dom/div :.wisdom-tip-detail
+                    (dom/p :.wisdom-tip-detail-desc description)
+                    (when (seq related-tips)
+                      (dom/div :.wisdom-related-tips
+                        (dom/h4 "Related Tips")
+                        (for [rt related-tips]
+                          (dom/div {:key (:title rt) :className "wisdom-related-tip"}
+                            (dom/span :.wisdom-related-icon (:icon rt))
+                            (dom/div
+                              (dom/strong (:title rt))
+                              (dom/p (:description rt))))))))))
 
               (dom/div :.wisdom-drawer-footer
                 (dom/div {:className "insight-meta"}

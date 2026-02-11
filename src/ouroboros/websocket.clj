@@ -1133,6 +1133,101 @@
                          :count (count insights)
                          :timestamp (System/currentTimeMillis)})))
 
+(defn- handle-eca-tip-detail!
+  "Handle an eca/tip-detail request from the frontend.
+   Sends a focused prompt to ECA about a specific contextual wisdom tip,
+   streams the response back as :eca/tip-detail-token and :eca/tip-detail-done."
+  [client-id {:keys [project-id phase tip-title tip-description]}]
+  (let [phase-kw (if (string? phase) (keyword phase) phase)
+        user-id (current-user-id)]
+
+    ;; Ensure ECA is running
+    (when-not (eca/alive?)
+      (telemetry/emit! {:event :ws/eca-tip-detail-auto-start :client-id client-id})
+      (when-not (eca/ensure-alive!)
+        (send-to! client-id {:type :eca/tip-detail-error
+                             :text "ECA could not be started."
+                             :phase phase
+                             :tip-title tip-title
+                             :timestamp (System/currentTimeMillis)})))
+
+    (if-not (eca/alive?)
+      (send-to! client-id {:type :eca/tip-detail-error
+                           :text "ECA is not available."
+                           :phase phase
+                           :tip-title tip-title
+                           :timestamp (System/currentTimeMillis)})
+
+      ;; ECA running - build focused tip-detail prompt
+      (let [chat-id (str "ws-tip-detail-" client-id "-" (System/currentTimeMillis))
+            listener-id (keyword (str "ws-tip-detail-" client-id))
+            context-str (assemble-project-context user-id project-id phase-kw)
+            prompt (str "You are a product development coach. "
+                        "The user is in the " (or (get phase-labels phase-kw) (name (or phase-kw :unknown))) " phase "
+                        "and clicked on a wisdom tip card:\n\n"
+                        "**" tip-title "**\n"
+                        tip-description "\n\n"
+                        "Provide a detailed, actionable expansion of this tip. Include:\n"
+                        "1. Why this matters (1-2 sentences)\n"
+                        "2. How to apply it step-by-step (3-4 concrete actions)\n"
+                        "3. Common mistakes to avoid (2-3 pitfalls)\n"
+                        "4. A quick exercise or prompt to get started\n\n"
+                        "Be specific to the user's project context. Use markdown formatting.\n\n"
+                        "---\n\n" context-str)]
+
+        (telemetry/emit! {:event :ws/eca-tip-detail-request
+                          :client-id client-id
+                          :chat-id chat-id
+                          :phase phase-kw
+                          :tip-title tip-title})
+
+        ;; Register callback to relay ECA content
+        (eca/register-callback! "chat/contentReceived" listener-id
+          (fn [notification]
+            (let [params (:params notification)
+                  notif-chat-id (:chatId params)
+                  role (:role params)
+                  content (:content params)]
+              (when (= notif-chat-id chat-id)
+                (cond
+                  ;; Done
+                  (and (= "progress" (:type content))
+                       (#{"done" "finished"} (:state content)))
+                  (do
+                    (send-to! client-id {:type :eca/tip-detail-done
+                                         :phase phase
+                                         :tip-title tip-title
+                                         :timestamp (System/currentTimeMillis)})
+                    (eca/unregister-callback! "chat/contentReceived" listener-id))
+
+                  ;; Text token
+                  (and (= role "assistant") (= "text" (:type content)))
+                  (send-to! client-id {:type :eca/tip-detail-token
+                                       :token (:text content)
+                                       :phase phase
+                                       :tip-title tip-title
+                                       :timestamp (System/currentTimeMillis)})
+
+                  :else nil)))))
+
+        ;; Send prompt to ECA
+        (try
+          (let [result (eca/chat-prompt prompt {:chat-id chat-id})]
+            (when (= :error (:status result))
+              (send-to! client-id {:type :eca/tip-detail-error
+                                   :text (str "Error: " (or (:message result) (:error result)))
+                                   :phase phase
+                                   :tip-title tip-title
+                                   :timestamp (System/currentTimeMillis)})
+              (eca/unregister-callback! "chat/contentReceived" listener-id)))
+          (catch Exception e
+            (send-to! client-id {:type :eca/tip-detail-error
+                                 :text (str "ECA error: " (.getMessage e))
+                                 :phase phase
+                                 :tip-title tip-title
+                                 :timestamp (System/currentTimeMillis)})
+            (eca/unregister-callback! "chat/contentReceived" listener-id)))))))
+
 (defn handle-message
   "Handle incoming WebSocket message"
   [id message-str]
@@ -1157,6 +1252,9 @@
 
         "eca/wisdom"
         (future (handle-eca-wisdom! id message))
+
+        "eca/tip-detail"
+        (future (handle-eca-tip-detail! id message))
 
         "eca/debug"
         (let [enabled? (boolean (:enabled? message))]

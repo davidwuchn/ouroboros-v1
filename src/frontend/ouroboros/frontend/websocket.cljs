@@ -52,6 +52,41 @@
     (catch :default _e nil)))
 
 ;; ============================================================================
+;; Tip Detail Cache Persistence (localStorage)
+;; ============================================================================
+
+(def ^:private tip-detail-cache-key "ouroboros.tip-detail-cache")
+
+(defn- load-tip-detail-cache
+  "Load tip-detail cache from localStorage. Returns map or nil.
+   Stored as {\"empathy:Observe First\" \"markdown content\"} ->
+   {[:empathy \"Observe First\"] \"content\"}"
+  []
+  (try
+    (when-let [raw (.getItem js/localStorage tip-detail-cache-key)]
+      (let [parsed (js/JSON.parse raw)
+            m (js->clj parsed :keywordize-keys false)]
+        (into {}
+              (keep (fn [[k v]]
+                      (let [idx (.indexOf k ":")]
+                        (when (pos? idx)
+                          [[(keyword (subs k 0 idx)) (subs k (inc idx))] v]))))
+              m)))
+    (catch :default _e nil)))
+
+(defn- save-tip-detail-cache!
+  "Persist tip-detail cache to localStorage."
+  [cache-map]
+  (try
+    (let [serializable (into {}
+                             (map (fn [[[phase title] content]]
+                                    [(str (name phase) ":" title) content]))
+                             cache-map)]
+      (.setItem js/localStorage tip-detail-cache-key
+                (js/JSON.stringify (clj->js serializable))))
+    (catch :default _e nil)))
+
+;; ============================================================================
 ;; Default Wisdom Cache (pre-fill for instant display)
 ;; ============================================================================
 
@@ -269,7 +304,7 @@ The most useful exercise is sharing your canvas with someone outside your team. 
   ;; Hydrate content cache from localStorage
   (when-let [cached-content (load-content-cache)]
     (swap! state-atom update :content/generated merge cached-content))
-  ;; Hydrate learning categories cache from localStorage
+   ;; Hydrate learning categories cache from localStorage
   (try
     (when-let [raw (.getItem js/localStorage "ouroboros.learning-categories")]
       (let [parsed (js->clj (js/JSON.parse raw) :keywordize-keys true)]
@@ -279,7 +314,10 @@ The most useful exercise is sharing your canvas with someone outside your team. 
                    (-> s
                        (assoc :learning/categories (:categories parsed))
                        (assoc :learning/total-insights (:total-insights parsed))))))))
-    (catch :default _e nil)))
+    (catch :default _e nil))
+  ;; Hydrate tip-detail cache from localStorage
+  (when-let [tip-cache (load-tip-detail-cache)]
+    (swap! state-atom assoc :tip-detail/cache tip-cache)))
 
 (defn set-render-callback!
   "Set a callback to trigger UI re-render after state mutation"
@@ -516,6 +554,70 @@ The most useful exercise is sharing your canvas with someone outside your team. 
     ;; Persist cache to localStorage
     (save-wisdom-cache! (:wisdom/cache @state-atom))
     (schedule-render!)))
+
+;; ============================================================================
+;; Tip Detail Message Handlers (per-tip ECA enrichment)
+;; ============================================================================
+
+(defmethod handle-message :eca/tip-detail-token
+  [{:keys [token phase tip-title]}]
+  ;; Streaming token for tip detail enrichment.
+  ;; Uses shadow buffer pattern: accumulate silently, swap on done.
+  (when-let [state-atom @app-state-atom]
+    (let [phase-kw (if (string? phase) (keyword phase) phase)]
+      (swap! state-atom
+             (fn [s]
+               (let [refreshing? (get-in s [:tip-detail/refreshing? [phase-kw tip-title]])]
+                 (if refreshing?
+                   ;; Silent refresh: accumulate in shadow buffer
+                   (update-in s [:tip-detail/shadow [phase-kw tip-title]] str token)
+                   ;; Normal streaming: append to visible content
+                   (update-in s [:tip-detail/content [phase-kw tip-title]] str token)))))
+      ;; Only render for non-silent (visible) streaming
+      (when-not (get-in @state-atom [:tip-detail/refreshing? [phase-kw tip-title]])
+        (schedule-render!)))))
+
+(defmethod handle-message :eca/tip-detail-done
+  [{:keys [phase tip-title]}]
+  ;; Tip detail streaming complete. Swap shadow buffer if refreshing, cache result.
+  (when-let [state-atom @app-state-atom]
+    (let [phase-kw (if (string? phase) (keyword phase) phase)]
+      (swap! state-atom
+             (fn [s]
+               (let [refreshing? (get-in s [:tip-detail/refreshing? [phase-kw tip-title]])
+                     shadow (get-in s [:tip-detail/shadow [phase-kw tip-title]])
+                     content (if (and refreshing? (seq shadow))
+                               shadow
+                               (get-in s [:tip-detail/content [phase-kw tip-title]]))]
+                 (cond-> (-> s
+                             (assoc-in [:tip-detail/loading? [phase-kw tip-title]] false)
+                             (assoc-in [:tip-detail/streaming? [phase-kw tip-title]] false)
+                             (assoc-in [:tip-detail/refreshing? [phase-kw tip-title]] false)
+                             ;; Swap shadow -> visible if refreshing
+                             (cond->
+                               (and refreshing? (seq shadow))
+                               (assoc-in [:tip-detail/content [phase-kw tip-title]] shadow))
+                             ;; Clear shadow buffer
+                             (assoc-in [:tip-detail/shadow [phase-kw tip-title]] nil))
+                   ;; Cache the completed content
+                   (seq content)
+                   (assoc-in [:tip-detail/cache [phase-kw tip-title]] content)))))
+      ;; Persist to localStorage
+      (save-tip-detail-cache! (:tip-detail/cache @state-atom))
+      (schedule-render!))))
+
+(defmethod handle-message :eca/tip-detail-error
+  [{:keys [text phase tip-title]}]
+  ;; Error response for tip detail -- clear loading state, keep cache
+  (when-let [state-atom @app-state-atom]
+    (let [phase-kw (if (string? phase) (keyword phase) phase)]
+      (swap! state-atom
+             (fn [s]
+               (-> s
+                   (assoc-in [:tip-detail/loading? [phase-kw tip-title]] false)
+                   (assoc-in [:tip-detail/streaming? [phase-kw tip-title]] false)
+                   (assoc-in [:tip-detail/refreshing? [phase-kw tip-title]] false))))
+      (schedule-render!))))
 
 ;; ============================================================================
 ;; Flywheel Progress Message Handlers
@@ -857,6 +959,48 @@ The most useful exercise is sharing your canvas with someone outside your team. 
   [enabled?]
   (send! {:type "eca/debug"
           :enabled? (boolean enabled?)}))
+
+(defn request-tip-detail!
+  "Request ECA-enriched tip detail for a specific contextual wisdom tip.
+   Shows cached content instantly if available, fires async ECA refresh.
+   Options:
+     :silent? - When true, use shadow buffer (cache is already displayed)."
+  [project-id phase tip-title tip-description & [{:keys [silent?]}]]
+  (let [phase-kw (if (string? phase) (keyword phase) phase)
+        cache-key [phase-kw tip-title]]
+    (when-let [state-atom @app-state-atom]
+      (swap! state-atom
+             (fn [s]
+               (-> s
+                   ;; In silent mode, keep cached content visible
+                   ;; In normal mode, clear to show loading
+                   (cond-> (not silent?)
+                     (-> (assoc-in [:tip-detail/content cache-key] "")
+                         (assoc-in [:tip-detail/loading? cache-key] true)
+                         (assoc-in [:tip-detail/streaming? cache-key] true)))
+                   (assoc-in [:tip-detail/refreshing? cache-key] (boolean silent?)))))
+      (schedule-render!))
+    (send! {:type "eca/tip-detail"
+            :project-id project-id
+            :phase (name phase-kw)
+            :tip-title tip-title
+            :tip-description tip-description})
+    ;; Safety timeout: 25s
+    (js/setTimeout
+     (fn []
+       (when-let [state-atom @app-state-atom]
+         (let [s @state-atom
+               loading? (get-in s [:tip-detail/loading? cache-key])
+               refreshing? (get-in s [:tip-detail/refreshing? cache-key])]
+           (when (or loading? refreshing?)
+             (swap! state-atom
+                    (fn [s]
+                      (-> s
+                          (assoc-in [:tip-detail/loading? cache-key] false)
+                          (assoc-in [:tip-detail/streaming? cache-key] false)
+                          (assoc-in [:tip-detail/refreshing? cache-key] false))))
+             (schedule-render!)))))
+     25000)))
 
 (defn request-flywheel-progress!
   "Request flywheel progress for a project"
