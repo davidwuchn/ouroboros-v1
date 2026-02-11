@@ -175,7 +175,7 @@
    Strips markdown syntax and returns first sentence or short excerpt."
   ([text max-length]
    (let [max-len (or max-length 120)
-         plain-text (-> text
+         plain-text (-> (or text "")
                         ;; Remove headers
                         (str/replace #"(?m)^#+\s*" "")
                         ;; Remove bold/italic markers

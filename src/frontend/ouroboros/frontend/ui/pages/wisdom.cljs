@@ -419,7 +419,7 @@
     (dom/div :.wisdom-category-icon icon)
     (dom/div :.wisdom-category-body
       (dom/h4 label)
-      (dom/p (ui/extract-plain-text-from-markdown description 120)))
+      (dom/p (ui/extract-plain-text-from-markdown (or description "") 120)))
     (dom/div :.wisdom-category-count
       (dom/span :.wisdom-count-value (str count))
       (dom/span :.wisdom-count-label "insights")))))
@@ -824,8 +824,8 @@
                             (dom/h4 section-label)
                             (dom/div :.wisdom-preview-fields
                               (for [[fk fv] (take 3 section-data)]
-                                (dom/div {:key (name fk) :className "wisdom-preview-field"}
-                                  (dom/span :.wisdom-preview-label (str/capitalize (str/replace (name fk) #"-" " ")))
+                                (dom/div {:key (name (or fk :unknown)) :className "wisdom-preview-field"}
+                                  (dom/span :.wisdom-preview-label (str/capitalize (str/replace (name (or fk :unknown)) #"-" " ")))
                                   (dom/span :.wisdom-preview-value (subs (str fv) 0 (min 80 (count (str fv)))))))))))))))
 
               (dom/div :.wisdom-drawer-actions

@@ -380,10 +380,10 @@
                                 "Cancel")
                                (dom/button
                                 {:className "btn btn-primary"
-                                 :onClick #(let [input (js/document.getElementById "section-note-input")
-                                                 value (.-value input)]
-                                             (when (seq (str/trim value))
-                                               (on-add value)))}
+                                  :onClick #(let [input (js/document.getElementById "section-note-input")
+                                                  value (.-value input)]
+                                              (when (seq (str/trim (or value "")))
+                                                (on-add value)))}
                                 "Add Note"))))))
 
 ;; ============================================================================

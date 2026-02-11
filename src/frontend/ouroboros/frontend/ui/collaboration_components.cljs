@@ -217,7 +217,7 @@
                       (dom/button
                        {:onClick #(comp/transact! this
                                                   [(add-comment {:item-id item-id :text input-text})])
-                        :disabled (empty? (str/trim input-text))
+                        :disabled (empty? (str/trim (or input-text "")))
                         :className "btn btn-primary"}
                        "Post")))))
 
@@ -292,7 +292,7 @@
                                                                       [(create-snapshot
                                                                         {:label snapshot-label
                                                                          :description snapshot-desc})])
-                                            :disabled (empty? (str/trim snapshot-label))
+                                             :disabled (empty? (str/trim (or snapshot-label "")))
                                             :className "btn btn-primary"}
                                            "Create")))))
 

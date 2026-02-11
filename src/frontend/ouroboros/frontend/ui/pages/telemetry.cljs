@@ -293,12 +293,12 @@
             (dom/label :.telem-filter-label "Filter")
             (dom/select {:value filter-type
                          :onChange #(comp/set-state! this {:filter/event-type (.. % -target -value)})}
-              (dom/option {:value "all"} "All Events")
-              (dom/option {:value "eca"} "ECA / Prompts")
-              (dom/option {:value "tool"} "Tool Invocations")
-              (dom/option {:value "query"} "Queries")
-              (dom/option {:value "ws"} "WebSocket")
-              (dom/option {:value "engine"} "Engine")))
+              (dom/option {:key "all" :value "all"} "All Events")
+              (dom/option {:key "eca" :value "eca"} "ECA / Prompts")
+              (dom/option {:key "tool" :value "tool"} "Tool Invocations")
+              (dom/option {:key "query" :value "query"} "Queries")
+              (dom/option {:key "ws" :value "ws"} "WebSocket")
+              (dom/option {:key "engine" :value "engine"} "Engine")))
           (let [filtered-events
                 (if (= filter-type "all")
                   events
@@ -393,5 +393,6 @@
                   ;; Dynamic rendering of all extra fields
                   (when (seq extra-fields)
                     (for [[k v] extra-fields]
-                      (event-detail-row (name k) v)))
+                      (dom/div {:key (str "extra-" (name k))}
+                        (event-detail-row (name k) v))))
                   (event-detail-row "Raw Event" extra))))))))))

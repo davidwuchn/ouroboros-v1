@@ -2285,6 +2285,56 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
+### 34. Fulcro Wrapped Form Elements Require React Keys on Children
+
+**Problem:** React warning "Each child in a list should have a unique key prop" from `ForwardRef` on `dom/select` children, even though `dom/option` elements were positional (not in a `for` loop).
+
+**Root Cause:** Fulcro's `dom/select`, `dom/input`, `dom/textarea`, and `dom/option` are wrapped form elements using `react/forwardRef`. The wrapper receives children via `React.createElement(forwardRef, props, child1, child2, ...)`, then internally clones `props` (which includes `props.children` as a JS array) and passes them to `createElement("select", cloned-props)`. Since children arrive as `props.children` array rather than spread arguments, React treats them as a dynamic list and requires keys.
+
+**Non-wrapped elements** (like `dom/div`, `dom/span`, `dom/table`) use `macro-create-element*` which calls `React.createElement.apply(null, [type, props, child1, child2, ...])` -- children are spread as positional args, so no keys needed.
+
+```clojure
+;; BAD - React warning on dom/select children (wrapped form element)
+(dom/select {:value filter-type :onChange handler}
+  (dom/option {:value "all"} "All Events")
+  (dom/option {:value "eca"} "ECA Events"))
+
+;; GOOD - add :key to every child of wrapped form elements
+(dom/select {:value filter-type :onChange handler}
+  (dom/option {:key "all" :value "all"} "All Events")
+  (dom/option {:key "eca" :value "eca"} "ECA Events"))
+```
+
+**Rule:** Always add `:key` props to children of `dom/select`, `dom/input`, `dom/textarea`, and `dom/option` -- even when they are static positional children (not produced by `for` or `map`).
+
+**How to identify:** The React warning says "Check the render method of `ForwardRef`" -- this specifically points to Fulcro's wrapped form elements, not regular DOM elements.
+
+---
+
+### 35. Guard nil Inputs to clojure.string Functions
+
+**Problem:** `clojure.string/replace` (and most `clojure.string/*` functions) throw when passed `nil` instead of a string. In ClojureScript this manifests as `TypeError: can't access property "replace", s is null`.
+
+**Root Cause:** Data from backend or Fulcro state can be `nil` when expected fields are missing (e.g., ECA unavailable, data not loaded yet, optional fields). If `nil` flows into a `clojure.string` function, it crashes.
+
+**Two-layer defense:**
+
+```clojure
+;; Layer 1: Guard at the utility function (defense-in-depth)
+(defn extract-plain-text-from-markdown [text max-length]
+  (let [plain-text (-> (or text "")      ;; <- nil guard
+                       (str/replace ...)
+                       (str/replace ...))])
+
+;; Layer 2: Guard at the call site (explicit intent)
+(dom/p (ui/extract-plain-text text 120))           ;; BAD - text might be nil
+(dom/p (ui/extract-plain-text (or text "") 120))   ;; GOOD - explicit guard
+```
+
+**Rule:** Any function that passes data to `clojure.string/*` should guard with `(or value "")`. Apply at both the utility level (so all callers are safe) and at call sites (for explicit documentation of nullable fields).
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*

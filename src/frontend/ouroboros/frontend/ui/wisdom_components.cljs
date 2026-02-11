@@ -249,7 +249,7 @@
            :rows 2})
         (ui/button
           {:onClick #(on-send input-text)
-           :disabled (empty? (str/trim input-text))
+           :disabled (empty? (str/trim (or input-text "")))
            :variant :primary}
           "Send")))))
 

@@ -748,7 +748,7 @@
                      (get-in @state-atom [:workspace/project :project/id]))
 
         do-send (fn []
-                  (let [text (str/trim input-text)]
+                  (let [text (str/trim (or input-text ""))]
                     (when (seq text)
                       (comp/transact! this [(send-chat-message
                                              {:text text
@@ -756,7 +756,7 @@
                       (comp/set-state! this {:input "" :editing-idx nil :edit-text ""}))))
 
         do-edit-send (fn []
-                       (let [text (str/trim edit-text)]
+                       (let [text (str/trim (or edit-text ""))]
                          (when (and (some? editing-idx) (seq text))
                            (comp/transact! this [(edit-user-message
                                                   {:idx editing-idx
@@ -919,8 +919,8 @@
                                                                (do-send))
 
                                                            ;; Up arrow in empty input = edit last user message
-                                                           (and (= "ArrowUp" (.-key e))
-                                                                (empty? (str/trim input-text)))
+                                                            (and (= "ArrowUp" (.-key e))
+                                                                 (empty? (str/trim (or input-text ""))))
                                                            (let [last-user-idx (some (fn [i]
                                                                                        (when (= :user (:role (nth messages i)))
                                                                                          i))
@@ -932,9 +932,9 @@
                                                                                  :edit-text (:content (nth messages last-user-idx))})))))})
                                           (dom/button
                                            {:className (str "chat-send-btn "
-                                                            (when (or loading? (empty? (str/trim input-text)))
-                                                              "disabled"))
-                                            :disabled (or loading? (empty? (str/trim input-text)))
+                                                             (when (or loading? (empty? (str/trim (or input-text ""))))
+                                                               "disabled"))
+                                             :disabled (or loading? (empty? (str/trim (or input-text ""))))
                                             :onClick do-send}
                                            (if loading? "..." "↑"))))
 

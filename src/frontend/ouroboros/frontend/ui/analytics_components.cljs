@@ -129,11 +129,11 @@
   {:query [:stage/type :stage/status :stage/percentage :stage/updated-at]
    :ident (fn [] [:stage/type type])}
   (dom/div :.stage-progress
-           (dom/div :.stage-header
-                    (dom/span :.stage-name (str/replace (name type) #"-" " "))
-                    (dom/span :.stage-status-badge
-                              {:className (str "status-" (name status))}
-                              (name status)))
+            (dom/div :.stage-header
+                     (dom/span :.stage-name (str/replace (name (or type :unknown)) #"-" " "))
+                     (dom/span :.stage-status-badge
+                               {:className (str "status-" (name (or status :unknown)))}
+                               (name (or status :unknown))))
            (dom/div :.progress-bar-container
                     (dom/div :.progress-bar
                              (dom/div :.progress-fill
