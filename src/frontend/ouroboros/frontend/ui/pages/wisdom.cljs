@@ -633,6 +633,17 @@
                                       (not (get-in state [:content/generated :templates]))
                                       (not (get-in state [:content/loading? :templates])))
                              (ws/request-content! :templates))
+                           ;; Pre-seed category insights with defaults so drawers open instantly
+                           ;; Only seeds categories that don't already have data (from localStorage cache or prior WS response)
+                           (when state-atom
+                             (swap! state-atom
+                                    (fn [s]
+                                      (reduce-kv (fn [acc cat insights]
+                                                   (if (seq (get-in acc [:learning/category-insights cat]))
+                                                     acc ;; already have real/cached data
+                                                     (assoc-in acc [:learning/category-insights cat] insights)))
+                                                 s
+                                                 default-category-insights))))
                            ;; Always request real learning categories from backend (fast, no ECA)
                            ;; This silently updates cached/fallback data with real counts
                            (when (and state
@@ -719,20 +730,16 @@
         (if (seq categories)
           (dom/div {:className "wisdom-category-grid"}
             (for [c categories]
-              (category-card (assoc c :on-select
+                             (category-card (assoc c :on-select
                                     (fn [label]
-                                      (let [cat (:category c)
-                                            ;; Three-layer lookup: live state > localStorage cache > defaults
-                                            cached (or (when state (get-in state [:learning/category-insights cat]))
-                                                       (when state (get-in state [:learning/category-insights-cache cat]))
-                                                       (get default-category-insights cat))]
-                                        ;; Pre-fill insights immediately if we have any source
-                                        ;; Use (not (seq ...)) instead of nil? so we also pre-fill
-                                        ;; when current value is empty [] (e.g. after a failed request)
-                                        (when (and cached (not (seq (when state (get-in state [:learning/category-insights cat])))))
-                                          (when-let [sa @ws/app-state-atom]
-                                            (swap! sa assoc-in [:learning/category-insights cat] cached)))
-                                        ;; Always request fresh data from backend (fast, no ECA)
+                                      (let [cat (:category c)]
+                                        ;; Ensure insights are in state (defaults pre-seeded at mount,
+                                        ;; but guard against edge cases where mount hasn't run yet)
+                                        (when (not (seq (when state (get-in state [:learning/category-insights cat]))))
+                                          (when-let [fallback (get default-category-insights cat)]
+                                            (when-let [sa @ws/app-state-atom]
+                                              (swap! sa assoc-in [:learning/category-insights cat] fallback))))
+                                        ;; Request fresh data from backend (silent if already have content)
                                         (ws/request-category-insights! cat)
                                         (comp/set-state! this
                                           {:category-drawer/open? true

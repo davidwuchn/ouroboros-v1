@@ -1183,14 +1183,20 @@ Open your current Lean Canvas. Find one box that you're least confident about. W
 (defmethod handle-message :learning/category-insights
   [{:keys [category insights count]}]
   ;; Actual insight records for a specific category
+  ;; If backend returns empty results, keep existing defaults/cache (don't wipe pre-seeded content)
   (when-let [state-atom @app-state-atom]
     (swap! state-atom
            (fn [s]
-             (-> s
-                 (assoc-in [:learning/category-insights category] insights)
-                 (assoc-in [:learning/category-insights-loading? category] false)
-                 ;; Also update the persistent cache
-                 (assoc-in [:learning/category-insights-cache category] insights))))
+             (let [existing (get-in s [:learning/category-insights category])
+                   has-real-data? (seq insights)]
+               (-> s
+                   ;; Only replace insights if backend has real data; keep defaults otherwise
+                   (cond-> has-real-data?
+                     (assoc-in [:learning/category-insights category] insights))
+                   (assoc-in [:learning/category-insights-loading? category] false)
+                   ;; Update persistent cache only with real data
+                   (cond-> has-real-data?
+                     (assoc-in [:learning/category-insights-cache category] insights))))))
     ;; Persist to localStorage for instant display on next visit
     (when (seq insights)
       (save-category-insights-cache!
