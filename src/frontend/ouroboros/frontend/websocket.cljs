@@ -1225,10 +1225,7 @@ Open your current Lean Canvas. Find one box that you're least confident about. W
                    (assoc-in [:workspace/project] project)
                    ;; Also normalize it into the project table for Fulcro
                    (assoc-in [:project/id project-id] project))))
-      (schedule-render!)
-      ;; Auto-navigate to the project detail page (kanban view)
-      (when-let [nav @navigate-callback]
-        (nav ["project" encoded-id])))))
+      (schedule-render!))))
 
 (defmethod handle-message :eca/auto-insight-start
   [{:keys [project-id builder-type]}]

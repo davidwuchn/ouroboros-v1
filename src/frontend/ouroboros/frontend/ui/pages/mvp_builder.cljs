@@ -634,52 +634,35 @@
                        :sections mvp-sections
                        :notes-by-section notes-by-section})
 
-        (if is-complete?
-          ;; Completion State
-          (dom/div :.completion-state
-                   (dom/div :.completion-icon "🎉")
-                   (dom/h2 "MVP Plan Complete!")
-                   (dom/p "You now have a clear plan for your minimum viable product!")
-                   (dom/div :.insights-summary
-                            (dom/h4 "Your MVP Plan:")
-                            (dom/div :.mvp-summary
-                                     (for [{:keys [key title icon]} mvp-sections]
-                                       (let [section-key (or key :unknown)
-                                             section-notes (get notes-by-section section-key)]
-                                         (when (seq section-notes)
-                                           (dom/div {:key (name section-key) :className "summary-item"}
-                                                    (dom/strong (str icon " " title ": "))
-                                                    (dom/ul
-                                                     (for [note section-notes]
-                                                        (dom/li {:key (or (:item/id note) (str "mvp-note-" (hash note)))}
-                                                                (:item/content note))))))))))
-                   (dom/div :.completion-actions
-                            (ui/button
-                             {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~")])
-                              :variant :secondary}
-                             "Back to Project")
+        ;; Completion banner (inline, above canvas)
+        (when is-complete?
+          (dom/div :.completion-banner
+                   (dom/div :.completion-banner-content
+                            (dom/span :.completion-banner-icon "🎉")
+                            (dom/span :.completion-banner-text "MVP Plan Complete! Ready for the next step.")
                             (ui/button
                              {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~") "canvas"])
-                              :variant :primary}
-                             "Continue to Lean Canvas >")))
+                              :variant :primary
+                              :className "completion-banner-btn"}
+                             "Continue to Lean Canvas →"))))
 
-           ;; Visual Canvas
-           (let [init-data (canvas/initialize-mvp)]
-             (dom/div :.canvas-container
-               (canvas/mvp-canvas
-                 {:sections (:canvas/sections init-data)
-                  :items (vals notes-map)
-                  :on-item-add (fn [section-key]
-                                 (comp/transact! this
-                                   [(m/set-props {:ui (-> ui
-                                                          (assoc :ui/show-section-modal true)
-                                                          (assoc :ui/active-section section-key))})]))
-                  :on-item-edit (fn [note-id new-content]
+        ;; Visual Canvas (always shown)
+        (let [init-data (canvas/initialize-mvp)]
+          (dom/div :.canvas-container
+            (canvas/mvp-canvas
+              {:sections (:canvas/sections init-data)
+               :items (vals notes-map)
+               :on-item-add (fn [section-key]
+                               (comp/transact! this
+                                 [(m/set-props {:ui (-> ui
+                                                        (assoc :ui/show-section-modal true)
+                                                        (assoc :ui/active-section section-key))})]))
+               :on-item-edit (fn [note-id new-content]
+                                (comp/transact! this
+                                  [(update-mvp-note
+                                    {:note-id note-id
+                                     :updates {:item/content new-content}})]))
+               :on-item-delete (fn [note-id]
                                   (comp/transact! this
-                                    [(update-mvp-note
-                                      {:note-id note-id
-                                       :updates {:item/content new-content}})]))
-                  :on-item-delete (fn [note-id]
-                                    (comp/transact! this
-                                      [(delete-mvp-note
-                                        {:note-id note-id})]))}))))))))
+                                    [(delete-mvp-note
+                                      {:note-id note-id})]))})))))))

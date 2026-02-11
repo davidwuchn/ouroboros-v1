@@ -638,61 +638,40 @@
                               :total (count blocks)
                               :notes-by-block notes-by-block})
 
-        (if is-complete?
-          ;; Completion State
-          (dom/div :.completion-state
-                   (dom/div :.completion-icon "🎉")
-                   (dom/h2 "Lean Canvas Complete!")
-                   (dom/p "You now have a complete business model. Time to validate your assumptions!")
-                   (dom/div :.insights-summary
-                            (dom/h4 "Your Business Model:")
-                            (dom/div :.canvas-summary
-                                     (for [{:keys [key icon title]} lean-canvas-blocks]
-                                       (let [block-key (or key :unknown)
-                                             block-notes (get notes-by-block block-key)]
-                                         (when (seq block-notes)
-                                           (dom/div {:key (name block-key) :className "summary-item"}
-                                                    (dom/strong (str icon " " title ": "))
-                                                    (dom/ul
-                                                     (for [note block-notes]
-                                                         (dom/li {:key (or (:item/id note) (str "canvas-note-" (hash note)))}
-                                                                 (:item/content note))))))))))
-                   (dom/div :.completion-actions
-                            (ui/button
-                             {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~")])
-                              :variant :secondary}
-                             "Back to Project")
+        ;; Completion banner (inline, above canvas)
+        (when is-complete?
+          (dom/div :.completion-banner
+                   (dom/div :.completion-banner-content
+                            (dom/span :.completion-banner-icon "🎉")
+                            (dom/span :.completion-banner-text "Lean Canvas Complete! Your business model is ready.")
                             (ui/button
                              {:on-click #(let [json-data (canvas/export-canvas-to-json (vals notes-map))]
                                            (canvas/download-json (str "lean-canvas-" project-id ".json") json-data))
-                              :variant :primary}
-                             "Export Canvas")
-                            (ui/button
-                             {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~") "mvp"])
-                              :variant :primary}
-                             "Plan MVP >")))
+                              :variant :primary
+                              :className "completion-banner-btn"}
+                             "Export Canvas"))))
 
-          ;; Visual Canvas
-          (let [canvas-sections (mapv (fn [{:keys [key title description]}]
-                                        {:section/key key
-                                         :section/title title
-                                         :section/description description})
-                                      lean-canvas-blocks)]
-            (dom/div :.canvas-container
-                     (canvas/lean-canvas
-                      {:sections canvas-sections
-                       :items (vals notes-map)
-                       :on-item-add (fn [block-key]
-                                      (comp/transact! this
-                                                      [(m/set-props {:ui (-> ui
-                                                                             (assoc :ui/show-add-modal true)
-                                                                              (assoc :ui/active-block block-key))})]))
-                       :on-item-edit (fn [note-id new-content]
+        ;; Visual Canvas (always shown)
+        (let [canvas-sections (mapv (fn [{:keys [key title description]}]
+                                      {:section/key key
+                                       :section/title title
+                                       :section/description description})
+                                    lean-canvas-blocks)]
+          (dom/div :.canvas-container
+                   (canvas/lean-canvas
+                    {:sections canvas-sections
+                     :items (vals notes-map)
+                     :on-item-add (fn [block-key]
+                                    (comp/transact! this
+                                                    [(m/set-props {:ui (-> ui
+                                                                           (assoc :ui/show-add-modal true)
+                                                                            (assoc :ui/active-block block-key))})]))
+                     :on-item-edit (fn [note-id new-content]
+                                     (comp/transact! this
+                                       [(update-canvas-note
+                                         {:note-id note-id
+                                          :updates {:item/content new-content}})]))
+                     :on-item-delete (fn [note-id]
                                        (comp/transact! this
-                                         [(update-canvas-note
-                                           {:note-id note-id
-                                            :updates {:item/content new-content}})]))
-                       :on-item-delete (fn [note-id]
-                                         (comp/transact! this
-                                           [(delete-canvas-note
-                                             {:note-id note-id})]))}))))))))
+                                         [(delete-canvas-note
+                                           {:note-id note-id})]))})))))))

@@ -798,50 +798,38 @@
                                :total (count sections)
                                :notes-by-section notes-by-section})
 
-        (if is-complete?
-          ;; Completion State
-          (dom/div :.completion-state
-                   (dom/div :.completion-icon "🎉")
-                   (dom/h2 "Empathy Map Complete!")
-                   (dom/p "You now deeply understand your customer. The insights you've gathered will inform your Value Proposition.")
-                   (dom/div :.insights-summary
-                            (dom/h4 "Key Insights:")
-                            (dom/ul
-                             (for [[section-key notes] notes-by-section]
-                               (when (seq notes)
-                                 (dom/li {:key (name section-key)}
-                                         (dom/strong (str (:icon (get empathy-sections section-key)) " "))
-                                         (:item/content (first notes)))))))
-                   (dom/div :.completion-actions
-                            (ui/button
-                             {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~")])
-                              :variant :secondary}
-                             "Back to Project")
+        ;; Completion banner (inline, above canvas)
+        (when is-complete?
+          (dom/div :.completion-banner
+                   (dom/div :.completion-banner-content
+                            (dom/span :.completion-banner-icon "🎉")
+                            (dom/span :.completion-banner-text "Empathy Map Complete! Ready for the next step.")
                             (ui/button
                              {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~") "valueprop"])
-                              :variant :primary}
-                             "Continue to Value Proposition →")))
+                              :variant :primary
+                              :className "completion-banner-btn"}
+                             "Continue to Value Proposition →"))))
 
-          ;; Visual Canvas
-          (let [init-data (canvas/initialize-empathy-map)]
-            (dom/div :.canvas-container
-              (canvas/empathy-map
-                {:sections (:canvas/sections init-data)
-                 :items (vals notes-map)
-                 :on-item-add (fn [section-key]
-                                 (comp/transact! this
-                                   [(m/set-props {:ui (-> ui
-                                                          (assoc :ui/show-section-modal true)
-                                                          (assoc :ui/active-section section-key))})]))
-                 :on-item-edit (fn [note-id new-content]
-                                 (comp/transact! this
-                                   [(update-empathy-note
-                                     {:note-id note-id
-                                      :updates {:item/content new-content}})]))
-                 :on-item-delete (fn [note-id]
-                                   (comp/transact! this
-                                     [(delete-empathy-note
-                                       {:note-id note-id})]))}))))))))
+        ;; Visual Canvas (always shown)
+        (let [init-data (canvas/initialize-empathy-map)]
+          (dom/div :.canvas-container
+            (canvas/empathy-map
+              {:sections (:canvas/sections init-data)
+               :items (vals notes-map)
+               :on-item-add (fn [section-key]
+                                (comp/transact! this
+                                  [(m/set-props {:ui (-> ui
+                                                         (assoc :ui/show-section-modal true)
+                                                         (assoc :ui/active-section section-key))})]))
+               :on-item-edit (fn [note-id new-content]
+                                (comp/transact! this
+                                  [(update-empathy-note
+                                    {:note-id note-id
+                                     :updates {:item/content new-content}})]))
+               :on-item-delete (fn [note-id]
+                                  (comp/transact! this
+                                    [(delete-empathy-note
+                                      {:note-id note-id})]))})))))))
 
 
 
