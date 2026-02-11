@@ -1013,7 +1013,7 @@
               (dom/div :.wisdom-drawer-header
                 (dom/div
                   (dom/h3 (str icon " " title))
-                  (dom/p (str (name phase) " phase guidance")))
+                  (dom/p (str (name (or phase :unknown)) " phase guidance")))
                 (dom/button {:className "btn btn-secondary"
                              :onClick #(comp/set-state! this {:tip-drawer/open? false})}
                             "Close"))
@@ -1056,7 +1056,7 @@
               (dom/div :.wisdom-drawer-footer
                 (dom/div {:className "insight-meta"}
                   (dom/span {:className "insight-source"} "Phase: ")
-                  (dom/span {:className "insight-files"} (str/capitalize (name phase))))
+                  (dom/span {:className "insight-files"} (str/capitalize (name (or phase :unknown)))))
                 (dom/button {:className "btn btn-primary btn-sm"
                              :onClick #(comp/set-state! this {:tip-drawer/open? false})}
                             "Got it")))))))))

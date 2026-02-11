@@ -73,7 +73,7 @@
                     {:style {:height (str reached-percentage "%")}}
                     (dom/span :.funnel-count reached))
            (dom/div :.funnel-info
-                    (dom/span :.funnel-name (name stage))
+                    (dom/span :.funnel-name (name (or stage :unknown)))
                     (dom/span :.funnel-percentage (str reached-percentage "%"))
                     (when (> drop-off 0)
                       (dom/span :.funnel-drop-off (str "↓ " drop-off " drop-off"))))))
@@ -221,7 +221,7 @@
              {:style {:borderLeftColor (get colors likelihood "#999")}}
              (dom/div :.prediction-header
                       (dom/span :.prediction-icon (get icons likelihood "❓"))
-                      (dom/h4 (str/capitalize (name likelihood)) " Likelihood of Success")
+                      (dom/h4 (str/capitalize (name (or likelihood :unknown))) " Likelihood of Success")
                       (dom/span :.prediction-confidence
                                 (str (int (* 100 confidence)) "% confident")))
              (dom/p :.prediction-message message)
@@ -251,10 +251,12 @@
         time-data (:time-tracking dashboard)
         prediction-msg (:prediction-message dashboard)
         prediction-streaming? (:prediction-streaming? dashboard)
-        loading? (nil? dashboard)]
+        loading? (nil? dashboard)
+        already-requested? (when state-atom
+                             (get-in @state-atom [:analytics/dashboard project-id :prediction-streaming?]))]
 
-    ;; Request real analytics data if not loaded
-    (when (and project-id (not dashboard))
+    ;; Request real analytics data if not loaded and not already requesting
+    (when (and project-id (not dashboard) (not already-requested?))
       (ws/request-analytics! project-id))
 
     (dom/div :.analytics-dashboard

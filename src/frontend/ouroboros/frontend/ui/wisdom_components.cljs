@@ -103,7 +103,7 @@
   {:query [:insight/type :insight/title :insight/description :insight/confidence]
    :ident (fn [] [:insight/type type])}
   (dom/div :.ai-insight
-    {:className (str "insight-" (name type))}
+    {:className (str "insight-" (name (or type :unknown)))}
     (dom/div :.insight-header
       (dom/h4 title)
       (dom/span :.insight-confidence
@@ -156,7 +156,7 @@
         "business-model" "💼"
         "📊"))
     (dom/div :.pattern-info
-      (dom/h4 (str/capitalize category))
+      (dom/h4 (str/capitalize (or category "unknown")))
       (dom/p (str count " insights"))
       (when recent
         (dom/span :.pattern-recent "Recent activity")))))
@@ -198,7 +198,7 @@
       (ui/button
         {:onClick on-accept
          :variant :primary}
-        (str "Go to " (name next-stage)))
+        (str "Go to " (name (or next-stage :unknown))))
       (ui/button
         {:onClick #(js/alert "Suggestion dismissed")
          :variant :secondary}

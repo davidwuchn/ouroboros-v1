@@ -1083,7 +1083,8 @@ Open your current Lean Canvas. Find one box that you're least confident about. W
 (defmethod handle-message :wisdom/template
   [{:keys [template-key data]}]
   (when-let [state-atom @app-state-atom]
-    (swap! state-atom assoc-in [:wisdom/template (keyword template-key)] data)
+    (when (seq data)
+      (swap! state-atom assoc-in [:wisdom/template (keyword template-key)] data))
     (schedule-render!)))
 
 ;; ============================================================================
@@ -1092,9 +1093,10 @@ Open your current Lean Canvas. Find one box that you're least confident about. W
 
 (defmethod handle-message :kanban/board
   [{:keys [project-id board]}]
-  ;; Kanban board data from backend
+  ;; Kanban board data from backend -- preserve existing if backend returns empty
   (when-let [state-atom @app-state-atom]
-    (swap! state-atom assoc-in [:kanban/board project-id] board)
+    (when (seq board)
+      (swap! state-atom assoc-in [:kanban/board project-id] board))
     (schedule-render!)))
 
 ;; ============================================================================
@@ -1104,8 +1106,10 @@ Open your current Lean Canvas. Find one box that you're least confident about. W
 (defmethod handle-message :analytics/dashboard
   [{:keys [project-id data]}]
   ;; Real analytics data from backend (progress, health, funnel, prediction, time)
+  ;; Preserve existing if backend returns empty
   (when-let [state-atom @app-state-atom]
-    (swap! state-atom assoc-in [:analytics/dashboard project-id] data)
+    (when (seq data)
+      (swap! state-atom assoc-in [:analytics/dashboard project-id] data))
     (schedule-render!)))
 
 (defmethod handle-message :analytics/prediction-token
@@ -1463,13 +1467,27 @@ Open your current Lean Canvas. Find one box that you're least confident about. W
           :project-id project-id}))
 
 (defn request-analytics!
-  "Request real analytics dashboard data for a project"
+  "Request real analytics dashboard data for a project.
+   If analytics data already exists, refreshes silently without showing
+   streaming state. Includes a 25s safety timeout."
   [project-id]
   (when-let [state-atom @app-state-atom]
-    (swap! state-atom assoc-in
-           [:analytics/dashboard project-id :prediction-streaming?] true))
+    (let [existing (get-in @state-atom [:analytics/dashboard project-id])
+          silent? (boolean (seq existing))]
+      (when-not silent?
+        (swap! state-atom assoc-in
+               [:analytics/dashboard project-id :prediction-streaming?] true))))
   (send! {:type "analytics/dashboard"
-          :project-id project-id}))
+          :project-id project-id})
+  ;; Safety timeout: clear streaming state if no response in 25s
+  (js/setTimeout
+   (fn []
+     (when-let [state-atom @app-state-atom]
+       (when (get-in @state-atom [:analytics/dashboard project-id :prediction-streaming?])
+         (swap! state-atom assoc-in
+                [:analytics/dashboard project-id :prediction-streaming?] false)
+         (schedule-render!))))
+   25000))
 
 (defn request-content!
   "Request ECA-generated content by type.
@@ -1515,11 +1533,24 @@ Open your current Lean Canvas. Find one box that you're least confident about. W
 
 (defn request-learning-categories!
   "Request real learning categories from backend memory.
-   Fast (no ECA) -- reads directly from learning storage."
+   Fast (no ECA) -- reads directly from learning storage.
+   If categories already exist, refreshes silently.
+   Includes a 20s safety timeout."
   []
   (when-let [state-atom @app-state-atom]
-    (swap! state-atom assoc :learning/categories-loading? true))
-  (send! {:type "learning/categories"}))
+    (let [existing (get @state-atom :learning/categories)
+          silent? (boolean (seq existing))]
+      (when-not silent?
+        (swap! state-atom assoc :learning/categories-loading? true))))
+  (send! {:type "learning/categories"})
+  ;; Safety timeout: clear loading state if no response in 20s
+  (js/setTimeout
+   (fn []
+     (when-let [state-atom @app-state-atom]
+       (when (get @state-atom :learning/categories-loading?)
+         (swap! state-atom assoc :learning/categories-loading? false)
+         (schedule-render!))))
+   20000))
 
 (defn request-category-insights!
   "Request actual insight records for a specific learning category.

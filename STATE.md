@@ -220,9 +220,9 @@ In REPL:
 
 - Branch: `chat-platforms`
 - Status: Clean
-- Last Updated: 2026-02-10
-- Remote: `origin/chat-platforms`
-- Latest committed: Resilience & UI polish sweep (ECA auto-restart, WebSocket resilience, telemetry drawer, flywheel circle stepper)
+- Last Updated: 2026-02-11
+- Remote: `origin/chat-platforms` (pushed, up to date)
+- Latest committed: Fix Learning Patterns card count mismatch with drawer insight count
 
 ## Completed Features
 
@@ -237,13 +237,16 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 5. **Kanban Board** -- ✅ Auto-derived Kanban board on Project page. 29 cards across 4 builders (Empathy Map 6, Value Prop 6, MVP 8, Lean Canvas 9). 3 columns: Not Started, In Progress, Done. Cards derive status from actual builder session data. Color-coded by builder. View toggle (Flywheel/Kanban) on Project page.
 6. **Phase D: Dynamic Content** -- ✅ Replaced ALL hardcoded static content with ECA-powered dynamic content. New backend handlers: `analytics/dashboard` (real analytics from project data + ECA prediction text), `content/generate` (generic ECA content generation with 7 content types: insights, blockers, templates, chat-suggestions, flywheel-guide, section-hints, learning-categories). Frontend reads ECA content from WS state with static fallback. 10 files changed (3 backend, 7 frontend). 58 tests, 268 assertions pass.
 7. **Resilience & UI Polish** -- ✅ ECA client auto-restart on failure with alive checks. WebSocket content caching in localStorage. Chat panel WS connectivity checks. Telemetry UI overhaul with event detail drawer and debug toggle. Nil-safety sweep across 9 frontend components. Flywheel indicator redesigned as circle stepper with accessibility.
-8. **Metrics Export** -- Prometheus/OpenTelemetry format
+8. **Frontend Bug Fixes (2026-02-11)** -- ✅ Fixed nil-safety in `extract-plain-text-from-markdown` and `str/` call sites (13 sites across 8 files). Added React keys to Fulcro wrapped form elements. Fixed Learning Patterns cards: enriched backend categories with icons/descriptions/default counts. Fixed drawer "Loading insights..." on every click (cache-first pattern). Fixed card count mismatch with drawer (derived counts from actual data, fixed `count` shadowing bug, fixed `enrich-categories` extras path).
+9. **Metrics Export** -- Prometheus/OpenTelemetry format
 
 **Architectural Insight (2026-02-09)**: ECA-powered wisdom is now **fully wired end-to-end**. Backend assembles project context, sends to ECA, streams tokens back via WebSocket. Frontend renders progressively with Fulcro render scheduling. The wisdom sidebar in all 4 builders and the wisdom page Quick Tips section now fetch from ECA with static fallback. **WebUX = state/CRUD/interaction, ECA = knowledge/wisdom/guidance.**
 
 **Single-Project Model (2026-02-08)**: Shifted from multi-project CRUD to single-project-per-instance. The running directory IS the project. Backend auto-detects workspace info on WS connect and sends `:project/detected`. Frontend normalizes into Fulcro state. Users/Sessions pages removed (were chat-platform data, always empty without adapters running).
 
 **Resilience & UI Polish (2026-02-10)**: Systematic hardening pass. ECA client now auto-restarts on failure (`alive?`, `restart!`, `ensure-alive!`). WebSocket content cached in localStorage for generated content. Chat panel checks WS connectivity before sending. Telemetry page redesigned with event detail drawer and debug mode toggle. Nil-safety sweep across 9 frontend components. Flywheel indicator redesigned from pill buttons to numbered-circle stepper with SVG checkmarks and ARIA accessibility.
+
+**Frontend Bug Fix Sweep (2026-02-11)**: 4 commits fixing frontend display bugs. (1) Nil-safety guards on 13 `clojure.string/*` call sites across 8 files + React keys on Fulcro wrapped form elements. (2) Learning Patterns cards enriched with icons/descriptions from frontend metadata when backend returns raw data. (3) Learning Patterns drawer cache-first pattern: pre-seed defaults at mount, silent refresh, safety timeouts. (4) Learning Patterns card count derived from actual default insight data, fixed `count` destructuring shadowing `cljs.core/count`, fixed `enrich-categories` extras code path. New LEARNING.md patterns #36-41 documented.
 
 **Dynamic Content Migration Complete**: All hardcoded static content (wisdom tips, templates, learning categories, analytics dashboard, chat suggestions, flywheel phase descriptions, section hints) now powered by ECA with static fallback. Builder section configs (UX structure) remain static by design -- they define instant-load UI chrome.
 

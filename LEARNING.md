@@ -2335,6 +2335,191 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
+### 36. Cache-First Instant Display Pattern
+
+**Problem:** Drawer/panel content that loads from the backend via WebSocket shows a "Loading..." spinner every time the user clicks. Even sub-second loads feel sluggish when the content was already fetched moments ago.
+
+**Solution:** Pre-seed default content into app state at mount/hydration time. Show cached or default content instantly on click. Let backend refresh silently in the background.
+
+**Three-layer approach:**
+
+```clojure
+;; Layer 1: Pre-seed defaults at component mount or state hydration
+(defn set-app-state-atom! [atom]
+  (swap! atom merge
+    {:tip-detail-cache default-tip-detail-cache}     ;; Pre-written content
+    (:tip-detail-cache (read-local-storage))))        ;; localStorage overrides
+
+;; Layer 2: On click, show existing content immediately
+(defn open-drawer [category]
+  (let [existing (get-in @state [:insights category])]
+    ;; Show immediately -- no loading spinner
+    (swap! state assoc :drawer-open category)
+    ;; Only show loading if nothing exists
+    (when-not (seq existing)
+      (swap! state assoc :loading? true))
+    ;; Silent background refresh
+    (ws/request-category-insights! category)))
+
+;; Layer 3: Response handler preserves existing when backend returns empty
+(defmethod handle-message :learning/category-insights [msg]
+  (let [insights (:insights msg)]
+    (when (seq insights)  ;; Don't overwrite with empty
+      (swap! state assoc-in [:insights (:category msg)] insights))))
+```
+
+**Key Insight:** The perceived performance of a UI is determined by how much content appears instantly on interaction. Pre-seeding defaults means the user never sees an empty drawer, even on first load before any backend response.
+
+---
+
+### 37. Silent Refresh Mode for WebSocket Requests
+
+**Problem:** Re-fetching content that already exists in state causes a visible loading spinner, creating unnecessary visual noise. The user sees content disappear and reappear.
+
+**Solution:** Check whether content already exists before setting `loading?=true`. If content exists, fetch silently in the background and swap in the new data when it arrives.
+
+```clojure
+(defn request-category-insights! [category]
+  (let [existing (get-in @state [:insights category])]
+    ;; Only show loading state if nothing cached
+    (when-not (seq existing)
+      (swap! state assoc-in [:loading category] true))
+    ;; Always request -- but quietly if cached
+    (ws-send! {:type "learning/category-insights" :category category})))
+```
+
+**Safety timeout:** Always add a timeout to clear loading flags, even for silent requests:
+
+```clojure
+(js/setTimeout
+  (fn [] (swap! state assoc-in [:loading category] false))
+  20000)  ;; 20s safety net
+```
+
+**Key Insight:** Loading spinners should indicate "we have nothing to show yet," not "we're refreshing what you already see." Silent refresh preserves the user's context while keeping data fresh.
+
+---
+
+### 38. Never Overwrite Content with Empty Responses
+
+**Problem:** Backend WebSocket responses sometimes return empty arrays (`[]`) when data is temporarily unavailable. If the response handler blindly writes this to state, it wipes out perfectly good cached/default content.
+
+**Solution:** Check response content before writing to state. Preserve existing data when the backend returns nothing useful.
+
+```clojure
+;; BAD - overwrites cache with nothing
+(defmethod handle-message :learning/category-insights [msg]
+  (swap! state assoc-in [:insights (:category msg)] (:insights msg)))
+
+;; GOOD - preserve existing on empty response
+(defmethod handle-message :learning/category-insights [msg]
+  (let [insights (:insights msg)]
+    (when (seq insights)
+      (swap! state assoc-in [:insights (:category msg)] insights))
+    ;; Always clear loading flag regardless
+    (swap! state assoc-in [:loading (:category msg)] false)))
+```
+
+**Key Insight:** Treat empty responses as "no update" not "clear everything." The backend being temporarily unable to provide data is not the same as "there is no data."
+
+---
+
+### 39. Frontend Enrichment of Backend Data
+
+**Problem:** Backend returns raw data (counts, records, category names) but the frontend needs UI metadata (icons, descriptions, default content). The backend shouldn't know about UI concerns.
+
+**Solution:** Frontend maintains a metadata lookup and merges UI enrichment onto backend data, using `max(backend, default)` for counts.
+
+```clojure
+;; UI metadata defined in frontend
+(def category-metadata
+  {:architecture  {:icon "icon-arch"  :description "System design patterns"}
+   :performance   {:icon "icon-perf"  :description "Optimization insights"}})
+
+;; Default insights per category (also frontend-only)
+(def default-category-insights
+  {:architecture [{:title "Pattern A" :content "..."}
+                  {:title "Pattern B" :content "..."}]})
+
+;; Enrichment function: backend raw data + frontend metadata
+(defn enrich-categories [backend-categories]
+  (mapv (fn [cat]
+          (let [k (:category cat)
+                meta (get category-metadata k)
+                default-count (count (get default-category-insights k []))]
+            (merge cat meta
+                   {:count (max (:count cat 0) default-count)})))
+        backend-categories))
+```
+
+**Count strategy:** Use `max(backend-count, default-count)` because:
+- Backend may return 0 when data isn't loaded yet, but we have defaults to show
+- Backend may return more than defaults if user has generated insights
+- Either way, the card count should reflect what the user will actually see
+
+**Key Insight:** Separate concerns: backend owns data and computation, frontend owns presentation and UI metadata. The enrichment layer at the boundary keeps both sides clean.
+
+---
+
+### 40. Derive Display Counts from Actual Data
+
+**Problem:** Card components showed hardcoded counts (e.g., `{:count 12}`) while the corresponding drawer only contained 2-3 items. The user clicks a card saying "12 insights" and sees 3.
+
+**Root Cause:** Counts were defined in one `def` block and actual content in a separate `def` block. The two drifted independently because there was no programmatic connection between them.
+
+**Solution:** Derive counts from the actual data source. Never hardcode a count separately from the data it represents.
+
+```clojure
+;; BAD - count and data defined independently, will drift
+(def categories
+  [{:category :arch :count 12}       ;; aspirational, not real
+   {:category :perf :count 8}])
+
+(def category-insights
+  {:arch [{:title "A"} {:title "B"}]  ;; only 2, not 12
+   :perf [{:title "C"}]})             ;; only 1, not 8
+
+;; GOOD - count derived from data
+(def categories-base
+  [{:category :arch}                  ;; metadata only, no :count
+   {:category :perf}])
+
+(def categories
+  (mapv (fn [base]
+          (assoc base :count
+            (count (get category-insights (:category base) []))))
+        categories-base))
+;; => [{:category :arch :count 2} {:category :perf :count 1}]
+```
+
+**Key Insight:** Every display count in the UI should be computable from the data it represents. If you can't point to the `(count ...)` call that produces it, the count is a bug waiting to happen.
+
+---
+
+### 41. Avoid Destructuring Names That Shadow cljs.core
+
+**Problem:** Destructuring `{:keys [count]}` shadows `cljs.core/count`. Later calling `(count items)` tries to invoke a number as a function, producing `count.call is not a function` at runtime.
+
+**Commonly shadowed names:** `count`, `name`, `type`, `key`, `val`, `first`, `last`, `list`, `map`, `filter`, `reduce`, `set`, `get`, `str`, `int`, `meta`, `hash`, `range`, `seq`, `sort`, `merge`, `replace`, `read`, `symbol`, `keyword`, `identity`, `class`
+
+**Solution:** Use rename destructuring when a map key collides with a core function name:
+
+```clojure
+;; BAD - shadows cljs.core/count
+(let [{:keys [label description category count]} card]
+  (dom/span (str "(" (count insights) ")")))  ;; CRASH: count is a number
+
+;; GOOD - rename to avoid shadowing
+(let [{:keys [label description category] card-count :count} card]
+  (dom/span (str "(" (count insights) ")")))  ;; Works: count is cljs.core/count
+```
+
+**Detection:** ClojureScript compiler does NOT warn about this shadowing. The error only appears at runtime and the message (`count.call is not a function`) doesn't mention the real cause. Look for `{:keys [...]}` destructuring containing core function names.
+
+**Key Insight:** This is a silent, common bug in ClojureScript. The compiler accepts it, the REPL works fine with small test data, and it only crashes at runtime when the shadowed name is actually called. Treat `{:keys [count name type key]}` as code smell.
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*
