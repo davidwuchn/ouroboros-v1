@@ -99,7 +99,12 @@
   [{:key :saas     :icon "🚀" :name "SaaS Product"          :description "Software as a Service business model with recurring revenue, user onboarding, and retention focus." :tags ["B2B" "Subscription" "Cloud"]}
    {:key :marketplace :icon "🏪" :name "Two-Sided Marketplace" :description "Platform connecting buyers and sellers with network effects, trust systems, and transaction facilitation." :tags ["Platform" "Network Effects" "Commission"]}
    {:key :mobile-app  :icon "📱" :name "Mobile App"            :description "Consumer mobile application with engagement loops, monetization strategies, and growth mechanics." :tags ["Consumer" "Mobile" "Growth"]}
-   {:key :developer-tool :icon "🛠" :name "Developer Tool"     :description "Tools and APIs for developers with adoption funnels, documentation focus, and community building." :tags ["B2D" "API" "Open Source"]}])
+   {:key :developer-tool :icon "🛠" :name "Developer Tool"     :description "Tools and APIs for developers with adoption funnels, documentation focus, and community building." :tags ["B2D" "API" "Open Source"]}
+   {:key :ecommerce     :icon "🛒" :name "E-Commerce / D2C"    :description "Direct-to-consumer brand selling physical or digital products with supply chain, branding, and customer acquisition." :tags ["D2C" "Retail" "Brand"]}
+   {:key :subscription-box :icon "📦" :name "Subscription Box"  :description "Curated recurring delivery of physical goods with retention mechanics, personalization, and logistics." :tags ["Subscription" "Curation" "Logistics"]}
+   {:key :edtech        :icon "🎓" :name "EdTech Platform"      :description "Online education platform with courses, certifications, and learning paths for skill development." :tags ["Education" "Courses" "B2C"]}
+   {:key :agency        :icon "🏢" :name "Agency / Consulting"  :description "Professional services business with client acquisition, project delivery, and expertise monetization." :tags ["Services" "B2B" "Consulting"]}
+   {:key :content-platform :icon "🎬" :name "Content Platform"  :description "Creator-driven media platform with content monetization, audience building, and engagement loops." :tags ["Creator" "Media" "Monetization"]}])
 
 (def fallback-learning-categories-base
   "Static learning categories metadata (icon, label, description).
@@ -412,14 +417,164 @@
                                    :timeline "6 weeks: CLI, Library, Docs, Launch on HN"
                                    :risks "Developer adoption is slow; competing tools; maintenance burden"}
                     :lean-canvas {:problems "Boilerplate overhead, poor DX, fragmented tooling"
-                                  :solution "Opinionated full-stack toolkit"
-                                  :uvp "From idea to production in one weekend"
-                                  :unfair-advantage "Developer community and ecosystem"
-                                  :customer-segments "Indie hackers, startup CTOs, side-project devs"
-                                  :key-metrics "GitHub stars, npm downloads, WAU"
-                                  :channels "Dev.to, HN, Twitter, GitHub"
-                                  :cost-structure "Open source maintenance, docs, community"
-                                  :revenue-streams "Pro features, consulting, enterprise support"}}})
+                                   :solution "Opinionated full-stack toolkit"
+                                   :uvp "From idea to production in one weekend"
+                                   :unfair-advantage "Developer community and ecosystem"
+                                   :customer-segments "Indie hackers, startup CTOs, side-project devs"
+                                   :key-metrics "GitHub stars, npm downloads, WAU"
+                                   :channels "Dev.to, HN, Twitter, GitHub"
+                                   :cost-structure "Open source maintenance, docs, community"
+                                   :revenue-streams "Pro features, consulting, enterprise support"}}
+   :ecommerce {:name "E-Commerce / D2C"
+               :empathy-map {:persona "Health-conscious parent, 30-45, values quality over price for family products"
+                             :think-feel "Overwhelmed by choices, skeptical of mass-market claims, wants trusted brands"
+                             :hear "Friends recommending clean-label products, influencer reviews, parenting podcasts"
+                             :see "Supermarket aisles full of questionable ingredients, niche D2C brands on Instagram"
+                             :say-do "Reads ingredient labels obsessively, follows wellness accounts, buys samples before committing"
+                             :pains-gains "Pains: Hard to verify claims, shipping costs, subscription fatigue. Gains: Peace of mind, family health, convenience"}
+               :value-proposition {:customer-job "Find and purchase safe, high-quality everyday products for the family without spending hours researching ingredients"
+                                   :pains "Cannot trust mass-market labels; researching every product is exhausting; shipping costs eat into savings"
+                                   :gains "Confidence in every product ordered; saves hours of research per week; family notices the quality difference"
+                                   :products "Curated D2C store of vetted family-safe products with transparent sourcing and ingredient reports"
+                                   :pain-relievers "Third-party lab testing on every product; free shipping over $50; no-questions-asked returns"
+                                   :gain-creators "Ingredient transparency scores; personalized product bundles; loyalty rewards program"}
+               :mvp-planning {:core-problem "Parents waste hours researching product safety and still cannot trust what they find on mass-market shelves"
+                              :target-user "Health-conscious parent (30-45) with household income >$75K, currently shopping at Whole Foods or similar"
+                              :success-metric "500 orders in first 3 months; 30% repeat purchase rate; average order value >$60"
+                              :must-have-features "Product catalog with ingredient transparency; shopping cart and Stripe checkout; order tracking; customer accounts"
+                              :nice-to-have "Subscription auto-ship; product quizzes; referral program; mobile app"
+                              :out-of-scope "International shipping; wholesale/B2B; white-label products; marketplace for third-party sellers"
+                              :timeline "Week 1-3: Catalog + product pages. Week 4-5: Cart + checkout. Week 6-7: Accounts + order tracking. Week 8: Launch with 20 SKUs"
+                              :risks "Inventory management complexity; shipping cost margins; competing with Amazon on convenience; supplier reliability"}
+               :lean-canvas {:problems "Distrust of mass-market products, research fatigue, ingredient opacity"
+                             :solution "Curated D2C store with transparent sourcing and lab testing"
+                             :uvp "Every product vetted so you don't have to be"
+                             :unfair-advantage "Proprietary ingredient scoring system and supplier relationships"
+                             :customer-segments "Health-conscious parents, clean-label enthusiasts"
+                             :key-metrics "AOV, repeat purchase rate, CAC, LTV"
+                             :channels "Instagram, parenting blogs, influencer partnerships, SEO"
+                             :cost-structure "Inventory, fulfillment, marketing, lab testing"
+                             :revenue-streams "Product sales, subscription bundles, premium membership"}}
+   :subscription-box {:name "Subscription Box"
+                      :empathy-map {:persona "Hobbyist crafter, 25-40, loves discovering new materials and techniques"
+                                    :think-feel "Excited by creative possibilities but overwhelmed by choices at craft stores"
+                                    :hear "Unboxing videos, craft community recommendations, Pinterest inspiration"
+                                    :see "Endless supplies at stores but no guidance; subscription boxes for food and beauty"
+                                    :say-do "Watches tutorials, buys supplies in bulk then uses 20%, shares projects on social media"
+                                    :pains-gains "Pains: Wasted supplies, decision paralysis, stale routine. Gains: Creative fulfillment, community, new skills"}
+                      :value-proposition {:customer-job "Explore new creative techniques and materials each month without the hassle of selecting and sourcing supplies"
+                                          :pains "Decision paralysis at craft stores; buys supplies that go unused; stuck in same techniques and never grows"
+                                          :gains "Monthly creative surprise; learns a new technique each box; zero waste since everything is project-sized"
+                                          :products "Monthly curated craft box with project-sized materials, step-by-step guide, and video tutorial"
+                                          :pain-relievers "Pre-portioned materials eliminate waste; curated by expert crafters; difficulty levels match skill"
+                                          :gain-creators "Exclusive materials not in stores; online community to share results; skill progression tracking"}
+                      :mvp-planning {:core-problem "Hobbyist crafters waste money on unused supplies and get stuck in creative ruts without guidance"
+                                     :target-user "Hobbyist crafter (25-40) who spends $50-150/month on supplies and follows 5+ craft accounts on social media"
+                                     :success-metric "200 subscribers within 3 months; churn rate below 10%/month; NPS above 50"
+                                     :must-have-features "Subscription signup + Stripe billing; box configuration (skill level); order management; tracking notifications"
+                                     :nice-to-have "Community gallery; video tutorials; gift subscriptions; add-on marketplace"
+                                     :out-of-scope "International shipping; custom boxes; live classes; physical retail"
+                                     :timeline "Week 1-2: Landing page + signup flow. Week 3-4: Billing + box config. Week 5-6: Fulfillment pipeline. Week 7-8: Ship first 50 boxes"
+                                     :risks "Supplier lead times; shipping damage; churn after novelty fades; inventory forecasting for variable box contents"}
+                      :lean-canvas {:problems "Supply waste, creative stagnation, decision paralysis at craft stores"
+                                    :solution "Curated monthly craft box with guided projects"
+                                    :uvp "A new creative adventure delivered to your door every month"
+                                    :unfair-advantage "Exclusive supplier partnerships and expert curation team"
+                                    :customer-segments "Hobbyist crafters, DIY enthusiasts, gift buyers"
+                                    :key-metrics "MRR, churn rate, NPS, box cost ratio"
+                                    :channels "Instagram, YouTube unboxings, craft forums, Pinterest"
+                                    :cost-structure "Materials sourcing, packaging, fulfillment, content creation"
+                                    :revenue-streams "Monthly subscriptions, gift boxes, add-on sales"}}
+   :edtech {:name "EdTech Platform"
+            :empathy-map {:persona "Career changer, 28-40, wants to break into tech without a CS degree"
+                          :think-feel "Anxious about career switch, motivated but unsure where to start, imposter syndrome"
+                          :hear "Success stories of bootcamp grads, conflicting advice on what to learn, 'tech layoffs' headlines"
+                          :see "Expensive bootcamps ($15K+), free but unstructured YouTube tutorials, LinkedIn profiles of successful switchers"
+                          :say-do "Starts multiple free courses, finishes none; bookmarks resources; asks Reddit for advice"
+                          :pains-gains "Pains: Information overload, no clear path, expensive options. Gains: Higher salary, meaningful work, career security"}
+            :value-proposition {:customer-job "Transition from current career into a tech role within 6 months with a structured, affordable learning path"
+                                :pains "Bootcamps cost $15K+ with no guarantee; free resources are scattered and overwhelming; no way to prove skills to employers"
+                                :gains "Clear week-by-week curriculum; portfolio of real projects; direct connection to hiring partners"
+                                :products "Structured online platform with cohort-based courses, project-based portfolio building, and employer network"
+                                :pain-relievers "Income-share pricing (pay after hired); structured curriculum eliminates decision fatigue; mentor office hours"
+                                :gain-creators "Portfolio projects reviewed by industry mentors; mock interviews with hiring managers; alumni Slack community"}
+            :mvp-planning {:core-problem "Career changers waste months on scattered free resources or go into debt with expensive bootcamps, with no guaranteed outcome"
+                           :target-user "Non-tech professional (28-40) with stable income, considering career switch to software/data/design role"
+                           :success-metric "100 enrolled students in first cohort; 70% completion rate; 50% job placement within 3 months of graduation"
+                           :must-have-features "Course content delivery (video + text); progress tracking; project submission and review; student dashboard"
+                           :nice-to-have "Cohort discussions; mentor matching; employer dashboard; certificate generation"
+                           :out-of-scope "Mobile app; live lectures; degree programs; corporate training; AI tutoring"
+                           :timeline "Week 1-3: Content platform + first course module. Week 4-5: Progress tracking + submissions. Week 6-7: Student dashboard. Week 8: Beta cohort launch"
+                           :risks "Content quality must compete with free alternatives; completion rates historically low for online courses; job placement depends on employer partnerships"}
+            :lean-canvas {:problems "Scattered learning resources, expensive bootcamps, no clear career path"
+                          :solution "Structured cohort-based platform with portfolio building and employer network"
+                          :uvp "Land your first tech job in 6 months or don't pay"
+                          :unfair-advantage "Employer hiring partnerships and income-share model"
+                          :customer-segments "Career changers, upskilling professionals, recent graduates"
+                          :key-metrics "Enrollment, completion rate, job placement rate, NPS"
+                          :channels "LinkedIn, career forums, SEO for 'career change' keywords, partnerships"
+                          :cost-structure "Content creation, mentors, platform hosting, employer relations"
+                          :revenue-streams "Income-share agreements, upfront tuition, corporate training licenses"}}
+   :agency {:name "Agency / Consulting"
+            :empathy-map {:persona "Startup founder, 30-45, needs expertise they cannot hire full-time yet"
+                          :think-feel "Stretched thin wearing too many hats, nervous about outsourcing quality, wants a trusted partner"
+                          :hear "Horror stories of failed agency projects, recommendations from founder peers, 'you get what you pay for'"
+                          :see "Agencies with flashy portfolios but unclear pricing, freelancers who ghost, big consultancies out of budget"
+                          :say-do "Asks for referrals, checks Clutch reviews, starts with a small project to test fit"
+                          :pains-gains "Pains: Unpredictable costs, communication gaps, misaligned incentives. Gains: Expert execution, speed to market, focus on core business"}
+            :value-proposition {:customer-job "Get expert design and development work done reliably so the founder can focus on product vision and fundraising"
+                                :pains "Agencies overcharge and underdeliver; freelancers are unreliable; hiring full-time is too slow and expensive at this stage"
+                                :gains "Predictable monthly cost; work ships on schedule; feels like having a senior team without the overhead"
+                                :products "Embedded product team (design + engineering) on a fixed monthly retainer with transparent weekly deliverables"
+                                :pain-relievers "Fixed monthly pricing with no surprises; weekly demo calls; shared project board with full visibility"
+                                :gain-creators "Dedicated team that learns the business deeply; strategic input beyond just execution; scales up or down flexibly"}
+            :mvp-planning {:core-problem "Early-stage founders need expert design/dev work but cannot afford or attract full-time senior talent"
+                           :target-user "Funded startup founder (seed to Series A) with $10K-30K/month budget for external product work"
+                           :success-metric "5 retainer clients within 6 months; 80% client retention at 6 months; average engagement length >4 months"
+                           :must-have-features "Service offerings page; case studies; intake form; project management dashboard; invoicing"
+                           :nice-to-have "Client portal; resource library; automated reporting; referral program"
+                           :out-of-scope "Productized SaaS; staffing/recruiting; training courses; offshore development"
+                           :timeline "Week 1-2: Website + case studies. Week 3-4: Intake + onboarding flow. Week 5-6: First 3 clients. Week 7-8: Refine delivery process"
+                           :risks "Founder availability bottleneck; scope creep on retainers; client concentration risk; talent retention for delivery team"}
+            :lean-canvas {:problems "Unreliable freelancers, overpriced agencies, slow full-time hiring"
+                          :solution "Embedded product team on fixed monthly retainer"
+                          :uvp "A senior product team without the hiring headache"
+                          :unfair-advantage "Deep startup ecosystem relationships and repeatable delivery playbook"
+                          :customer-segments "Seed to Series A startups, funded solo founders"
+                          :key-metrics "MRR, client retention, NPS, utilization rate"
+                          :channels "Founder referrals, VC partnerships, LinkedIn, startup events"
+                          :cost-structure "Talent (designers + engineers), tools, business development"
+                          :revenue-streams "Monthly retainers, project-based engagements, advisory fees"}}
+   :content-platform {:name "Content Platform"
+                      :empathy-map {:persona "Independent creator, 22-35, building audience across multiple platforms"
+                                    :think-feel "Excited about creating but exhausted by platform algorithms, fears losing audience overnight"
+                                    :hear "Creator burnout stories, 'own your audience' advice, new platform launches weekly"
+                                    :see "YouTube/TikTok algorithm changes killing reach, Patreon/Substack taking cuts, fans asking 'where else can I follow you'"
+                                    :say-do "Posts daily across 3+ platforms, experiments with new formats, dreams of going full-time"
+                                    :pains-gains "Pains: Algorithm dependency, fragmented audience, burnout. Gains: Creative freedom, direct fan relationships, sustainable income"}
+                      :value-proposition {:customer-job "Build a sustainable creative career by owning the audience relationship and monetizing content directly"
+                                          :pains "Platform algorithms control reach unpredictably; audience is scattered across 5+ platforms; takes a 30% cut of earnings"
+                                          :gains "Direct relationship with every fan; predictable monthly income; creative control without algorithm pressure"
+                                          :products "All-in-one creator platform with content hosting, membership tiers, community, and direct payments"
+                                          :pain-relievers "One link for all content; only 5% platform fee; email list ownership; no algorithm manipulation"
+                                          :gain-creators "Built-in membership tiers; community features that increase retention; analytics showing what content drives revenue"}
+                      :mvp-planning {:core-problem "Independent creators cannot build sustainable businesses because they do not own their audience and platforms take excessive cuts"
+                                     :target-user "Creator with 1K-50K followers across platforms, earning $500-5000/month, wanting to go full-time"
+                                     :success-metric "100 active creators onboarded; 50% have at least 10 paying members; average creator earns $500+/month on platform"
+                                     :must-have-features "Creator profile pages; content posting (text, video, audio); membership tiers with Stripe; fan dashboard"
+                                     :nice-to-have "Community forums; live streaming; analytics dashboard; custom domains; mobile app"
+                                     :out-of-scope "Video production tools; ad network; merchandise fulfillment; talent management"
+                                     :timeline "Week 1-3: Creator profiles + content posting. Week 4-5: Membership tiers + payments. Week 6-7: Fan experience. Week 8: Beta launch with 20 creators"
+                                     :risks "Chicken-and-egg: creators need fans, fans need creators; competing with established platforms on features; content moderation complexity"}
+                      :lean-canvas {:problems "Algorithm dependency, audience fragmentation, excessive platform fees"
+                                    :solution "All-in-one creator platform with direct payments and audience ownership"
+                                    :uvp "Own your audience, keep 95% of your earnings"
+                                    :unfair-advantage "Creator-first community and migration tools from existing platforms"
+                                    :customer-segments "Independent creators, podcasters, writers, educators"
+                                    :key-metrics "Active creators, paying members per creator, GMV, creator retention"
+                                    :channels "Creator referrals, Twitter/YouTube, creator conferences, SEO"
+                                    :cost-structure "Platform hosting, video transcoding, payments processing, support"
+                                    :revenue-streams "5% transaction fee, premium creator tools, promoted discovery"}}})
 
 ;; ============================================================================
 ;; Template card component
@@ -427,9 +582,9 @@
 
 (defn template-card
   "Renders a clickable template card with icon, name, description, and tags."
-  [{:keys [key icon name description tags on-select]}]
+  [{:keys [key icon name description tags on-select selected?]}]
   (dom/div {:key (str key)
-            :className "wisdom-template-card"
+            :className (str "wisdom-template-card" (when selected? " wisdom-template-card--selected"))
             :role "button"
             :tabIndex 0
             :onClick #(when on-select (on-select key))
@@ -446,6 +601,81 @@
         (dom/div :.wisdom-template-tags
           (for [tag tags]
             (dom/span {:key tag :className "wisdom-tag"} tag)))))))
+
+;; ============================================================================
+;; Business Model Canvas (BMC) component
+;; ============================================================================
+
+(def bmc-block-config
+  "Mapping from BMC block key to display label and which template data to extract.
+   Each entry: [label source-section source-key]"
+  [[:key-partners     "Key Partners"        :lean-canvas :unfair-advantage]
+   [:key-activities    "Key Activities"      :lean-canvas :solution]
+   [:key-resources     "Key Resources"       :mvp-planning :must-have-features]
+   [:value-props       "Value Propositions"  :lean-canvas :uvp]
+   [:customer-rel      "Customer Relationships" :value-proposition :gain-creators]
+   [:channels          "Channels"            :lean-canvas :channels]
+   [:customer-segments "Customer Segments"   :lean-canvas :customer-segments]
+   [:cost-structure    "Cost Structure"      :lean-canvas :cost-structure]
+   [:revenue-streams   "Revenue Streams"     :lean-canvas :revenue-streams]])
+
+(def bmc-block-colors
+  "Subtle background colors for each BMC block."
+  {:key-partners     "rgba(108, 92, 231, 0.08)"
+   :key-activities    "rgba(0, 184, 148, 0.08)"
+   :key-resources     "rgba(9, 132, 227, 0.08)"
+   :value-props       "rgba(253, 121, 168, 0.08)"
+   :customer-rel      "rgba(255, 159, 67, 0.08)"
+   :channels          "rgba(0, 206, 209, 0.08)"
+   :customer-segments "rgba(162, 155, 254, 0.08)"
+   :cost-structure    "rgba(223, 230, 233, 0.12)"
+   :revenue-streams   "rgba(85, 239, 196, 0.08)"})
+
+(defn bmc-block
+  "Renders a single BMC block cell."
+  [block-key label content]
+  (dom/div {:className (str "bmc-block bmc-block--" (name block-key))
+            :style {:background (get bmc-block-colors block-key "transparent")}}
+    (dom/div :.bmc-block-label label)
+    (dom/div :.bmc-block-content
+      (if (seq content)
+        content
+        (dom/span :.bmc-block-empty "Select a template below")))))
+
+(defn bmc-canvas
+  "Renders the Business Model Canvas 9-block grid layout.
+   template-data is the full template map with :lean-canvas, :value-proposition, etc."
+  [template-data template-name]
+  (let [get-val (fn [section key]
+                  (when template-data
+                    (get-in template-data [section key])))]
+    (dom/div {:className "bmc-canvas"}
+      (when template-name
+        (dom/div :.bmc-canvas-title template-name))
+      (dom/div {:className "bmc-grid"}
+        ;; Row 1: Key Partners | Key Activities | Value Propositions | Customer Relationships | Customer Segments
+        ;;         (spans 2)   | (top half)     | (spans 2)          | (top half)             | (spans 2)
+        ;; Row 2:              | Key Resources  |                    | Channels               |
+        ;; Row 3: Cost Structure (spans 5 left half) | Revenue Streams (spans 5 right half)
+        
+        ;; Key Partners - spans 2 rows
+        (bmc-block :key-partners "Key Partners" (get-val :lean-canvas :unfair-advantage))
+        ;; Key Activities - top of col 2
+        (bmc-block :key-activities "Key Activities" (get-val :lean-canvas :solution))
+        ;; Value Propositions - spans 2 rows
+        (bmc-block :value-props "Value Propositions" (get-val :lean-canvas :uvp))
+        ;; Customer Relationships - top of col 4
+        (bmc-block :customer-rel "Customer Relationships" (get-val :value-proposition :gain-creators))
+        ;; Customer Segments - spans 2 rows
+        (bmc-block :customer-segments "Customer Segments" (get-val :lean-canvas :customer-segments))
+        ;; Key Resources - bottom of col 2
+        (bmc-block :key-resources "Key Resources" (get-val :mvp-planning :must-have-features))
+        ;; Channels - bottom of col 4
+        (bmc-block :channels "Channels" (get-val :lean-canvas :channels))
+        ;; Cost Structure - bottom left
+        (bmc-block :cost-structure "Cost Structure" (get-val :lean-canvas :cost-structure))
+        ;; Revenue Streams - bottom right
+        (bmc-block :revenue-streams "Revenue Streams" (get-val :lean-canvas :revenue-streams))))))
 
 ;; ============================================================================
 ;; Category card component
@@ -643,14 +873,15 @@
    :initial-state (fn [_] {:page/id :wisdom
                             :ui/dummy nil})
    :route-segment ["wisdom"]
-   :initLocalState (fn [_] {:drawer/open? false
-                             :drawer/state {}
-                             :category-drawer/open? false
-                             :category-drawer/state {}
-                             :tip-drawer/open? false
-                             :tip-drawer/state {}
-                             :resize/width nil
-                             :resize/active? false})
+    :initLocalState (fn [_] {:drawer/open? false
+                              :drawer/state {}
+                              :category-drawer/open? false
+                              :category-drawer/state {}
+                              :tip-drawer/open? false
+                              :tip-drawer/state {}
+                              :bmc/selected-key :saas
+                              :resize/width nil
+                              :resize/active? false})
    :will-enter    (fn [_ _] (dr/route-immediate [:page/id :wisdom]))
    :componentDidMount (fn [this]
                          (let [state-atom @ws/app-state-atom
@@ -710,9 +941,14 @@
         drawer-state (or (comp/get-state this :drawer/state) {})
         tip-drawer-open? (boolean (comp/get-state this :tip-drawer/open?))
         tip-drawer-state (or (comp/get-state this :tip-drawer/state) {})
-        resize-width (comp/get-state this :resize/width)
-        resize-active? (boolean (comp/get-state this :resize/active?))
-        wisdom-cards (get contextual-wisdom-cards wisdom-phase)]
+         resize-width (comp/get-state this :resize/width)
+         resize-active? (boolean (comp/get-state this :resize/active?))
+         bmc-selected-key (or (comp/get-state this :bmc/selected-key) :saas)
+         bmc-template-data (or (get template-store bmc-selected-key)
+                               (get fallback-template-data bmc-selected-key))
+         bmc-template-name (or (:name bmc-template-data)
+                               (some #(when (= (:key %) bmc-selected-key) (:name %)) templates))
+         wisdom-cards (get contextual-wisdom-cards wisdom-phase)]
     (dom/div {:className "wisdom-page"}
       ;; Page Header
       (dom/div :.wisdom-page-header
@@ -727,24 +963,52 @@
           (dom/p :.wisdom-section-desc "Start with a proven framework for your product type.")
           (when templates-show-loading?
             (dom/span :.wisdom-loading-badge "Loading from AI...")))
+
+        ;; BMC Canvas - visual centerpiece
+        (bmc-canvas bmc-template-data bmc-template-name)
+
+        ;; Template selector cards
         (if (seq templates)
           (dom/div {:className "wisdom-template-grid"}
             (for [t templates]
-              (template-card (assoc t :on-select
-                                    (fn [k]
-                                      (let [nk (normalize-template-key k)]
-                                        (when-not (get template-store nk)
-                                          (ws/request-wisdom-template! nk)))
-                                      (comp/set-state! this
-                                        {:drawer/open? true
-                                         :drawer/state {:template-name (:name t)
-                                                        :template-key (normalize-template-key k)}
-                                         :resize/width (get-drawer-width :template)}))))))
+              (template-card (assoc t
+                               :selected? (= (:key t) bmc-selected-key)
+                               :on-select
+                               (fn [k]
+                                 (let [nk (normalize-template-key k)]
+                                   ;; Update BMC display
+                                   (comp/set-state! this {:bmc/selected-key nk})
+                                   ;; Fetch full template data if needed
+                                   (when-not (get template-store nk)
+                                     (ws/request-wisdom-template! nk))))))))
           ;; Empty state for templates
           (when-not templates-show-loading?
             (dom/div :.wisdom-empty-state
               (dom/div :.wisdom-empty-icon "📭")
-              (dom/p "No templates available yet. Connect ECA for AI-generated templates.")))))
+              (dom/p "No templates available yet. Connect ECA for AI-generated templates."))))
+
+        ;; Apply button below cards
+        (when (and (seq templates) project-id bmc-template-data)
+          (dom/div {:className "bmc-apply-bar"}
+            (dom/button
+              {:className "btn btn-primary"
+               :onClick (fn [_]
+                          (let [saved-count (inject-template-all-builders! project-id bmc-template-data)
+                                encoded-id (str/replace (str project-id) "/" "~")]
+                            (js/console.log "Injected template into" saved-count "builders for project" project-id)
+                            (ws/request-learning-save-examples!
+                              {:project-id project-id
+                               :label (or bmc-template-name "Wisdom")
+                               :template-key bmc-selected-key
+                               :builder-type :empathy-map
+                               :session-id (str "empathy-" project-id)
+                               :data {}})
+                            (js/setTimeout
+                              (fn []
+                                (when-let [nav @ws/navigate-callback]
+                                  (nav ["project" encoded-id])))
+                              500)))}
+              (str "Apply \"" (or bmc-template-name "Template") "\" to All Builders")))))
 
       ;; ── Learning Patterns Section ──
       (dom/section {:className "wisdom-section" :id "wisdom-learning"}
@@ -839,90 +1103,6 @@
               (dom/p description))))
 
 )
-
-      ;; ── Template Drawer ──
-      (when drawer-open?
-        (let [{:keys [template-name template-key]} drawer-state
-              template-data (or (get template-store template-key)
-                                (get fallback-template-data template-key))
-              has-template? (some? template-data)
-              can-apply? (and project-id has-template?)
-              success? (comp/get-state this :drawer/success?)
-              dw (clamp-drawer-width (or resize-width default-drawer-width))]
-          (dom/div :.wisdom-drawer-backdrop
-            {:onClick #(comp/set-state! this {:drawer/open? false :drawer/success? false})}
-            (dom/div {:className (str "wisdom-drawer" (when resize-active? " wisdom-drawer-resizing"))
-                      :style {:width (str dw "px")}
-                      :onClick #(.stopPropagation %)}
-              (drawer-resize-handle this :template dw)
-              (dom/div :.wisdom-drawer-header
-                (dom/div
-                  (dom/h3 (or template-name "Wisdom"))
-                  (dom/p "Pre-fill all 4 builders with this template"))
-                (dom/button {:className "btn btn-secondary"
-                             :onClick #(comp/set-state! this {:drawer/open? false :drawer/success? false})}
-                            "Close"))
-
-              (when success?
-                (dom/div {:className "wisdom-drawer-feedback wisdom-drawer-success"}
-                  (dom/span "Done! All builders pre-filled. Taking you to your project...")))
-
-              (when (and (not success?) (not has-template?))
-                (dom/div {:className "wisdom-drawer-feedback wisdom-drawer-info"}
-                  (dom/span "Loading template data...")))
-
-              (when (and (not success?) has-template? (not project-id))
-                (dom/div {:className "wisdom-drawer-feedback wisdom-drawer-info"}
-                  (dom/span "Open or create a project first to apply templates.")))
-
-              ;; Template preview
-              (when (and has-template? (not success?))
-                (dom/div :.wisdom-drawer-body
-                  (dom/p :.wisdom-drawer-subtitle "TEMPLATE PREVIEW")
-                  (dom/div :.wisdom-drawer-preview-grid
-                    (for [[section-key section-label]
-                          [[:empathy-map "Empathy Map"]
-                           [:value-proposition "Value Proposition"]
-                           [:mvp-planning "MVP Planning"]
-                           [:lean-canvas "Lean Canvas"]]]
-                      (let [section-data (get template-data section-key)]
-                        (when (seq section-data)
-                          (dom/div {:key (name section-key) :className "wisdom-preview-section"}
-                            (dom/h4 section-label)
-                            (dom/div :.wisdom-preview-fields
-                              (for [[fk fv] (take 3 section-data)]
-                                (dom/div {:key (name (or fk :unknown)) :className "wisdom-preview-field"}
-                                  (dom/span :.wisdom-preview-label (str/capitalize (str/replace (name (or fk :unknown)) #"-" " ")))
-                                  (dom/span :.wisdom-preview-value (subs (str fv) 0 (min 80 (count (str fv)))))))))))))))
-
-              (dom/div :.wisdom-drawer-actions
-                (dom/button
-                  {:className (str "btn btn-primary" (when (not can-apply?) " btn-disabled"))
-                   :disabled (not can-apply?)
-                   :onClick (fn [_]
-                              (when can-apply?
-                                (let [saved-count (inject-template-all-builders! project-id template-data)
-                                      encoded-id (str/replace (str project-id) "/" "~")]
-                                  (js/console.log "Injected template into" saved-count "builders for project" project-id)
-                                  (ws/request-learning-save-examples!
-                                    {:project-id project-id
-                                     :label (or template-name "Wisdom")
-                                     :template-key template-key
-                                     :builder-type :empathy-map
-                                     :session-id (str "empathy-" project-id)
-                                     :data {}})
-                                  (comp/set-state! this {:drawer/success? true})
-                                  (js/setTimeout
-                                    (fn []
-                                      (comp/set-state! this {:drawer/open? false :drawer/success? false})
-                                      (when-let [nav @ws/navigate-callback]
-                                        (nav ["project" encoded-id])))
-                                    1500))))}
-                  (if can-apply?
-                    "Apply Template to All Builders"
-                    (if (not project-id)
-                      "Open a Project First"
-                      "Loading..."))))))))
 
       ;; ── Category Drawer (Learning Patterns) ──
       (let [category-drawer-open? (boolean (comp/get-state this :category-drawer/open?))
