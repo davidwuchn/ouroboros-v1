@@ -103,11 +103,41 @@
 
 (def fallback-learning-categories
   "Static learning categories shown while ECA content loads."
-  [   {:icon "🧠" :label "Customer Understanding" :description "Patterns about user research, empathy mapping, and customer discovery. Includes interview techniques, persona development, and jobs-to-be-done analysis." :category "customer-understanding" :count 12}
+  [{:icon "🧠" :label "Customer Understanding" :description "Patterns about user research, empathy mapping, and customer discovery. Includes interview techniques, persona development, and jobs-to-be-done analysis." :category "customer-understanding" :count 12}
    {:icon "🎯" :label "Value Alignment"        :description "Insights on matching solutions to real customer needs. Covers pain-gain mapping, value proposition design, and product-market fit signals." :category "value-alignment" :count 8}
    {:icon "⚡" :label "MVP Strategy"           :description "Lessons learned about minimum viable products, rapid prototyping, and lean experimentation. Build less, learn more." :category "mvp-strategy" :count 15}
    {:icon "📊" :label "Business Model"         :description "Revenue models, pricing strategies, cost structures, and go-to-market patterns discovered across projects." :category "business-model" :count 6}
    {:icon "🔄" :label "Iteration Patterns"     :description "How successful projects pivot, iterate, and evolve based on user feedback. Includes common pivot triggers and anti-patterns." :category "iteration" :count 10}])
+
+(def category-metadata
+  "Lookup map of UI-only metadata (icon, description) keyed by category string.
+   Backend categories don't include these fields, so we merge them in on the frontend."
+  (into {} (map (fn [{:keys [category] :as c}]
+                  [category (select-keys c [:icon :description :label])])
+                fallback-learning-categories)))
+
+(defn enrich-categories
+  "Merge fallback metadata (icon, description, label) onto backend categories.
+   Backend provides real :count and :recent; fallback provides :icon and :description.
+   Categories from backend not in fallback get a default icon."
+  [backend-categories]
+  (let [;; Start with all fallback categories as a base (preserves order & ensures all appear)
+        fallback-by-cat (into {} (map (fn [c] [(:category c) c]) fallback-learning-categories))
+        ;; Merge backend data onto fallback, backend :count wins
+        merged (reduce (fn [acc {:keys [category] :as bc}]
+                         (let [fb (get fallback-by-cat category)
+                               enriched (merge {:icon "📝"} ;; default icon for unknown categories
+                                               fb           ;; fallback icon/description/label
+                                               bc)]         ;; backend count/recent wins
+                           (assoc acc category enriched)))
+                       fallback-by-cat
+                       backend-categories)]
+    ;; Return as vector, fallback categories first (stable order), then any extras
+    (let [fallback-order (map :category fallback-learning-categories)
+          fallback-set (set fallback-order)
+          extras (remove #(fallback-set (:category %)) backend-categories)]
+      (into (vec (keep #(get merged %) fallback-order))
+            (map #(merge {:icon "📝"} (get category-metadata (:category %)) %) extras)))))
 
 (def default-category-insights
   "Pre-filled insights shown instantly when clicking a Learning Patterns category card.
@@ -615,7 +645,9 @@
         templates (if (seq eca-templates) eca-templates fallback-templates)
         real-categories (when state (get state :learning/categories))
         categories-loading? (when state (get state :learning/categories-loading?))
-        categories (if (seq real-categories) real-categories fallback-learning-categories)
+        categories (if (seq real-categories)
+                    (enrich-categories real-categories)
+                    fallback-learning-categories)
         ;; Only show "Loading from AI..." when we have no content at all (no cache, no ECA response)
         ;; Once we have content (cached or fallback), the badge is hidden -- ECA silently replaces in background
         templates-show-loading? (and templates-loading? (not (seq eca-templates)))
@@ -695,7 +727,9 @@
                                                        (when state (get-in state [:learning/category-insights-cache cat]))
                                                        (get default-category-insights cat))]
                                         ;; Pre-fill insights immediately if we have any source
-                                        (when (and cached (nil? (when state (get-in state [:learning/category-insights cat]))))
+                                        ;; Use (not (seq ...)) instead of nil? so we also pre-fill
+                                        ;; when current value is empty [] (e.g. after a failed request)
+                                        (when (and cached (not (seq (when state (get-in state [:learning/category-insights cat])))))
                                           (when-let [sa @ws/app-state-atom]
                                             (swap! sa assoc-in [:learning/category-insights cat] cached)))
                                         ;; Always request fresh data from backend (fast, no ECA)
