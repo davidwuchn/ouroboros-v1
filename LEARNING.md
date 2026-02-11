@@ -2520,6 +2520,109 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
+### 42. Clickable Card Pattern with Keyboard Accessibility
+
+**Problem:** Making an entire card clickable while preserving child interactive elements (buttons, links) requires careful event handling and accessibility markup.
+
+**Solution:** Use `role="button"`, `tabIndex 0`, `:onClick`, and `:onKeyDown` with a shared keyboard handler. Child interactive elements use `(.stopPropagation e)` to prevent card-level navigation.
+
+```clojure
+;; Shared keyboard handler for card activation
+(defn handle-card-key [callback e]
+  (when (or (= (.-key e) "Enter") (= (.-key e) " "))
+    (.preventDefault e)
+    (callback)))
+
+;; Card element
+(dom/div {:role "button"
+          :tabIndex 0
+          :className "dash-card dash-card-clickable"
+          :onClick (fn [_] (navigate-to! path))
+          :onKeyDown (partial handle-card-key #(navigate-to! path))}
+  ;; Child button that should NOT trigger card navigation
+  (dom/button {:onClick (fn [e]
+                          (.stopPropagation e)
+                          (do-child-action!))}
+    "Child Action"))
+```
+
+**CSS pattern:** Hover lift (2px translateY), border accent, elevated shadow, active press-down, focus-visible ring. Arrow affordance (`>`) animates on parent hover via CSS descendant selector.
+
+**Key Insight:** The `stopPropagation` pattern lets you nest independently-clickable elements inside a clickable card without conflicts. Always pair with `role="button"` + `tabIndex 0` for keyboard users.
+
+---
+
+### 43. Section Deep-Linking via Scroll-After-Route-Change
+
+**Problem:** When navigating to a new route and scrolling to a specific section, the target element doesn't exist yet because the route hasn't rendered.
+
+**Solution:** Use `requestAnimationFrame` + `setTimeout` to wait for the route to render before scrolling:
+
+```clojure
+(defn navigate-wisdom! [this & [section-id]]
+  (dr/change-route! this ["wisdom"])
+  (when section-id
+    (js/requestAnimationFrame
+      (fn []
+        (js/setTimeout
+          (fn []
+            (when-let [el (js/document.getElementById section-id)]
+              (.scrollIntoView el #js {:behavior "smooth" :block "start"})))
+          120)))))
+```
+
+**Why 120ms?** Fulcro's route change triggers re-render, then DOM update. `requestAnimationFrame` gets us past the virtual DOM diff, and 120ms covers the actual DOM paint. Shorter delays (e.g., 50ms) fail intermittently on slower devices.
+
+**Target elements need stable IDs:**
+```clojure
+(dom/div {:id "wisdom-templates"} ...)
+(dom/div {:id "wisdom-learning"} ...)
+```
+
+**Key Insight:** Route-then-scroll is a two-phase operation. The scroll must be deferred until after the route's component tree is mounted. This rAF + setTimeout pattern is reliable across browsers and device speeds.
+
+---
+
+### 44. CSS Custom Properties on :root for Cross-Component Styling
+
+**Problem:** A resizable sidebar needs to communicate its width to sibling elements (e.g., main content area) that aren't in the same component tree.
+
+**Solution:** Set a CSS custom property on `:root` from JavaScript, and reference it from any CSS rule:
+
+```clojure
+;; ClojureScript: sync width to CSS
+(defn sync-sidebar-css-var! [width]
+  (.setProperty (.-style js/document.documentElement)
+    "--chat-sidebar-width" (str width "px")))
+
+;; Called on resize, mount, and localStorage load
+(sync-sidebar-css-var! current-width)
+```
+
+```css
+/* CSS: any element can reference it */
+.main-content-shifted {
+  margin-right: var(--chat-sidebar-width, 400px);
+}
+
+.chat-sidebar {
+  width: var(--chat-sidebar-width, 400px);
+}
+```
+
+**Companion pattern:** Add a body class during drag (`chat-resizing-global`) to disable transitions globally, preventing janky animation during resize:
+
+```css
+body.chat-resizing-global .main-content-shifted,
+body.chat-resizing-global .chat-sidebar {
+  transition: none !important;
+}
+```
+
+**Key Insight:** CSS custom properties on `:root` act as a global communication channel between JavaScript and CSS, bypassing React/Fulcro component hierarchy. Combined with localStorage for persistence, this gives you resizable UI elements that survive page reloads without any state management library.
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*
