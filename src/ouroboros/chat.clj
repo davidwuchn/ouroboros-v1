@@ -24,7 +24,9 @@
    [ouroboros.learning.empathy-map :as empathy]
    [ouroboros.learning.value-proposition :as vp]
    [ouroboros.learning.mvp-planning :as mvp]
-   [ouroboros.learning.lean-canvas :as canvas])
+   [ouroboros.learning.lean-canvas :as canvas]
+   [ouroboros.workflow :as workflow]
+   [ouroboros.setup :as setup])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -163,10 +165,10 @@
         ;; Progress notification (reasoning/responding/done)
         (= "progress" (:type content))
         (let [new-phase (case (:state content)
-                           "reasoning" :thinking
-                           "responding" :responding
-                           ("done" "finished") :done
-                           nil)]
+                          "reasoning" :thinking
+                          "responding" :responding
+                          ("done" "finished") :done
+                          nil)]
           (when new-phase
             (swap! streaming-state assoc-in [chat-id :phase] new-phase)
             (when (= new-phase :done)
@@ -215,7 +217,7 @@
    Only needs to be called once."
   []
   (eca/register-callback! "chat/contentReceived" :streaming-bridge
-    handle-stream-content!)
+                          handle-stream-content!)
   (telemetry/emit! {:event :chat/streaming-callback-registered}))
 
 ;; ============================================================================
@@ -256,9 +258,36 @@
   (telemetry/emit! {:event :chat/command :command cmd :chat-id chat-id})
   (case cmd
     :start (send-message! adapter chat-id
-                          "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build empathy <persona> - Empathy Map\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary")
+                          "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build empathy <persona> - Empathy Map\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n/plan <desc> - Create implementation plan\n/work <task> - Execute planned task\n/review - Start code review\n/compound - Document learnings\n/setup - Run setup wizard\n\nJust type naturally to chat with ECA!")
     :help (send-message! adapter chat-id
-                         "*Ouroboros Chat Commands*\n\n/clear - Clear conversation history\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve dangerous operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build empathy <persona> - Empathy Map\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n\nJust type naturally to chat with ECA!")
+                         "*Ouroboros Chat Commands*\n\n"
+                         "*General*\n"
+                         "/clear - Clear conversation history\n"
+                         "/status - System status\n"
+                         "/tools - List available tools\n"
+                         "/confirm <id> - Approve dangerous operation\n"
+                         "/deny <id> <reason> - Reject operation\n\n"
+                         "*Builders (Product Development)*\n"
+                         "/build canvas <name> - Create Lean Canvas\n"
+                         "/build empathy <persona> - Empathy Map\n"
+                         "/build valueprop <project> - Value Proposition Canvas\n"
+                         "/build mvp <project> - MVP Planning\n\n"
+                         "*Learning*\n"
+                         "/learn <topic> <insight> - Save learning\n"
+                         "/recall <pattern> - Recall learnings\n"
+                         "/wisdom - Wisdom summary\n\n"
+                         "*Workflows (Compound Engineering)*\n"
+                         "/plan <desc> - Create implementation plan\n"
+                         "/work <task-id> - Execute planned task\n"
+                         "/review - Start code review\n"
+                         "/compound - Document learnings\n"
+                         "/workflows - Show workflow help\n"
+                         "/cancel - Cancel current workflow\n\n"
+                         "*Setup*\n"
+                         "/setup - Run setup wizard\n"
+                         "/setup run - Auto-configure\n"
+                         "/setup detect - Detect stack\n\n"
+                         "Just type naturally to chat with ECA!")
     :clear (do (clear-session! chat-id)
                (send-message! adapter chat-id "✓ Conversation cleared"))
     :status (let [result (tool-registry/call-tool :system/status {})]
@@ -367,7 +396,54 @@
                     :denied (send-message! adapter chat-id "✗ Operation denied")
                     :error (send-message! adapter chat-id (str "⚠️ " (:reason result)))))))
             (send-message! adapter chat-id "⚠️ Usage: /deny <confirmation-id> <reason>"))
-    (send-message! adapter chat-id (str "Unknown command: " (name cmd)))))
+
+    ;; Workflow commands (Plan → Work → Review → Compound)
+    :plan (if (str/blank? args)
+            (send-message! adapter chat-id "⚠️ Usage: /plan <feature description>\n\nExample: /plan Add user authentication")
+            (let [result (workflow/start-plan! chat-id args)]
+              (swap! chat-sessions assoc-in [chat-id :context :workflow/type] :plan)
+              (swap! chat-sessions assoc-in [chat-id :context :workflow/mode] true)
+              (send-markdown! adapter chat-id (:message result))))
+    :work (if (str/blank? args)
+            (send-message! adapter chat-id "⚠️ Usage: /work <task-id>\n\nExample: /work feature-123\n\nUse /plan first to create a task.")
+            (let [result (workflow/start-work! chat-id args)]
+              (swap! chat-sessions assoc-in [chat-id :context :workflow/type] :work)
+              (swap! chat-sessions assoc-in [chat-id :context :workflow/mode] true)
+              (send-markdown! adapter chat-id (:message result))))
+    :review (let [result (workflow/start-review! chat-id)]
+              (swap! chat-sessions assoc-in [chat-id :context :workflow/type] :review)
+              (swap! chat-sessions assoc-in [chat-id :context :workflow/mode] true)
+              (send-markdown! adapter chat-id (:message result)))
+    :compound (let [result (workflow/start-compound! chat-id)]
+                (swap! chat-sessions assoc-in [chat-id :context :workflow/type] :compound)
+                (swap! chat-sessions assoc-in [chat-id :context :workflow/mode] true)
+                (send-markdown! adapter chat-id (:message result)))
+    :workflows (send-markdown! adapter chat-id (workflow/workflow-help))
+    :cancel (let [result (workflow/cancel-workflow! chat-id)]
+              (swap! chat-sessions update-in [chat-id :context] dissoc :workflow/type :workflow/mode)
+              (send-message! adapter chat-id (str "✓ Cancelled: " (name (:session-type result)) " workflow")))
+
+    ;; Setup wizard
+    :setup (let [detected (setup/detect-stack)]
+             (send-markdown! adapter chat-id
+                             (str "⚙️ *Ouroboros Setup Wizard*\n\n"
+                                  "Detected stack: " (get setup/stack-display-names detected "Unknown") "\n\n"
+                                  "I'll configure review agents based on your stack.\n\n"
+                                  "Run `/setup run` to auto-configure with recommended defaults.\n\n"
+                                  "Or `/setup detect` to re-detect the stack.")))
+    :setup-run (let [result (setup/auto-configure!)]
+                 (send-markdown! adapter chat-id
+                                 (str "✅ *Configuration Complete*\n\n"
+                                      "Stack: " (get setup/stack-display-names (:stack result)) "\n"
+                                      "Depth: " (name (:depth result)) "\n"
+                                      "Agents: " (count (:agents result)) "\n\n"
+                                      "Config file: `" (:config-file result) "`\n\n"
+                                      "You can edit this file to customize review agents.")))
+    :setup-detect (let [detected (setup/detect-stack)]
+                    (send-message! adapter chat-id
+                                   (str "Detected stack: " (get setup/stack-display-names detected)))))
+
+  (send-message! adapter chat-id (str "Unknown command: " (name cmd))))
 
 (defn- handle-natural-message
   "Handle natural language message via ECA with streaming response.
@@ -614,6 +690,48 @@
       ;; No MVP session - treat as normal message
       (handle-natural-message adapter chat-id user-name text))))
 
+;; ============================================================================
+;; Workflow Message Handler
+;; ============================================================================
+
+(defn- handle-workflow-message
+  "Handle message when user is in workflow mode"
+  [adapter chat-id user-name text]
+  (let [session (get-session chat-id)
+        workflow-type (get-in session [:context :workflow/type])
+        text-normalized (str/trim text)
+        cancel? (= "cancel" (str/lower-case text-normalized))]
+    (if cancel?
+      (do
+        (workflow/cancel-workflow! chat-id)
+        (swap! chat-sessions update-in [chat-id :context] dissoc :workflow/type :workflow/mode)
+        (send-message! adapter chat-id "Workflow cancelled."))
+      (case workflow-type
+        :plan (let [result (workflow/process-plan-response! chat-id text)]
+                (if (= :complete (:status result))
+                  (do
+                    (swap! chat-sessions update-in [chat-id :context] dissoc :workflow/type :workflow/mode)
+                    (send-markdown! adapter chat-id (:message result)))
+                  (send-markdown! adapter chat-id (:message result))))
+        :work (let [result (workflow/process-work-response! chat-id text)]
+                (send-markdown! adapter chat-id (:message result)))
+        :review (let [result (workflow/process-review-response! chat-id text)]
+                  (if (= :continued (:status result))
+                    (send-markdown! adapter chat-id (:message result))
+                    (do
+                      (swap! chat-sessions update-in [chat-id :context] dissoc :workflow/type :workflow/mode)
+                      (send-markdown! adapter chat-id (:message result)))))
+        :compound (let [result (workflow/process-compound-response! chat-id text)]
+                    (if (= :complete (:status result))
+                      (do
+                        (swap! chat-sessions update-in [chat-id :context] dissoc :workflow/type :workflow/mode)
+                        (send-markdown! adapter chat-id (:message result)))
+                      (send-markdown! adapter chat-id (:message result))))
+        ;; Unknown workflow type - exit and treat as normal message
+        (do
+          (swap! chat-sessions update-in [chat-id :context] dissoc :workflow/type :workflow/mode)
+          (handle-natural-message adapter chat-id user-name text))))))
+
 (defn make-message-handler [adapter]
   (fn [{:keys [chat-id user-id user-name text] :as message}]
     (telemetry/emit! {:event :chat/receive :platform (:message/platform message)})
@@ -631,12 +749,14 @@
           canvas-mode? (get-in session [:context :canvas/mode])
           empathy-mode? (get-in session [:context :empathy/mode])
           vp-mode? (get-in session [:context :vp/mode])
-          mvp-mode? (get-in session [:context :mvp/mode])]
+          mvp-mode? (get-in session [:context :mvp/mode])
+          workflow-mode? (get-in session [:context :workflow/mode])]
       (cond
         canvas-mode? (handle-canvas-message adapter chat-id user-name text)
         empathy-mode? (handle-empathy-message adapter chat-id user-name text)
         vp-mode? (handle-vp-message adapter chat-id user-name text)
         mvp-mode? (handle-mvp-message adapter chat-id user-name text)
+        workflow-mode? (handle-workflow-message adapter chat-id user-name text)
         :else (if-let [[cmd args] (extract-command text)]
                 (handle-command adapter chat-id user-name cmd args)
                 (handle-natural-message adapter chat-id user-name text))))))
@@ -723,12 +843,12 @@
 (pco/defresolver chat-sessions-resolver [_]
   {::pco/output [{:chat/sessions [:chat/id :chat/message-count :chat/created-at :chat/platform :chat/running?]}]}
   {:chat/sessions (map (fn [[k v]]
-                        {:chat/id k
-                         :chat/message-count (count (:history v))
-                         :chat/created-at (:created-at v)
-                         :chat/platform (:platform v)
-                         :chat/running? (:running? v)})
-                      @chat-sessions)})
+                         {:chat/id k
+                          :chat/message-count (count (:history v))
+                          :chat/created-at (:created-at v)
+                          :chat/platform (:platform v)
+                          :chat/running? (:running? v)})
+                       @chat-sessions)})
 
 (pco/defresolver page-sessions [_]
   {::pco/output [:page/id :sessions
@@ -736,16 +856,16 @@
                  {:chat/adapters [:adapter/platform :adapter/running?]}]}
   {:page/id :sessions
    :chat/sessions (map (fn [[k v]]
-                        {:chat/id k
-                         :chat/message-count (count (:history v))
-                         :chat/created-at (:created-at v)
-                         :chat/platform (:platform v)
-                         :chat/running? (:running? v)})
-                      @chat-sessions)
+                         {:chat/id k
+                          :chat/message-count (count (:history v))
+                          :chat/created-at (:created-at v)
+                          :chat/platform (:platform v)
+                          :chat/running? (:running? v)})
+                       @chat-sessions)
    :chat/adapters (map (fn [[k v]]
-                        {:adapter/platform k
-                         :adapter/running? (some? v)})
-                      @active-adapters)})
+                         {:adapter/platform k
+                          :adapter/running? (some? v)})
+                       @active-adapters)})
 
 (def resolvers
   [chat-adapters chat-sessions-resolver page-sessions])

@@ -278,7 +278,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✗ Internal AI/agent system (delegated to ECA)
 - ✗ Skill system (replaced by learning flywheel)
 
-**Next Phase**: Production hardening -- container isolation, metrics export.
+**Next Phase**: Code health (websocket split, test coverage) then production hardening (container isolation, metrics export).
 
 **Recent Architectural Changes**:
 - **Single project per instance** -- removed multi-project CRUD, workspace auto-detected from `user.dir`
@@ -378,9 +378,26 @@ All hardcoded static content replaced with ECA-powered dynamic content:
 - ✅ Hardcoded insight/suggestion/prediction TEXT strings emptied (computation logic preserved)
 - ✅ Frontend ECA-first pattern: request on mount, show fallback while loading
 
+### P0: Code Health (from Compound Engineering Analysis, 2026-02-12)
+
+External analysis against compound-engineering-plugin revealed critical gaps:
+
+| Area | Current | Target | Priority |
+|------|---------|--------|----------|
+| God objects | websocket.clj 1420 LOC, websocket.cljs 1704 LOC | Max ~400 LOC per file | 🔴 P0 |
+| Test coverage | ~27% (19/71 source files) | 60%+ (compound ref: ~80%) | 🔴 P0 |
+| Root JSON files | 9 files, duplicates (package.json + package-lock.json) | Consolidate to 1-2 | 🟡 P1 |
+| Inline prompts | Hardcoded strings in websocket.clj | Extract to resources/prompts/ | 🟡 P1 |
+| bb.edn DRY | 22 tasks, ~90% duplication in dev tasks | Extract shared helpers | 🟢 P2 |
+| Handler dispatch | `case` statement in websocket | Data-driven registry map | 🟡 P1 |
+
+**Immediate next:** Split websocket.clj into `ws/handlers/*.clj`, split websocket.cljs into `ws/handlers/*.cljs`.
+
 ### Next Priorities
-1. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
-2. **Container Isolation** -- OS-level isolation for ECA execution
+1. **WebSocket Split** -- Break god objects into handler modules (~400 LOC max each)
+2. **Test Coverage** -- Priority: resolver-registry, eca-client, websocket handlers, analytics, wisdom
+3. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
+4. **Container Isolation** -- OS-level isolation for ECA execution
 
 ---
 

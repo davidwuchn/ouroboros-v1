@@ -2623,6 +2623,217 @@ body.chat-resizing-global .chat-sidebar {
 
 ---
 
+### 45. Data-Driven Handler Dispatch (from Compound Engineering Plugin)
+
+**Problem:** WebSocket message handlers use a large `case` statement to dispatch by message type. Each new handler adds a branch, growing the file linearly. At 1420+ LOC the file is a god object.
+
+**Anti-Pattern:**
+```clojure
+;; websocket.clj - monolithic case dispatch
+(defn handle-message! [ch msg]
+  (case (:type msg)
+    "chat/prompt" (handle-chat-prompt! ch msg)
+    "eca/wisdom"  (handle-eca-wisdom! ch msg)
+    "builder/save-data" (handle-save-builder-data! ch msg)
+    ;; ... 30+ more branches
+    (log/warn "Unknown message type" (:type msg))))
+```
+
+**Correct Pattern (from Compound's strategy registry):**
+```clojure
+;; ws/registry.clj - handler registry, no business logic
+(defonce handlers (atom {}))
+
+(defn register! [msg-type handler-fn]
+  (swap! handlers assoc msg-type handler-fn))
+
+(defn dispatch! [ch msg]
+  (if-let [handler (get @handlers (:type msg))]
+    (handler ch msg)
+    (log/warn "Unknown message type" (:type msg))))
+
+;; ws/handlers/chat.clj - self-registering
+(ns ouroboros.ws.handlers.chat
+  (:require [ouroboros.ws.registry :as reg]))
+
+(defn handle-chat-prompt! [ch msg] ...)
+(defn handle-chat-stop! [ch msg] ...)
+
+(reg/register! "chat/prompt" handle-chat-prompt!)
+(reg/register! "chat/stop" handle-chat-stop!)
+```
+
+**Benefits:**
+1. Each handler file is small (~100-200 LOC), focused on one domain
+2. New handlers don't touch the dispatch file
+3. Handler discovery: `(keys @handlers)` lists all supported messages
+4. Testable in isolation: `(handle-chat-prompt! mock-ch mock-msg)`
+
+**Reference:** Compound uses `Record<string, {convert, write}>` -- a map from format name to handler pair. Same principle: data-driven dispatch, not control-flow dispatch.
+
+**Key Insight:** When a `case` or `cond` has more than ~10 branches, it's a dispatch table pretending to be code. Make it an actual table (map/registry) and let each handler module register itself.
+
+---
+
+### 46. Module Size Discipline (Max ~400 LOC)
+
+**Problem:** websocket.clj (1420 LOC) and websocket.cljs (1704 LOC) are god objects. Every new feature adds more handlers, making the files harder to navigate, review, and test.
+
+**Reference:** Compound Engineering Plugin's largest file is ~430 LOC. Most files are 50-200 LOC. Despite having 29 agents and 22 commands, no single file exceeds 500 LOC.
+
+**Rule:** Maximum ~400 LOC per file. When a file approaches this limit, split by domain.
+
+**Split plan for websocket.clj (1420 LOC):**
+
+```
+src/ouroboros/chat/
+  websocket.clj          # Core: connect, disconnect, send, broadcast (~200 LOC)
+  ws/
+    registry.clj         # Handler dispatch map (~30 LOC)
+    handlers/
+      chat.clj           # chat/prompt, chat/stop (~150 LOC)
+      wisdom.clj         # eca/wisdom, flywheel/progress (~200 LOC)
+      builder.clj        # builder/save-data, builder/complete (~150 LOC)
+      content.clj        # content/generate, analytics/dashboard (~200 LOC)
+      system.clj         # project/detected, telemetry (~100 LOC)
+```
+
+**Split plan for websocket.cljs (1704 LOC):**
+
+```
+src/frontend/ouroboros/frontend/
+  websocket.cljs         # Core: connect!, send!, state atom (~200 LOC)
+  ws/
+    handlers/
+      chat.cljs          # Chat message handlers (~200 LOC)
+      wisdom.cljs        # Wisdom/insight handlers (~200 LOC)
+      builder.cljs       # Builder sync handlers (~200 LOC)
+      content.cljs       # Content/analytics handlers (~200 LOC)
+      system.cljs        # System/project handlers (~150 LOC)
+```
+
+**Key Insight:** Module size is a leading indicator of maintainability. When a file crosses ~400 LOC, it's accumulating responsibilities. Split by domain, not by layer. Each handler file should map to one business domain (chat, wisdom, builder, etc.).
+
+---
+
+### 47. Frontmatter Markdown as Config (from Compound Engineering Plugin)
+
+**Problem:** Agent/skill metadata (name, description, version, capabilities) is either hardcoded in source or spread across multiple config files with no standard format.
+
+**Compound's Pattern:** Frontmatter markdown files define agent and skill metadata:
+
+```markdown
+---
+name: "code-reviewer"
+description: "Reviews code changes for quality and correctness"
+version: "1.0.0"
+tools: ["file/read", "git/diff", "shell/exec"]
+---
+
+# Code Reviewer
+
+You are an expert code reviewer. Focus on:
+- Correctness and edge cases
+- Performance implications
+- Readability and maintainability
+```
+
+**Benefits:**
+1. **Human-readable** -- Markdown body is the prompt, frontmatter is metadata
+2. **Machine-parseable** -- YAML frontmatter extracts to a map
+3. **Version-controlled** -- Just text files in git
+4. **Non-coder friendly** -- Anyone can edit a markdown file
+5. **Self-documenting** -- The file IS the documentation
+
+**Ouroboros Application:** Extract inline prompt strings from websocket.clj into `resources/prompts/`:
+
+```
+resources/prompts/
+  wisdom/empathy.md       # Empathy map wisdom prompt
+  wisdom/value-prop.md    # Value proposition wisdom prompt
+  content/insights.md     # Insight generation prompt
+  content/predictions.md  # Analytics prediction prompt
+```
+
+```clojure
+;; Load prompt at runtime
+(defn load-prompt [path]
+  (let [content (slurp (io/resource (str "prompts/" path)))
+        [_ frontmatter body] (re-find #"(?s)^---\n(.+?)\n---\n(.+)$" content)]
+    {:meta (yaml/parse-string frontmatter)
+     :prompt (str/trim body)}))
+
+;; Usage
+(let [{:keys [prompt]} (load-prompt "wisdom/empathy.md")]
+  (eca/chat-prompt user-msg {:system-prompt prompt}))
+```
+
+**Key Insight:** Prompts are the "source code" of AI behavior. They deserve the same treatment as code: versioned, reviewed, tested, and documented. Frontmatter markdown is the simplest format that satisfies all four requirements.
+
+---
+
+### 48. Integration Tests via Binary Spawn (from Compound Engineering Plugin)
+
+**Problem:** Unit tests mock too much, missing real integration bugs. End-to-end tests through the UI are slow and brittle. Need a middle ground that tests the actual system with real I/O.
+
+**Compound's Pattern:** Tests spawn the actual CLI binary, feed it real input, and verify real output:
+
+```typescript
+// Compound's integration test pattern
+test("convert claude-code to cursor", async () => {
+  const tmpDir = await mkdtemp(join(tmpdir(), "test-"));
+  const input = join(tmpDir, "input.md");
+  await writeFile(input, testAgentContent);
+  
+  // Spawn actual binary
+  const result = await execFile("./bin/compound", [
+    "convert", "--input", input, "--target", "cursor"
+  ]);
+  
+  // Verify real output files
+  const output = await readFile(join(tmpDir, ".cursorrules"), "utf-8");
+  expect(output).toContain("expected content");
+  
+  // Cleanup
+  await rm(tmpDir, { recursive: true });
+});
+```
+
+**Ouroboros Application:** Test WebSocket handlers, ECA pipeline, and builder persistence through real system calls:
+
+```clojure
+;; Integration test pattern for Ouroboros
+(deftest test-builder-save-and-complete
+  (let [tmp-dir (create-temp-dir "test-")]
+    (try
+      ;; Boot real system
+      (with-system [sys (test-system {:data-dir tmp-dir})]
+        ;; Connect real WebSocket
+        (let [ws (ws-connect! "ws://localhost:8080/ws")]
+          ;; Send real builder data
+          (ws-send! ws {:type "builder/save-data"
+                        :builder-type :empathy-map
+                        :data test-empathy-data})
+          ;; Verify real persistence
+          (is (= test-empathy-data
+                 (memory/recall :builder-session)))
+          ;; Verify completion detection
+          (is (ws-received? ws :builder/completed))))
+      (finally
+        (delete-dir tmp-dir)))))
+```
+
+**Key Principles:**
+1. **Temp directory isolation** -- Each test gets fresh filesystem state
+2. **Real binary/system** -- No mocking of core infrastructure
+3. **Real I/O** -- Actual files, actual WebSocket, actual network
+4. **Cleanup in finally** -- Always clean up, even on failure
+5. **Assertion on output** -- Verify what the user would see, not internal state
+
+**Key Insight:** The highest-value tests are those that exercise the same code path as production. Compound achieves ~80% coverage with this pattern because each test validates the entire pipeline from input to output.
+
+---
+
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [STATE](STATE.md) · [PLAN](PLAN.md) · [CHANGELOG](CHANGELOG.md)
 
 *Feed forward: Each discovery shapes the next version.*
