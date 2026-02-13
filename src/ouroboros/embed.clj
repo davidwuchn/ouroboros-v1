@@ -70,8 +70,8 @@
   "Revoke an embed token"
   [token]
   (let [key (keyword (str "embed-token/" token))]
-    (memory/update! key assoc :token/active? false)
-    (memory/update! key assoc :token/revoked-at (str (Instant/now)))
+    (memory/update! key #(assoc % :token/active? false))
+    (memory/update! key #(assoc % :token/revoked-at (str (Instant/now))))
     {:revoked? true
      :token token}))
 

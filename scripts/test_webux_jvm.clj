@@ -5,7 +5,16 @@
    ;; Load test namespaces (triggers fixture registration)
    [ouroboros.webux-test]
    [ouroboros.wisdom-test]
-   [ouroboros.analytics-test]))
+   [ouroboros.analytics-test]
+   [ouroboros.collaboration-test]
+   [ouroboros.embed-test]
+   [ouroboros.offline-sync-test]
+   [ouroboros.error-handling-test]
+   [ouroboros.webux-integration-test]
+   [ouroboros.resolver-registry-test]
+   [ouroboros.engine-test]
+   [ouroboros.memory-test]
+   [ouroboros.security-test]))
 
 (defn -main
   "Run WebUX tests and exit with appropriate code"
@@ -19,7 +28,16 @@
   (let [test-results (map t/run-tests
                             ['ouroboros.webux-test
                              'ouroboros.wisdom-test
-                             'ouroboros.analytics-test])
+                             'ouroboros.analytics-test
+                             'ouroboros.collaboration-test
+                             'ouroboros.embed-test
+                             'ouroboros.offline-sync-test
+                             'ouroboros.error-handling-test
+                             'ouroboros.webux-integration-test
+                             'ouroboros.resolver-registry-test
+                             'ouroboros.engine-test
+                             'ouroboros.memory-test
+                             'ouroboros.security-test])
         results (reduce (fn [acc r]
                           (merge-with + acc (select-keys r [:test :pass :fail :error])))
                         {:test 0 :pass 0 :fail 0 :error 0}

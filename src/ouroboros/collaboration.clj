@@ -517,7 +517,7 @@
 
   ;; Create version snapshot
   (create-snapshot! :empathy-session-123 :user-456
-                    {:notes {...} :sections {...}}
+                    {:notes {"n1" "note"} :sections {"s1" "section"}}
                     :label "Initial empathy map"
                     :description "First draft completed")
 

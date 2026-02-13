@@ -154,10 +154,17 @@
    (get-config :chat/telegram-token)"
   ([key] (get-config key nil))
   ([key default]
-   (let [ks (if (keyword? key)
-              (vec (rest (str/split (namespace key) #"\.")))
-              key)]
-     (get-in @config-cache ks default))))
+   (cond
+     (nil? key) default
+     (keyword? key)
+     (let [ns-part (namespace key)]
+       (if ns-part
+         (let [ks (conj (vec (str/split ns-part #"\.")) (name key))]
+           (get-in @config-cache (mapv keyword ks) default))
+         (get @config-cache key default)))
+     (vector? key)
+     (get-in @config-cache key default)
+     :else default)))
 
 (defn reload-config!
   "Reload configuration from all sources"
