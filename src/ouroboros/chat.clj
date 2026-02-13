@@ -25,8 +25,7 @@
    [ouroboros.learning.value-proposition :as vp]
    [ouroboros.learning.mvp-planning :as mvp]
    [ouroboros.learning.lean-canvas :as canvas]
-   [ouroboros.workflow :as workflow]
-   [ouroboros.setup :as setup])
+   [ouroboros.workflow :as workflow])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -424,24 +423,10 @@
               (send-message! adapter chat-id (str "✓ Cancelled: " (name (:session-type result)) " workflow")))
 
     ;; Setup wizard
-    :setup (let [detected (setup/detect-stack)]
-             (send-markdown! adapter chat-id
-                             (str "⚙️ *Ouroboros Setup Wizard*\n\n"
-                                  "Detected stack: " (get setup/stack-display-names detected "Unknown") "\n\n"
-                                  "I'll configure review agents based on your stack.\n\n"
-                                  "Run `/setup run` to auto-configure with recommended defaults.\n\n"
-                                  "Or `/setup detect` to re-detect the stack.")))
-    :setup-run (let [result (setup/auto-configure!)]
-                 (send-markdown! adapter chat-id
-                                 (str "✅ *Configuration Complete*\n\n"
-                                      "Stack: " (get setup/stack-display-names (:stack result)) "\n"
-                                      "Depth: " (name (:depth result)) "\n"
-                                      "Agents: " (count (:agents result)) "\n\n"
-                                      "Config file: `" (:config-file result) "`\n\n"
-                                      "You can edit this file to customize review agents.")))
-    :setup-detect (let [detected (setup/detect-stack)]
-                    (send-message! adapter chat-id
-                                   (str "Detected stack: " (get setup/stack-display-names detected)))))
+    ;; Setup wizard (TODO: ouroboros.setup not yet implemented)
+    :setup (send-message! adapter chat-id "Setup wizard not yet available. Coming soon.")
+    :setup-run (send-message! adapter chat-id "Setup wizard not yet available. Coming soon.")
+    :setup-detect (send-message! adapter chat-id "Setup wizard not yet available. Coming soon."))
 
   (send-message! adapter chat-id (str "Unknown command: " (name cmd))))
 
