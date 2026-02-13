@@ -14,7 +14,13 @@
    [ouroboros.resolver-registry-test]
    [ouroboros.engine-test]
    [ouroboros.memory-test]
-   [ouroboros.security-test]))
+   [ouroboros.security-test]
+   [ouroboros.learning-test]
+   [ouroboros.telemetry-test]
+   [ouroboros.tool-sandbox-test]
+   [ouroboros.tool-allowlist-test]
+   [ouroboros.lane-test]
+   [ouroboros.schema-test]))
 
 (defn -main
   "Run WebUX tests and exit with appropriate code"
@@ -37,7 +43,13 @@
                              'ouroboros.resolver-registry-test
                              'ouroboros.engine-test
                              'ouroboros.memory-test
-                             'ouroboros.security-test])
+                             'ouroboros.security-test
+                             'ouroboros.learning-test
+                             'ouroboros.telemetry-test
+                             'ouroboros.tool-sandbox-test
+                             'ouroboros.tool-allowlist-test
+                             'ouroboros.lane-test
+                             'ouroboros.schema-test])
         results (reduce (fn [acc r]
                           (merge-with + acc (select-keys r [:test :pass :fail :error])))
                         {:test 0 :pass 0 :fail 0 :error 0}
