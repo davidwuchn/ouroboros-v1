@@ -359,7 +359,8 @@
         (->> (str/split-lines output)
              (filter #(str/includes? % "eca"))
              (filter #(str/includes? % "server"))
-             (map #(let [parts (str/split % #"\s+" 3)]  ;; pid, comm, args
+             (map #(let [trimmed (str/trim %)
+                          parts (str/split trimmed #"\s+" 3)]  ;; pid, comm, args
                      {:pid (str/trim (first parts))
                       :command (str/trim (nth parts 2 ""))}))
              vec)
@@ -388,9 +389,19 @@
   []
   (let [our-pid (get-our-pid)
         all-eca (list-all-eca-processes)
-        orphaned (list-orphaned-processes)]
+        orphaned (list-orphaned-processes)
+        state-pid (when-let [proc (:eca-process @(core/get-state))]
+                    (try (.pid proc) (catch Exception _ nil)))
+        state-orphaned? (when state-pid
+                          (some #(= (str state-pid) (:pid %)) orphaned))]
     (println "\n=== ECA Process Status ===")
     (println (str "Our process PID: " (or our-pid "none")))
+    (when state-pid
+      (println (str "Process in memory: " state-pid))
+      (when (nil? our-pid)
+        (println "⚠️  PID file missing but state references a process")))
+    (when state-orphaned?
+      (println "⚠️  State references orphaned process (PID file missing or stale)"))
     (println (str "Total ECA processes: " (count all-eca)))
     (when (seq orphaned)
       (println "\n⚠️  Orphaned ECA processes (not ours):")
@@ -398,6 +409,8 @@
         (println (str "   PID " pid ": " command))))
     (println "")
     {:our-pid our-pid
+     :state-pid state-pid
+     :state-orphaned? state-orphaned?
      :total (count all-eca)
      :orphaned-count (count orphaned)
      :orphaned orphaned}))
