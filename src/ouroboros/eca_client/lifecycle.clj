@@ -357,7 +357,7 @@
 
    Usage: (alive?) ;; => true/false"
   []
-  (let [s (core/get-state)
+  (let [s @(core/get-state)
         proc (:eca-process s)]
     (and (:running s)
          proc
