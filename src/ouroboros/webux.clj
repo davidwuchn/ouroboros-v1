@@ -84,7 +84,34 @@
                             (merge (or (memory/get-value new-sessions-key) {})
                                    migrated-sessions))
         (memory/delete-value! old-sessions-key)
-        (println (str "✓ Migrated " (count migrated-sessions) " builder sessions from :demo-user to :" real-name))))))
+        (println (str "✓ Migrated " (count migrated-sessions) " builder sessions from :demo-user to :" real-name))))
+    ;; Migrate learning records and index
+    (when (not= real-user :demo-user)
+      (let [learning-index (memory/get-value :learning/index)
+            demo-learning-ids (get learning-index :demo-user [])]
+        (when (seq demo-learning-ids)
+          ;; Migrate each learning record
+          (doseq [learning-id demo-learning-ids]
+            (when-let [record (memory/get-value (keyword learning-id))]
+              (let [new-id (str/replace learning-id #"^demo-user/" (str real-name "/"))
+                    migrated (-> record
+                                 (assoc :learning/id new-id)
+                                 (assoc :learning/user real-name)
+                                 (update :learning/examples
+                                         (fn [examples]
+                                           (mapv (fn [ex]
+                                                   (update ex :project-id
+                                                           #(str/replace % #"^demo-user/" (str real-name "/"))))
+                                                 examples))))]
+                (memory/save-value! (keyword new-id) migrated)
+                (memory/delete-value! (keyword learning-id)))))
+          ;; Update learning index
+          (memory/save-value! :learning/index
+                              (-> learning-index
+                                  (dissoc :demo-user)
+                                  (assoc (keyword real-user) (mapv #(str/replace % #"^demo-user/" (str real-name "/"))
+                                                                  demo-learning-ids))))
+          (println (str "✓ Migrated " (count demo-learning-ids) " learning records from :demo-user to :" real-name)))))))
 
 ;; Run migration once at namespace load
 (defonce ^:private _migration-done (do (migrate-demo-user-data!) true))

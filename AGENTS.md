@@ -92,8 +92,30 @@ Use symbols in commit messages for searchable git history.
 - Avoid em-dashes (—), smart quotes in docstrings - use ASCII only
 - Prefer Babashka scripts over shell scripts for portability, error handling, and Clojure syntax consistency
 
-### Clojure Code Evaluation (brepl)
-- **ALWAYS use heredoc pattern** - Eliminates quoting issues and works for all cases
+### Clojure Code Evaluation (clj-nrepl-eval)
+
+**Auto-discovery** (preferred - no port needed):
+```bash
+# Discover running nREPL servers
+clj-nrepl-eval --discover-ports
+
+# Evaluate with auto-discovery (scans for .nrepl-port + JVM processes)
+clj-nrepl-eval "(require '[ouroboros.interface :as iface]) (iface/boot!)"
+
+# Persistent session - first call discovers, subsequent calls reuse
+clj-nrepl-eval "(def x 10)"        # Discovers port, binds x
+clj-nrepl-eval "(+ x 20)"          # Reuses same session, x still bound
+```
+
+**With explicit port** (if auto-discovery fails):
+```bash
+clj-nrepl-eval -p 8888 "(println \"hello\")"
+```
+
+**Why auto-discovery**: Eliminates stale `.nrepl-port` issues, finds REPLs in sibling directories, works across workspaces.
+
+### Legacy: brepl (heredoc pattern)
+For scripts still using `brepl`:
 - **Syntax**: `brepl "$(cat <<'EOF'\n(your code)\nEOF\n)"`
 - **Important**: Use `<<'EOF'` (with quotes) not `<<EOF` to prevent shell variable expansion
 - **Multi-line example**:
@@ -109,7 +131,7 @@ Use symbols in commit messages for searchable git history.
 ### Quick Repairs
 - `clj-paren-repair <file>` - fix delimiters, format code
 - `clj-kondo --lint src` - lint for errors
-- nREPL port: `8888`
+- nREPL port: `8888` (dev REPL - auto-discovered by clj-nrepl-eval)
 
 ### Git
 - Search commits: `git log --grep="λ"`
