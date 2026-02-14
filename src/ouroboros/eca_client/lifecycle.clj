@@ -293,24 +293,27 @@
 (defn- list-all-eca-processes
   "List all ECA server processes on the system.
    Returns vector of {:pid :command} maps.
-   Works in both Babashka and JVM Clojure."
+   Works in both Babashka and JVM Clojure, and on both Linux and macOS."
   []
   (try
-    (let [proc (-> (ProcessBuilder. ["pgrep" "-a" "-f" "eca server"])
+    ;; Use ps instead of pgrep for better cross-platform compatibility
+    ;; ps -eo pid,comm,args = PID, command name, full arguments
+    (let [proc (-> (ProcessBuilder. ["ps" "-eo" "pid,comm,args"])
                    (.start))
           output (with-open [reader (BufferedReader. (InputStreamReader. (.getInputStream proc)))]
                    (str/join "\n" (line-seq reader)))
           exit-code (.waitFor proc)]
       (if (zero? exit-code)
         (->> (str/split-lines output)
-             (map #(let [parts (str/split % #"\s+" 2)]
-                     {:pid (first parts)
-                      :command (second parts)}))
-             (filter #(str/includes? (:command %) "server"))
+             (filter #(str/includes? % "eca"))
+             (filter #(str/includes? % "server"))
+             (map #(let [parts (str/split % #"\s+" 3)]  ;; pid, comm, args
+                     {:pid (str/trim (first parts))
+                      :command (str/trim (nth parts 2 ""))}))
              vec)
         []))
     (catch Exception _
-      ;; pgrep not available or no processes found
+      ;; ps not available or no processes found
       [])))
 
 (defn list-orphaned-processes
