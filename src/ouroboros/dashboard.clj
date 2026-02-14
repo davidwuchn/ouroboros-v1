@@ -445,6 +445,16 @@
     (println "  Port:" port)
     (start! {:port port})
     (println "  URL: http://localhost:" port)
+    ;; Auto-start ECA for content generation features
+    (try
+      (require 'ouroboros.eca-client)
+      (let [alive? (resolve 'ouroboros.eca-client/alive?)
+            ensure-alive! (resolve 'ouroboros.eca-client/ensure-alive!)]
+        (when-not (alive?)
+          (println "  Starting ECA for AI features...")
+          (ensure-alive!)))
+      (catch Exception e
+        (println "  ⚠️  ECA not available:" (.getMessage e))))
     (println "  Press Ctrl+C to stop")
     ;; Keep running
     @(promise)))

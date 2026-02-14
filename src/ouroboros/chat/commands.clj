@@ -80,7 +80,7 @@
   [adapter chat-id _user-name _cmd _args]
   (telemetry/emit! {:event :chat/command :command :start :chat-id chat-id})
   (send-message! adapter chat-id
-                 "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build empathy <persona> - Empathy Map\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n/plan <desc> - Create implementation plan\n/work <task> - Execute planned task\n/review - Start code review\n/compound - Document learnings\n/setup - Run setup wizard\n\nJust type naturally to chat with ECA!"))
+                 "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build canvas empathy <persona> - Empathy Map Canvas\n/build empathy <persona> - Empathy Map (shorthand)\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n/plan <desc> - Create implementation plan\n/work <task> - Execute planned task\n/review - Start code review\n/compound - Document learnings\n/setup - Run setup wizard\n\nJust type naturally to chat with ECA!"))
 
 ;; /help
 (defmethod handle-command :help
@@ -145,40 +145,52 @@
 (defmethod handle-command :build
   [adapter chat-id _user-name _cmd args]
   (telemetry/emit! {:event :chat/command :command :build :chat-id chat-id})
-  (if-let [[subcmd & project-parts] (str/split (or args "") #"\s+" 2)]
-    (let [project-name (str/join " " project-parts)]
+  (if-let [[subcmd & rest-parts] (str/split (or args "") #"\s+" 3)]
+    (let [remaining (str/join " " rest-parts)]
       (case subcmd
-        "canvas" (if (str/blank? project-name)
-                   (send-message! adapter chat-id "⚠️ Usage: /build canvas <project-name>")
-                   (let [canvas-session (canvas/start-canvas-session! chat-id project-name)
-                         prompt (canvas/get-next-prompt canvas-session)]
-                     ;; Enter canvas mode
-                     (session/assoc-context! chat-id :canvas/session (:session prompt))
-                     (session/assoc-context! chat-id :canvas/mode true)
-                     (send-markdown! adapter chat-id (:message prompt))))
-        "empathy" (if (str/blank? project-name)
+        ;; /build canvas empathy <persona> - Empathy Map Canvas
+        "canvas" (if (= "empathy" (first rest-parts))
+                   ;; Handle: /build canvas empathy <persona>
+                   (let [persona-name (str/join " " (rest rest-parts))]
+                     (if (str/blank? persona-name)
+                       (send-message! adapter chat-id "⚠️ Usage: /build canvas empathy <persona-name>")
+                       (let [empathy-session (empathy/start-empathy-session! chat-id persona-name)
+                             prompt (empathy/get-next-prompt empathy-session)]
+                         (session/assoc-context! chat-id :empathy/session (:session prompt))
+                         (session/assoc-context! chat-id :empathy/mode true)
+                         (send-markdown! adapter chat-id (:message prompt)))))
+                   ;; Handle: /build canvas <project-name> - Lean Canvas
+                   (let [project-name remaining]
+                     (if (str/blank? project-name)
+                       (send-message! adapter chat-id "⚠️ Usage: /build canvas <project-name>\nOr: /build canvas empathy <persona-name>")
+                       (let [canvas-session (canvas/start-canvas-session! chat-id project-name)
+                             prompt (canvas/get-next-prompt canvas-session)]
+                         (session/assoc-context! chat-id :canvas/session (:session prompt))
+                         (session/assoc-context! chat-id :canvas/mode true)
+                         (send-markdown! adapter chat-id (:message prompt))))))
+        "empathy" (if (str/blank? remaining)
                     (send-message! adapter chat-id "⚠️ Usage: /build empathy <persona-name>")
-                    (let [empathy-session (empathy/start-empathy-session! chat-id project-name)
+                    (let [empathy-session (empathy/start-empathy-session! chat-id remaining)
                           prompt (empathy/get-next-prompt empathy-session)]
                       (session/assoc-context! chat-id :empathy/session (:session prompt))
                       (session/assoc-context! chat-id :empathy/mode true)
                       (send-markdown! adapter chat-id (:message prompt))))
-        "valueprop" (if (str/blank? project-name)
+        "valueprop" (if (str/blank? remaining)
                       (send-message! adapter chat-id "⚠️ Usage: /build valueprop <project-name>")
-                      (let [vp-session (vp/start-vp-session! chat-id project-name)
+                      (let [vp-session (vp/start-vp-session! chat-id remaining)
                             prompt (vp/get-next-prompt vp-session)]
                         (session/assoc-context! chat-id :vp/session (:session prompt))
                         (session/assoc-context! chat-id :vp/mode true)
                         (send-markdown! adapter chat-id (:message prompt))))
-        "mvp" (if (str/blank? project-name)
+        "mvp" (if (str/blank? remaining)
                 (send-message! adapter chat-id "⚠️ Usage: /build mvp <project-name>")
-                (let [mvp-session (mvp/start-mvp-session! chat-id project-name)
+                (let [mvp-session (mvp/start-mvp-session! chat-id remaining)
                       prompt (mvp/get-next-prompt mvp-session)]
                   (session/assoc-context! chat-id :mvp/session (:session prompt))
                   (session/assoc-context! chat-id :mvp/mode true)
                   (send-markdown! adapter chat-id (:message prompt))))
         (send-message! adapter chat-id (str "Unknown build command: " subcmd))))
-    (send-message! adapter chat-id "*Build Commands*\n\n/build canvas <name> - Create Lean Canvas\n/build empathy <persona> - Empathy Map\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/build help - Show help")))
+    (send-message! adapter chat-id "*Build Commands*\n\n/build canvas <name> - Create Lean Canvas\n/build canvas empathy <persona> - Empathy Map Canvas\n/build empathy <persona> - Empathy Map (shorthand)\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/build help - Show help")))
 
 ;; /learn
 (defmethod handle-command :learn
