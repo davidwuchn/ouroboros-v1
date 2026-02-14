@@ -1,5 +1,7 @@
 (ns ouroboros.ws.handlers.analytics
-  "Analytics dashboard handler - real metrics + ECA prediction streaming."
+  "Analytics dashboard handler - real metrics + ECA prediction streaming.
+
+   Prompts are loaded from resources/prompts/analytics/*.md"
   (:require
    [ouroboros.analytics :as analytics]
    [ouroboros.eca-client :as eca]
@@ -7,6 +9,7 @@
    [ouroboros.telemetry :as telemetry]
    [ouroboros.ws.connections :as conn]
    [ouroboros.ws.context :as ctx]
+   [ouroboros.ws.prompt-loader :as pl]
    [ouroboros.ws.stream :as stream]))
 
 (defn handle-analytics-dashboard!
@@ -49,10 +52,9 @@
       (let [chat-id (str "ws-analytics-" client-id "-" (System/currentTimeMillis))
             listener-id (keyword (str "ws-analytics-msg-" client-id))
             context-str (ctx/assemble-project-context user-id project-id nil)
-            prompt (str "You are a product development analyst. Based on the project data below, "
-                        "write a brief (2-3 sentences) assessment of the project's current state "
-                        "and one specific recommendation. Be concrete and specific to the data.\n\n"
-                        "Health score: " (:health/score health) "/100\n"
+            base-prompt (pl/get-prompt :analytics :prediction)
+            prompt (str base-prompt
+                        "\n\nHealth score: " (:health/score health) "/100\n"
                         "Likelihood: " (name (:likelihood prediction)) "\n"
                         "Overall progress: " (:project/overall-percentage progress) "%\n\n"
                         "---\n\n" context-str)]

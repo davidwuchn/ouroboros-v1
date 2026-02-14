@@ -1,5 +1,7 @@
 (ns ouroboros.ws.handlers.builder
-  "Builder data persistence, normalization, completion detection, and auto-insights."
+  "Builder data persistence, normalization, completion detection, and auto-insights.
+
+   Prompts are loaded from resources/prompts/builder/*.md"
   (:require
    [ouroboros.eca-client :as eca]
    [ouroboros.learning :as learning]
@@ -7,6 +9,7 @@
    [ouroboros.telemetry :as telemetry]
    [ouroboros.ws.connections :as conn]
    [ouroboros.ws.context :as ctx]
+   [ouroboros.ws.prompt-loader :as pl]
    [ouroboros.ws.stream :as stream]))
 
 ;; ============================================================================
@@ -75,13 +78,10 @@
             listener-id (keyword (str "ws-insight-" client-id))
             insight-text (atom "")
             context-str (ctx/assemble-project-context user-id project-id builder-type-kw)
-            prompt (str "You are a product development coach. The user just completed their "
-                        builder-label " builder. Based on the project context below, provide:\n"
-                        "1. A brief congratulatory note (1 sentence)\n"
-                        "2. One key insight or pattern you notice from their work (2-3 sentences)\n"
-                        "3. How this connects to the next phase in the product development flywheel (1-2 sentences)\n\n"
-                        "Keep it concise and specific to their actual data. No generic advice.\n\n"
-                        "---\n\n" context-str)]
+            base-prompt (pl/get-prompt :builder :auto-insight)
+            prompt (str base-prompt
+                        "\n\n**Completed Phase:** " builder-label
+                        "\n\n---\n\n" context-str)]
 
         ;; Notify client that auto-insight is starting
         (conn/send-to! client-id {:type :eca/auto-insight-start
@@ -125,7 +125,7 @@
            :on-error (fn [error-msg]
                        (telemetry/emit! {:event :ws/auto-insight-error
                                          :client-id client-id
-                                         :error error-msg}))})))))
+                                         :error error-msg}))}))))
 
 ;; ============================================================================
 ;; Save Builder Data
@@ -206,3 +206,4 @@
                   (telemetry/emit! {:event :ws/auto-insight-error
                                     :client-id client-id
                                     :error (.getMessage e)}))))))))))
+)
