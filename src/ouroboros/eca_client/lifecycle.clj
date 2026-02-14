@@ -119,10 +119,29 @@
     (catch Exception _
       nil)))
 
+(defn- process-alive-by-pid?
+  "Check if a process with the given PID is alive using ps command"
+  [pid]
+  (try
+    (let [proc (-> (ProcessBuilder. ["ps" "-p" (str pid)])
+                   (.start))
+          exit-code (.waitFor proc)]
+      (zero? exit-code))
+    (catch Exception _
+      false)))
+
 (defn- get-our-pid
-  "Get the PID of our managed ECA process from the PID file"
+  "Get the PID of our managed ECA process from the PID file.
+   Returns nil if the process is not alive."
   []
-  (read-pid-file))
+  (when-let [pid (read-pid-file)]
+    ;; Verify the process is actually alive
+    (if (process-alive-by-pid? pid)
+      pid
+      (do
+        ;; Process not found, clean up stale PID file
+        (clear-pid-file!)
+        nil))))
 
 ;; Forward declarations
 (declare alive? status)
