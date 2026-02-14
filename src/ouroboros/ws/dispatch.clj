@@ -77,7 +77,11 @@
    "analytics/dashboard"     {:handler analytics/handle-analytics-dashboard!
                               :async? true}
    "content/generate"        {:handler content/handle-content-generate!
-                              :async? true}})
+                              :async? true}
+   "eca/approve-tool"        {:handler chat/approve-tool!
+                              :async? false}
+   "eca/reject-tool"         {:handler chat/reject-tool!
+                              :async? false}})
 
 ;; ============================================================================
 ;; Message Dispatch
