@@ -1103,6 +1103,31 @@ Ouroboros delegates AI capabilities to ECA. ECA manages:
 
 ---
 
+## Documentation Structure (New)
+
+Following the Compound Engineering pattern, we've reorganized documentation:
+
+```
+docs/
+├── agents/              # Prompt-driven reviewer agents
+│   ├── review/          # Code review agents (idioms, style)
+│   ├── security/        # Security-focused reviewers
+│   └── architecture/    # Statechart, resolver patterns
+├── plans/               # Per-feature planning documents
+│   └── TEMPLATE.md      # Standard plan format
+├── solutions/           # Institutional knowledge base
+│   └── TEMPLATE.md      # Solution capture format
+└── patterns/            # Reusable architectural patterns
+    ├── statechart-patterns.md
+    └── pathom-resolver-patterns.md
+```
+
+**Using the new structure:**
+1. **Planning:** Create `docs/plans/YYYY-MM-DD-feature-name.md` before coding
+2. **Review:** Reference appropriate agents in `docs/agents/` for PR review
+3. **Capture:** Document solved problems in `docs/solutions/` after fixes
+4. **Learn:** Reference `docs/patterns/` for implementation guidance
+
 ## Implementation Priority Matrix
 
 **P0** = Critical security & core functionality (completed)  
