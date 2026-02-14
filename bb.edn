@@ -1,13 +1,8 @@
-{:deps {;; Engine -> substrate: explicit, queryable state machines
-        com.fulcrologic/statecharts                   {:mvn/version "1.2.25"}
-        ;; Query + Graph: EQL interface to everything
+{:deps {com.fulcrologic/statecharts                   {:mvn/version "1.2.25"}
         com.wsscode/pathom3                           {:mvn/version "2025.01.16-alpha"}
-        ;; API: OpenAPI specs -> callable clients
         com.github.oliyh/martian-babashka-http-client {:mvn/version "0.2.1"}
         org.babashka/http-client                      {:mvn/version "0.4.23"}
-        ;; JSON encoding
         cheshire/cheshire                             {:mvn/version "5.13.0"}
-        ;; WebSocket support (for Clojure, not Babashka)
         http-kit/http-kit                             {:mvn/version "2.8.0"}}
 
  :paths ["src" "test" "src/frontend"]
@@ -15,587 +10,234 @@
  :tasks
  {:requires ([clojure.string :as str]
              [babashka.process :refer [shell]])
-  ;; ==========================================================================
-  ;; Core Tasks
-  ;; ==========================================================================
-  ;; nREPL convention: port 8888 (use 888X for parallel playthroughs)
 
+  ;; Core
   boot
-  {:doc "Boot the Ouroboros system (Engine + Query)"
+  {:doc "Boot the Ouroboros system"
    :requires ([ouroboros.interface :as iface])
-   :task (do (println "Booting Ouroboros system...")
-             (iface/boot!)
-             (println "\nSystem ready")
-             (println "  Query: (iface/q [:system/status])")
-             (println "  Status: (iface/status)"))}
+   :task (do (iface/boot!)
+             (println "System ready: (iface/q [:system/status])"))}
 
   nrepl
-  {:doc "Start nREPL on port 8888 in tmux session (auto-managed)"
+  {:doc "Start nREPL on port 8888 (tmux: proc-nrepl)"
    :requires ([ouroboros.process-runner :as pr])
-   :task (let [session-name "nrepl"
-               port 8888]
-           (try
-             (pr/start! session-name "bb nrepl:server")
-             (println "[OK] nREPL started in tmux session: proc-nrepl")
-             (Thread/sleep 1000)
-             (catch Exception e
-               (when-not (str/includes? (.getMessage e) "already exists")
-                 (throw e))
-               (println "[INFO] nREPL session already exists")))
-           (println)
-           (println "=== nREPL Connection Info ===")
-           (println "  Port:     " port)
-           (println "  Host:     localhost")
-           (println "  Session:  proc-nrepl")
-           (println)
-           (println "Connect via:")
-           (println "  bb repl                 # Local REPL client")
-           (println "  bb process attach nrepl # Attach to session")
-           (println)
-           (println "Debug commands:")
-           (println "  (require '[ouroboros.debug :as dbg])")
-           (println "  (dbg/eca-check)")
-           (println "  (dbg/system-status)")
-           (println)
-           (println "Following logs (Ctrl+C to exit, nREPL keeps running)...")
-           (pr/logs session-name :follow? true))}
+   :task (let [port 8888]
+           (try (pr/start! "nrepl" "bb nrepl:server")
+                (println "[OK] nREPL started on port" port)
+                (catch Exception e
+                  (when-not (str/includes? (.getMessage e) "already exists")
+                    (throw e))
+                  (println "[INFO] nREPL already running")))
+           (pr/logs "nrepl" :follow? true))}
 
   nrepl:server
-  {:doc "Internal: Start nREPL server (use 'bb nrepl' instead)"
+  {:doc "Internal: nREPL server"
    :requires ([babashka.nrepl.server :as nrepl]
               [ouroboros.interface :as iface])
-   :task (do (println "Booting system...")
-             (iface/boot!)
-             (println "nREPL server ready on port 8888")
-             (nrepl/start-server! {:host "localhost"
-                                   :port 8888})
+   :task (do (iface/boot!)
+             (nrepl/start-server! {:host "localhost" :port 8888})
              (deref (promise)))}
 
   chat
-  {:doc "Start chat bots from environment configuration (.env or env vars)"
+  {:doc "Start chat bots from environment"
    :requires ([ouroboros.config :as config])
    :task (config/start-from-env!)}
 
-  ;; ==========================================================================
-  ;; Dashboard Tasks
-  ;; ==========================================================================
+  ;; Dashboard & Frontend
   dashboard
-  {:doc "Start the web dashboard server using process-runner (tmux session: proc-dashboard)"
+  {:doc "Start dashboard server (tmux: proc-dashboard)"
    :requires ([ouroboros.process-runner :as pr])
-   :task (do
-           (let [session-name "dashboard"
-                 command "clojure -M -m ouroboros.dashboard"]
-             (try
-               (pr/start! session-name command)
-               (println "[OK] Started dashboard server in tmux session")
-               (catch Exception e
-                 (when-not (re-find (re-pattern "already exists") (.getMessage e))
-                   (throw e))
-                 (println "[INFO] Session already exists, attaching logs")))
-             (println "Following logs (Ctrl+C to stop logs, session continues)...")
-             (println "To stop session: bb process stop dashboard")
-             (println "")
-             (pr/logs session-name :follow? true)))}
+   :task (do (try (pr/start! "dashboard" "clojure -M -m ouroboros.dashboard")
+                  (println "[OK] Dashboard started")
+                  (catch Exception e
+                    (when-not (str/includes? (.getMessage e) "already exists")
+                      (throw e))))
+             (pr/logs "dashboard" :follow? true))}
 
-
-  ;; ==========================================================================
-  ;; Frontend Tasks
-  ;; ==========================================================================
   frontend:dev
-  {:doc "Start shadow-cljs development server using process-runner (tmux session: proc-frontend-dev)"
+  {:doc "Start shadow-cljs dev server (tmux: proc-frontend-dev)"
    :requires ([ouroboros.process-runner :as pr])
-   :task (do
-           (let [session-name "frontend-dev"
-                 command "npx shadow-cljs watch dashboard"]
-             (try
-               (pr/start! session-name command)
-               (println "[OK] Started frontend dev server in tmux session")
-               (catch Exception e
-                 (when-not (re-find (re-pattern "already exists") (.getMessage e))
-                   (throw e))
-                 (println "[INFO] Session already exists, attaching logs")))
-             (println "Following logs (Ctrl+C to stop logs, session continues)...")
-             (println "To stop session: bb process stop frontend-dev")
-             (println "")
-             (pr/logs session-name :follow? true)))}
-
+   :task (do (try (pr/start! "frontend-dev" "npx shadow-cljs watch dashboard")
+                  (println "[OK] Frontend dev started")
+                  (catch Exception e
+                    (when-not (str/includes? (.getMessage e) "already exists")
+                      (throw e))))
+             (pr/logs "frontend-dev" :follow? true))}
 
   frontend:build
   {:doc "Build frontend for production"
-   :task (shell "npx shadow-cljs release dashboard")}  frontend:server
-  {:doc "Start shadow-cljs server only using process-runner (tmux session: proc-frontend-server)"
-   :requires ([ouroboros.process-runner :as pr])
-   :task (do
-           (let [session-name "frontend-server"
-                 command "npx shadow-cljs server"]
-             (try
-               (pr/start! session-name command)
-               (println "[OK] Started shadow-cljs server in tmux session")
-               (catch Exception e
-                 (when-not (re-find (re-pattern "already exists") (.getMessage e))
-                   (throw e))
-                 (println "[INFO] Session already exists, attaching logs")))
-             (println "Following logs (Ctrl+C to stop logs, session continues)...")
-             (println "To stop session: bb process stop frontend-server")
-             (println "")
-             (pr/logs session-name :follow? true)))}
-
+   :task (shell "npx shadow-cljs release dashboard")}
 
   frontend:install
   {:doc "Install npm dependencies"
    :task (shell "npm install")}
 
-  ;; ==========================================================================
-  ;; Development Tasks
-  ;; ==========================================================================
+  ;; Dev Stack
+  dev
+  {:doc "Start full dev stack (blocking)"
+   :requires ([ouroboros.process-runner :as pr])
+   :task (let [health-url "http://localhost:8080/api/status"
+               wait-for (fn [retries]
+                          (Thread/sleep 500)
+                          (if (try (-> (slurp health-url) (str/includes? "healthy"))
+                                   (catch Exception _ false))
+                            (println "[OK] Backend ready")
+                            (when (pos? retries)
+                              (print ".") (flush)
+                              (recur (dec retries)))))
+               cleanup (fn []
+                         (println "\n[STOP] Stopping...")
+                         (try (pr/stop! "ouroboros-backend") (catch Exception _))
+                         (try (pr/stop! "ouroboros-frontend") (catch Exception _)))]
 
+           (try (pr/start! "ouroboros-backend" "clojure -M -m ouroboros.dashboard")
+                (println "[OK] Backend started")
+                (catch Exception e
+                  (println "[ERROR] Backend:" (.getMessage e))
+                  (System/exit 1)))
+
+           (println "[WAIT] Waiting for backend...")
+           (wait-for 30)
+
+           (try (pr/start! "ouroboros-frontend" "npx shadow-cljs watch dashboard")
+                (println "[OK] Frontend started")
+                (catch Exception e
+                  (println "[ERROR] Frontend:" (.getMessage e))
+                  (cleanup)
+                  (System/exit 1)))
+
+           (println "\n=== DEV STACK ===")
+           (println "Backend:  http://localhost:8080")
+           (println "Frontend: http://localhost:8081")
+           (println "Shadow:   http://localhost:9630")
+           (println "\nCtrl+C to stop")
+
+           (.addShutdownHook (Runtime/getRuntime) (Thread. cleanup))
+           (try (deref (promise))
+                (catch InterruptedException _ (cleanup))))}
+
+  dev:start
+  {:doc "Start dev stack (non-blocking)"
+   :requires ([ouroboros.process-runner :as pr])
+   :task (do (try (pr/start! "ouroboros-backend" "clojure -M -m ouroboros.dashboard")
+                  (println "[OK] Backend started")
+                  (catch Exception e
+                    (when-not (str/includes? (.getMessage e) "already exists")
+                      (throw e))
+                    (println "[INFO] Backend already running")))
+
+             (Thread/sleep 1000)
+
+             (try (pr/start! "ouroboros-frontend" "npx shadow-cljs watch dashboard")
+                  (println "[OK] Frontend started")
+                  (catch Exception e
+                    (when-not (str/includes? (.getMessage e) "already exists")
+                      (throw e))
+                    (println "[INFO] Frontend already running")))
+
+             (println "\n=== DEV STACK ===")
+             (println "Backend:  http://localhost:8080")
+             (println "Frontend: http://localhost:8081")
+             (println "\nStop: bb dev:stop"))}
+
+  dev:stop
+  {:doc "Stop dev stack"
+   :requires ([ouroboros.process-runner :as pr])
+   :task (do (try (pr/stop! "ouroboros-backend") (println "Backend stopped") (catch Exception _))
+             (try (pr/stop! "ouroboros-frontend") (println "Frontend stopped") (catch Exception _)))}
+
+  ;; Process Management
+  process
+  {:doc "Manage processes (start, stop, logs, attach)"
+   :requires ([ouroboros.process-runner])
+   :task (apply ouroboros.process-runner/-main *command-line-args*)}
+
+  ;; Utilities
   config
-  {:doc "Show configuration summary (safe to log)"
+  {:doc "Show configuration"
    :requires ([ouroboros.config :as config])
    :task (do (config/load-config!)
              (clojure.pprint/pprint (config/config-summary)))}
 
-  ;; ==========================================================================
-  ;; Git Hooks
-  ;; ==========================================================================
-
   git:install-hooks
-  {:doc "Install git hooks (pre-commit test runner)"
-   :task (do (let [source "scripts/git-hooks/pre-commit"
-                   target ".git/hooks/pre-commit"]
-               (if (babashka.fs/exists? source)
-                 (do
-                   (babashka.fs/copy source target {:replace-existing true})
-                   (babashka.fs/set-posix-file-permissions target "rwxr-xr-x")
-                   (println "Pre-commit hook installed")
-                   (println "  Tests will run before each commit")
-                   (println "  Bypass with: git commit --no-verify"))
-                 (do
-                   (println "Hook source not found:")
-                   (println "  " source)))))}
-
-  ;; ==========================================================================
-  ;; Analysis Tasks
-  ;; ==========================================================================
+  {:doc "Install git hooks"
+   :task (let [source "scripts/git-hooks/pre-commit"
+               target ".git/hooks/pre-commit"]
+           (if (babashka.fs/exists? source)
+             (do (babashka.fs/copy source target {:replace-existing true})
+                 (babashka.fs/set-posix-file-permissions target "rwxr-xr-x")
+                 (println "Pre-commit hook installed"))
+             (println "Hook source not found:" source)))}
 
   audit:ns
-  {:doc "Audit namespace dependency graph (circular deps, fan-in, depth)"
+  {:doc "Audit namespace dependencies"
    :task (shell "bb scripts/ns-audit.clj")}
 
-   ;; ==========================================================================
-   ;; Utility Tasks
-   ;; ==========================================================================
-
   download
-  {:doc "Fast download with auto-resume (usage: bb download <url> [file] [-c 16])"
+  {:doc "Fast download with auto-resume"
    :task (let [args *command-line-args*]
            (if (seq args)
              (apply shell "bb" "scripts/fast-download.clj" args)
-             (do
-               (println "Usage: bb download <url> [output-file] [options]")
-               (println "")
-               (println "Options:")
-               (println "  -c, --connections N  Number of parallel connections (default: 16)")
-               (println "  -s, --splits N       Number of splits (default: 16)")
-               (println "")
-               (println "Examples:")
-               (println "  bb download https://example.com/file.zip")
-               (println "  bb download https://example.com/file.zip my-file.zip")
-               (println "  bb download https://example.com/file.zip -c 32"))))}
+             (do (println "Usage: bb download <url> [file] [-c 16]")
+                 (println "  -c N  Connections (default: 16)"))))}
 
-  process
-  {:doc "Manage long-running processes with tmux (start, stop, status, logs, etc.)"
-   :requires ([ouroboros.process-runner])
-   :task (apply ouroboros.process-runner/-main *command-line-args*)}
-
-   ;; ==========================================================================
-   ;; Dev Workflow Tasks
-   ;; ==========================================================================
-
-  dev
-  {:doc "Start full dev stack with health checks and tmux session management"
-   :requires ([ouroboros.process-runner :as pr])
-   :task (do
-           (println "[START] Starting Ouroboros dev stack...")
-           (println "")
-           
-           ;; Health check function
-           (let [health-url "http://localhost:8080/api/status"
-                 wait-for-backend (fn [retries]
-                                    (Thread/sleep 500)
-                                    (let [ready? (try
-                                                   (-> (slurp health-url)
-                                                       (str/includes? "healthy"))
-                                                   (catch Exception _
-                                                     false))]
-                                      (cond
-                                        ready? (println "[OK] Backend ready!")
-                                        (<= retries 0) (do
-                                                         (println "[WARN] Backend health check timeout - continuing anyway")
-                                                         (println "       Check logs: bb process logs ouroboros-backend -f")
-                                                         false)
-                                        :else (do
-                                                (print ".")
-                                                (flush)
-                                                (recur (dec retries))))))
-                 
-                 print-banner (fn []
-                                (println "")
-                                (println "=== OUROBOROS DEV STACK ===")
-                                (println "")
-                                (println "Backend:   http://localhost:8080  (API + WebSocket)")
-                                (println "Frontend:  http://localhost:8081  (Shadow-CLJS dev)")
-                                (println "Shadow UI: http://localhost:9630  (Build status)")
-                                (println ""))
-
-                 cleanup (fn []
-                           (println "")
-                           (println "[STOP] Stopping dev stack...")
-                           (try
-                             (pr/stop! "ouroboros-backend")
-                             (println "       Backend stopped")
-                             (catch Exception _ (println "       Backend not found (or error)")))
-                           (try
-                             (pr/stop! "ouroboros-frontend")
-                             (println "       Frontend stopped")
-                             (catch Exception _ (println "       Frontend not found (or error)")))
-                           (Thread/sleep 500)
-                           (println "[OK] Cleanup complete"))]
-
-             ;; Start backend
-             (try
-               (pr/start! "ouroboros-backend" "clojure -M -m ouroboros.dashboard")
-               (println "[OK] Backend started in tmux session: proc-ouroboros-backend")
-               (catch Exception e
-                 (println "[ERROR] Failed to start backend:" (.getMessage e))
-                 (println "        If session already exists, run: bb dev:stop")
-                 (System/exit 1)))
-
-             ;; Wait for backend health
-             (println "")
-             (println "[WAIT] Waiting for backend to be ready...")
-             (wait-for-backend 30)
-
-             ;; Start frontend
-             (println "")
-             (println "[START] Starting frontend...")
-             (try
-               (pr/start! "ouroboros-frontend" "npx shadow-cljs watch dashboard")
-               (println "[OK] Frontend started in tmux session: proc-ouroboros-frontend")
-               (catch Exception e
-                 (println "[ERROR] Failed to start frontend:" (.getMessage e))
-                 (println "        If session already exists, run: bb dev:stop")
-                 (cleanup)
-                 (System/exit 1)))
-
-             ;; Show banner
-             (Thread/sleep 2000)
-             (print-banner)
-
-             ;; Add shutdown hook
-             (.addShutdownHook
-               (Runtime/getRuntime)
-               (Thread. cleanup))
-
-             (println "Press Ctrl+C to stop both services")
-             (println "")
-
-             ;; Block forever until interrupted
-             (try
-               (deref (promise))
-               (catch InterruptedException _
-                 (cleanup)))
-
-             (println "")
-             (println "Dev stack exited.")))}
-
-  dev:start
-  {:doc "Start full dev stack non‑blocking (starts both services, shows banner, exits)"
-   :requires ([ouroboros.process-runner :as pr])
-   :task (do
-           (println "[START] Starting Ouroboros dev stack (non‑blocking)...")
-           (println "")
-           
-           ;; Health check function
-           (let [health-url "http://localhost:8080/api/status"
-                 wait-for-backend (fn [retries]
-                                    (Thread/sleep 500)
-                                    (let [ready? (try
-                                                   (-> (slurp health-url)
-                                                       (str/includes? "healthy"))
-                                                   (catch Exception _
-                                                     false))]
-                                      (cond
-                                        ready? (println "[OK] Backend ready!")
-                                        (<= retries 0) (do
-                                                         (println "[WARN] Backend health check timeout - continuing anyway")
-                                                         (println "       Check logs: bb process logs ouroboros-backend -f")
-                                                         false)
-                                        :else (do
-                                                (print ".")
-                                                (flush)
-                                                (recur (dec retries))))))
-                 
-                 print-banner (fn []
-                                (println "")
-                                (println "=== OUROBOROS DEV STACK ===")
-                                (println "")
-                                (println "Backend:   http://localhost:8080  (API + WebSocket)")
-                                (println "Frontend:  http://localhost:8081  (Shadow-CLJS dev)")
-                                (println "Shadow UI: http://localhost:9630  (Build status)")
-                                (println ""))]
-
-             ;; Start backend (continue if already exists)
-             (try
-               (pr/start! "ouroboros-backend" "clojure -M -m ouroboros.dashboard")
-               (println "[OK] Backend started in tmux session: proc-ouroboros-backend")
-               (catch Exception e
-                 (when-not (re-find (re-pattern "already exists") (.getMessage e))
-                   (println "[ERROR] Failed to start backend:" (.getMessage e))
-                   (println "        If session already exists, run: bb dev:stop")
-                   (System/exit 1))
-                 (println "[INFO] Backend session already exists, continuing")))
-
-             ;; Wait for backend health
-             (println "")
-             (println "[WAIT] Waiting for backend to be ready...")
-             (wait-for-backend 30)
-
-             ;; Start frontend (continue if already exists)
-             (println "")
-             (println "[START] Starting frontend...")
-             (try
-               (pr/start! "ouroboros-frontend" "npx shadow-cljs watch dashboard")
-               (println "[OK] Frontend started in tmux session: proc-ouroboros-frontend")
-               (catch Exception e
-                 (when-not (re-find (re-pattern "already exists") (.getMessage e))
-                   (println "[ERROR] Failed to start frontend:" (.getMessage e))
-                   (println "        If session already exists, run: bb dev:stop")
-                   (System/exit 1))
-                 (println "[INFO] Frontend session already exists, continuing")))
-
-             ;; Show banner
-             (Thread/sleep 2000)
-             (print-banner)
-
-             (println "")
-             (println "✓ Dev stack started successfully!")
-             (println "")
-             (println "To interact:")
-             (println "  bb process attach ouroboros-backend    # Attach to backend interactively")
-             (println "  bb process attach ouroboros-frontend   # Attach to frontend interactively")
-             (println "  bb process logs ouroboros-backend -f   # Follow backend logs")
-             (println "  bb process logs ouroboros-frontend -f  # Follow frontend logs")
-             (println "  bb dev:logs                            # Show recent logs")
-             (println "  bb dev:stop                            # Stop both services")
-             (println "")))}
-
-dev:backend
-  {:doc "Start backend only using process-runner"
-   :requires ([ouroboros.process-runner :as pr])
-   :task (do (println "[START] Starting backend in tmux session...")
-             (println "        Session: proc-ouroboros-backend")
-             (println "        URL: http://localhost:8080")
-             (println "")
-             (println "To interact:")
-             (println "  bb process attach ouroboros-backend    # Attach interactively")
-             (println "  bb process logs ouroboros-backend -f   # Follow logs")
-             (println "  bb process stop ouroboros-backend      # Stop")
-             (println "")
-             (try
-               (pr/start! "ouroboros-backend" "clojure -M -m ouroboros.dashboard")
-               (println "[OK] Backend started in tmux session")
-               (catch Exception e
-                 (println "[ERROR] Failed to start backend:" (.getMessage e))
-                 (println "        If session already exists, run: bb process stop ouroboros-backend"))))}
-
-  dev:frontend
-  {:doc "Start frontend only using process-runner"
-   :requires ([ouroboros.process-runner :as pr])
-   :task (do (println "[START] Starting frontend in tmux session...")
-             (println "        Session: proc-ouroboros-frontend")
-             (println "        URL: http://localhost:8080 (Shadow-CLJS dev server)")
-             (println "        Shadow UI: http://localhost:9630")
-             (println "")
-             (println "To interact:")
-             (println "  bb process attach ouroboros-frontend   # Attach interactively")
-             (println "  bb process logs ouroboros-frontend -f  # Follow logs")
-             (println "  bb process stop ouroboros-frontend     # Stop")
-             (println "")
-             (try
-               (pr/start! "ouroboros-frontend" "npx shadow-cljs watch dashboard")
-               (println "[OK] Frontend started in tmux session")
-               (catch Exception e
-                 (println "[ERROR] Failed to start frontend:" (.getMessage e))
-                 (println "        If session already exists, run: bb process stop ouroboros-frontend"))))}
-
-  dev:stop
-  {:doc "Stop all dev processes (backend + frontend) using process-runner"
-   :requires ([ouroboros.process-runner :as pr])
-   :task (do (println "[STOP] Stopping all dev processes...")
-             (try
-               (pr/stop! "ouroboros-backend")
-               (println "       Backend stopped")
-               (catch Exception _ (println "       Backend not found (or error)")))
-             (try
-               (pr/stop! "ouroboros-frontend")
-               (println "       Frontend stopped")
-               (catch Exception _ (println "       Frontend not found (or error)")))
-             (Thread/sleep 500)
-             (println "[OK] All processes stopped"))}
-
-  dev:logs
-  {:doc "Show dev logs (backend + frontend) using process-runner"
-   :requires ([ouroboros.process-runner :as pr])
-   :task (do (println "=== Dev Stack Logs ===")
-             (println "")
-             (println "Backend logs (proc-ouroboros-backend):")
-             (println "----------------------------------------")
-             (try
-               (let [logs (pr/logs "ouroboros-backend" :lines 20)]
-                 (if (seq logs)
-                   (println (str/join "\n" logs))
-                   (println "(No output yet)")))
-               (catch Exception e
-                 (println "Error or session not found:" (.getMessage e))))
-             (println "")
-             (println "Frontend logs (proc-ouroboros-frontend):")
-             (println "-----------------------------------------")
-             (try
-               (let [logs (pr/logs "ouroboros-frontend" :lines 20)]
-                 (if (seq logs)
-                   (println (str/join "\n" logs))
-                   (println "(No output yet)")))
-               (catch Exception e
-                 (println "Error or session not found:" (.getMessage e))))
-             (println "")
-             (println "To follow logs:")
-             (println "  bb process logs ouroboros-backend -f   # Follow backend")
-             (println "  bb process logs ouroboros-frontend -f  # Follow frontend")
-             (println "  tail -f /tmp/ouroboros-backend.log /tmp/ouroboros-frontend.log  # Old way (if logs exist)"))}
-
-   ;; ==========================================================================
-   ;; Testing Tasks
-   ;; ==========================================================================
-
+  ;; Testing
   test
-  {:doc "Run all system tests (core, chat, tools, webux, integration)"
+  {:doc "Run all tests"
    :requires ([clojure.test :as t])
-   :task (do (println "\n========================================")
-             (println "  Running All Test Suites")
-             (println "========================================")
-             (println "NOTE: WebUX tests with WebSocket deps run separately")
-             (println "      Run: bb test:webux (requires Clojure, not Babashka)")
-             (println "NOTE: ECA integration tests require manual execution")
-             (println "      Run: bb test:eca (requires ECA binary installed)\n")
-              (require 'ouroboros.core-test)
-              (require 'ouroboros.chat-adapter-test)
-              (require 'ouroboros.streaming-test)
-              (require 'ouroboros.tool-execution-test)
-              (require 'ouroboros.integration-test)
-              (let [sum-results (fn [results]
-                                  {:test (apply + (map :test results))
-                                   :pass (apply + (map :pass results))
-                                   :fail (apply + (map :fail results))
-                                   :error (apply + (map :error results))})
-                    results (sum-results
-                             [(t/run-tests 'ouroboros.core-test)
-                              (t/run-tests 'ouroboros.chat-adapter-test)
-                              (t/run-tests 'ouroboros.streaming-test)
-                              (t/run-tests 'ouroboros.tool-execution-test)
-                              (t/run-tests 'ouroboros.integration-test)])]
-               (println "\n========================================")
-               (println "  Grand Total")
-               (println "========================================")
-               (println (str "  Tests: " (:test results)))
-               (println (str "  Assertions: " (:pass results)))
-               (println (str "  Failures: " (:fail results)))
-               (println (str "  Errors: " (:error results)))
-               (when (and (zero? (:fail results))
-                          (zero? (:error results)))
-                 (println "\n  ALL TESTS PASSED!"))
-               (System/exit (if (and (zero? (:fail results))
-                                     (zero? (:error results)))
-                              0 1))))}
+   :task (do (println "\n=== Running Tests ===")
+             (require 'ouroboros.core-test)
+             (require 'ouroboros.chat-adapter-test)
+             (require 'ouroboros.streaming-test)
+             (require 'ouroboros.tool-execution-test)
+             (require 'ouroboros.integration-test)
+             (let [results [(t/run-tests 'ouroboros.core-test)
+                           (t/run-tests 'ouroboros.chat-adapter-test)
+                           (t/run-tests 'ouroboros.streaming-test)
+                           (t/run-tests 'ouroboros.tool-execution-test)
+                           (t/run-tests 'ouroboros.integration-test)]
+                   sum (fn [k] (apply + (map k results)))]
+               (println "\n=== Results ===")
+               (println "Tests:" (sum :test) "Pass:" (sum :pass)
+                        "Fail:" (sum :fail) "Error:" (sum :error))
+               (when (and (zero? (sum :fail)) (zero? (sum :error)))
+                 (println "ALL TESTS PASSED!"))
+               (System/exit (if (and (zero? (sum :fail)) (zero? (sum :error))) 0 1))))}
 
   test:webux
-  {:doc "Run WebUX Platform tests (requires Clojure, not Babashka)"
-   :task (shell "clojure -M -e \"(load-file \\\"scripts/test_webux_jvm.clj\\\") (let [main (resolve 'scripts.test-webux-jvm/-main)] (main))\"")}
+  {:doc "Run WebUX tests (requires Clojure)"
+   :task (shell "clojure -M -e \"(load-file \\\"scripts/test_webux_jvm.clj\\\") ((resolve 'scripts.test-webux-jvm/-main))\"")}
 
   test:eca
-  {:doc "Run ECA integration tests (requires ECA binary installed)"
+  {:doc "Run ECA integration tests"
    :requires ([clojure.test :as t])
-   :task (do (println "\n========================================")
-             (println "  Running ECA Integration Tests")
-             (println "========================================")
-             (println "⚠️  Requires: ECA binary installed")
-             (println "   Download from: https://github.com/editor-code-assistant/eca/releases\n")
-              (require 'ouroboros.eca-client-test)
-              (require 'ouroboros.eca-approval-bridge-test)
-              (require 'ouroboros.eca-integration-test)
-              (require 'ouroboros.eca-protocol-test)
-              (require 'ouroboros.eca-websocket-integration-test)
-              (let [sum-results (fn [results]
-                                  {:test (apply + (map :test results))
-                                   :pass (apply + (map :pass results))
-                                   :fail (apply + (map :fail results))
-                                   :error (apply + (map :error results))})
-                    results (sum-results
-                             [(t/run-tests 'ouroboros.eca-client-test)
-                              (t/run-tests 'ouroboros.eca-approval-bridge-test)
-                              (t/run-tests 'ouroboros.eca-integration-test)
-                              (t/run-tests 'ouroboros.eca-protocol-test)
-                              (t/run-tests 'ouroboros.eca-websocket-integration-test)])]
-               (println "\n========================================")
-               (println "  ECA Test Results")
-               (println "========================================")
-               (println (str "  Tests: " (:test results)))
-               (println (str "  Assertions: " (:pass results)))
-               (println (str "  Failures: " (:fail results)))
-               (println (str "  Errors: " (:error results)))
-               (when (and (zero? (:fail results))
-                          (zero? (:error results)))
-                 (println "\n  ALL ECA TESTS PASSED!"))
-               (System/exit (if (and (zero? (:fail results))
-                                     (zero? (:error results)))
-                              0 1))))}
+   :task (do (println "\n=== ECA Tests ===")
+             (require 'ouroboros.eca-client-test)
+             (require 'ouroboros.eca-approval-bridge-test)
+             (require 'ouroboros.eca-integration-test)
+             (require 'ouroboros.eca-protocol-test)
+             (require 'ouroboros.eca-websocket-integration-test)
+             (let [results [(t/run-tests 'ouroboros.eca-client-test)
+                           (t/run-tests 'ouroboros.eca-approval-bridge-test)
+                           (t/run-tests 'ouroboros.eca-integration-test)
+                           (t/run-tests 'ouroboros.eca-protocol-test)
+                           (t/run-tests 'ouroboros.eca-websocket-integration-test)]
+                   sum (fn [k] (apply + (map k results)))]
+               (println "\n=== Results ===")
+               (println "Tests:" (sum :test) "Pass:" (sum :pass)
+                        "Fail:" (sum :fail) "Error:" (sum :error))
+               (System/exit (if (and (zero? (sum :fail)) (zero? (sum :error))) 0 1))))}
 
   debug
-  {:doc "Debug utilities for Ouroboros (eca, system, tools) - Usage: bb debug [eca|system|tools|menu]"
+  {:doc "Debug utilities: bb debug [eca|system|tools|menu]"
    :requires ([ouroboros.debug :as dbg])
-   :task (let [command (first *command-line-args*)]
-           ;; Route to appropriate debug function
-           (case command
-             ("eca" nil) (let [status (dbg/eca-status)]
-                           (println "\n=== ECA Debug ===")
-                           (if (:exists? status)
-                             (do
-                               (println "✓ ECA binary found")
-                               (println "  Path:" (:path status))
-                               (println "  Version:" (:version status))
-                               (println "  Size:" (format "%.2f MB" (:size-mb status)))
-                               (println "\nTo test server mode:")
-                               (println "  (require '[ouroboros.debug :as dbg])")
-                               (println "  (dbg/eca-test-server)"))
-                             (do
-                               (println "✗ ECA binary not found at:" (:path status))
-                               (println "  Run: bb test:eca  to auto-download"))))
-             
-             ("system" "status") (dbg/system-status)
-             
-             ("tools") (dbg/tool-registry)
-             
-             ("menu" "help") (dbg/debug-menu)
-             
-             (do
-               (println (str "Unknown command: " command))
-               (println "\nUsage: bb debug [command]")
-               (println "\nCommands:")
-               (println "  eca       - Check ECA binary status (default)")
-               (println "  system    - Check system status")
-               (println "  tools     - List registered tools")
-               (println "  menu      - Show debug menu")
-               (println "\nOr open REPL for interactive debugging:")
-               (println "  bb repl")
-               (println "  => (require '[ouroboros.debug :as dbg])")
-               (println "  => (dbg/eca-check :verbose)"))))}}}
+   :task (case (first *command-line-args*)
+           ("eca" nil) (let [s (dbg/eca-status)]
+                         (println "\n=== ECA ===")
+                         (if (:exists? s)
+                           (println "✓" (:path s) "(" (:version s) ")")
+                           (println "✗ Not found at" (:path s))))
+           ("system" "status") (dbg/system-status)
+           ("tools") (dbg/tool-registry)
+           ("menu" "help") (dbg/debug-menu)
+           (println "Usage: bb debug [eca|system|tools|menu]"))}}}
