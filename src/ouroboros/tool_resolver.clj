@@ -8,7 +8,7 @@
      (def-resolver-tool!
        #'memory-get                    ; Resolver var
        :memory/get                     ; Tool name
-       {:description "Get value from memory"
+       {:description " Get value from memory "
         :unique? true                  ; Expose to ECA
         :category :memory})            ; Category
 
@@ -114,8 +114,6 @@
       (register-resolver-as-tool! resolver-var))
     (println (str "✓ Registered " (count mappings) " tools from resolvers"))
     names))
-
-
 
 ;; ============================================================================
 ;; Convenience: Define tools from resolvers
