@@ -320,15 +320,30 @@
         ;; Store chat content in state for retrieval
         (swap! state update :chat-contents conj params))
 
+      ;; Dual logging: ECA-specific events for debugging, and standard :tool/invoke
+      ;; for telemetry dashboards and counts (see telemetry.cljs filters)
       "chat/toolCallRun"
-      (telemetry/emit! {:event :eca/tool-call-run
-                        :tool (:name params)
-                        :params (:arguments params)})
+      (let [tool-name (:name params)
+            tool-kw (keyword tool-name)
+            args (:arguments params)]
+        (telemetry/emit! {:event :eca/tool-call-run
+                          :tool tool-name
+                          :params args})
+        (telemetry/emit! {:event :tool/invoke
+                          :tool tool-kw
+                          :params-keys (keys (or args {}))}))
 
       "chat/toolCalled"
-      (telemetry/emit! {:event :eca/tool-called
-                        :tool (:name params)
-                        :outputs (:outputs params)})
+      (let [tool-name (:name params)
+            tool-kw (keyword tool-name)
+            outputs (:outputs params)]
+        (telemetry/emit! {:event :eca/tool-called
+                          :tool tool-name
+                          :outputs outputs})
+        (telemetry/emit! {:event :tool/complete
+                          :tool tool-kw
+                          :success? true
+                          :has-result? (some? outputs)}))
 
       "config/updated"
       (telemetry/emit! {:event :eca/config-updated
@@ -383,44 +398,44 @@
 ;; ============================================================================
 
 (defn get-eca-path
-    "Get the current ECA binary path"
-    []
-    (or (System/getenv "ECA_PATH") default-eca-path))
+  "Get the current ECA binary path"
+  []
+  (or (System/getenv "ECA_PATH") default-eca-path))
 
 (defn get-state
-    "Get the current ECA client state (for internal use)"
-    []
-    state)
+  "Get the current ECA client state (for internal use)"
+  []
+  state)
 
 (defn swap-state!
-    "Update ECA client state (for internal use)"
-    [f & args]
-    (apply swap! state f args))
+  "Update ECA client state (for internal use)"
+  [f & args]
+  (apply swap! state f args))
 
 (defn reset-state!
-    "Reset ECA client state (for internal use)"
-    [new-state]
-    (reset! state new-state))
+  "Reset ECA client state (for internal use)"
+  [new-state]
+  (reset! state new-state))
 
 (defn add-chat-content!
-    "Add chat content to state"
-    [content]
-    (swap! state update :chat-contents conj content))
+  "Add chat content to state"
+  [content]
+  (swap! state update :chat-contents conj content))
 
 (defn get-chat-contents
-    "Get all received chat contents from ECA notifications.
+  "Get all received chat contents from ECA notifications.
 
    Usage: (get-chat-contents)"
-    []
-    (get @state :chat-contents []))
+  []
+  (get @state :chat-contents []))
 
 (defn clear-chat-contents!
-    "Clear stored chat contents.
+  "Clear stored chat contents.
 
    Usage: (clear-chat-contents!)"
-    []
-    (swap! state assoc :chat-contents [])
-    nil)
+  []
+  (swap! state assoc :chat-contents [])
+  nil)
 
 ;; ============================================================================
 ;; Re-exports for other eca-client namespaces

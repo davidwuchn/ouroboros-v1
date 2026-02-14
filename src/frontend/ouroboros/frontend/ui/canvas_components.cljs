@@ -13,12 +13,12 @@
    - Connection lines between related items
    - Real-time collaboration cursors
    - Rich text editing"
-   (:require
-    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-    [com.fulcrologic.fulcro.dom :as dom]
-    [com.fulcrologic.fulcro.mutations :as m]
-    [goog.events :as gevents]
-    [goog.events.EventType :as event-type]))
+  (:require
+   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+   [com.fulcrologic.fulcro.dom :as dom]
+   [com.fulcrologic.fulcro.mutations :as m]
+   [goog.events :as gevents]
+   [goog.events.EventType :as event-type]))
 
 ;; ============================================================================
 ;; Canvas State Management
@@ -88,11 +88,11 @@
                                                  {:item-id id
                                                   :updates {:item/content edit-content}})])
                           (comp/set-state! this {:editing? false}))))})
-        (dom/div
-         {:className "sticky-note-content"
-          :onClick #(comp/set-state! this {:editing? true
-                                           :edit-content content})}
-         (or content "Click to edit...")))
+       (dom/div
+        {:className "sticky-note-content"
+         :onClick #(comp/set-state! this {:editing? true
+                                          :edit-content content})}
+        (or content "Click to edit...")))
       ;; Actions
      (dom/div :.sticky-note-actions
               (dom/button
@@ -190,11 +190,11 @@
      (dom/div
       {:className "canvas-section-content"
        :data-drop-zone key-str}
-       (if (seq items)
-          (map ui-sticky-note (filter :item/id items))
-         (dom/div :.canvas-section-empty
-                  (dom/span :.empty-icon "+")
-                  (dom/span "Click to add your first insight"))))
+      (if (seq items)
+        (map ui-sticky-note (filter :item/id items))
+        (dom/div :.canvas-section-empty
+                 (dom/span :.empty-icon "+")
+                 (dom/span "Click to add your first insight"))))
      ;; Add Button
      (when editable?
        (dom/div :.canvas-section-actions
@@ -213,27 +213,27 @@
   "Define the 6 empathy map sections. Descriptions are structural labels.
    Hints left empty -- ECA provides contextual guidance via section-hints."
   []
-  [{:key :persona :title "👤 Persona" 
+  [{:key :persona :title "👤 Persona"
     :description "Who is your ideal customer?"
     :hint ""
     :grid-area "persona" :color "blue"}
-   {:key :think-feel :title "🧠 Think & Feel" 
+   {:key :think-feel :title "🧠 Think & Feel"
     :description "What's going on in their head?"
     :hint ""
     :grid-area "think-feel" :color "pink"}
-   {:key :hear :title "👂 Hear" 
+   {:key :hear :title "👂 Hear"
     :description "What do others tell them?"
     :hint ""
     :grid-area "hear" :color "green"}
-   {:key :see :title "👁️ See" 
+   {:key :see :title "👁️ See"
     :description "What's in their environment?"
     :hint ""
     :grid-area "see" :color "yellow"}
-   {:key :say-do :title "💬 Say & Do" 
+   {:key :say-do :title "💬 Say & Do"
     :description "Their behavior in public."
     :hint ""
     :grid-area "say-do" :color "orange"}
-   {:key :pains-gains :title "⚡ Pains & Gains" 
+   {:key :pains-gains :title "⚡ Pains & Gains"
     :description "What frustrates them? What does success look like?"
     :hint ""
     :grid-area "pains-gains" :color "purple"}])
@@ -264,19 +264,19 @@
        {:className "canvas-section-content"
         :data-drop-zone key-str}
        (if (seq items)
-          (if editable-notes?
+         (if editable-notes?
             ;; Editable: use EditableStickyNote with callbacks
-            (map (fn [item]
-                   (ui-editable-sticky-note
-                    (comp/computed item {:on-save on-item-edit
-                                         :on-delete on-item-delete})))
-                 (filter :item/id items))
+           (map (fn [item]
+                  (ui-editable-sticky-note
+                   (comp/computed item {:on-save on-item-edit
+                                        :on-delete on-item-delete})))
+                (filter :item/id items))
             ;; Read-only: simple divs
-            (map (fn [item]
-                   (dom/div {:key (:item/id item)
-                             :className (str "sticky-note sticky-note-" (or (:item/color item) "yellow"))}
-                            (dom/div :.sticky-note-content (:item/content item))))
-                 (filter :item/id items)))
+           (map (fn [item]
+                  (dom/div {:key (:item/id item)
+                            :className (str "sticky-note sticky-note-" (or (:item/color item) "yellow"))}
+                           (dom/div :.sticky-note-content (:item/content item))))
+                (filter :item/id items)))
          (dom/div :.canvas-section-empty
                   {:onClick #(when on-add-item (on-add-item key))}
                   (dom/span :.empty-icon "+")
@@ -660,8 +660,8 @@
                     (if (seq notes)
                       (map-indexed
                        (fn [idx note]
-                          (dom/div {:key (or (:item/id note) (str "present-note-" idx))}
-                                   (present-note-card note)))
+                         (dom/div {:key (or (:item/id note) (str "present-note-" idx))}
+                                  (present-note-card note)))
                        notes)
                       (dom/div :.present-section-empty
                                (dom/span "No notes yet"))))))

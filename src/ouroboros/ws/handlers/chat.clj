@@ -8,7 +8,11 @@
    [ouroboros.eca-client :as eca]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.ws.connections :as conn]
-   [ouroboros.ws.stream :as stream]))
+   [ouroboros.ws.stream :as stream]
+   [ouroboros.chat.commands :as commands]
+   [ouroboros.chat.session :as session]
+   [ouroboros.chat.protocol :as chatp]
+   [ouroboros.learning.empathy-map :as empathy]))
 
 ;; ============================================================================
 ;; Tool Approval
@@ -101,13 +105,9 @@
 ;; Chat Handler
 ;; ============================================================================
 
-(defn handle-eca-chat!
-  "Handle an eca/chat message from the frontend.
-   Registers a per-request ECA callback that streams tokens back to the
-   specific WebSocket client, then cleans up when done.
-
-   Also registers tool approval handler to auto-approve safe tools."
-  [client-id {:keys [text context]}]
+(defn- handle-eca-chat-raw
+  "Raw ECA chat handling (original implementation)"
+  [client-id text context]
   (when (stream/ensure-eca-alive! client-id :eca/chat-error {})
     (let [chat-id (str "ws-" client-id "-" (System/currentTimeMillis))
           listener-id (keyword (str "ws-chat-" client-id))
@@ -139,6 +139,132 @@
                      (telemetry/emit! {:event :ws/eca-chat-error
                                        :client-id client-id
                                        :error error-msg}))}))))
+
+(defn- handle-mode-response
+  "Handle user response when in a special mode (empathy, canvas, etc.)
+   Returns true if handled, false otherwise."
+  [client-id chat-id text]
+  (let [context (session/get-context chat-id)
+        in-empathy? (:empathy/mode context)
+        empathy-session (:empathy/session context)]
+    (telemetry/emit! {:event :ws/mode-response-debug
+                      :client-id client-id
+                      :chat-id chat-id
+                      :in-empathy? in-empathy?
+                      :has-empathy-session? (some? empathy-session)
+                      :context-keys (keys context)})
+    (cond
+      (and in-empathy? empathy-session)
+      (try
+        (telemetry/emit! {:event :ws/empathy-response
+                          :client-id client-id
+                          :chat-id chat-id
+                          :text-length (count (str text))})
+        (let [result (empathy/process-response! empathy-session text)
+              next-prompt (:message result)
+              updated-session (:session result)
+              ;; Create adapter for sending response
+              adapter (reify
+                        chatp/ChatAdapter
+                        (start! [this handler] nil)
+                        (stop! [this] nil)
+                        (send-message! [this chat-id msg-text]
+                          (conn/send-to! client-id {:type :eca/chat-response
+                                                     :text msg-text
+                                                     :timestamp (System/currentTimeMillis)})
+                          nil)
+                        (send-markdown! [this chat-id msg-text]
+                          (conn/send-to! client-id {:type :eca/chat-response
+                                                     :text msg-text
+                                                     :timestamp (System/currentTimeMillis)})
+                          nil))]
+          ;; Update session context with updated empathy session
+          (session/assoc-context! chat-id :empathy/session updated-session)
+          
+          ;; If empathy map is complete, clear the mode
+          (when (:complete? result)
+            (session/dissoc-context! chat-id :empathy/mode))
+          
+          ;; Send the next prompt (or completion message)
+          (chatp/send-markdown! adapter chat-id next-prompt)
+          true)  ;; Return true to indicate we handled this
+        (catch Exception e
+          (telemetry/emit! {:event :ws/empathy-error
+                            :client-id client-id
+                            :chat-id chat-id
+                            :error (.getMessage e)})
+          ;; Send error to user
+          (conn/send-to! client-id {:type :eca/chat-response
+                                     :text (str "⚠️ Error processing empathy response: " (.getMessage e))
+                                     :timestamp (System/currentTimeMillis)})
+          true))  ;; Still return true since we handled it (with error)
+      
+      ;; Add other modes here (canvas, valueprop, mvp, etc.)
+      :else
+      (do
+        (telemetry/emit! {:event :ws/mode-response-not-handled
+                          :client-id client-id
+                          :chat-id chat-id})
+        false))))  ;; Return false to indicate we didn't handle this
+
+(defn handle-eca-chat!
+  "Handle an eca/chat message from the frontend.
+   Registers a per-request ECA callback that streams tokens back to the
+   specific WebSocket client, then cleans up when done.
+
+   Also registers tool approval handler to auto-approve safe tools."
+  [client-id {:keys [text context]}]
+  ;; Debug logging
+  (telemetry/emit! {:event :ws/eca-chat-debug
+                    :client-id client-id
+                    :text (pr-str text)
+                    :is-string? (string? text)
+                    :starts-with-slash? (and (string? text) (str/starts-with? text "/"))})
+  
+  (let [chat-id (str "ws-" client-id)]
+    ;; First, check if we're in a special mode (empathy, canvas, etc.)
+    (if (handle-mode-response client-id chat-id text)
+      ;; Mode was handled, we're done
+      nil
+      ;; Not in a mode, check if this is a command (starts with /)
+      (if (and (string? text) (str/starts-with? text "/"))
+        ;; Handle as command
+        (let [user-id (str "ws-" client-id)
+              user-name "WebSocket User"
+              ;; Create a WebSocket adapter that implements ChatAdapter
+              adapter (reify
+                        chatp/ChatAdapter
+                        (start! [this handler] nil)
+                        (stop! [this] nil)
+                        (send-message! [this chat-id msg-text]
+                          (conn/send-to! client-id {:type :eca/chat-response
+                                                     :text msg-text
+                                                     :timestamp (System/currentTimeMillis)})
+                          nil)
+                        (send-markdown! [this chat-id msg-text]
+                          (conn/send-to! client-id {:type :eca/chat-response
+                                                     :text msg-text
+                                                     :timestamp (System/currentTimeMillis)})
+                          nil))]
+          (telemetry/emit! {:event :ws/command-request
+                            :client-id client-id
+                            :text text})
+          ;; Extract command and args
+          (if-let [[cmd args] (commands/extract-command text)]
+            (do
+              (telemetry/emit! {:event :ws/command-extracted
+                                :client-id client-id
+                                :cmd cmd
+                                :args args})
+              (commands/handle-command adapter chat-id user-name cmd args))
+            ;; Not a recognized command, send to ECA
+            (do
+              (telemetry/emit! {:event :ws/command-not-recognized
+                                :client-id client-id
+                                :text text})
+              (handle-eca-chat-raw client-id text context))))
+        ;; Not a command, send to ECA as usual
+        (handle-eca-chat-raw client-id text context)))))
 
 (defn approve-tool!
   "Approve a tool call from the frontend.

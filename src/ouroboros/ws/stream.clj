@@ -2,6 +2,7 @@
   "DRY helper for streaming ECA responses to WebSocket clients.
    Replaces ~300 lines of duplicated register/stream/unregister boilerplate."
   (:require
+   [clojure.string :as str]
    [ouroboros.eca-client :as eca]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.ws.connections :as conn]))
@@ -54,6 +55,22 @@
                 (conn/send-to! client-id (assoc base-msg
                                                 :type token-type
                                                 :token (:text content))))
+
+              ;; System error text -> send as error message
+              (and (= role "system") (= "text" (:type content)) (:text content))
+              (let [error-text (:text content)
+                    friendly-error (cond
+                                     (or (str/includes? error-text "rate_limit_reached_error")
+                                         (str/includes? error-text "429")
+                                         (str/includes? error-text "quota"))
+                                     "The AI service is currently rate limited. Please try again later, or use the `/empathy` command to view your existing empathy maps."
+                                     :else error-text)]
+                (conn/send-to! client-id (assoc base-msg
+                                                :type (or error-type done-type)
+                                                :error error-text
+                                                :text friendly-error))
+                (eca/unregister-callback! "chat/contentReceived" listener-id)
+                (when on-error (on-error error-text)))
 
               ;; Reasoning/other -> skip
               :else nil)))))

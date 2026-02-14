@@ -98,7 +98,7 @@
                  "/build canvas <name> - Create Lean Canvas\n"
                  "/build empathy <persona> - Empathy Map\n"
                  "/build valueprop <project> - Value Proposition Canvas\n"
-                 "/build mvp <project> - MVP Planning\n\n"
+                 "/build mvp <project> - MVP Planning\n/empathy - Show your empathy maps\n\n"
                  "*Learning*\n"
                  "/learn <topic> <insight> - Save learning\n"
                  "/recall <pattern> - Recall learnings\n"
@@ -191,6 +191,30 @@
                   (send-markdown! adapter chat-id (:message prompt))))
         (send-message! adapter chat-id (str "Unknown build command: " subcmd))))
     (send-message! adapter chat-id "*Build Commands*\n\n/build canvas <name> - Create Lean Canvas\n/build canvas empathy <persona> - Empathy Map Canvas\n/build empathy <persona> - Empathy Map (shorthand)\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/build help - Show help")))
+
+;; /empathy
+(defmethod handle-command :empathy
+  [adapter chat-id _user-name _cmd args]
+  (telemetry/emit! {:event :chat/command :command :empathy :chat-id chat-id})
+  (let [empathy-maps (empathy/recall-user-empathy-maps chat-id)]
+    (if (seq empathy-maps)
+      (send-markdown! adapter chat-id
+                      (str "*Your Empathy Maps*\n\n"
+                           (str/join "\n\n"
+                                     (for [em empathy-maps]
+                                       (let [title (:learning/title em)
+                                             insights (:learning/insights em)
+                                             examples (:learning/examples em)
+                                             created (:learning/created em)
+                                             persona (when (seq examples) (:persona (first examples)))]
+                                         (str "• **" title "**\n"
+                                              (when persona
+                                                (str "  Persona: " persona "\n"))
+                                              (when (seq insights)
+                                                (str "  " (first insights) "\n"))
+                                              (when created
+                                                (str "  _Created: " (subs created 0 10) "_"))))))))
+      (send-message! adapter chat-id "You haven't created any empathy maps yet.\nUse `/build empathy <persona>` to create one."))))
 
 ;; /learn
 (defmethod handle-command :learn
