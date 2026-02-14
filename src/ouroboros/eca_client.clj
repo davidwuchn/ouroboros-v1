@@ -104,6 +104,14 @@
   "Ensure ECA is running. If dead, attempt auto-restart."
   lifecycle/ensure-alive!)
 
+(def list-orphaned-processes
+  "List ECA processes not started by us (orphaned from other runs)."
+  lifecycle/list-orphaned-processes)
+
+(def print-process-status
+  "Print detailed status of ECA processes."
+  lifecycle/print-process-status)
+
 ;; ============================================================================
 ;; Re-exports from Chat (Chat Operations)
 ;; ============================================================================

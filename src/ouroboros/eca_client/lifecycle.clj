@@ -7,6 +7,7 @@
    This namespace is an implementation detail - prefer using
    the public API in ouroboros.eca-client"
   (:require
+    [clojure.string :as str]
     [ouroboros.fs :as fs]
     [ouroboros.telemetry :as telemetry]
     [ouroboros.eca-client.core :as core])
@@ -18,7 +19,7 @@
 ;; ============================================================================
 
 (defn- initialize!
-  "Send initialize handshake to ECA"
+  "Send initialize handshake to ECA. Returns true on success, false on failure."
   [{}]
   (let [;; Get actual process ID for ECA liveness probe
         process-id (try
@@ -26,12 +27,12 @@
                      (catch Exception _
                        ;; Fallback to hash if ProcessHandle not available (Java 8)
                        (long (hash (str (System/getProperty "user.name") (System/currentTimeMillis))))))
-         params {:processId process-id
-                 :clientInfo {:name "ouroboros"
-                              :version "0.1.0"}
-                 :capabilities {}
-                 :workspaceFolders [{:uri (str "file://" (System/getProperty "user.dir"))
-                                     :name "ouroboros"}]}
+        params {:processId process-id
+                :clientInfo {:name "ouroboros"
+                             :version "0.1.0"}
+                :capabilities {}
+                :workspaceFolders [{:uri (str "file://" (System/getProperty "user.dir"))
+                                    :name "ouroboros"}]}
         response-promise (core/send-request! "initialize" params)
         timeout-ms 30000
         start-time (System/currentTimeMillis)]
@@ -49,18 +50,21 @@
               (do
                 (telemetry/emit! {:event :eca/initialize-error
                                   :error (:error response)})
-                (println "✗ ECA initialize error:" (:error response)))
+                (println "✗ ECA initialize error:" (:error response))
+                false)
               (do
                 (println "✓ ECA initialized")
                 (telemetry/emit! {:event :eca/initialized})
                 ;; Send initialized notification to complete handshake
-                (core/send-notification! "initialized" {}))))
+                (core/send-notification! "initialized" {})
+                true)))
 
           ;; Timeout reached
           (> (- (System/currentTimeMillis) start-time) timeout-ms)
           (do
             (telemetry/emit! {:event :eca/initialize-timeout})
-            (println "⚠️  ECA initialize timeout"))
+            (println "⚠️  ECA initialize timeout")
+            false)
 
           ;; Keep waiting
           :else
@@ -71,142 +75,313 @@
       (catch Exception e
         (telemetry/emit! {:event :eca/initialize-exception
                           :error (.getMessage e)})
-        (println "✗ ECA initialize exception:" (.getMessage e))))))
+        (println "✗ ECA initialize exception:" (.getMessage e))
+        false))))
+
+;; ============================================================================
+;; Process Management - Track only OUR process
+;; ============================================================================
+
+;; Atom to track the PID of the ECA process we started.
+;; Used to ensure we only manage our own process, not others.
+(def ^:private our-eca-pid (atom nil))
+
+(defn- get-our-pid
+  "Get the PID of our managed ECA process"
+  []
+  @our-eca-pid)
+
+;; Forward declarations
+(declare alive? status)
+
+(defn- set-our-pid!
+  "Set the PID of our managed ECA process"
+  [pid]
+  (reset! our-eca-pid pid))
+
+(defn- clear-our-pid!
+  "Clear our tracked PID"
+  []
+  (reset! our-eca-pid nil))
+
+(defn- is-our-process?
+  "Check if a process is the one we started"
+  [proc]
+  (when-let [our-pid @our-eca-pid]
+    (and proc
+         (.isAlive proc)
+         (= our-pid (.pid proc)))))
+
+(defn- stop-our-process!
+  "Stop only OUR ECA process, not any other ECA processes.
+   Returns true if a process was stopped, false otherwise."
+  []
+  (let [{:keys [eca-process]} (core/get-state)]
+    (when (and eca-process (is-our-process? eca-process))
+      (println (str "↺ Stopping our ECA process (PID: " (.pid eca-process) ")..."))
+      (.destroy eca-process)
+      ;; Wait briefly for clean shutdown
+      (try (.waitFor eca-process 2 TimeUnit/SECONDS)
+           (catch Exception _ nil))
+      (when (.isAlive eca-process)
+        (println "  Forcibly killing ECA process...")
+        (.destroyForcibly eca-process))
+      (println "✓ Our ECA process stopped")
+      true)))
 
 ;; ============================================================================
 ;; Lifecycle
 ;; ============================================================================
 
 (defn start!
-   "Start ECA process and initialize connection
+  "Start ECA process and initialize connection.
+   If we already have a running process, stops it first.
 
-    Usage: (start!)
-           (start! {:eca-path \"/path/to/eca\"})"
+   Usage: (start!)
+          (start! {:eca-path \"/path/to/eca\"})"
   ([] (start! {}))
   ([{:keys [eca-path debug?] :or {eca-path (core/get-eca-path)}}]
    (println "◈ Starting ECA client...")
    (println "  ECA path:" eca-path)
+
+   ;; Check if we already have a process running
+   (when-let [existing-pid (get-our-pid)]
+     (println (str "  Found existing ECA process (PID: " existing-pid "), stopping it first..."))
+     (try (stop-our-process!) (catch Exception _ nil))
+     (clear-our-pid!)
+     (Thread/sleep 500))
+
    (when debug?
      (println "  Debug mode: enabled"))
 
    (when-not (fs/exists? eca-path)
-     (println "⚠️  ECA not found at:" eca-path)
-     (println "   Download from: https://github.com/editor-code-assistant/eca/releases")
-     (throw (ex-info "ECA binary not found" {:path eca-path})))
+     (println "⚠️  ECA binary not found at:" eca-path)
+     (println "")
+     (println "   ECA (Editor Code Assistant) is required for AI chat features.")
+     (println "")
+     (println "   To install:")
+     (println "     bb setup:eca")
+     (println "")
+     (println "   Or download manually from:")
+     (println "     https://github.com/editor-code-assistant/eca/releases")
+     (println "")
+     (println "   Then set ECA_PATH environment variable if installing to a custom location.")
+     (throw (ex-info "ECA binary not found. Run: bb setup:eca" {:path eca-path})))
 
-     (try
-        (let [cmd (cond-> [eca-path "server"]
-                    debug? (conj "--log-level" "debug"))
-              proc (.start (ProcessBuilder. cmd))
-              stdin-raw (.getOutputStream proc)
-              stdout-stream (java.io.BufferedInputStream. (.getInputStream proc))
-              stderr-reader (BufferedReader. (InputStreamReader. (.getErrorStream proc)))]
+   (try
+     (let [cmd (cond-> [eca-path "server"]
+                 debug? (conj "--log-level" "debug"))
+           proc (.start (ProcessBuilder. cmd))
+           pid (.pid proc)
+           stdin-raw (.getOutputStream proc)
+           stdout-stream (java.io.BufferedInputStream. (.getInputStream proc))
+           stderr-reader (BufferedReader. (InputStreamReader. (.getErrorStream proc)))
+           ;; Buffer to collect stderr for error reporting
+           stderr-buffer (atom [])]
 
-        ;; Start thread to drain stderr (prevents ECA from blocking)
-        (future
-          (loop []
-            (when-let [line (.readLine stderr-reader)]
-              (telemetry/emit! {:event :eca/stderr :line line})
-              (recur))))
+       ;; Track OUR process PID
+       (set-our-pid! pid)
+       (println (str "  Started ECA process (PID: " pid ")"))
 
-        ;; Monitor process health
-        (future
-          (loop []
-            (Thread/sleep 1000)
-            (when (:running (core/get-state))
-              (when-not (.isAlive proc)
-                (println "⚠️  ECA process has exited!")
-                (telemetry/emit! {:event :eca/process-exit
-                                  :exit-code (try (.exitValue proc) (catch Exception _ nil))})
-                (core/swap-state! assoc :running false))
-              (recur))))
+       ;; Start thread to drain stderr (prevents ECA from blocking)
+       (future
+         (loop []
+           (when-let [line (.readLine stderr-reader)]
+             (swap! stderr-buffer conj line)
+             (telemetry/emit! {:event :eca/stderr :line line})
+             (recur))))
 
-        (core/reset-state! {:eca-process proc
-                            :stdin stdin-raw
-                            :stdout stdout-stream
-                            :stderr stderr-reader
-                            :running true
-                            :request-id 0
-                            :pending-requests {}
-                            :callbacks (:callbacks (core/get-state))
-                            :chat-contents []
-                            :eca-path eca-path
-                            :debug? (boolean debug?)})
+       ;; Monitor process health - only track OUR process
+       (future
+         (loop []
+           (Thread/sleep 1000)
+           (when (and (:running (core/get-state))
+                      (is-our-process? (:eca-process (core/get-state))))
+             (when-not (.isAlive proc)
+               (println (str "⚠️  Our ECA process (PID: " pid ") has exited!"))
+               (telemetry/emit! {:event :eca/process-exit
+                                 :exit-code (try (.exitValue proc) (catch Exception _ nil))})
+               (core/swap-state! assoc :running false)
+               (clear-our-pid!))
+             (recur))))
 
-       (println "✓ ECA process started")
+       (core/reset-state! {:eca-process proc
+                           :stdin stdin-raw
+                           :stdout stdout-stream
+                           :stderr stderr-reader
+                           :running true
+                           :request-id 0
+                           :pending-requests {}
+                           :callbacks (:callbacks (core/get-state))
+                           :chat-contents []
+                           :eca-path eca-path
+                           :debug? (boolean debug?)
+                           :stderr-buffer stderr-buffer
+                           :our-pid pid})
 
        ;; Start reading responses
        (core/read-loop!)
 
+       ;; Wait briefly for ECA to be ready
+       (Thread/sleep 500)
+
        ;; Initialize handshake
-       (initialize! {})
+       (let [init-success (initialize! {})]
+         (when-not init-success
+           ;; Initialization failed - stop our process and throw
+           (stop-our-process!)
+           (clear-our-pid!)
+           (Thread/sleep 500) ;; Give time for stderr to be collected
+           (let [stderr-lines @stderr-buffer
+                 stderr-summary (if (seq stderr-lines)
+                                  (str "\n\nECA stderr output:\n"
+                                       (str/join "\n" (take 10 stderr-lines)))
+                                  "")]
+             (throw (ex-info (str "ECA initialization failed."
+                                  " The binary started but did not respond to handshake."
+                                  "\nPossible causes:"
+                                  "\n  - Missing API key configuration"
+                                  "\n  - Incompatible ECA version"
+                                  "\n  - ECA crashed immediately"
+                                  stderr-summary
+                                  "\n\nRun 'bb eca:diagnose' for detailed diagnostics.")
+                             {:type :eca-init-failed
+                              :stderr stderr-lines})))))
+
+       (println "✓ ECA client ready")
 
        {:status :running
+        :pid pid
         :eca-path eca-path
         :debug? (boolean debug?)})
 
      (catch Exception e
        (telemetry/emit! {:event :eca/start-error
                          :error (.getMessage e)})
+       (clear-our-pid!)
        (println "✗ Failed to start ECA:" (.getMessage e))
        (throw e)))))
 
 (defn stop!
-  "Stop ECA process
+  "Stop our ECA process.
+   Only stops the process we started, never touches other ECA processes.
 
    Usage: (stop!)"
   []
   (telemetry/emit! {:event :eca/stop})
-  (let [{:keys [eca-process running]} (core/get-state)]
-    (when running
-      (core/swap-state! assoc :running false)
-
-      (when eca-process
-        (.destroy eca-process)
-        ;; Wait briefly for clean shutdown
-        (try (.waitFor eca-process 2 TimeUnit/SECONDS)
-             (catch Exception _ nil))
-        (when (.isAlive eca-process)
-          (.destroyForcibly eca-process))
-        (println "✓ ECA process stopped"))))
-   (core/swap-state! assoc :debug? false))
+  (core/swap-state! assoc :running false)
+  (stop-our-process!)
+  (clear-our-pid!)
+  (core/swap-state! assoc :debug? false))
 
 (defn status
   "Get ECA client status
 
    Usage: (status)"
   []
-  (let [s @(core/get-state)]
-    {:running (:running s)
+  (let [s @(core/get-state)
+        proc (:eca-process s)
+        our-pid (get-our-pid)]
+    {:running (alive?)
+     :our-pid our-pid
+     :process-alive? (when proc (.isAlive proc))
+     :is-our-process? (is-our-process? proc)
      :eca-path (:eca-path s)
      :pending-requests (count (:pending-requests s))
      :debug? (:debug? s)}))
 
+(defn- list-all-eca-processes
+  "List all ECA server processes on the system.
+   Returns vector of {:pid :command} maps.
+   Works in both Babashka and JVM Clojure."
+  []
+  (try
+    (let [proc (-> (ProcessBuilder. ["pgrep" "-a" "-f" "eca server"])
+                   (.start))
+          output (with-open [reader (BufferedReader. (InputStreamReader. (.getInputStream proc)))]
+                   (str/join "\n" (line-seq reader)))
+          exit-code (.waitFor proc)]
+      (if (zero? exit-code)
+        (->> (str/split-lines output)
+             (map #(let [parts (str/split % #"\s+" 2)]
+                     {:pid (first parts)
+                      :command (second parts)}))
+             (filter #(str/includes? (:command %) "server"))
+             vec)
+        []))
+    (catch Exception _
+      ;; pgrep not available or no processes found
+      [])))
+
+(defn list-orphaned-processes
+  "List ECA processes that are not the one we're managing.
+   These may be leftover from previous runs or other applications.
+
+   Usage: (list-orphaned-processes)
+          ;; => [{:pid \"1234\" :command \"eca server\"} ...]"
+  []
+  (let [our-pid (get-our-pid)
+        all-eca (list-all-eca-processes)
+        our-pid-str (when our-pid (str our-pid))]
+    (if our-pid-str
+      (filterv #(not= our-pid-str (:pid %)) all-eca)
+      all-eca)))
+
+(defn print-process-status
+  "Print detailed status of ECA processes.
+   Shows our process and any orphaned ones."
+  []
+  (let [our-pid (get-our-pid)
+        all-eca (list-all-eca-processes)
+        orphaned (list-orphaned-processes)]
+    (println "\n=== ECA Process Status ===")
+    (println (str "Our process PID: " (or our-pid "none")))
+    (println (str "Total ECA processes: " (count all-eca)))
+    (when (seq orphaned)
+      (println "\n⚠️  Orphaned ECA processes (not ours):")
+      (doseq [{:keys [pid command]} orphaned]
+        (println (str "   PID " pid ": " command))))
+    (println "")
+    {:our-pid our-pid
+     :total (count all-eca)
+     :orphaned-count (count orphaned)
+     :orphaned orphaned}))
+
 (defn alive?
-  "Check if ECA process is truly alive (not just :running flag).
-   Validates the underlying OS process is still running.
+  "Check if OUR ECA process is truly alive.
+   Validates that:
+   1. We have a running flag set
+   2. We have a process object
+   3. The process is the one we started (by PID)
+   4. The OS process is actually alive
 
    Usage: (alive?) ;; => true/false"
   []
-  (let [s (core/get-state)]
+  (let [s (core/get-state)
+        proc (:eca-process s)]
     (and (:running s)
-         (when-let [proc (:eca-process s)]
-           (.isAlive proc)))))
+         proc
+         (is-our-process? proc)
+         (.isAlive proc))))
 
 (defn restart!
-  "Stop and restart ECA process. Returns start! result or throws.
+  "Stop our ECA process and start a new one.
+   Returns start! result or throws.
 
    Usage: (restart!)"
   []
   (telemetry/emit! {:event :eca/restart})
-  (println "↺ Restarting ECA...")
-  (try (stop!) (catch Exception _ nil))
-  ;; Brief pause to let OS reclaim resources
-  (Thread/sleep 500)
-  (start! {}))
+  (let [current-pid (get-our-pid)]
+    (if current-pid
+      (println (str "↺ Restarting ECA (current PID: " current-pid ")..."))
+      (println "↺ Starting ECA (no existing process)..."))
+    (try (stop!) (catch Exception _ nil))
+    ;; Brief pause to let OS reclaim resources
+    (Thread/sleep 500)
+    (start! {})))
 
 (defn ensure-alive!
-  "Ensure ECA is running. If dead, attempt auto-restart.
+  "Ensure OUR ECA process is running. If dead or not ours, start/restart.
 
    Returns true if ECA is alive after this call, false otherwise.
 
@@ -216,10 +391,20 @@
     true
     (do
       (telemetry/emit! {:event :eca/ensure-alive-restart})
+      (println "◈ ECA not running or not our process, starting...")
       (try
+        ;; Clear any stale PID tracking
+        (clear-our-pid!)
         (restart!)
-        (alive?)
+        (if (alive?)
+          (do
+            (println "✓ ECA is now running (PID: " (get-our-pid) ")")
+            true)
+          (do
+            (println "✗ ECA failed to start")
+            false))
         (catch Exception e
           (telemetry/emit! {:event :eca/ensure-alive-failed
                             :error (.getMessage e)})
+          (println "✗ ECA start failed:" (.getMessage e))
           false)))))

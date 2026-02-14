@@ -14,7 +14,15 @@
 ;; ECA Debug Utilities
 ;; ============================================================================
 
-(def ^:private eca-default-path "scripts/eca")
+(def ^:private eca-default-path
+  "Default ECA path - checks same locations as core/get-eca-path"
+  (let [home (System/getProperty "user.home")]
+    (cond
+      (System/getenv "ECA_PATH") (System/getenv "ECA_PATH")
+      (fs/exists? "/usr/local/bin/eca") "/usr/local/bin/eca"
+      (fs/exists? (str home "/.local/bin/eca")) (str home "/.local/bin/eca")
+      (fs/exists? (str home "/bin/eca")) (str home "/bin/eca")
+      :else "eca")))
 
 (defn eca-status
   "Check ECA binary status and return detailed info.
@@ -43,7 +51,7 @@
 
 (defn eca-check
   "Print human-readable ECA status to console.
-   
+
    Usage:
      (eca-check)            ; Quick check
      (eca-check :verbose)   ; Detailed output"
@@ -63,6 +71,15 @@
        (when verbose?
          (printf "║  Modified:     %-46s║%n" (or (:last-modified status) "N/A"))))
      (println "╚══════════════════════════════════════════════════════════════╝")
+     (when-not (:exists? status)
+       (println "\n⚠️  ECA not found!")
+       (println "   ECA (Editor Code Assistant) is required for AI chat features.")
+       (println "")
+       (println "   To install:")
+       (println "     bb setup:eca")
+       (println "")
+       (println "   Or download manually:")
+       (println "     https://github.com/editor-code-assistant/eca/releases"))
      status)))
 
 (defn eca-test-server

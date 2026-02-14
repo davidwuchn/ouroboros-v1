@@ -181,6 +181,26 @@
              (do (println "Usage: bb download <url> [file] [-c 16]")
                  (println "  -c N  Connections (default: 16)"))))}
 
+  setup
+  {:doc "Setup tasks: bb setup:eca"
+   :task (println "Setup commands:\n  bb setup:eca  - Install ECA binary for AI chat")}
+
+  setup:eca
+  {:doc "Install ECA binary for AI chat features"
+   :task (let [prefix (first *command-line-args*)]
+           (if prefix
+             (shell "bb" "scripts/install-eca.clj" prefix)
+             (shell "bb" "scripts/install-eca.clj")))}
+
+  eca:diagnose
+  {:doc "Diagnose ECA startup issues"
+   :task (shell "bb" "scripts/eca-diagnose.clj")}
+
+  eca:status
+  {:doc "Show ECA process status (our process vs orphaned)"
+   :requires ([ouroboros.eca-client :as eca])
+   :task (eca/print-process-status)}
+
   ;; Testing
   test
   {:doc "Run all tests"
@@ -235,8 +255,11 @@
            ("eca" nil) (let [s (dbg/eca-status)]
                          (println "\n=== ECA ===")
                          (if (:exists? s)
-                           (println "✓" (:path s) "(" (:version s) ")")
-                           (println "✗ Not found at" (:path s))))
+                           (do (println "✓" (:path s) "(" (:version s) ")")
+                               (println "\nECA is ready for AI chat features."))
+                           (do (println "✗ Not found at" (:path s))
+                               (println "\n⚠️  ECA is required for AI chat.")
+                               (println "   Install: bb setup:eca"))))
            ("system" "status") (dbg/system-status)
            ("tools") (dbg/tool-registry)
            ("menu" "help") (dbg/debug-menu)

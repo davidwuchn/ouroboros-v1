@@ -93,8 +93,15 @@
         true
         (do
           (conn/send-to! client-id (merge {:type error-type
-                                           :error "ECA could not be started. Ensure the ECA binary is installed and try again."
-                                           :text "ECA could not be started. Ensure the ECA binary is installed."
+                                           :error (str "ECA could not be started. "
+                                                       "Run 'bb setup:eca' to install the ECA binary, "
+                                                       "then restart the application.")
+                                           :text (str "AI chat requires ECA (Editor Code Assistant).\n\n"
+                                                      "To fix:\n"
+                                                      "1. Run: bb setup:eca\n"
+                                                      "2. Restart the application\n\n"
+                                                      "Or download manually:\n"
+                                                      "https://github.com/editor-code-assistant/eca/releases")
                                            :timestamp (System/currentTimeMillis)}
                                           extra-fields))
           (telemetry/emit! {:event :ws/eca-auto-start-failed :client-id client-id})

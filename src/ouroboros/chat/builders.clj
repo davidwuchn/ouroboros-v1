@@ -51,11 +51,14 @@
   ;; Check if ECA is running
   (let [eca-status (ouroboros.eca-client/status)]
     (if-not (:running eca-status)
-      (let [error-msg (str "ECA is not running.\n\n"
-                           "Please start ECA first:\n"
+      (let [error-msg (str "⚠️ AI Chat requires ECA (Editor Code Assistant)\n\n"
+                           "To enable AI chat features:\n"
+                           "1. Install ECA: bb setup:eca\n"
+                           "2. Restart the chat bot\n\n"
+                           "Or manually start:\n"
                            "(require '[ouroboros.interface :as iface])\n"
                            "(iface/eca-start!)\n\n"
-                           "Or set ECA_PATH environment variable.")]
+                           "Download: https://github.com/editor-code-assistant/eca/releases")]
         (telemetry/emit! {:event :chat/eca-not-running})
         (send-message! adapter chat-id error-msg))
 
@@ -116,164 +119,128 @@
                            (str "ECA error: " (:message result)))))))))
 
 ;; ============================================================================
-;; Canvas Builder
+;; Generic Builder Handler
+;; ============================================================================
+
+(def ^:private builder-configs
+  "Configuration for each builder type. Defines session keys, functions, and UI strings."
+  {:canvas
+   {:session-key :canvas/session
+    :mode-key :canvas/mode
+    :process-fn canvas/process-response!
+    :summary-fn canvas/get-canvas-summary
+    :cancel-msg "🗑️ Canvas building cancelled. All progress lost."
+    :summary-title "🎯 *Lean Canvas Summary*"
+    :name-key :canvas/project-name
+    :completed-key :canvas/completed-sections
+    :total-key :canvas/total-sections
+    :id-key :canvas/id
+    :recall-hint "Use /recall lean-canvas- to review later."
+    :next-step "Next step: Use /build empathy to understand your users."}
+
+   :empathy
+   {:session-key :empathy/session
+    :mode-key :empathy/mode
+    :process-fn empathy/process-response!
+    :summary-fn empathy/get-empathy-summary
+    :cancel-msg "🗑️ Empathy map cancelled. All progress lost."
+    :summary-title "🎯 *Empathy Map Summary*"
+    :name-key :empathy/persona-name
+    :completed-key :empathy/completed-sections
+    :total-key :empathy/total-sections
+    :id-key :empathy/id
+    :recall-hint "Use /recall empathy- to review later."
+    :next-step "Next step: Use /build valueprop to define your value proposition."}
+
+   :vp
+   {:session-key :vp/session
+    :mode-key :vp/mode
+    :process-fn vp/process-response!
+    :summary-fn vp/get-vp-summary
+    :cancel-msg "🗑️ Value Proposition cancelled. All progress lost."
+    :summary-title "🎯 *Value Proposition Summary*"
+    :name-key :vp/project-name
+    :completed-key :vp/completed-sections
+    :total-key :vp/total-sections
+    :id-key :vp/id
+    :recall-hint "Use /recall value-prop- to review later."
+    :next-step "Next step: Use /build mvp to create an MVP plan."}
+
+   :mvp
+   {:session-key :mvp/session
+    :mode-key :mvp/mode
+    :process-fn mvp/process-response!
+    :summary-fn mvp/get-mvp-summary
+    :cancel-msg "🗑️ MVP planning cancelled. All progress lost."
+    :summary-title "🚀 *MVP Planning Summary*"
+    :name-key :mvp/project-name
+    :completed-key :mvp/completed-sections
+    :total-key :mvp/total-sections
+    :id-key :mvp/id
+    :recall-hint "Use /recall mvp- to review later."
+    :next-step "Next step: Use /build canvas to create a Lean Canvas."}})
+
+(defn- handle-builder-message
+  "Generic handler for all builder types.
+
+   Dispatches to the appropriate builder logic based on config.
+   Handles: cancel, process response, complete, continue."
+  [builder-type adapter chat-id user-name text]
+  (let [{:keys [session-key mode-key process-fn summary-fn cancel-msg
+                summary-title name-key completed-key total-key id-key
+                recall-hint next-step]}
+        (get builder-configs builder-type)
+
+        session (session/get-session chat-id)
+        builder-session (get-in session [:context session-key])
+        text-normalized (str/trim text)
+        cancel? (= "cancel" (str/lower-case text-normalized))]
+    (if builder-session
+      (if cancel?
+        (do
+          (session/update-context! chat-id dissoc session-key mode-key)
+          (send-message! adapter chat-id cancel-msg))
+        (let [result (process-fn builder-session text)]
+          (session/assoc-context! chat-id session-key (:session result))
+          (if (:complete? result)
+            (do
+              (session/update-context! chat-id dissoc session-key mode-key)
+              (let [summary (summary-fn (:session result))]
+                (send-markdown! adapter chat-id
+                                (str (:message result) "\n\n"
+                                     summary-title "\n"
+                                     "Project: " (get summary name-key) "\n"
+                                     "Completed: " (get summary completed-key) "/" (get summary total-key) " sections\n"
+                                     "ID: " (get summary id-key) "\n\n"
+                                     "Each section has been saved as a learning insight.\n"
+                                     recall-hint "\n\n"
+                                     next-step))))
+            (send-markdown! adapter chat-id (:message result)))))
+      (handle-natural-message adapter chat-id user-name text))))
+
+;; ============================================================================
+;; Builder Handlers (thin wrappers around generic handler)
 ;; ============================================================================
 
 (defn handle-canvas-message
   "Handle message when user is in canvas building mode"
   [adapter chat-id user-name text]
-  (let [session (session/get-session chat-id)
-        canvas-session (get-in session [:context :canvas/session])
-        text-normalized (str/trim text)
-        cancel? (= "cancel" (str/lower-case text-normalized))]
-    (if canvas-session
-      (if cancel?
-        (do
-          ;; Cancel canvas building
-          (session/update-context! chat-id dissoc :canvas/session :canvas/mode)
-          (send-message! adapter chat-id "🗑️ Canvas building cancelled. All progress lost."))
-        (let [result (canvas/process-response! canvas-session text)]
-          ;; Update session with new canvas state
-          (session/assoc-context! chat-id :canvas/session (:session result))
-
-          (if (:complete? result)
-            (do
-              ;; Canvas complete - show summary and exit mode
-              (session/update-context! chat-id dissoc :canvas/session :canvas/mode)
-              (let [summary (canvas/get-canvas-summary (:session result))]
-                (send-markdown! adapter chat-id
-                                (str (:message result) "\n\n"
-                                     "🎯 *Lean Canvas Summary*\n"
-                                     "Project: " (:canvas/project-name summary) "\n"
-                                     "Completed: " (:canvas/completed-sections summary) "/" (:canvas/total-sections summary) " sections\n"
-                                     "Canvas ID: " (:canvas/id summary) "\n\n"
-                                     "Each section has been saved as a learning insight.\n"
-                                     "Use /recall lean-canvas- to review later.\n\n"
-                                     "Next step: Use /build empathy to understand your users."))))
-            ;; Continue with next prompt
-            (send-markdown! adapter chat-id (:message result)))))
-      ;; No canvas session - treat as normal message
-      (handle-natural-message adapter chat-id user-name text))))
-
-;; ============================================================================
-;; Empathy Map Builder
-;; ============================================================================
+  (handle-builder-message :canvas adapter chat-id user-name text))
 
 (defn handle-empathy-message
   "Handle message when user is in empathy map building mode"
   [adapter chat-id user-name text]
-  (let [session (session/get-session chat-id)
-        empathy-session (get-in session [:context :empathy/session])
-        text-normalized (str/trim text)
-        cancel? (= "cancel" (str/lower-case text-normalized))]
-    (if empathy-session
-      (if cancel?
-        (do
-          ;; Cancel empathy building
-          (session/update-context! chat-id dissoc :empathy/session :empathy/mode)
-          (send-message! adapter chat-id "🗑️ Empathy map cancelled. All progress lost."))
-        (let [result (empathy/process-response! empathy-session text)]
-          ;; Update session with new empathy state
-          (session/assoc-context! chat-id :empathy/session (:session result))
-
-          (if (:complete? result)
-            (do
-              ;; Empathy complete - show summary and exit mode
-              (session/update-context! chat-id dissoc :empathy/session :empathy/mode)
-              (let [summary (empathy/get-empathy-summary (:session result))]
-                (send-markdown! adapter chat-id
-                                (str (:message result) "\n\n"
-                                     "🎯 *Empathy Map Summary*\n"
-                                     "Persona: " (:empathy/persona-name summary) "\n"
-                                     "Completed: " (:empathy/completed-sections summary) "/" (:empathy/total-sections summary) " sections\n"
-                                     "Map ID: " (:empathy/id summary) "\n\n"
-                                     "Each section has been saved as a learning insight.\n"
-                                     "Use /recall empathy- to review later.\n\n"
-                                     "Next step: Use /build valueprop to define your value proposition."))))
-            ;; Continue with next prompt
-            (send-markdown! adapter chat-id (:message result)))))
-      ;; No empathy session - treat as normal message
-      (handle-natural-message adapter chat-id user-name text))))
-
-;; ============================================================================
-;; Value Proposition Builder
-;; ============================================================================
+  (handle-builder-message :empathy adapter chat-id user-name text))
 
 (defn handle-vp-message
   "Handle message when user is in value proposition mode"
   [adapter chat-id user-name text]
-  (let [session (session/get-session chat-id)
-        vp-session (get-in session [:context :vp/session])
-        text-normalized (str/trim text)
-        cancel? (= "cancel" (str/lower-case text-normalized))]
-    (if vp-session
-      (if cancel?
-        (do
-          ;; Cancel VP building
-          (session/update-context! chat-id dissoc :vp/session :vp/mode)
-          (send-message! adapter chat-id "🗑️ Value Proposition cancelled. All progress lost."))
-        (let [result (vp/process-response! vp-session text)]
-          ;; Update session with new VP state
-          (session/assoc-context! chat-id :vp/session (:session result))
-
-          (if (:complete? result)
-            (do
-              ;; VP complete - show summary and exit mode
-              (session/update-context! chat-id dissoc :vp/session :vp/mode)
-              (let [summary (vp/get-vp-summary (:session result))]
-                (send-markdown! adapter chat-id
-                                (str (:message result) "\n\n"
-                                     "🎯 *Value Proposition Summary*\n"
-                                     "Project: " (:vp/project-name summary) "\n"
-                                     "Completed: " (:vp/completed-sections summary) "/" (:vp/total-sections summary) " sections\n"
-                                     "VP ID: " (:vp/id summary) "\n\n"
-                                     "Each section has been saved as a learning insight.\n"
-                                     "Use /recall value-prop- to review later.\n\n"
-                                     "Next step: Use /build mvp to create an MVP plan."))))
-            ;; Continue with next prompt
-            (send-markdown! adapter chat-id (:message result)))))
-      ;; No VP session - treat as normal message
-      (handle-natural-message adapter chat-id user-name text))))
-
-;; ============================================================================
-;; MVP Planning Builder
-;; ============================================================================
+  (handle-builder-message :vp adapter chat-id user-name text))
 
 (defn handle-mvp-message
   "Handle message when user is in MVP planning mode"
   [adapter chat-id user-name text]
-  (let [session (session/get-session chat-id)
-        mvp-session (get-in session [:context :mvp/session])
-        text-normalized (str/trim text)
-        cancel? (= "cancel" (str/lower-case text-normalized))]
-    (if mvp-session
-      (if cancel?
-        (do
-          ;; Cancel MVP building
-          (session/update-context! chat-id dissoc :mvp/session :mvp/mode)
-          (send-message! adapter chat-id "🗑️ MVP planning cancelled. All progress lost."))
-        (let [result (mvp/process-response! mvp-session text)]
-          ;; Update session with new MVP state
-          (session/assoc-context! chat-id :mvp/session (:session result))
-
-          (if (:complete? result)
-            (do
-              ;; MVP complete - show summary and exit mode
-              (session/update-context! chat-id dissoc :mvp/session :mvp/mode)
-              (let [summary (mvp/get-mvp-summary (:session result))]
-                (send-markdown! adapter chat-id
-                                (str (:message result) "\n\n"
-                                     "🚀 *MVP Planning Summary*\n"
-                                     "Project: " (:mvp/project-name summary) "\n"
-                                     "Completed: " (:mvp/completed-sections summary) "/" (:mvp/total-sections summary) " sections\n"
-                                     "MVP ID: " (:mvp/id summary) "\n\n"
-                                     "Each section has been saved as a learning insight.\n"
-                                     "Use /recall mvp- to review later.\n\n"
-                                     "Next step: Use /build canvas to create a Lean Canvas."))))
-            ;; Continue with next prompt
-            (send-markdown! adapter chat-id (:message result)))))
-      ;; No MVP session - treat as normal message
-      (handle-natural-message adapter chat-id user-name text))))
+  (handle-builder-message :mvp adapter chat-id user-name text))
 
 ;; ============================================================================
 ;; Workflow Handler
@@ -319,4 +286,5 @@
         ;; Unknown workflow type - exit and treat as normal message
         (do
           (session/update-context! chat-id dissoc :workflow/type :workflow/mode)
-          (handle-natural-message adapter chat-id user-name text)))))))
+          (handle-natural-message adapter chat-id user-name text))))))
+)
