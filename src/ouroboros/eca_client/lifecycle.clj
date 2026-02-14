@@ -79,35 +79,68 @@
         false))))
 
 ;; ============================================================================
-;; Process Management - Track only OUR process
+;; Process Management - Track only OUR process via PID file
 ;; ============================================================================
 
-;; Atom to track the PID of the ECA process we started.
-;; Used to ensure we only manage our own process, not others.
-(def ^:private our-eca-pid (atom nil))
+(def ^:private pid-file
+  "Path to the PID file for tracking our ECA process across processes"
+  (str (System/getProperty "user.home") "/.cache/ouroboros/eca.pid"))
+
+(defn- ensure-pid-dir!
+  "Ensure the PID file directory exists"
+  []
+  (let [dir (.getParent (java.io.File. pid-file))]
+    (when-not (fs/exists? dir)
+      (fs/create-dirs dir))))
+
+(defn- read-pid-file
+  "Read the PID from the file, or nil if not found/invalid"
+  []
+  (try
+    (when (fs/exists? pid-file)
+      (let [pid-str (str/trim (slurp pid-file))]
+        (when (seq pid-str)
+          (Long/parseLong pid-str))))
+    (catch Exception _
+      nil)))
+
+(defn- write-pid-file!
+  "Write the PID to the file"
+  [pid]
+  (ensure-pid-dir!)
+  (spit pid-file (str pid)))
+
+(defn- clear-pid-file!
+  "Remove the PID file"
+  []
+  (try
+    (when (fs/exists? pid-file)
+      (.delete (java.io.File. pid-file)))
+    (catch Exception _
+      nil)))
 
 (defn- get-our-pid
-  "Get the PID of our managed ECA process"
+  "Get the PID of our managed ECA process from the PID file"
   []
-  @our-eca-pid)
+  (read-pid-file))
 
 ;; Forward declarations
 (declare alive? status)
 
 (defn- set-our-pid!
-  "Set the PID of our managed ECA process"
+  "Set the PID of our managed ECA process in the PID file"
   [pid]
-  (reset! our-eca-pid pid))
+  (write-pid-file! pid))
 
 (defn- clear-our-pid!
-  "Clear our tracked PID"
+  "Clear our tracked PID from the PID file"
   []
-  (reset! our-eca-pid nil))
+  (clear-pid-file!))
 
 (defn- is-our-process?
-  "Check if a process is the one we started"
+  "Check if a process is the one we started by comparing PIDs"
   [proc]
-  (when-let [our-pid @our-eca-pid]
+  (when-let [our-pid (get-our-pid)]
     (and proc
          (.isAlive proc)
          (= our-pid (.pid proc)))))
