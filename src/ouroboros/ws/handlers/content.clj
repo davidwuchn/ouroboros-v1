@@ -1,37 +1,63 @@
 (ns ouroboros.ws.handlers.content
-  "Content generation handler - generic ECA content streaming."
+  "Content generation handler - generic ECA content streaming.
+
+   Prompts are loaded from resources/prompts/content/*.md for easy editing
+   without code changes. See resources/prompts/content/ for available prompts."
   (:require
+   [clojure.java.io :as io]
+   [clojure.string :as str]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.ws.connections :as conn]
    [ouroboros.ws.context :as ctx]
    [ouroboros.ws.stream :as stream]))
 
 ;; ============================================================================
-;; Content Prompts
+;; Prompt Loading
 ;; ============================================================================
 
-(def ^:private content-prompts
-  "System prompts for different content generation types"
-  {:insights
-   "You are a product development coach. Based on the project data below, provide 2-3 specific insights about the user's work. Be concrete and reference their actual data. Format as a JSON array of objects with keys: type, title, description, confidence (0-1). Example: [{\"type\":\"pattern\",\"title\":\"Strong customer focus\",\"description\":\"Your empathy map shows...\",\"confidence\":0.85}]"
+(def ^:private prompt-cache (atom {}))
 
-   :blockers
-   "You are a product development coach. Based on the project data below, identify any potential blockers or gaps. What's missing? What should the user address before moving forward? Be specific. Format as a JSON array of strings."
+(defn- extract-prompt-body
+  "Extract the prompt body from markdown content (after frontmatter)"
+  [content]
+  (let [lines (str/split-lines content)
+        ;; Find the end of frontmatter (second ---)
+        frontmatter-end (second (keep-indexed #(when (= %2 "---") %1) lines))]
+    (if frontmatter-end
+      (->> (drop (inc frontmatter-end) lines)
+           (str/join "\n")
+           str/trim)
+      content)))
 
-   :templates
-   "You are a product strategy advisor. Based on the project description below, suggest 3-4 product templates/archetypes that could fit this project. For each, give: name, icon (emoji), description (1 sentence), and relevant tags. Format as a JSON array of objects with keys: key, name, icon, description, tags (array of strings)."
+(defn- load-prompt-file
+  "Load a prompt from resources/prompts/content/{name}.md"
+  [prompt-name]
+  (let [resource-path (str "prompts/content/" (name prompt-name) ".md")
+        resource (io/resource resource-path)]
+    (if resource
+      (let [content (slurp resource)]
+        (extract-prompt-body content))
+      (do
+        (telemetry/emit! {:event :ws/prompt-not-found
+                          :prompt-name prompt-name
+                          :resource-path resource-path})
+        nil))))
 
-   :chat-suggestions
-   "You are a product development assistant. Based on the current project context and phase, generate 4 specific questions or prompts the user could ask to deepen their work. Each should be a complete sentence. Format as a JSON array of strings."
+(defn- get-prompt
+  "Get prompt content, with caching"
+  [prompt-name]
+  (if-let [cached (get @prompt-cache prompt-name)]
+    cached
+    (let [content (load-prompt-file prompt-name)]
+      (when content
+        (swap! prompt-cache assoc prompt-name content)
+        content))))
 
-   :flywheel-guide
-   "You are a product development coach. Based on the project data below, provide guidance for each of the 4 flywheel phases (Empathy Map, Value Proposition, MVP Planning, Lean Canvas). For each phase, give a personalized tagline and 1-2 sentence description based on their actual data. Format as a JSON array of objects with keys: key (empathy/valueprop/mvp/canvas), tagline, description."
-
-   :section-hints
-   "You are a product development coach. Based on the project context, generate helpful hints and descriptions for the builder sections the user is working on. Be specific to their project, not generic. Format as a JSON object mapping section keys to objects with keys: description, hint."
-
-   :learning-categories
-   "You are a product strategist. Based on the user's project data and learning history, describe what they've learned in each category: customer-understanding, product-development, business-model, competitive-landscape. Give insight counts and brief descriptions. Format as a JSON array of objects with keys: category, label, description, count."})
+(defn- default-prompt
+  "Fallback prompt when specific prompt not found"
+  []
+  (or (get-prompt :default)
+      "You are a product development advisor. Provide specific, actionable guidance based on the project data below."))
 
 ;; ============================================================================
 ;; Content Generation Handler
@@ -39,7 +65,7 @@
 
 (defn handle-content-generate!
   "Handle a content/generate request from the frontend.
-   Routes to ECA with content-type-specific prompts.
+   Routes to ECA with content-type-specific prompts loaded from resources/prompts/.
    Sends streaming tokens back, then a complete message with accumulated content."
   [client-id {:keys [project-id content-type context]}]
   (let [user-id (ctx/current-user-id)
@@ -51,8 +77,9 @@
             listener-id (keyword (str "ws-content-" (name content-type-kw) "-" client-id))
             accumulated (atom "")
             context-str (ctx/assemble-project-context user-id project-id nil)
-            system-prompt (get content-prompts content-type-kw
-                               "You are a product development advisor. Provide specific, actionable guidance based on the project data below.")
+            ;; Load prompt from file, fallback to default
+            system-prompt (or (get-prompt content-type-kw)
+                              (default-prompt))
             prompt (str system-prompt "\n\n---\n\n" context-str
                         (when context (str "\n\nAdditional context: " context)))]
 
@@ -83,4 +110,40 @@
                                                 :timestamp (System/currentTimeMillis)})
                       (telemetry/emit! {:event :ws/content-generate-done
                                         :client-id client-id
-                                        :content-type content-type-kw}))})))))
+                                        :content-type content-type-kw}))}))))
+
+;; ============================================================================
+;; Cache Management
+;; ============================================================================
+
+(defn reload-prompt!
+  "Reload a specific prompt from disk (useful for development)"
+  [prompt-name]
+  (let [content (load-prompt-file prompt-name)]
+    (when content
+      (swap! prompt-cache assoc prompt-name content)
+      (telemetry/emit! {:event :ws/prompt-reloaded
+                        :prompt-name prompt-name})
+      true)))
+
+(defn reload-all-prompts!
+  "Reload all cached prompts from disk"
+  []
+  (doseq [prompt-name (keys @prompt-cache)]
+    (reload-prompt! prompt-name))
+  (telemetry/emit! {:event :ws/all-prompts-reloaded
+                    :count (count @prompt-cache)}))
+
+(defn clear-prompt-cache!
+  "Clear the prompt cache (forces reload on next use)"
+  []
+  (reset! prompt-cache {})
+  (telemetry/emit! {:event :ws/prompt-cache-cleared}))
+
+(comment
+  ;; Development utilities
+  (get-prompt :insights)
+  (reload-prompt! :insights)
+  (reload-all-prompts!)
+  (clear-prompt-cache!))
+)
