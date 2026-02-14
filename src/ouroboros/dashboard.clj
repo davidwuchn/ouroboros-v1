@@ -395,6 +395,16 @@
        (reset! dashboard-server server)
        (println (str "Dashboard ready at http://localhost:" actual-port))
        (println (str "WebSocket endpoint: ws://localhost:" actual-port "/ws"))
+       ;; Auto-start ECA for content generation features (templates, learning-categories)
+       (try
+         (require 'ouroboros.eca-client)
+         (let [alive? (resolve 'ouroboros.eca-client/alive?)
+               ensure-alive! (resolve 'ouroboros.eca-client/ensure-alive!)]
+           (when-not (alive?)
+             (println "  Starting ECA for AI content generation features...")
+             (ensure-alive!)))
+         (catch Exception e
+           (println "  ⚠️  ECA not available:" (.getMessage e))))
        {:port actual-port
         :url (str "http://localhost:" actual-port)
         :ws-url (str "ws://localhost:" actual-port "/ws")
@@ -445,16 +455,6 @@
     (println "  Port:" port)
     (start! {:port port})
     (println "  URL: http://localhost:" port)
-    ;; Auto-start ECA for content generation features
-    (try
-      (require 'ouroboros.eca-client)
-      (let [alive? (resolve 'ouroboros.eca-client/alive?)
-            ensure-alive! (resolve 'ouroboros.eca-client/ensure-alive!)]
-        (when-not (alive?)
-          (println "  Starting ECA for AI features...")
-          (ensure-alive!)))
-      (catch Exception e
-        (println "  ⚠️  ECA not available:" (.getMessage e))))
     (println "  Press Ctrl+C to stop")
     ;; Keep running
     @(promise)))
