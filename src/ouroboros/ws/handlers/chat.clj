@@ -46,14 +46,24 @@
   (let [tool-listener-id (keyword (str "ws-tools-" client-id))]
     (eca/register-callback! "chat/toolCallApprove" tool-listener-id
       (fn [notification]
-        (let [tool-call (get-in notification [:params :tool] {})
-              tool-name (:name tool-call "")
-              arguments (:arguments tool-call {})]
+        ;; Debug: log the full notification structure
+        (telemetry/emit! {:event :ws/eca-tool-notification-received
+                          :client-id client-id
+                          :chat-id chat-id
+                          :notification-keys (keys notification)
+                          :has-tool? (some? (:tool notification))
+                          :has-params? (some? (:params notification))})
+
+        ;; ECA sends tool info at top level, not in :params
+        (let [tool-call (get notification :tool {})
+              tool-name (get tool-call :name "")
+              arguments (get tool-call :arguments {})]
 
           (telemetry/emit! {:event :ws/eca-tool-call
                             :client-id client-id
                             :chat-id chat-id
-                            :tool tool-name})
+                            :tool tool-name
+                            :tool-empty? (empty? tool-call)})
 
           (if (safe-tool? tool-name)
             ;; Auto-approve safe tools
@@ -63,6 +73,9 @@
                                 :tool tool-name})
               (try
                 (eca/approve-tool! {:tool tool-name :params arguments})
+                (telemetry/emit! {:event :ws/eca-tool-approve-sent
+                                  :client-id client-id
+                                  :tool tool-name})
                 (catch Exception e
                   (telemetry/emit! {:event :ws/eca-tool-approve-error
                                     :client-id client-id
