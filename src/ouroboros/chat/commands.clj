@@ -311,8 +311,6 @@
     (session/update-context! chat-id dissoc :workflow/type :workflow/mode)
     (send-message! adapter chat-id (str "✓ Cancelled: " (name (:session-type result)) " workflow"))))
 
-
-
 ;; ============================================================================
 ;; Confirmation Commands (delegated to confirmation system)
 ;; ============================================================================
