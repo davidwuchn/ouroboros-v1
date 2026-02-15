@@ -218,8 +218,8 @@
   (telemetry/emit! {:event :chat/command :command :learn :chat-id chat-id})
   (if-let [[topic & insight-parts] (str/split (or args "") #"\s+" 2)]
     (let [insight (str/join " " insight-parts)]
-      (if (str/blank? insight)
-        (send-message! adapter chat-id "⚠️ Usage: /learn <topic> <insight>")
+      (if (or (str/blank? topic) (str/blank? insight))
+        (send-message! adapter chat-id "⚠️ Usage: /learn <topic> <insight>\n\nExample: /learn clojure \"Use keywords for map keys, not strings\"")
         (do (learning/save-insight! chat-id
                                     {:title (str "Learning: " topic)
                                      :insights [insight]
