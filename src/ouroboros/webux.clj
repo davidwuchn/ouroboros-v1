@@ -120,13 +120,8 @@
 ;; Data Model
 ;; ============================================================================
 
-;; Project: {:project/id :project/name :project/description :project/owner
-;;           :project/created-at :project/updated-at :project/status}
 ;; Builder Session: {:session/id :session/project-id :session/type :session/state
 ;;                   :session/data :session/created-at :session/updated-at}
-
-(def ^:private project-statuses
-  #{:draft :active :completed :archived})
 
 (def ^:private builder-types
   #{:empathy-map :value-proposition :mvp-planning :lean-canvas})
