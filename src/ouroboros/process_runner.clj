@@ -611,7 +611,7 @@
 (defn- print-help []
   (println "Process Runner - Manage long-running processes with tmux")
   (println)
-  (println "Usage: bb -m ouroboros.process-runner <command> [args...]")
+  (println "Usage: bb process <command> [args...]")
   (println)
   (println "Commands:")
   (println "  start <name> <command>    Start a process in a tmux session")
@@ -627,9 +627,9 @@
   (println "  stats <name>              Get comprehensive session statistics")
   (println)
   (println "Examples:")
-  (println "  bb -m ouroboros.process-runner start webserver \"python -m http.server 8080\"")
-  (println "  bb -m ouroboros.process-runner status webserver")
-  (println "  bb -m ouroboros.process-runner stop webserver"))
+  (println "  bb process start webserver \"python -m http.server 8080\"")
+  (println "  bb process status webserver")
+  (println "  bb process stop webserver"))
 
 (defn- run-cli-command [cmd-name args]
   (if-let [{:keys [arity fn]} (get cli-commands cmd-name)]
