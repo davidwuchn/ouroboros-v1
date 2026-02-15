@@ -86,13 +86,13 @@
 
 (defn- verify-session-started!
   "Verify session exists after creation. Throws if session disappeared."
-  [name session-name]
+  [session-name name]
   (when-not (session-exists? session-name)
     (throw (ex-info "Failed to start session (session disappeared)"
                     {:name name :session-name session-name})))
   session-name)
 
-(defn- print-start-help [name session-name]
+(defn- print-start-help [session-name name]
   (println "Process '" name "' started in tmux session:" session-name)
   (println)
   (println "To interact:")
