@@ -20,7 +20,7 @@
 
 (m/defmutation apply-template
   "Apply a template to current session"
-  [{:keys [session-id template-key]}]
+  [_props]
   (remote [env]
           (-> env
               (m/returning TemplateCard)
@@ -33,7 +33,7 @@
 
 (m/defmutation request-ai-insight
   "Request AI analysis of current canvas"
-  [{:keys [session-id]}]
+  [_props]
   (remote [env]
           (-> env
               (m/returning AIInsight)
@@ -45,7 +45,7 @@
 
 (m/defmutation generate-eca-prompt
   "Generate context-aware prompt for ECA"
-  [{:keys [canvas-id canvas-type]}]
+  [_props]
   (remote [env] env)
   (ok-action [{:keys [state result]}]
     (let [formatted (:context/formatted (:body result))]
@@ -58,7 +58,7 @@
 
 (defsc TemplateCard
   "Individual template card"
-  [this {:template/keys [key name description]}]
+  [_this {:template/keys [key name description]}]
   {:query [:template/key :template/name :template/description]
    :ident :template/key}
   (dom/div :.template-card
@@ -78,7 +78,7 @@
 
 (defsc TemplateLibrary
   "Template library modal/grid"
-  [this {:keys [templates on-close]}]
+  [_this {:keys [templates on-close]}]
   (dom/div :.template-library
     (dom/div :.template-library-header
       (dom/h2 "📚 Template Library")
@@ -99,7 +99,7 @@
 
 (defsc AIInsight
   "Individual AI-generated insight"
-  [this {:insight/keys [type title description confidence]}]
+  [_this {:insight/keys [type title description confidence]}]
   {:query [:insight/type :insight/title :insight/description :insight/confidence]
    :ident (fn [] [:insight/type type])}
   (dom/div :.ai-insight
@@ -165,7 +165,7 @@
 
 (defsc LearningDashboard
   "Dashboard showing user's learning patterns"
-  [this {:keys [total-insights categories patterns]}]
+  [_this {:keys [total-insights categories _patterns]}]
   (dom/div :.learning-dashboard
     (dom/div :.learning-header
       (dom/h3 "📈 Your Learning Journey")
@@ -189,7 +189,7 @@
 
 (defsc NextStepSuggestion
   "Suggestion for next action"
-  [this {:keys [next-stage reason action on-accept]}]
+  [_this {:keys [next-stage reason action on-accept]}]
   (dom/div :.next-step-suggestion
     (dom/div :.suggestion-badge "🎯 Suggested Next Step")
     (dom/h4 action)
@@ -210,7 +210,7 @@
 
 (defsc ECAChatPanel
   "Integrated ECA chat with project context"
-  [this {:keys [context prompt messages on-send]}]
+  [this {:keys [context _prompt messages on-send]}]
   (let [input-text (or (comp/get-state this :chat-input) "")]
     (dom/div :.eca-chat-panel
       (dom/div :.eca-chat-header

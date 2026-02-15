@@ -302,7 +302,7 @@
 
 (defsc ContextualTooltip
   "Single contextual tooltip"
-  [this {:keys [content target on-dismiss]}]
+  [_this {:keys [content _target on-dismiss]}]
   (dom/div
    {:className "contextual-tooltip"
     :style {;; Position relative to target

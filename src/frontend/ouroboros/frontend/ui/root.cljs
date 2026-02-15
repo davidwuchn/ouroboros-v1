@@ -36,7 +36,7 @@
 ;; Router
 ;; ============================================================================
 
-(dr/defrouter MainRouter [this props]
+(dr/defrouter MainRouter [_this _props]
    {:router-targets
     [dashboard/DashboardPage
      telemetry/TelemetryPage
@@ -116,7 +116,7 @@
 ;; ============================================================================
 
 (defsc Root
-  [this {:keys [main-router chat-panel]}]
+  [_this {:keys [main-router chat-panel]}]
   {:query         [{:main-router (comp/get-query MainRouter)}
                    {:chat-panel (comp/get-query chat/ChatPanel)}]
    :initial-state (fn [_]

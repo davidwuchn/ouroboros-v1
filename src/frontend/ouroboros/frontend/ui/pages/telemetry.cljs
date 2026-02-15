@@ -205,9 +205,8 @@
                 telemetry/errors
                 telemetry/error-rate
                 telemetry/events
-                debug/enabled?
-                page/error]
-          :as props}]
+                debug/enabled?]
+          :as _props}]
   {:query [:system/healthy?
            :system/current-state
            :system/meta
@@ -241,7 +240,7 @@
 
   (let [loading? (df/loading? (get props [df/marker-table :telemetry]))
         error-msg (get-in props [:page/error :telemetry])
-        ws-connected? (ws/connected?)
+        _ws-connected? (ws/connected?)
         drawer-open? (boolean (comp/get-state this :drawer/open?))
         drawer-event (comp/get-state this :drawer/event)
         filter-type (or (comp/get-state this :filter/event-type) "all")]
@@ -347,7 +346,7 @@
                 message-length (get-event-field evt :message-length)
                 title (or (some-> event-type name) "Telemetry Event")
                 ;; Is this an ECA prompt or response event?
-                eca-prompt? (= :eca/chat-prompt event-type)
+                _eca-prompt? (= :eca/chat-prompt event-type)
                 eca-response? (= :eca/chat-response event-type)
                 ;; Fields already rendered explicitly - skip in dynamic section
                 known-keys #{:event/id :event/timestamp :event/seq :event/extra

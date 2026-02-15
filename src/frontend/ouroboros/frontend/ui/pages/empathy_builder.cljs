@@ -192,7 +192,7 @@
 
 (m/defmutation add-empathy-note
   "Add a sticky note to an empathy section"
-  [{:keys [session-id section-key content]}]
+  [{:keys [_session-id section-key content]}]
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)

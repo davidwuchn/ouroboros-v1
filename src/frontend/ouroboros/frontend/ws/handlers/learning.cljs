@@ -22,7 +22,7 @@
     (state/schedule-render!)))
 
 (defmethod dispatch/handle-message :learning/category-insights
-  [{:keys [category insights count]}]
+  [{:keys [category insights _count]}]
   (when-let [state-atom @state/app-state-atom]
     (swap! state-atom
            (fn [s]
@@ -71,14 +71,14 @@
     (state/schedule-render!)))
 
 (defmethod dispatch/handle-message :eca/auto-insight-token
-  [{:keys [token project-id builder-type]}]
+  [{:keys [token project-id _builder-type]}]
   (when-let [state-atom @state/app-state-atom]
     (swap! state-atom update-in
            [:auto-insight/id project-id :auto-insight/content] str token)
     (state/schedule-render!)))
 
 (defmethod dispatch/handle-message :eca/auto-insight-done
-  [{:keys [project-id builder-type]}]
+  [{:keys [project-id _builder-type]}]
   (when-let [state-atom @state/app-state-atom]
     (swap! state-atom
            (fn [s]

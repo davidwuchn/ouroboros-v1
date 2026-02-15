@@ -439,7 +439,7 @@
    - current-step: keyword (:empathy, :valueprop, :mvp, :canvas)
    - project-id: encoded project id for navigation
    - on-navigate: fn called with route segment on click"
-  [{:keys [current-step project-id on-navigate]}]
+  [{:keys [current-step _project-id on-navigate]}]
   (let [step-order [:empathy :valueprop :mvp :canvas]
         current-idx (.indexOf step-order current-step)]
     (dom/nav :.fw-stepper
@@ -447,7 +447,7 @@
              (for [[idx step] (map-indexed vector flywheel-steps)]
                (let [is-current? (= (:key step) current-step)
                      is-past? (< idx current-idx)
-                     is-future? (> idx current-idx)
+                     _is-future? (> idx current-idx)
                      state (cond is-current? "current"
                                  is-past? "done"
                                  :else "pending")]

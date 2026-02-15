@@ -275,13 +275,13 @@
 ;; ============================================================================
 
 (defsc DashboardPage
-  [this {:keys [page/error] :as props}]
+  [this _props]
   {:query         [[df/marker-table :dashboard]
                    :page/error]
     :ident         (fn [] [:page/id :dashboard])
     :initial-state (fn [_] {})
     :route-segment ["dashboard"]
-   :will-enter    (fn [app route-params]
+   :will-enter    (fn [app _route-params]
                     (dr/route-deferred [:page/id :dashboard]
                                        (fn []
                                          (df/load! app [:page/id :dashboard] DashboardPage

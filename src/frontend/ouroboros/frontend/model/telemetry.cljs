@@ -7,7 +7,7 @@
 ;; Event Entity
 ;; ============================================================================
 
-(defsc TelemetryEvent [this {:keys [:event/id :event/timestamp :event/extra]}]
+(defsc TelemetryEvent [_this _props]
   {:query [:event/id
            :event/timestamp
            :event/extra]
@@ -18,7 +18,7 @@
 ;; Telemetry List
 ;; ============================================================================
 
-(defsc RecentEvents [this {:keys [:recent-events/events :recent-events/count]}]
+(defsc RecentEvents [_this _props]
   {:query [{:recent-events/events (comp/get-query TelemetryEvent)}
            :recent-events/count]
    :ident (fn [] [:component/id :recent-events])}

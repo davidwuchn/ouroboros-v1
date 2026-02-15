@@ -580,7 +580,7 @@
 
 (defn chat-message
   "Render a single chat message with markdown, copy, edit/delete actions"
-  [{:keys [role content streaming? error?]} idx {:keys [on-retry on-copy on-delete on-edit editing-idx]}]
+  [{:keys [role content streaming? error?]} idx {:keys [on-retry on-copy on-delete on-edit _editing-idx]}]
   (let [is-user? (= role :user)]
     (dom/div {:key idx
               :className (str "chat-msg chat-msg-" (name role)
@@ -737,7 +737,7 @@
         msg-count (count messages)
         ;; Summarization threshold from backend config
         max-history 20
-        recent-count 10
+        _recent-count 10
         needs-summary? (> msg-count max-history)
         summarized-count (max 0 (- msg-count max-history))]
     (dom/div :.chat-context-tab

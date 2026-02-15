@@ -21,7 +21,7 @@
 
 (m/defmutation join-session
   "Join a collaboration session"
-  [{:keys [session-id user-name]}]
+  [_props]
   (remote [env] env)
   (ok-action [{:keys [state result]}]
              (let [user-data (:body result)]
@@ -30,19 +30,19 @@
 
 (m/defmutation leave-session
   "Leave a collaboration session"
-  [{:keys [session-id]}]
+  [_props]
   (remote [env] env)
   (ok-action [{:keys [state]}]
              (swap! state assoc-in [:collaboration :joined?] false)))
 
 (m/defmutation update-cursor-position
   "Update local cursor position (throttled)"
-  [{:keys [session-id position]}]
+  [_props]
   (remote [env] env))
 
 (m/defmutation add-comment
   "Add a comment to a canvas item"
-  [{:keys [session-id item-id text parent-id]}]
+  [_props]
   (remote [env]
           (-> env
               (m/returning CommentItem)
@@ -53,7 +53,7 @@
 
 (m/defmutation resolve-comment
   "Mark a comment as resolved"
-  [{:keys [session-id comment-id]}]
+  [{:keys [_session-id comment-id]}]
   (remote [env] env)
   (action [{:keys [state]}]
           (swap! state update-in [:collaboration :comments]
@@ -65,7 +65,7 @@
 
 (m/defmutation create-snapshot
   "Create a version snapshot"
-  [{:keys [session-id label description]}]
+  [{:keys [_session-id _label _description]}]
   (remote [env]
           (-> env
               (m/returning VersionItem)
@@ -75,7 +75,7 @@
 
 (m/defmutation restore-version
   "Restore a specific version"
-  [{:keys [session-id version-id]}]
+  [{:keys [_session-id _version-id]}]
   (remote [env] env)
   (ok-action [{:keys [state]}]
              (swap! state assoc-in [:collaboration :restoring?] false)))
@@ -86,7 +86,7 @@
 
 (defsc UserAvatar
   "Small user avatar with color indicator"
-  [this {:user/keys [id name color avatar]}]
+  [_this {:user/keys [_id name color avatar]}]
   {:query [:user/id :user/name :user/color :user/avatar]
    :ident :user/id}
   (dom/div :.user-avatar
@@ -98,7 +98,7 @@
 
 (defsc PresenceIndicator
   "Shows online status with user count"
-  [this {:keys [user-count active?]}]
+  [_this {:keys [user-count active?]}]
   (dom/div :.presence-indicator
            {:className (when active? "active")}
            (dom/span :.presence-dot)
@@ -107,7 +107,7 @@
 
 (defsc UserPresenceList
   "List of users currently in the session"
-  [this {:keys [users current-user-id]}]
+  [_this {:keys [users _current-user-id]}]
   (dom/div :.presence-list
            (dom/h4 "Collaborators")
            (if (seq users)
@@ -124,7 +124,7 @@
 
 (defsc RemoteCursor
   "Display another user's cursor position"
-  [this {:keys [user-id user-name color position]}]
+  [_this {:keys [_user-id user-name color position]}]
   (dom/div
    {:className "remote-cursor"
     :style {:position "absolute"
@@ -147,14 +147,14 @@
 
 (defsc CursorOverlay
   "Overlay showing all remote cursors"
-  [this {:keys [cursors]}
+  [_this {:keys [cursors]}]
    (dom/div :.cursor-overlay
             {:style {:position "absolute"
                      :top 0 :left 0
                      :width "100%" :height "100%"
                      :pointerEvents "none"
                      :zIndex 999}}
-            (map ui-remote-cursor (filter :user-id cursors)))])
+            (map ui-remote-cursor (filter :user-id cursors))))
 
 ;; ============================================================================
 ;; Comments System
@@ -162,7 +162,7 @@
 
 (defsc CommentItem
   "Individual comment display"
-  [this {:comment/keys [id text author created-at resolved? parent-id replies]}]
+  [this {:comment/keys [id text author created-at resolved? _parent-id replies]}]
   {:query [:comment/id :comment/text :comment/author
            :comment/created-at :comment/resolved?
            :comment/parent-id
@@ -195,7 +195,7 @@
 
 (defsc CommentThread
   "Thread of comments on a canvas item"
-  [this {:keys [item-id comments on-close]}]
+  [this {:keys [_item-id comments _on-close]}]
   (let [input-text (or (comp/get-state this :comment-input) "")]
     (dom/div :.comment-thread
              (dom/div :.comment-thread-header
@@ -227,7 +227,7 @@
 
 (defsc VersionItem
   "Individual version snapshot"
-  [this {:version/keys [id label description created-at created-by]}]
+  [_this {:version/keys [id label description created-at created-by]}]
   {:query [:version/id :version/label :version/description
            :version/created-at :version/created-by]
    :ident :version/id}
@@ -253,7 +253,7 @@
 
 (defsc VersionHistory
   "Sidebar showing version history"
-  [this {:keys [versions current-version-id on-create-snapshot]}]
+  [_this {:keys [versions _current-version-id _on-create-snapshot]}]
   (let [show-modal? (or (comp/get-state this :show-snapshot-modal?) false)
         snapshot-label (or (comp/get-state this :snapshot-label) "")
         snapshot-desc (or (comp/get-state this :snapshot-desc) "")]
@@ -310,7 +310,7 @@
 
 (defsc CollaborationSidebar
   "Main collaboration sidebar with presence, comments, and versions"
-  [this {:keys [session-id users cursors comments versions active-tab]}]
+  [_this {:keys [_session-id users _cursors comments versions active-tab]}]
   {:query [:session-id
            {:users (comp/get-query UserAvatar)}
            {:cursors [:user-id :user-name :color :position]}
@@ -359,7 +359,7 @@
 
 (defn setup-websocket-handlers!
   "Set up WebSocket message handlers for collaboration"
-  [app session-id]
+  [app _session-id]
   (ws/add-message-handler!
    (fn [message]
      (case (:type message)

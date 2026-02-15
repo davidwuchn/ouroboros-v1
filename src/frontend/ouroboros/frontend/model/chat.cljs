@@ -7,8 +7,7 @@
 ;; Chat Session Entity
 ;; ============================================================================
 
-(defsc ChatSession [this {:keys [:chat/id :chat/message-count :chat/created-at
-                                 :chat/platform :chat/running?]}]
+(defsc ChatSession [_this _props]
   {:query [:chat/id
            :chat/message-count
            :chat/created-at
@@ -21,9 +20,9 @@
 ;; Chat Adapter
 ;; ============================================================================
 
-(defsc ChatAdapter [this {:keys [:adapter/platform :adapter/running?]}]
+(defsc ChatAdapter [_this _props]
   {:query [:adapter/platform :adapter/running?]
-   :ident (fn [] [:adapter/platform (:adapter/platform this)])}
+   :ident (fn [] [:adapter/platform :chat/adapter])}
   {})
 
 ;; ============================================================================

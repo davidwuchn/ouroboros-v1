@@ -11,7 +11,7 @@
 ;; ============================================================================
 
 (defmethod dispatch/handle-message :eca/wisdom-token
-  [{:keys [token request-type]}]
+  [{:keys [token _request-type]}]
   (when-let [state-atom @state/app-state-atom]
     (swap! state-atom
            (fn [s]
@@ -110,7 +110,7 @@
       (state/schedule-render!))))
 
 (defmethod dispatch/handle-message :eca/tip-detail-error
-  [{:keys [text phase tip-title]}]
+  [{:keys [_text phase tip-title]}]
   (when-let [state-atom @state/app-state-atom]
     (let [phase-kw (if (string? phase) (keyword phase) phase)]
       (swap! state-atom

@@ -16,9 +16,9 @@
   (js/console.log "Full message:" (clj->js message)))
 
 (defmethod handle-message :connected
-  [{:keys [client-id timestamp]}]
+  [{:keys [client-id _timestamp]}]
   (js/console.log "WebSocket connected, client ID:" client-id))
 
 (defmethod handle-message :pong
-  [{:keys [timestamp]}]
+  [_message]
   nil)

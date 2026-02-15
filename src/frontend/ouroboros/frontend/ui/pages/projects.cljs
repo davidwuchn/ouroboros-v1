@@ -32,7 +32,7 @@
 
 (defsc WorkspaceProject
   "Shows the auto-detected workspace project with quick actions"
-  [this {:project/keys [id name description status path] :as props}]
+  [this {:project/keys [id name description status path] :as _props}]
   {:query [:project/id :project/name :project/description :project/status
            :project/path :project/created-at]
    :ident :project/id}
@@ -65,8 +65,8 @@
 
 (defsc WebUXStats
   "Web UX Platform statistics - compact status line"
-  [this {:keys [webux/project-count webux/active-sessions-count
-                webux/completed-sessions-count webux/learning-count]}]
+  [_this {:keys [webux/_project-count webux/active-sessions-count
+                 webux/completed-sessions-count webux/learning-count]}]
   {:query [:webux/project-count :webux/active-sessions-count
            :webux/completed-sessions-count :webux/learning-count]
    :ident (fn [] [:component/id :webux-stats])
@@ -92,7 +92,7 @@
 
 (defsc ProjectsPage
   "Main page - shows the workspace project (auto-detected from cwd)"
-  [this {:keys [user/projects ui/webux-stats] :as props}]
+  [this {:keys [user/projects ui/webux-stats] :as _props}]
   {:query         [{:user/projects (comp/get-query WorkspaceProject)}
                    {:ui/webux-stats (comp/get-query WebUXStats)}
                    [df/marker-table :projects]]
@@ -104,7 +104,7 @@
                       {:ui/webux-stats (or (:ui/webux-stats current-normalized)
                                            (comp/get-initial-state WebUXStats {}))}
                       data-tree))
-   :will-enter    (fn [app route-params]
+   :will-enter    (fn [app _route-params]
                     (dr/route-deferred [:page/id :projects]
                       (fn []
                         (df/load! app [:page/id :projects] ProjectsPage

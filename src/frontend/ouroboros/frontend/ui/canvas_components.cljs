@@ -50,7 +50,7 @@
 
 (defsc StickyNote
   "Visual sticky note component with drag handle and edit capability"
-  [this {:item/keys [id content color section position] :as props}]
+  [this {:item/keys [id content color section position] :as _props}]
   {:query [:item/id :item/content :item/color :item/section :item/position]
    :ident :item/id}
   (let [is-editing? (or (comp/get-state this :editing?) false)
@@ -111,7 +111,7 @@
   "Sticky note with click-to-edit inline editing.
    Accepts :on-save (fn [note-id new-content]) and :on-delete (fn [note-id])
    via computed props."
-  [this {:item/keys [id content color section] :as props}]
+  [this {:item/keys [id content color _section] :as _props}]
   {:query [:item/id :item/content :item/color :item/section :item/position]
    :ident :item/id
    :initLocalState (fn [_ _] {:editing? false :edit-content ""})}
@@ -167,11 +167,11 @@
 
 (defsc CanvasSection
   "A section of the canvas with header, hints, and drop zone"
-  [this {:section/keys [key title description hint items editable?] :as props}]
+  [this {:section/keys [key title description hint items editable?] :as _props}]
   {:query [:section/key :section/title :section/description :section/hint
            {:section/items (comp/get-query StickyNote)}
            :section/editable?]
-   :ident (fn [] [:section/key (:section/key props)])}
+   :ident (fn [] [:section/key key])}
   (let [on-add-item (comp/computed this :on-add-item)
         key-str (if (keyword? key) (name key) (str key))]
     (dom/div
@@ -554,7 +554,7 @@
 
 (defsc UserCursor
   "Display another user's cursor position"
-  [this {:keys [user-id user-name color position]}]
+  [_this {:keys [_user-id user-name color position]}]
   (dom/div
    {:className "user-cursor"
     :style {:position "absolute"

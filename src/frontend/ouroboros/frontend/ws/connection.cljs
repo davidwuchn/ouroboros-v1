@@ -95,7 +95,7 @@
                     (js/console.error "WebSocket message error:" e)))))
 
         (set! (.-onclose ws)
-              (fn [event]
+              (fn [_event]
                 (js/console.log "WebSocket connection closed")
                 (reset! ws-connection nil)
                 (when (and (> @reconnect-attempts 0)
@@ -106,7 +106,7 @@
                           (js/setTimeout connect! reconnect-delay-ms)))))
 
         (set! (.-onerror ws)
-              (fn [error]
+              (fn [_error]
                 (js/console.warn "WebSocket connection failed (backend may not be running)")))
 
         (reset! ws-connection ws))
