@@ -390,7 +390,7 @@ External analysis against compound-engineering-plugin revealed critical gaps:
 | Test coverage | ~27% (19/71 source files) | 60%+ (compound ref: ~80%) | 🔴 P0 |
 | Root JSON files | 9 files, duplicates (package.json + package-lock.json) | Consolidate to 1-2 | 🟡 P1 |
 | Inline prompts | Hardcoded strings in websocket.clj | Extract to resources/prompts/ | 🟡 P1 |
-| bb.edn DRY | 22 tasks, ~90% duplication in dev tasks | Extract shared helpers | 🟢 P2 |
+| ~~bb.edn DRY~~ | ~~22 tasks, ~90% duplication in dev tasks~~ | ~~Extract shared helpers~~ | ✅ Done |
 | Handler dispatch | `case` statement in websocket | Data-driven registry map | 🟡 P1 |
 
 **Immediate next:** Split websocket.clj into `ws/handlers/*.clj`, split websocket.cljs into `ws/handlers/*.cljs`.
