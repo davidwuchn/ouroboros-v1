@@ -223,27 +223,31 @@
                          :context (or context "")})
               ;; Safety timeout: if no response in 25s, show error in frontend
               ;; (Backend does 10s ack + restart + 10s retry, this is a last-resort fallback)
-              (js/setTimeout
-               (fn []
-                 (let [messages (get-in @state [:chat/id :global :chat/messages] [])
-                       idx (dec (count messages))
-                       last-msg (when (>= idx 0) (nth messages idx))]
-                   ;; Only fire if we're still in streaming state with no content
-                   (when (and last-msg
-                              (= :assistant (:role last-msg))
-                              (:streaming? last-msg)
-                              (empty? (:content last-msg)))
-                     (swap! state
-                            (fn [s]
-                              (-> s
-                                  (update-in [:chat/id :global :chat/messages idx]
-                                             assoc
-                                             :error? true
-                                             :streaming? false
-                                             :content "AI service is not responding. The backend attempted to restart the AI -- please click Retry.")
-                                  (assoc-in [:chat/id :global :chat/loading?] false))))
-                     (ws/schedule-render!))))
-               25000)))))
+              ;; Store timeout-id so we can cancel it when response arrives
+              (let [timeout-id (js/setTimeout
+                                (fn []
+                                  ;; Clear the stored timeout-id since we're executing
+                                  (swap! state assoc-in [:chat/id :global :chat/timeout-id] nil)
+                                  (let [messages (get-in @state [:chat/id :global :chat/messages] [])
+                                        idx (dec (count messages))
+                                        last-msg (when (>= idx 0) (nth messages idx))]
+                                    ;; Only fire if we're still in streaming state with no content
+                                    (when (and last-msg
+                                               (= :assistant (:role last-msg))
+                                               (:streaming? last-msg)
+                                               (empty? (:content last-msg)))
+                                      (swap! state
+                                             (fn [s]
+                                               (-> s
+                                                   (update-in [:chat/id :global :chat/messages idx]
+                                                              assoc
+                                                              :error? true
+                                                              :streaming? false
+                                                              :content "AI service is not responding. The backend attempted to restart the AI -- please click Retry.")
+                                                   (assoc-in [:chat/id :global :chat/loading?] false))))
+                                      (ws/schedule-render!))))
+                                25000)]
+                (swap! state assoc-in [:chat/id :global :chat/timeout-id] timeout-id))))))
 
 (m/defmutation append-streaming-token
   "Append streaming token to the last assistant message"

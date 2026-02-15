@@ -23,6 +23,13 @@
   (action [{:keys [state]}]
     (swap! state update :page/error dissoc page-id)))
 
+(defn- event-type?
+  "Check if event type matches, handling both keywords and strings."
+  [event-data expected-kw]
+  (let [evt (:event event-data)]
+    (or (= evt expected-kw)
+        (= evt (name expected-kw)))))
+
 (m/defmutation add-telemetry-event [{:keys [event]}]
   (action [{:keys [state]}]
     (let [extra (or (:event/extra event) event)]
@@ -30,7 +37,7 @@
              (fn [events]
                (vec (cons event (take 49 events)))))
       (swap! state update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
-      (when (= :tool/invoke (:event extra))
+      (when (event-type? extra :tool/invoke)
         (swap! state update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0)))
       (when (false? (:success? extra))
         (swap! state update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0))))))

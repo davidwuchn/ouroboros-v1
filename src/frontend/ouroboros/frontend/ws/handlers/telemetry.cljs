@@ -4,6 +4,13 @@
    [ouroboros.frontend.ws.state :as state]
    [ouroboros.frontend.ws.dispatch :as dispatch]))
 
+(defn- event-type?
+  "Check if event type matches, handling both keywords and strings."
+  [event-data expected-kw]
+  (let [evt (:event event-data)]
+    (or (= evt expected-kw)
+        (= evt (name expected-kw)))))
+
 (defmethod dispatch/handle-message :telemetry/event
   [{:keys [data]}]
   (js/console.log "Telemetry event received:" data)
@@ -19,7 +26,7 @@
                                            (vec (cons normalized (take 49 events)))))
                               (update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
                               (cond->
-                                (= :tool/invoke (:event data))
+                                (event-type? data :tool/invoke)
                                 (update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0))
                                 (false? (:success? data))
                                 (update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0)))))))

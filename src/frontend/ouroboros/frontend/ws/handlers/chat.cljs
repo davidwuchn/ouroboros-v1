@@ -4,9 +4,18 @@
    [ouroboros.frontend.ws.state :as state]
    [ouroboros.frontend.ws.dispatch :as dispatch]))
 
+(defn- cancel-chat-timeout!
+  "Cancel pending chat timeout if one exists"
+  [state-atom]
+  (when-let [timeout-id (get-in @state-atom [:chat/id :global :chat/timeout-id])]
+    (js/clearTimeout timeout-id)
+    (swap! state-atom assoc-in [:chat/id :global :chat/timeout-id] nil)))
+
 (defmethod dispatch/handle-message :eca/chat-response
   [{:keys [text]}]
   (when-let [state-atom @state/app-state-atom]
+    ;; Cancel timeout since response arrived
+    (cancel-chat-timeout! state-atom)
     (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
           idx (dec (count messages))]
       (when (and (>= idx 0)
@@ -25,6 +34,8 @@
 (defmethod dispatch/handle-message :eca/chat-token
   [{:keys [token]}]
   (when-let [state-atom @state/app-state-atom]
+    ;; Cancel timeout since content is arriving
+    (cancel-chat-timeout! state-atom)
     (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
           idx (dec (count messages))]
       (when (and (>= idx 0)
@@ -36,6 +47,8 @@
 (defmethod dispatch/handle-message :eca/chat-done
   [_]
   (when-let [state-atom @state/app-state-atom]
+    ;; Cancel timeout since response is complete
+    (cancel-chat-timeout! state-atom)
     (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
           idx (dec (count messages))]
       (when (and (>= idx 0)
@@ -50,6 +63,8 @@
 (defmethod dispatch/handle-message :eca/chat-error
   [{:keys [error]}]
   (when-let [state-atom @state/app-state-atom]
+    ;; Cancel timeout since we have an error from backend
+    (cancel-chat-timeout! state-atom)
     (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
           idx (dec (count messages))]
       (when (and (>= idx 0)
