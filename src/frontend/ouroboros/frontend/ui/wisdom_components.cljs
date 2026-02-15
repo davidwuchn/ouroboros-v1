@@ -14,6 +14,9 @@
    [com.fulcrologic.fulcro.mutations :as m]
    [ouroboros.frontend.ui.components :as ui]))
 
+;; Forward declarations for components referenced in mutations
+(declare TemplateCard AIInsight)
+
 ;; ============================================================================
 ;; Mutations
 ;; ============================================================================

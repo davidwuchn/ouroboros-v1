@@ -15,6 +15,13 @@
    [ouroboros.frontend.ui.components :as ui]
    [ouroboros.frontend.websocket :as ws]))
 
+;; Forward declarations for components referenced in mutations
+(declare CommentItem VersionItem)
+
+;; Helper to extract state atom from Fulcro app
+(defn- app->state-atom [app]
+  (::app/state-atom app))
+
 ;; ============================================================================
 ;; Mutations
 ;; ============================================================================
