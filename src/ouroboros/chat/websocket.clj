@@ -12,8 +12,7 @@
    [cheshire.core :as json])
   (:import
    [java.net URI]
-   [java.net.http WebSocket HttpClient WebSocket$Listener]
-   [java.util.concurrent CompletableFuture]))
+   [java.net.http WebSocket HttpClient WebSocket$Listener]))
 
 ;; ============================================================================
 ;; WebSocket Connection

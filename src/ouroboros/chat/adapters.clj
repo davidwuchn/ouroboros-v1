@@ -18,8 +18,7 @@
   (:import
    [java.net URI]
    [java.net.http WebSocket HttpClient WebSocket$Listener]
-   [java.time Instant]
-   [java.util.concurrent CompletableFuture]))
+   [java.time Instant]))
 
 ;; ============================================================================
 ;; Telegram Adapter
@@ -239,9 +238,6 @@
 
 (defn- slack-edit-message [bot-token channel ts text]
   (slack-api-call bot-token "chat.update" {:channel channel :ts ts :text text}))
-
-(defn- slack-ack [app-token _envelope-id]
-  (slack-api-call app-token "apps.connections.open" {}))
 
 (defn- slack-parse-message [event-data]
   (when-let [payload (:payload event-data)]
