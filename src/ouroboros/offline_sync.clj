@@ -13,7 +13,6 @@
    (sync/sync-session! :session-123) ; when back online
    (sync/resolve-conflicts! :session-123 server-state local-state)"
   (:require
-   [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.memory :as memory]
    [ouroboros.telemetry :as telemetry]

@@ -3,7 +3,6 @@
    Handles serialization/deserialization of complex cache keys."
   (:require
    [clojure.string :as str]
-   [ouroboros.frontend.ws.state :as state]
    [ouroboros.frontend.ws.defaults :as defaults]))
 
 ;; ============================================================================

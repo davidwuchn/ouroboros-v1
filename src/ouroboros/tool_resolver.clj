@@ -8,7 +8,7 @@
      (def-resolver-tool!
        #'memory-get                    ; Resolver var
        :memory/get                     ; Tool name
-       {:description " Get value from memory "
+       {:description \"Get value from memory\"
         :unique? true                  ; Expose to ECA
         :category :memory})            ; Category
 
@@ -20,7 +20,6 @@
   (:require
    [com.wsscode.pathom3.connect.operation :as pco]
    [clojure.string :as str]
-   [ouroboros.resolver-registry :as resolver-registry]
    [ouroboros.tool-registry :as tool-registry]))
 
 ;; ============================================================================

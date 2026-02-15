@@ -13,10 +13,7 @@
    - /compound: Document learnings to make future work easier"
   (:require
    [clojure.string :as str]
-   [ouroboros.memory :as memory]
    [ouroboros.learning :as learning]
-   [ouroboros.eca-client :as eca]
-   [ouroboros.telemetry :as telemetry]
    [clojure.java.shell :as shell])
   (:import [java.time Instant]))
 

@@ -1,7 +1,6 @@
 (ns ouroboros.frontend.ws.handlers.learning
   "Handlers for :learning/*, :project/detected, and :eca/auto-insight-* messages."
   (:require
-   [clojure.string :as str]
    [ouroboros.frontend.ws.state :as state]
    [ouroboros.frontend.ws.cache :as cache]
    [ouroboros.frontend.ws.dispatch :as dispatch]))

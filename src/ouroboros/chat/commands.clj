@@ -17,8 +17,7 @@
    [ouroboros.learning.empathy-map :as empathy]
    [ouroboros.learning.value-proposition :as vp]
    [ouroboros.learning.mvp-planning :as mvp]
-   [ouroboros.workflow :as workflow]
-   [ouroboros.wisdom :as wisdom]))
+   [ouroboros.workflow :as workflow]))
 
 ;; Re-export protocol functions
 (def send-message! chatp/send-message!)

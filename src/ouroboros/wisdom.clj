@@ -19,11 +19,9 @@
   (:require
    [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [ouroboros.memory :as memory]
    [ouroboros.learning :as learning]
    [ouroboros.telemetry :as telemetry]
-   [ouroboros.resolver-registry :as registry]
-   [ouroboros.eca-client :as eca]))
+   [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
 ;; Template Library

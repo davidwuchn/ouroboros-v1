@@ -21,7 +21,6 @@
    (read-output! proc) ; returns available output
    (stream-output! proc println) ; stream output to function"
   (:require
-   [clojure.java.io :as io]
    [clojure.string :as str]
    [taoensso.timbre :as log])
   (:import

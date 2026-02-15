@@ -16,7 +16,6 @@
    ;; Direct core access (no interface wrapper)
    [ouroboros.query :as query]
    [ouroboros.memory :as memory]
-   [ouroboros.knowledge :as knowledge]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.api :as api]
    [ouroboros.openapi :as openapi]))

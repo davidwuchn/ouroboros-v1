@@ -13,11 +13,7 @@
    [cognitect.transit :as transit]
    [org.httpkit.server :as httpkit]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [com.wsscode.pathom3.interface.eql :as p.eql]
    [ouroboros.query :as query]
-   [ouroboros.telemetry :as telemetry]
-   [ouroboros.auth :as auth]
-   [ouroboros.chat :as chat]
    [ouroboros.metrics :as metrics]
    [ouroboros.websocket :as ws])
   (:import [java.time Instant]

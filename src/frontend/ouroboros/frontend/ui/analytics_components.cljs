@@ -11,7 +11,6 @@
    [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
-   [com.fulcrologic.fulcro.data-fetch :as df]
    [ouroboros.frontend.ui.components :as ui]
    [ouroboros.frontend.websocket :as ws]))
 

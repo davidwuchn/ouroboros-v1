@@ -6,9 +6,7 @@
    Usage:
    (require '[ouroboros.interface :as iface])
    (iface/learning-save-insight! :user-123 {...})
-   (iface/learning-get-user-history :user-123)"
-  (:require
-   [ouroboros.interface :as iface]))
+   (iface/learning-get-user-history :user-123)")
 
 ;; Lazy loading - resolve at call time, not load time
 (defn- resolve-learning [sym]

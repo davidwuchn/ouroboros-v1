@@ -5,9 +5,7 @@
 
    Usage:
    (require '[ouroboros.interface :as iface])
-   (iface/educational-enhance-approval \"file/write\" {:path \"config.json\"})"
-  (:require
-   [ouroboros.interface :as iface]))
+   (iface/educational-enhance-approval \"file/write\" {:path \"config.json\"})")
 
 ;; Lazy loading - resolve at call time, not load time
 (defn- resolve-educational [sym]

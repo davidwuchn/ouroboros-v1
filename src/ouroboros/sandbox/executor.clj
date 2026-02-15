@@ -24,10 +24,8 @@
        {:profile :standard})"
   (:require
    [clojure.java.shell :as shell]
-   [clojure.string :as str]
    [ouroboros.fs :as fs]
-   [ouroboros.telemetry :as telemetry]
-   [ouroboros.tool-sandbox :as sandbox]))
+   [ouroboros.telemetry :as telemetry]))
 
 ;; ============================================================================
 ;; Configuration

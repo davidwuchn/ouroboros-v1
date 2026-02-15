@@ -7,7 +7,6 @@
    Note: This is for internal tool validation, not AI/LLM integration.
    AI functionality is delegated to ECA (Editor Code Assistant)."
   (:require
-   [clojure.string :as str]
    [ouroboros.telemetry :as telemetry]))
 
 ;; ============================================================================

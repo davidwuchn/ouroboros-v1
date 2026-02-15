@@ -15,7 +15,6 @@
    [ouroboros.frontend.ws.defaults :as defaults]
    [ouroboros.frontend.ws.cache :as cache]
    [ouroboros.frontend.ws.connection :as conn]
-   [ouroboros.frontend.ws.dispatch :as dispatch]
    [ouroboros.frontend.ws.api :as api]
    [ouroboros.frontend.ws.lifecycle :as lifecycle]
    ;; Handler registrations (side-effecting requires)

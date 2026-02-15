@@ -5,9 +5,7 @@
 
    Usage:
    (require '[ouroboros.interface :as iface])
-   (iface/eca-approval-status)"
-  (:require
-   [ouroboros.interface :as iface]))
+   (iface/eca-approval-status)")
 
 ;; Lazy loading - resolve at call time, not load time
 (defn- resolve-approval-bridge [sym]

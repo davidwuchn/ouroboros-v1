@@ -27,7 +27,6 @@
   (:require
    [clojure.string :as str]
    [ouroboros.confirmation :as confirmation]
-   [ouroboros.chat.protocol :as chatp]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.eca-client :as eca-client]
    [ouroboros.educational-approval :as edu]))

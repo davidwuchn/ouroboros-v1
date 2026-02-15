@@ -2,8 +2,7 @@
   "Test runner utilities for bb.edn tasks.
    Supports both Babashka and JVM Clojure test environments."
   (:require
-   [clojure.test :as t]
-   [clojure.string :as str]))
+   [clojure.test :as t]))
 
 (defn run-suites
   "Run test suites and exit with appropriate code.
