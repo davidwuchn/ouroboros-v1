@@ -358,7 +358,7 @@ EOF
 
 ### Testing
 ```bash
-bb test          # Core tests (43 tests)
+bb test          # Run all tests (check output for current count)
 bb test:webux    # WebUX tests (requires Clojure, not Babashka)
 ```
 
