@@ -80,7 +80,7 @@
   [adapter chat-id _user-name _cmd _args]
   (telemetry/emit! {:event :chat/command :command :start :chat-id chat-id})
   (send-message! adapter chat-id
-                 "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build canvas empathy <persona> - Empathy Map Canvas\n/build empathy <persona> - Empathy Map (shorthand)\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n/plan <desc> - Create implementation plan\n/work <task> - Execute planned task\n/review - Start code review\n/compound - Document learnings\n/setup - Run setup wizard\n\nJust type naturally to chat with ECA!"))
+                 "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build canvas empathy <persona> - Empathy Map Canvas\n/build empathy <persona> - Empathy Map (shorthand)\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n/plan <desc> - Create implementation plan\n/work <task> - Execute planned task\n/review - Start code review\n/compound - Document learnings\n\nJust type naturally to chat with ECA!"))
 
 ;; /help
 (defmethod handle-command :help
@@ -110,10 +110,6 @@
                       "/compound - Document learnings\n"
                       "/workflows - Show workflow help\n"
                       "/cancel - Cancel current workflow\n\n"
-                      "*Setup*\n"
-                      "/setup - Run setup wizard\n"
-                      "/setup run - Auto-configure\n"
-                      "/setup detect - Detect stack\n\n"
                       "Just type naturally to chat with ECA!")))
 
 ;; /clear
@@ -315,27 +311,7 @@
     (session/update-context! chat-id dissoc :workflow/type :workflow/mode)
     (send-message! adapter chat-id (str "✓ Cancelled: " (name (:session-type result)) " workflow"))))
 
-;; /setup
-(defmethod handle-command :setup
-  [adapter chat-id _user-name _cmd args]
-  (telemetry/emit! {:event :chat/command :command :setup :chat-id chat-id})
-  (cond
-    (str/blank? args) (send-message! adapter chat-id "Setup wizard not yet available. Coming soon.")
-    (= "run" args) (send-message! adapter chat-id "Setup wizard not yet available. Coming soon.")
-    (= "detect" args) (send-message! adapter chat-id "Setup wizard not yet available. Coming soon.")
-    :else (send-message! adapter chat-id "⚠️ Usage: /setup [run|detect]")))
 
-;; /setup-run
-(defmethod handle-command :setup-run
-  [adapter chat-id _user-name _cmd _args]
-  (telemetry/emit! {:event :chat/command :command :setup-run :chat-id chat-id})
-  (send-message! adapter chat-id "Setup wizard not yet available. Coming soon."))
-
-;; /setup-detect
-(defmethod handle-command :setup-detect
-  [adapter chat-id _user-name _cmd _args]
-  (telemetry/emit! {:event :chat/command :command :setup-detect :chat-id chat-id})
-  (send-message! adapter chat-id "Setup wizard not yet available. Coming soon."))
 
 ;; ============================================================================
 ;; Confirmation Commands (delegated to confirmation system)
