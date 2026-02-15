@@ -163,29 +163,20 @@
                          (session/assoc-context! chat-id :canvas/session (:session prompt))
                          (session/assoc-context! chat-id :canvas/mode true)
                          (send-markdown! adapter chat-id (:message prompt))))))
-        "empathy" (if (str/blank? remaining)
-                    (send-message! adapter chat-id "⚠️ Usage: /build empathy <persona-name>")
-                    (let [empathy-session (empathy/start-empathy-session! chat-id remaining)
-                          prompt (empathy/get-next-prompt empathy-session)]
-                      (session/assoc-context! chat-id :empathy/session (:session prompt))
-                      (session/assoc-context! chat-id :empathy/mode true)
-                      (send-markdown! adapter chat-id (:message prompt))))
-        "valueprop" (if (str/blank? remaining)
-                      (send-message! adapter chat-id "⚠️ Usage: /build valueprop <project-name>")
-                      (let [vp-session (vp/start-vp-session! chat-id remaining)
-                            prompt (vp/get-next-prompt vp-session)]
-                        (session/assoc-context! chat-id :vp/session (:session prompt))
-                        (session/assoc-context! chat-id :vp/mode true)
-                        (send-markdown! adapter chat-id (:message prompt))))
-        "mvp" (if (str/blank? remaining)
-                (send-message! adapter chat-id "⚠️ Usage: /build mvp <project-name>")
-                (let [mvp-session (mvp/start-mvp-session! chat-id remaining)
-                      prompt (mvp/get-next-prompt mvp-session)]
-                  (session/assoc-context! chat-id :mvp/session (:session prompt))
-                  (session/assoc-context! chat-id :mvp/mode true)
-                  (send-markdown! adapter chat-id (:message prompt))))
+        "empathy" (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)
+                        url (str "http://localhost:" port)]
+                    (send-markdown! adapter chat-id
+                      (str "Opening Empathy Map Builder...\n" url "#/empathy-builder")))
+        "valueprop" (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)
+                         url (str "http://localhost:" port)]
+                     (send-markdown! adapter chat-id
+                       (str "Opening Value Proposition Builder...\n" url "#/value-prop-builder")))
+        "mvp" (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)
+                    url (str "http://localhost:" port)]
+                (send-markdown! adapter chat-id
+                  (str "Opening MVP Builder...\n" url "#/mvp-builder")))
         (send-message! adapter chat-id (str "Unknown build command: " subcmd))))
-    (send-message! adapter chat-id "*Build Commands*\n\n/build canvas <name> - Create Lean Canvas\n/build canvas empathy <persona> - Empathy Map Canvas\n/build empathy <persona> - Empathy Map (shorthand)\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/build help - Show help")))
+    (send-message! adapter chat-id "*Build Commands*\n\n/build canvas <name> - Create Lean Canvas\n/build empathy - Open Empathy Map Builder\n/build valueprop - Open Value Proposition Builder\n/build mvp - Open MVP Builder\n/build help - Show help")))
 
 ;; /empathy
 (defmethod handle-command :empathy
