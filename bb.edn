@@ -148,6 +148,7 @@
           "Running Tests"
           ['ouroboros.core-test
            'ouroboros.chat-adapter-test
+           'ouroboros.chat-commands-test
            'ouroboros.streaming-test
            'ouroboros.tool-execution-test
            'ouroboros.integration-test])}

@@ -7,6 +7,8 @@
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Engine (∅) | ✅ Running | Statechart lifecycle operational |
+| **clj-kondo** | **✅ Phase 4 Complete** | **0 errors, 64 warnings (down from 44 errors)** |
+| **Test Coverage** | **⚒ Phase 5 Active** | **75 tests, 307 assertions (+17 new tests)** |
 | Query | ✅ Active | Pathom EQL interface exposed |
 | Interface | ✅ Ready | Unified boot/shutdown via `ouroboros.interface` |
 | nREPL | ✅ Port 8888 | Auto-boots system on connect |
