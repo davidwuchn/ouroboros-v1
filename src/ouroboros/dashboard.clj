@@ -17,7 +17,7 @@
    [ouroboros.metrics :as metrics]
    [ouroboros.websocket :as ws])
   (:import [java.time Instant]
-           [java.io File ByteArrayInputStream InputStreamReader]))
+           [java.io File ByteArrayInputStream]))
 
 ;; ============================================================================
 ;; API Handler
@@ -462,5 +462,6 @@
   (stop!)
 
   ;; Via Pathom
-  (require '[ouroboros.query :as q])
-  (q/q [:dashboard/status]))
+  ;; (require '[ouroboros.query :as q])
+  ;; (q/q [:dashboard/status]))
+)

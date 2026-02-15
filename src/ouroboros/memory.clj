@@ -115,8 +115,8 @@
     (save-value! key new)
     new))
 
-;; Deprecated alias for backward compatibility
-(def swap! update!)
+;; NOTE: Do NOT define swap! here - it would shadow clojure.core/swap!
+;; Use update! for memory updates, or swap! directly on memory-store atom
 
 (defn init!
   "Initialize memory - load from disk"

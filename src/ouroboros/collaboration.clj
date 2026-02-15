@@ -48,9 +48,6 @@
 (defn- presence-key [session-id]
   (keyword (str "presence/" session-id)))
 
-(defn- cursors-key [session-id]
-  (keyword (str "cursors/" session-id)))
-
 (defn- comments-key [session-id]
   (keyword (str "comments/" session-id)))
 

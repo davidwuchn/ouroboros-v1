@@ -7,6 +7,7 @@
    Note: This is for internal tool validation, not AI/LLM integration.
    AI functionality is delegated to ECA (Editor Code Assistant)."
   (:require
+   [clojure.set :as set]
    [ouroboros.telemetry :as telemetry]))
 
 ;; ============================================================================
@@ -129,7 +130,7 @@
   [params schema]
   (let [allowed-params (set (keys schema))
         actual-params (set (keys params))
-        unknown-params (clojure.set/difference actual-params allowed-params)
+        unknown-params (set/difference actual-params allowed-params)
         base-validation (validate-params params schema)]
 
     (if (seq unknown-params)

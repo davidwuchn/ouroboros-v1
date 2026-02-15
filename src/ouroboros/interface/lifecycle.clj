@@ -6,6 +6,7 @@
    2. Initialize Pathom (Query)
    3. Load Memory"
   (:require
+   [clojure.pprint :as pprint]
    [ouroboros.engine :as engine]
    [ouroboros.query :as query]
    [ouroboros.memory :as memory]))
@@ -37,7 +38,7 @@
   ;; Verification
   (println "\n========================================")
   (println "  System Status:")
-  (clojure.pprint/pprint (query/status))
+  (pprint/pprint (query/status))
   (println "========================================")
 
   ;; Return the query function for convenience

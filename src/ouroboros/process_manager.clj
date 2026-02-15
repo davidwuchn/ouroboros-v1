@@ -25,7 +25,7 @@
    [taoensso.timbre :as log])
   (:import
    (java.io BufferedReader InputStreamReader OutputStreamWriter)
-   (java.lang ProcessBuilder ProcessBuilder$Redirect)
+   (java.lang ProcessBuilder)
    (java.util.concurrent LinkedBlockingQueue TimeUnit)))
 
 (defonce ^:private processes (atom {}))

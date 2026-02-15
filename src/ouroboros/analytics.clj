@@ -171,11 +171,7 @@
      :funnel/stages
      (mapv (fn [stage]
              (let [reached (count (filter #(contains? % stage) user-progress))
-                   completed (let [session-data (vals (or (memory/get-value
-                                                            (keyword (str "builder-sessions/"
-                                                                          (first user-progress))))
-                                                           {}))
-                                   completed? (fn [session]
+                   completed (let [completed? (fn [session]
                                                 (and (= (:session/type session) stage)
                                                      (= (:session/state session) :completed)))]
                                (count (filter #(some completed? %)

@@ -7,6 +7,7 @@
    - :introspection/current-state - detailed current state info
    - :introspection/events - events that can be processed"
   (:require
+   [clojure.pprint :as pprint]
    [com.fulcrologic.statecharts :as sc]
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.engine :as engine]
