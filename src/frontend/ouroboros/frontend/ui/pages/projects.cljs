@@ -65,9 +65,9 @@
 
 (defsc WebUXStats
   "Web UX Platform statistics - compact status line"
-  [_this {:keys [webux/_project-count webux/active-sessions-count
+  [_this {:keys [webux/active-sessions-count
                  webux/completed-sessions-count webux/learning-count]}]
-  {:query [:webux/project-count :webux/active-sessions-count
+  {:query [:webux/active-sessions-count
            :webux/completed-sessions-count :webux/learning-count]
    :ident (fn [] [:component/id :webux-stats])
    :initial-state (fn [_] {})}
@@ -92,7 +92,7 @@
 
 (defsc ProjectsPage
   "Main page - shows the workspace project (auto-detected from cwd)"
-  [this {:keys [user/projects ui/webux-stats] :as _props}]
+  [this {:keys [user/projects ui/webux-stats] :as props}]
   {:query         [{:user/projects (comp/get-query WorkspaceProject)}
                    {:ui/webux-stats (comp/get-query WebUXStats)}
                    [df/marker-table :projects]]

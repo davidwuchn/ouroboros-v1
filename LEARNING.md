@@ -168,7 +168,7 @@ When two modules implement similar functionality (WebSocket for Discord/Slack), 
 
 ---
 
-### 9. Configuration as Layers
+### 10. Configuration as Data
 
 12-factor app configuration: defaults < .env < config.edn < environment variables. Deep merge nested maps. Never commit secrets.
 
@@ -1591,7 +1591,7 @@ bb debug menu   # Show all commands
 
 ---
 
-### 22. Hierarchical Agent Pattern (from Agent Zero)
+### 25. Hierarchical Agent Pattern (from Agent Zero)
 
 **Problem:** Single agents get overwhelmed with complex tasks, context windows overflow, and parallel execution is hard to coordinate.
 
@@ -1629,7 +1629,7 @@ User (Superior)
 
 ---
 
-### 23. Context Summarization Strategy (from Agent Zero)
+### 26. Context Summarization Strategy (from Agent Zero)
 
 **Problem:** Long chat sessions exceed LLM context windows, causing failures or degraded performance.
 
@@ -1661,7 +1661,7 @@ The same principle applies: STATE changes frequently with full detail, PLAN summ
 
 ---
 
-### 24. Prompt-Driven Customization (from Agent Zero)
+### 27. Prompt-Driven Customization (from Agent Zero)
 
 **Problem:** Customizing AI behavior requires code changes, limiting non-developer users.
 
@@ -1710,7 +1710,7 @@ Ouroboros is built on the principle that **behavior is data**, not code:
 
 ---
 
-### 25. Instruments: On-Demand Capabilities (from Agent Zero) — DELEGATED
+### 28. Instruments: On-Demand Capabilities (from Agent Zero) — DELEGATED
 
 **Problem:** Tools in system prompt consume tokens even when unused. Too many tools = context overflow.
 
@@ -1733,7 +1733,7 @@ Since we delegate AI capabilities to ECA (Editor Code Assistant), we don't need 
 
 ---
 
-### 26. Dynamic Behavior Adjustment (from Agent Zero)
+### 29. Dynamic Behavior Adjustment (from Agent Zero)
 
 **Problem:** User preferences ("always use UK English", "never use emojis") require code changes or repetitive prompting.
 
@@ -1771,7 +1771,7 @@ We have the foundation:
 
 ---
 
-### 27. Terminal Introspection via Tmux
+### 30. Terminal Introspection via Tmux
 
 **Problem:** Need to determine terminal state programmatically (idle, prompt, cursor position) for AI/human handoff and automation.
 
@@ -1876,7 +1876,7 @@ get_now_ms() {
 
 ---
 
-### 25. ECA Wisdom Pipeline Pattern (End-to-End)
+### 31. ECA Wisdom Pipeline Pattern (End-to-End)
 
 **Problem:** Wisdom components (tips sidebar, flywheel progress, quick tips page) displayed static hardcoded content. The chat sidebar had a working ECA streaming pipeline, but wisdom features didn't use it. Needed to extend the same pattern to all wisdom delivery.
 
@@ -1939,7 +1939,7 @@ Browser (wisdom sidebar opens in builder)
 
 ---
 
-### 26. Builder Data Persistence Pipeline (WebSocket Sync)
+### 32. Builder Data Persistence Pipeline (WebSocket Sync)
 
 **Problem:** Builder interactions (adding sticky notes, filling sections) only existed in the frontend Fulcro state. The backend had no knowledge of what users actually built, so it couldn't detect completion or trigger analysis.
 
@@ -1988,7 +1988,7 @@ User adds sticky note / submits section
 
 ---
 
-### 27. Debounced WebSocket Sync in ClojureScript
+### 33. Debounced WebSocket Sync in ClojureScript
 
 **Problem:** Sticky-note builders fire mutations rapidly (add, update, delete, drag). Sending a WebSocket message on every mutation would flood the backend and waste bandwidth.
 
@@ -2028,7 +2028,7 @@ User adds sticky note / submits section
 
 ---
 
-### 28. Auto-Insight Streaming with Accumulation
+### 34. Auto-Insight Streaming with Accumulation
 
 **Problem:** When a builder completes, we want ECA to analyze the work and provide insights. The insight needs to be both streamed to the frontend (for real-time display) AND saved to learning memory (for persistence). But ECA streams tokens one at a time.
 
@@ -2080,7 +2080,7 @@ User adds sticky note / submits section
 
 ---
 
-### 29. Single Project Per Instance -- Workspace Auto-Detection
+### 35. Single Project Per Instance -- Workspace Auto-Detection
 
 **Problem:** The multi-project CRUD model (create/list/delete projects) didn't match the actual use case. Ouroboros runs in a specific workspace directory, and there's always exactly one project -- the current working directory.
 
@@ -2127,7 +2127,7 @@ User adds sticky note / submits section
 
 ---
 
-### 30. Fulcro State Atom Access from Components
+### 36. Fulcro State Atom Access from Components
 
 **Problem:** Need to read raw Fulcro normalized state from within a component (e.g., to access `:workspace/project` which isn't part of any component's EQL query).
 
@@ -2156,7 +2156,7 @@ User adds sticky note / submits section
 
 ---
 
-### 31. Remove Unused Pages Cleanly from Fulcro
+### 37. Remove Unused Pages Cleanly from Fulcro
 
 **Problem:** Users and Sessions pages were chat-platform pages showing data from in-memory atoms. In the single-project WebUX model, these pages were always empty and irrelevant. Need to remove them without breaking the router or leaving orphaned references.
 
@@ -2175,7 +2175,7 @@ User adds sticky note / submits section
 
 ---
 
-### 32. Auto-Derived Kanban Board Pattern
+### 38. Auto-Derived Kanban Board Pattern
 
 **Problem:** Needed a Kanban board to show builder progress, but manually dragging cards between columns would duplicate state and drift from actual builder data. The board should always reflect reality.
 
@@ -2207,7 +2207,7 @@ User adds sticky note / submits section
 
 ---
 
-### 33. Hardcoded-to-ECA Content Migration Pattern
+### 39. Hardcoded-to-ECA Content Migration Pattern
 
 **Problem:** ~17 categories of hardcoded static content across ~15 files (wisdom tips, templates, learning categories, analytics data, chat suggestions, flywheel phase descriptions, section hints, prediction messages). All these should come from ECA/LLM for personalized, context-aware guidance instead of generic `def` blocks.
 
@@ -2301,7 +2301,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 34. Fulcro Wrapped Form Elements Require React Keys on Children
+### 40. Fulcro Wrapped Form Elements Require React Keys on Children
 
 **Problem:** React warning "Each child in a list should have a unique key prop" from `ForwardRef` on `dom/select` children, even though `dom/option` elements were positional (not in a `for` loop).
 
@@ -2327,7 +2327,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 35. Guard nil Inputs to clojure.string Functions
+### 41. Guard nil Inputs to clojure.string Functions
 
 **Problem:** `clojure.string/replace` (and most `clojure.string/*` functions) throw when passed `nil` instead of a string. In ClojureScript this manifests as `TypeError: can't access property "replace", s is null`.
 
@@ -2351,7 +2351,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 36. Cache-First Instant Display Pattern
+### 42. Cache-First Instant Display Pattern
 
 **Problem:** Drawer/panel content that loads from the backend via WebSocket shows a "Loading..." spinner every time the user clicks. Even sub-second loads feel sluggish when the content was already fetched moments ago.
 
@@ -2388,7 +2388,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 37. Silent Refresh Mode for WebSocket Requests
+### 43. Silent Refresh Mode for WebSocket Requests
 
 **Problem:** Re-fetching content that already exists in state causes a visible loading spinner, creating unnecessary visual noise. The user sees content disappear and reappear.
 
@@ -2416,7 +2416,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 38. Never Overwrite Content with Empty Responses
+### 44. Never Overwrite Content with Empty Responses
 
 **Problem:** Backend WebSocket responses sometimes return empty arrays (`[]`) when data is temporarily unavailable. If the response handler blindly writes this to state, it wipes out perfectly good cached/default content.
 
@@ -2440,7 +2440,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 39. Frontend Enrichment of Backend Data
+### 45. Frontend Enrichment of Backend Data
 
 **Problem:** Backend returns raw data (counts, records, category names) but the frontend needs UI metadata (icons, descriptions, default content). The backend shouldn't know about UI concerns.
 
@@ -2477,7 +2477,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 40. Derive Display Counts from Actual Data
+### 46. Derive Display Counts from Actual Data
 
 **Problem:** Card components showed hardcoded counts (e.g., `{:count 12}`) while the corresponding drawer only contained 2-3 items. The user clicks a card saying "12 insights" and sees 3.
 
@@ -2512,7 +2512,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 41. Avoid Destructuring Names That Shadow cljs.core
+### 47. Avoid Destructuring Names That Shadow cljs.core
 
 **Problem:** Destructuring `{:keys [count]}` shadows `cljs.core/count`. Later calling `(count items)` tries to invoke a number as a function, producing `count.call is not a function` at runtime.
 
@@ -2536,7 +2536,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 42. Clickable Card Pattern with Keyboard Accessibility
+### 48. Clickable Card Pattern with Keyboard Accessibility
 
 **Problem:** Making an entire card clickable while preserving child interactive elements (buttons, links) requires careful event handling and accessibility markup.
 
@@ -2568,7 +2568,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 43. Section Deep-Linking via Scroll-After-Route-Change
+### 49. Section Deep-Linking via Scroll-After-Route-Change
 
 **Problem:** When navigating to a new route and scrolling to a specific section, the target element doesn't exist yet because the route hasn't rendered.
 
@@ -2599,7 +2599,7 @@ For backend wisdom/analytics, empty the human-readable TEXT strings but keep com
 
 ---
 
-### 44. CSS Custom Properties on :root for Cross-Component Styling
+### 50. CSS Custom Properties on :root for Cross-Component Styling
 
 **Problem:** A resizable sidebar needs to communicate its width to sibling elements (e.g., main content area) that aren't in the same component tree.
 
@@ -2639,7 +2639,7 @@ body.chat-resizing-global .chat-sidebar {
 
 ---
 
-### 45. Data-Driven Handler Dispatch (from Compound Engineering Plugin)
+### 51. Data-Driven Handler Dispatch (from Compound Engineering Plugin)
 
 **Problem:** WebSocket message handlers use a large `case` statement to dispatch by message type. Each new handler adds a branch, growing the file linearly. At 1420+ LOC the file is a god object.
 
@@ -2691,7 +2691,7 @@ body.chat-resizing-global .chat-sidebar {
 
 ---
 
-### 46. Module Size Discipline (Max ~400 LOC)
+### 52. Module Size Discipline (Max ~400 LOC)
 
 **Problem:** websocket.clj (1420 LOC) and websocket.cljs (1704 LOC) are god objects. Every new feature adds more handlers, making the files harder to navigate, review, and test.
 
@@ -2732,7 +2732,7 @@ src/frontend/ouroboros/frontend/
 
 ---
 
-### 47. Frontmatter Markdown as Config (from Compound Engineering Plugin)
+### 53. Frontmatter Markdown as Config (from Compound Engineering Plugin)
 
 **Problem:** Agent/skill metadata (name, description, version, capabilities) is either hardcoded in source or spread across multiple config files with no standard format.
 
@@ -2788,7 +2788,7 @@ resources/prompts/
 
 ---
 
-### 48. Integration Tests via Binary Spawn (from Compound Engineering Plugin)
+### 54. Integration Tests via Binary Spawn (from Compound Engineering Plugin)
 
 **Problem:** Unit tests mock too much, missing real integration bugs. End-to-end tests through the UI are slow and brittle. Need a middle ground that tests the actual system with real I/O.
 

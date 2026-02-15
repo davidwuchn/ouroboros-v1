@@ -111,7 +111,7 @@
   "Sticky note with click-to-edit inline editing.
    Accepts :on-save (fn [note-id new-content]) and :on-delete (fn [note-id])
    via computed props."
-  [this {:item/keys [id content color _section] :as _props}]
+  [this {:item/keys [id content color] :as _props}]
   {:query [:item/id :item/content :item/color :item/section :item/position]
    :ident :item/id
    :initLocalState (fn [_ _] {:editing? false :edit-content ""})}

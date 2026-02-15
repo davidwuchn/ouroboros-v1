@@ -275,7 +275,7 @@
 ;; ============================================================================
 
 (defsc DashboardPage
-  [this _props]
+  [this props]
   {:query         [[df/marker-table :dashboard]
                    :page/error]
     :ident         (fn [] [:page/id :dashboard])

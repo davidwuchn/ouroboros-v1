@@ -116,7 +116,7 @@
 ;; ============================================================================
 
 (defsc Root
-  [_this {:keys [main-router chat-panel]}]
+  [this {:keys [main-router chat-panel]}]
   {:query         [{:main-router (comp/get-query MainRouter)}
                    {:chat-panel (comp/get-query chat/ChatPanel)}]
    :initial-state (fn [_]

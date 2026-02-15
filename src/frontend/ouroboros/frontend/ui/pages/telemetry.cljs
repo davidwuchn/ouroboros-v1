@@ -206,7 +206,7 @@
                 telemetry/error-rate
                 telemetry/events
                 debug/enabled?]
-          :as _props}]
+          :as props}]
   {:query [:system/healthy?
            :system/current-state
            :system/meta
