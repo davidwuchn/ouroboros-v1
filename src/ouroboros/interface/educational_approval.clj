@@ -13,15 +13,6 @@
     (when ns-sym
       (ns-resolve ns-sym sym))))
 
-(defmacro deflazy [name]
-  `(def ~name (delay (resolve-educational '~name))))
-
-(deflazy educational-enhance-approval)
-(deflazy educational-calculate-risk)
-(deflazy educational-get-tool-knowledge)
-(deflazy educational-create-learning-from-approval)
-(deflazy educational-wrap-forward-approval)
-
 ;; Convenience wrappers that handle the delay
 (defn enhance-approval
   "Enhance approval message with educational content

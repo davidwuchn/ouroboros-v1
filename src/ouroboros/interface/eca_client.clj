@@ -11,23 +11,9 @@
 
 ;; Lazy loading - resolve at call time, not load time
 (defn- resolve-eca [sym]
-  (let [ns-sym (ns-resolve *ns* 'ouroboros.eca-client)]
-    (when ns-sym
-      (ns-resolve ns-sym sym))))
+  (require 'ouroboros.eca-client.lifecycle)
+  (ns-resolve 'ouroboros.eca-client.lifecycle sym))
 
-(defmacro deflazy [name]
-  `(def ~name (delay (resolve-eca '~name))))
-
-(deflazy eca-start!)
-(deflazy eca-stop!)
-(deflazy eca-status)
-(deflazy eca-chat-prompt)
-(deflazy eca-query-context)
-(deflazy eca-query-files)
-(deflazy eca-approve-tool!)
-(deflazy eca-reject-tool!)
-
-;; Convenience wrappers that handle the delay
 (defn start
   "Start ECA client
 

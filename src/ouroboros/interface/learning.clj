@@ -10,28 +10,9 @@
 
 ;; Lazy loading - resolve at call time, not load time
 (defn- resolve-learning [sym]
-  (let [ns-sym (ns-resolve *ns* 'ouroboros.learning)]
-    (when ns-sym
-      (ns-resolve ns-sym sym))))
+  (require 'ouroboros.learning)
+  (ns-resolve 'ouroboros.learning sym))
 
-(defmacro deflazy [name]
-  `(def ~name (delay (resolve-learning '~name))))
-
-(deflazy learning-save-insight!)
-(deflazy learning-get-learning)
-(deflazy learning-update-learning!)
-(deflazy learning-delete-learning!)
-(deflazy learning-get-user-history)
-(deflazy learning-recall-by-pattern)
-(deflazy learning-recall-by-category)
-(deflazy learning-find-related)
-(deflazy learning-increment-application!)
-(deflazy learning-get-user-stats)
-(deflazy learning-detect-gaps)
-(deflazy learning-create-from-error)
-(deflazy learning-create-from-explanation)
-
-;; Convenience wrappers that handle the delay
 (defn save-insight!
   "Save a learning insight
 

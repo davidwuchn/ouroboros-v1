@@ -13,13 +13,6 @@
     (when ns-sym
       (ns-resolve ns-sym sym))))
 
-(defmacro deflazy [name]
-  `(def ~name (delay (resolve-approval-bridge '~name))))
-
-(deflazy eca-approval-status)
-(deflazy eca-pending-approvals)
-(deflazy eca-cleanup-expired!)
-
 ;; Convenience wrappers that handle the delay
 (defn status
   "Get ECA approval bridge status
