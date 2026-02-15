@@ -600,6 +600,12 @@
    "status"   {:arity 1 :fn (fn [[name]] (pprint (status name)))}
    "attach"   {:arity 1 :fn (fn [[name]] (attach! name))}
    "send"     {:arity 2 :fn (fn [[name input]] (send! name input))}
+   "logs"     {:arity 1 :fn (fn [[name & opts]]
+                               (let [follow? (some #(= "-f" %) opts)
+                                     lines (or (some-> (first (filter #(re-matches #"\d+" %) opts)) Integer/parseInt) 50)]
+                                 (if follow?
+                                   (logs name :follow? true)
+                                   (println (str/join "\n" (logs name :lines lines))))))}
    "list"     {:arity 0 :fn (fn [_] (doseq [s (list-sessions)]
                                       (println " " (:name s) "-" (:info s))))}
    "clean"    {:arity 0 :fn (fn [_] (println "Cleaned up" (clean!) "orphaned session(s)"))}
@@ -617,6 +623,7 @@
   (println "  start <name> <command>    Start a process in a tmux session")
   (println "  stop <name>               Stop a tmux session (kills process)")
   (println "  status <name>             Check if session is running")
+  (println "  logs <name> [lines|-f]    View session output (default 50 lines, -f to follow)")
   (println "  attach <name>             Attach to session (interactive)")
   (println "  send <name> <input>       Send input to session")
   (println "  list                      List all managed sessions")
@@ -628,7 +635,7 @@
   (println)
   (println "Examples:")
   (println "  bb process start webserver \"python -m http.server 8080\"")
-  (println "  bb process status webserver")
+  (println "  bb process logs webserver -f")
   (println "  bb process stop webserver"))
 
 (defn- run-cli-command [cmd-name args]
