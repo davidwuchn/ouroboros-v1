@@ -2,7 +2,23 @@
 
 > What was discovered. Patterns, principles, and insights from building Ouroboros.
 
+## Contents
 
+- [Architecture Evolution](#architecture-evolution)
+- [Patterns](#patterns)
+  - [Development Methodology](#patterns)
+  - [System Design](#patterns)
+  - [AI Integration](#patterns)
+  - [Tooling](#patterns)
+- [Anti-Patterns](#anti-patterns)
+- [Babashka / SCI Quirks](#babashka--sci-quirks)
+- [ClojureScript/Fulcro Frontend](#clojurescriptfulcro-frontend)
+- [Architecture Decisions](#architecture-decisions)
+- [ECA Integration](#eca-integration)
+- [Web UX Platform Patterns](#web-ux-platform-patterns)
+- [Open Questions](#open-questions)
+
+---
 
 ## Architecture Evolution
 

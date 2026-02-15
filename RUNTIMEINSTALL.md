@@ -1,6 +1,6 @@
-# Runtime Install
+# Runtime Installation
 
-Required tools for the Ouroboros game. Install in order.
+Required tools for Ouroboros development. Install in order.
 
 ## 1. Babashka (bb)
 
@@ -59,7 +59,7 @@ Source: https://github.com/clj-kondo/clj-kondo
 
 ## Verification Checklist
 
-Run each command. All should succeed before starting the game.
+Run each command. All should succeed before starting development.
 
 ```bash
 bb --version           # Babashka runtime
@@ -83,7 +83,7 @@ If you prefer to manage installations yourself:
 | bbin              | Package manager for bb tools                     | https://github.com/babashka/bbin             |
 | clojure-mcp-light | AI REPL tools (clj-nrepl-eval, clj-paren-repair) | https://github.com/bhauman/clojure-mcp-light |
 
-The game requires all tools functional before play begins.
+All tools must be functional before development begins.
 
 ---
 
