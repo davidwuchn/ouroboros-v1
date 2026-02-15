@@ -87,34 +87,34 @@
   [adapter chat-id _user-name _cmd _args]
   (telemetry/emit! {:event :chat/command :command :help :chat-id chat-id})
   (send-message! adapter chat-id
-                 "*Ouroboros Chat Commands*\n\n"
-                 "*General*\n"
-                 "/clear - Clear conversation history\n"
-                 "/status - System status\n"
-                 "/tools - List available tools\n"
-                 "/confirm <id> - Approve dangerous operation\n"
-                 "/deny <id> <reason> - Reject operation\n\n"
-                 "*Builders (Product Development)*\n"
-                 "/build canvas <name> - Create Lean Canvas\n"
-                 "/build empathy <persona> - Empathy Map\n"
-                 "/build valueprop <project> - Value Proposition Canvas\n"
-                 "/build mvp <project> - MVP Planning\n/empathy - Show your empathy maps\n\n"
-                 "*Learning*\n"
-                 "/learn <topic> <insight> - Save learning\n"
-                 "/recall <pattern> - Recall learnings\n"
-                 "/wisdom - Wisdom summary\n\n"
-                 "*Workflows (Compound Engineering)*\n"
-                 "/plan <desc> - Create implementation plan\n"
-                 "/work <task-id> - Execute planned task\n"
-                 "/review - Start code review\n"
-                 "/compound - Document learnings\n"
-                 "/workflows - Show workflow help\n"
-                 "/cancel - Cancel current workflow\n\n"
-                 "*Setup*\n"
-                 "/setup - Run setup wizard\n"
-                 "/setup run - Auto-configure\n"
-                 "/setup detect - Detect stack\n\n"
-                 "Just type naturally to chat with ECA!"))
+                 (str "*Ouroboros Chat Commands*\n\n"
+                      "*General*\n"
+                      "/clear - Clear conversation history\n"
+                      "/status - System status\n"
+                      "/tools - List available tools\n"
+                      "/confirm <id> - Approve dangerous operation\n"
+                      "/deny <id> <reason> - Reject operation\n\n"
+                      "*Builders (Product Development)*\n"
+                      "/build canvas <name> - Create Lean Canvas\n"
+                      "/build empathy <persona> - Empathy Map\n"
+                      "/build valueprop <project> - Value Proposition Canvas\n"
+                      "/build mvp <project> - MVP Planning\n/empathy - Show your empathy maps\n\n"
+                      "*Learning*\n"
+                      "/learn <topic> <insight> - Save learning\n"
+                      "/recall <pattern> - Recall learnings\n"
+                      "/wisdom - Wisdom summary\n\n"
+                      "*Workflows (Compound Engineering)*\n"
+                      "/plan <desc> - Create implementation plan\n"
+                      "/work <task-id> - Execute planned task\n"
+                      "/review - Start code review\n"
+                      "/compound - Document learnings\n"
+                      "/workflows - Show workflow help\n"
+                      "/cancel - Cancel current workflow\n\n"
+                      "*Setup*\n"
+                      "/setup - Run setup wizard\n"
+                      "/setup run - Auto-configure\n"
+                      "/setup detect - Detect stack\n\n"
+                      "Just type naturally to chat with ECA!")))
 
 ;; /clear
 (defmethod handle-command :clear
@@ -305,7 +305,7 @@
 (defmethod handle-command :workflows
   [adapter chat-id _user-name _cmd _args]
   (telemetry/emit! {:event :chat/command :command :workflows :chat-id chat-id})
-  (send-markdown! adapter chat-id (workflow/workflow-help)))
+  (send-markdown! adapter chat-id workflow/workflow-help))
 
 ;; /cancel
 (defmethod handle-command :cancel
