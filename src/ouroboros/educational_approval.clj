@@ -245,23 +245,16 @@
         arguments-preview (format-arguments-preview tool-name arguments)
         learning-opportunity (:learning-opportunity knowledge)]
     
-    {:message (format "*🔐 Tool Approval + Learning Opportunity*\n\n"
-                      "**Tool**: `%s`\n"
-                      "**Action**: %s\n"
-                      "**Risk**: %s\n\n"
-                      "📖 **Why this needs approval**:%s\n\n"
-                      "✅ **Best practices**:%s\n\n"
-                      "📋 **What will happen**:\n%s\n\n"
-                      "💡 **Learning opportunity**: %s\n\n"
-                      "🔒 **Approve with understanding**: `/confirm {id} understanding-risks`\n"
-                      "🚫 **Deny with reason**: `/deny {id} {reason}`"
-                      tool-name
-                      (or (:title knowledge) tool-name)
-                      risk-display
-                      why-approval
-                      best-practices
-                      arguments-preview
-                      learning-opportunity)
+    {:message (str "*🔐 Tool Approval + Learning Opportunity*\n\n"
+                   "**Tool**: `" tool-name "`\n"
+                   "**Action**: " (or (:title knowledge) tool-name) "\n"
+                   "**Risk**: " risk-display "\n\n"
+                   "📖 **Why this needs approval**:" why-approval "\n\n"
+                   "✅ **Best practices**:" best-practices "\n\n"
+                   "📋 **What will happen**: \n" arguments-preview "\n\n"
+                   "💡 **Learning opportunity**: " learning-opportunity "\n\n"
+                   "🔒 **Approve with understanding**: `/confirm {id} understanding-risks`\n"
+                   "🚫 **Deny with reason**: `/deny {id} {reason}`")
      :risk risk
      :learning-opportunity learning-opportunity}))
 
@@ -330,8 +323,8 @@
     "file/write"
     {:path "config.json" :content "{\"api_key\": \"sk-...\"}"})
 
-  ;; Wrap approval forwarding
-  (def enhanced-forward (edu/wrap-forward-approval original-forward-fn))
+  ;; Wrap approval forwarding (example with placeholder function)
+  (def enhanced-forward (edu/wrap-forward-approval (fn [_ _ _ _] nil)))
 
   ;; Create learning from approval
   (edu/create-learning-from-approval

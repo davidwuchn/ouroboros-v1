@@ -134,8 +134,8 @@
 ;; ============================================================================
 
 (comment
-  ;; Define tool mappings
-  (def-resolver-tool! #'memory-get :memory/get
+  ;; Define tool mappings (example with placeholder function)
+  (def-resolver-tool! (fn [_] nil) :memory/get
     {:description "Get value from persistent memory"
      :unique? true
      :category :memory})

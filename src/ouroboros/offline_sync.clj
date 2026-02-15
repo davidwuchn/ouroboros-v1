@@ -383,16 +383,16 @@
   ;; Check pending operations
   (get-pending-operations :session-123)
 
-  ;; Detect conflicts
-  (detect-conflicts server-state local-state)
+  ;; Detect conflicts (example with placeholder data)
+  (detect-conflicts {} {})
 
-  ;; Resolve conflicts
-  (resolve-all-conflicts! :session-123 server-state local-state :strategy :last-write-wins)
+  ;; Resolve conflicts (example with placeholder data)
+  (resolve-all-conflicts! :session-123 {} {} :strategy :last-write-wins)
 
   ;; Save session for offline recovery
   (save-session-state! :session-123 :user-456 {:canvas/items {"item-1" {:item/content "Test"}}})
 
-  ;; Sync when back online
+  ;; Sync when back online (example with placeholder callbacks)
   (sync-session! :session-123
-                 #(fetch-server-state :session-123)
-                 #(apply-operation! %)))
+                 (fn [_] {})
+                 (fn [_] nil)))

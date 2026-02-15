@@ -151,14 +151,14 @@
    
    Usage: (http-get \"https://api.example.com/data\")"
   [url]
-  (api/http-request :get url {}))
+  (api/http-request {:method :get :url url}))
 
 (defn http-request!
   "Make HTTP request with method
    
    Usage: (http-request! :post \"https://api.example.com/data\" {:body {...}})"
   [method url opts]
-  (api/http-request method url opts))
+  (api/http-request (assoc opts :method method :url url)))
 
 ;; ============================================================================
 ;; OpenAPI (Direct)
