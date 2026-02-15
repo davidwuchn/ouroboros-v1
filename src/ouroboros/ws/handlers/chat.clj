@@ -166,14 +166,14 @@
               ;; Create adapter for sending response
               adapter (reify
                         chatp/ChatAdapter
-                        (start! [this handler] nil)
-                        (stop! [this] nil)
-                        (send-message! [this chat-id msg-text]
+                        (start! [_this _handler] nil)
+                        (stop! [_this] nil)
+                        (send-message! [_this _chat-id msg-text]
                           (conn/send-to! client-id {:type :eca/chat-response
                                                      :text msg-text
                                                      :timestamp (System/currentTimeMillis)})
                           nil)
-                        (send-markdown! [this chat-id msg-text]
+                        (send-markdown! [_this _chat-id msg-text]
                           (conn/send-to! client-id {:type :eca/chat-response
                                                      :text msg-text
                                                      :timestamp (System/currentTimeMillis)})
@@ -229,19 +229,19 @@
       ;; Not in a mode, check if this is a command (starts with /)
       (if (and (string? text) (str/starts-with? text "/"))
         ;; Handle as command
-        (let [user-id (str "ws-" client-id)
+        (let [_user-id (str "ws-" client-id)
               user-name "WebSocket User"
               ;; Create a WebSocket adapter that implements ChatAdapter
               adapter (reify
                         chatp/ChatAdapter
-                        (start! [this handler] nil)
-                        (stop! [this] nil)
-                        (send-message! [this chat-id msg-text]
+                        (start! [_this _handler] nil)
+                        (stop! [_this] nil)
+                        (send-message! [_this _chat-id msg-text]
                           (conn/send-to! client-id {:type :eca/chat-response
                                                      :text msg-text
                                                      :timestamp (System/currentTimeMillis)})
                           nil)
-                        (send-markdown! [this chat-id msg-text]
+                        (send-markdown! [_this _chat-id msg-text]
                           (conn/send-to! client-id {:type :eca/chat-response
                                                      :text msg-text
                                                      :timestamp (System/currentTimeMillis)})
@@ -269,7 +269,7 @@
 (defn approve-tool!
   "Approve a tool call from the frontend.
    Called when user approves a dangerous tool in the UI."
-  [client-id {:keys [tool arguments chat-id]}]
+  [client-id {:keys [tool arguments _chat-id]}]
   (telemetry/emit! {:event :ws/eca-tool-approved-by-user
                     :client-id client-id
                     :tool tool})

@@ -156,7 +156,7 @@
                       :timeout-ms timeout-ms})
     
     (try
-      (let [{:keys [exit out err] :as result}
+      (let [{:keys [exit out err] :as _result}
             (apply shell/sh (concat full-args
                                     [:env (merge {"HOME" "/workspace"} env-vars)]
                                     [:timeout timeout-ms]))

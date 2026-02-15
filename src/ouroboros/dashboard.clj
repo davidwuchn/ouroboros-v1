@@ -445,7 +445,7 @@
 
 (defn -main
   "Entry point for dashboard server"
-  [& args]
+  [& _args]
   (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)]
     (println "Starting Ouroboros Dashboard...")
     (println "  Port:" port)

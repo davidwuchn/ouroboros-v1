@@ -78,7 +78,7 @@
                     (assoc :empathy/updated-at (System/currentTimeMillis)))]
 
     ;; Save as learning insight
-    (let [section-info (first (filter #(= (:key %) section-key) empathy-sections))
+    (let [_section-info (first (filter #(= (:key %) section-key) empathy-sections))
           section-name (name section-key)]
       (learning/save-insight! (:empathy/user-id session)
                               {:title (str "Empathy Map: " section-name)

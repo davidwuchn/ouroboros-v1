@@ -15,7 +15,7 @@
 
 (defmulti validate-type
   "Validate a value against a type specification"
-  (fn [value type-spec] type-spec))
+  (fn [_value type-spec] type-spec))
 
 (defmethod validate-type :string [value _] (string? value))
 (defmethod validate-type :int [value _] (int? value))

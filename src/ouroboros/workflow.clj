@@ -136,14 +136,14 @@
 
         :outlining
         (let [plan-id (str "plan-" (System/currentTimeMillis))
-              plan-content (str "# " (:feature session) "\n\n"
-                                "## Motivation\n\n" (:motivation session) "\n\n"
-                                "## Success Criteria\n\n" (:outcome session) "\n\n"
-                                "## User Input\n\n" response "\n\n"
-                                "## Stack\n\n" (get stack-descriptions (:stack session)) "\n\n"
-                                "## Status\n\n- [ ] Research\n- [ ] Design\n- [ ] Implement\n- [ ] Test\n- [ ] Review\n\n"
-                                "---\n\n"
-                                "*Created by /plan workflow*")
+              _plan-content (str "# " (:feature session) "\n\n"
+                                 "## Motivation\n\n" (:motivation session) "\n\n"
+                                 "## Success Criteria\n\n" (:outcome session) "\n\n"
+                                 "## User Input\n\n" response "\n\n"
+                                 "## Stack\n\n" (get stack-descriptions (:stack session)) "\n\n"
+                                 "## Status\n\n- [ ] Research\n- [ ] Design\n- [ ] Implement\n- [ ] Test\n- [ ] Review\n\n"
+                                 "---\n\n"
+                                 "*Created by /plan workflow*")
               plan-file (str "docs/plans/" plan-id ".md")
               updated-session (assoc session
                                      :status :complete
@@ -324,7 +324,7 @@
 
 (defn handle-plan-command
   "Handle /plan command"
-  [adapter chat-id args]
+  [_adapter chat-id args]
   (if (str/blank? args)
     {:message "⚠️ Usage: /plan <feature description>\n\nExample: /plan Add user authentication"}
     (let [result (start-plan! chat-id args)]
@@ -332,7 +332,7 @@
 
 (defn handle-work-command
   "Handle /work command"
-  [adapter chat-id args]
+  [_adapter chat-id args]
   (if (str/blank? args)
     {:message "⚠️ Usage: /work <task-id>\n\nExample: /work feature-123\n\nUse /plan first to create a task."}
     (let [result (start-work! chat-id args)]
@@ -340,13 +340,13 @@
 
 (defn handle-review-command
   "Handle /review command"
-  [adapter chat-id _args]
+  [_adapter chat-id _args]
   (let [result (start-review! chat-id)]
     {:message (:message result)}))
 
 (defn handle-compound-command
   "Handle /compound command"
-  [adapter chat-id _args]
+  [_adapter chat-id _args]
   (let [result (start-compound! chat-id)]
     {:message (:message result)}))
 

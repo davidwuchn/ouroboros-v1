@@ -81,7 +81,7 @@
    
    Returns:
      ManagedProcess record"
-  [command args {:keys [name env dir] :as opts}]
+  [command args {:keys [name env _dir] :as _opts}]
   {:pre [(string? name)]}
 
   (when (contains? @processes name)
@@ -98,7 +98,7 @@
               (catch Exception _ nil))
 
         output-queue (LinkedBlockingQueue.)
-        output-reader (start-output-reader process output-queue)
+        _output-reader (start-output-reader process output-queue)
         exit-future (start-exit-watcher process name pid output-queue)
 
         proc (->ManagedProcess name pid process

@@ -292,7 +292,7 @@
   
    Returns a function that can be used as :forward-approval-request in adapter"
   [original-forward-fn]
-  (fn [confirmation-id message tool-name arguments]
+  (fn [confirmation-id _message tool-name arguments]
     (let [enhanced (enhance-approval-message tool-name arguments)
           ;; Replace {id} placeholder with actual confirmation ID
           final-message (str/replace (:message enhanced) "{id}" confirmation-id)]

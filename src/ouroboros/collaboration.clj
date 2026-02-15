@@ -68,14 +68,14 @@
     (swap! session-presence
            (fn [presences]
              (->> presences
-                  (remove (fn [[session-id users]]
+                  (remove (fn [[_session-id users]]
                             (every? #(> cutoff (:user/joined-at %))
                                     (vals users))))
                   (into {}))))
     (swap! cursor-positions
            (fn [cursors]
              (->> cursors
-                  (remove (fn [[session-id positions]]
+                  (remove (fn [[_session-id positions]]
                             (every? #(> cutoff (:timestamp %))
                                     (vals positions))))
                   (into {}))))))

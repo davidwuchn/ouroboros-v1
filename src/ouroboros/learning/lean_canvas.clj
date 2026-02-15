@@ -89,7 +89,7 @@
                    (assoc :canvas/updated-at (System/currentTimeMillis)))]
     
     ;; Save as learning insight
-    (let [block-info (first (filter #(= (:key %) block-key) canvas-blocks))]
+    (let [_block-info (first (filter #(= (:key %) block-key) canvas-blocks))]
       (learning/save-insight! (:canvas/user-id session)
         {:title (str "Lean Canvas: " (name block-key))
          :insights [response]
@@ -200,7 +200,7 @@
 
 (defn create-canvas-from-template
   "Create a canvas session from a template (e.g., SaaS, Marketplace)"
-  [user-id project-name template-name]
+  [user-id project-name _template-name]
   (let [session (start-canvas-session! user-id project-name)]
     ;; TODO: Load template responses for first few blocks
     session))

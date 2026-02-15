@@ -163,10 +163,10 @@
 (comment
   ;; Create listener
   (def listener (make-listener
-                 {:on-open (fn [ws] (println "Connected"))
-                  :on-text (fn [ws text last] (println "Received:" text))
-                  :on-error (fn [ws e] (println "Error:" e))
-                  :on-close (fn [ws code reason] (println "Closed:" reason))}))
+                 {:on-open (fn [_ws] (println "Connected"))
+                  :on-text (fn [_ws text _last] (println "Received:" text))
+                  :on-error (fn [_ws _e] (println "Error:" _e))
+                  :on-close (fn [_ws _code reason] (println "Closed:" reason))}))
 
   ;; Connect
   (def ws-atom (atom nil))

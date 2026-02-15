@@ -355,7 +355,7 @@
 
 (pco/defmutation resolve-conflicts-mutation!
   "Manually resolve conflicts"
-  [{:keys [session-id resolutions]}]
+  [{:keys [_session-id resolutions]}]
   {::pco/output [:conflicts/resolved? :conflicts/count]}
   {:conflicts/resolved? true
    :conflicts/count (count resolutions)})

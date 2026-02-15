@@ -239,7 +239,7 @@
 (pco/defresolver page-user
   "Get current user-id from page context.
    Uses the OS login username as user identity."
-  [{:keys [page/id]}]
+  [_input]
   {::pco/input [:page/id]
    ::pco/output [:user/id]}
   {:user/id (current-user-id)})

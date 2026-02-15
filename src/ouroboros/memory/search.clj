@@ -35,7 +35,7 @@
   (try
     (require '[clojure.java.jdbc :as jdbc])
     (find-ns 'clojure.java.jdbc)
-    (catch Exception e
+    (catch Exception _e
       (throw (ex-info "JDBC not available. This module requires clojure.java.jdbc which is not included in this Babashka distribution."
                       {:module :memory/search
                        :error :jdbc-not-available})))))

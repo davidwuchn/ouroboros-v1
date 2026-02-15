@@ -59,7 +59,7 @@
   (try
     (eca-approval/set-adapter!
      {:forward-approval-request
-      (fn [confirmation-id message tool-name arguments]
+      (fn [confirmation-id message _tool-name _arguments]
         ;; Forward to all active sessions on this platform
         (doseq [[chat-id _session] (session/get-sessions-snapshot)]
           (try
@@ -67,12 +67,11 @@
             (telemetry/emit! {:event :chat/approval-forwarded
                               :chat-id chat-id
                               :confirmation-id confirmation-id})
-            (catch Exception e
+            (catch Exception _e
               (telemetry/emit! {:event :chat/approval-forward-error
-                                :chat-id chat-id
-                                :error (.getMessage e)})))))})
+                                :chat-id chat-id})))))})
     (telemetry/emit! {:event :chat/eca-approval-wired})
-    (catch IllegalStateException e
+    (catch IllegalStateException _e
       ;; ECA approval bridge function not bound - skip silently
       (telemetry/emit! {:event :chat/eca-approval-skipped
                         :reason "ECA approval bridge not available"}))
@@ -93,7 +92,7 @@
    - Commands (/start, /help) → command handlers
    - Natural language → ECA chat"
   [adapter]
-  (fn [{:keys [chat-id user-id user-name text] :as message}]
+  (fn [{:keys [chat-id _user-id user-name text] :as message}]
     (telemetry/emit! {:event :chat/receive :platform (:message/platform message)})
 
     ;; Register this session for ECA approval forwarding

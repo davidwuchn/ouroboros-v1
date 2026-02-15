@@ -32,7 +32,7 @@
   [statechart]
   (->> (::sc/elements-by-id statechart)
        (filter #(= :transition (:node-type (val %))))
-       (map (fn [[id elem]]
+       (map (fn [[_id elem]]
               {:transition/event (:event elem)
                :transition/target (:target elem)
                :transition/source (:parent elem)}))))
@@ -43,14 +43,14 @@
 
 (defn- get-statechart
   "Get the system statechart from env"
-  [env]
-  (let [registry (::sc/statechart-registry env)]
+  [_env]
+  (let [registry (::sc/statechart-registry _env)]
     (get @(:charts registry) ::engine/system)))
 
 (defn- current-state-details
   "Get detailed info about current state"
   []
-  (when-let [{:keys [env session]} @engine/system-instance]
+  (when-let [{:keys [_env session]} @engine/system-instance]
     (let [config (::sc/configuration session)]
       {:introspection/configuration (vec config)
        :introspection/state-names (mapv name config)

@@ -560,10 +560,10 @@
 
 (pco/defresolver wisdom-insights
   "Generate insights for a session"
-  [{:keys [session/id session/data session/type]}]
+  [{_session-id :session/id session-data :session/data session-type :session/type}]
   {::pco/input [:session/id :session/data :session/type]
    ::pco/output [{:wisdom/insights [:insight/type :insight/title :insight/description :insight/confidence]}]}
-  {:wisdom/insights (generate-insights data type)})
+  {:wisdom/insights (generate-insights session-data session-type)})
 
 (pco/defresolver wisdom-suggestions
   "Get suggestions for next steps"

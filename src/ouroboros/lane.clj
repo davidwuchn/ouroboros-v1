@@ -31,7 +31,7 @@
 
 (defn- process-lane-commands
   "Processor loop for a lane — executes commands serially"
-  [lane-id queue]
+  [_lane-id queue]
   (async/go-loop []
     (when-let [command (async/<! queue)]
       (try

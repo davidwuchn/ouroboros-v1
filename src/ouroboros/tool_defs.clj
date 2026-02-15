@@ -42,7 +42,7 @@
   (q [:git/status]))
 
 (defn- file-read-tool
-  [{:keys [path lines] :or {lines 100}}]
+  [{:keys [path _lines] :or {_lines 100}}]
   (let [result (q [{[:file-path path]
                     [:file/content-preview :file/size]}])]
     {:file path

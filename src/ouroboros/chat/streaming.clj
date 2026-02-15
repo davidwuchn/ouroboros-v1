@@ -118,7 +118,7 @@
         role (:role params)
         content (:content params)
         chat-id (:chatId params)]
-    (when-let [sstate (get @streaming-state chat-id)]
+    (when-let [_sstate (get @streaming-state chat-id)]
       (cond
         ;; Progress notification (reasoning/responding/done)
         (= "progress" (:type content))

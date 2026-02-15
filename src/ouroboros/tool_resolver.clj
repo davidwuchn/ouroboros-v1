@@ -87,7 +87,7 @@
        tool-name
        {:description (or (:description mapping) doc (str "Tool: " tool-name))
         :parameters (pco-input->tool-params input-spec)
-        :fn (fn [args]
+        :fn (fn [_args]
               ;; Execute via Pathom
               (let [query (if output-spec
                             [{resolver-kw output-spec}]

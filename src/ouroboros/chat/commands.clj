@@ -189,7 +189,7 @@
 
 ;; /empathy
 (defmethod handle-command :empathy
-  [adapter chat-id _user-name _cmd args]
+  [adapter chat-id _user-name _cmd _args]
   (telemetry/emit! {:event :chat/command :command :empathy :chat-id chat-id})
   (let [empathy-maps (empathy/recall-user-empathy-maps chat-id)]
     (if (seq empathy-maps)
