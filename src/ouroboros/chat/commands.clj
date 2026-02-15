@@ -143,26 +143,11 @@
   (if-let [[subcmd & rest-parts] (str/split (or args "") #"\s+" 3)]
     (let [remaining (str/join " " rest-parts)]
       (case subcmd
-        ;; /build canvas empathy <persona> - Empathy Map Canvas
-        "canvas" (if (= "empathy" (first rest-parts))
-                   ;; Handle: /build canvas empathy <persona>
-                   (let [persona-name (str/join " " (rest rest-parts))]
-                     (if (str/blank? persona-name)
-                       (send-message! adapter chat-id "⚠️ Usage: /build canvas empathy <persona-name>")
-                       (let [empathy-session (empathy/start-empathy-session! chat-id persona-name)
-                             prompt (empathy/get-next-prompt empathy-session)]
-                         (session/assoc-context! chat-id :empathy/session (:session prompt))
-                         (session/assoc-context! chat-id :empathy/mode true)
-                         (send-markdown! adapter chat-id (:message prompt)))))
-                   ;; Handle: /build canvas <project-name> - Lean Canvas
-                   (let [project-name remaining]
-                     (if (str/blank? project-name)
-                       (send-message! adapter chat-id "⚠️ Usage: /build canvas <project-name>\nOr: /build canvas empathy <persona-name>")
-                       (let [canvas-session (canvas/start-canvas-session! chat-id project-name)
-                             prompt (canvas/get-next-prompt canvas-session)]
-                         (session/assoc-context! chat-id :canvas/session (:session prompt))
-                         (session/assoc-context! chat-id :canvas/mode true)
-                         (send-markdown! adapter chat-id (:message prompt))))))
+        ;; /build canvas - Lean Canvas Builder
+        "canvas" (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)
+                        url (str "http://localhost:" port)]
+                    (send-markdown! adapter chat-id
+                      (str "Opening Lean Canvas Builder...\n" url "#/lean-canvas-builder")))
         "empathy" (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)
                         url (str "http://localhost:" port)]
                     (send-markdown! adapter chat-id
@@ -176,7 +161,7 @@
                 (send-markdown! adapter chat-id
                   (str "Opening MVP Builder...\n" url "#/mvp-builder")))
         (send-message! adapter chat-id (str "Unknown build command: " subcmd))))
-    (send-message! adapter chat-id "*Build Commands*\n\n/build canvas <name> - Create Lean Canvas\n/build empathy - Open Empathy Map Builder\n/build valueprop - Open Value Proposition Builder\n/build mvp - Open MVP Builder\n/build help - Show help")))
+    (send-message! adapter chat-id "*Build Commands*\n\n/build canvas - Open Lean Canvas Builder\n/build empathy - Open Empathy Map Builder\n/build valueprop - Open Value Proposition Builder\n/build mvp - Open MVP Builder\n/build help - Show help")))
 
 ;; /empathy
 (defmethod handle-command :empathy

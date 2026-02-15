@@ -110,8 +110,8 @@
   (let [adapter (mock-adapter)]
     (cmds/handle-command adapter "chat-123" "TestUser" :build "canvas")
     (let [msg (last-message adapter)]
-      (is (= :message (:type msg)))
-      (is (str/includes? (:text msg) "Usage:")))))
+      (is (= :markdown (:type msg)))
+      (is (str/includes? (:text msg) "Lean Canvas Builder")))))
 
 (deftest test-handle-command-empathy-no-maps
   (let [adapter (mock-adapter)]
