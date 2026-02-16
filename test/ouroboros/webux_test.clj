@@ -84,6 +84,23 @@
       (is (nil? (get (memory/get-value (keyword (str "projects/" (name user)))) project-id))
           "Project should be removed from memory"))))
 
+(deftest update-project-validation-test
+  (testing "Updating non-existent project throws error"
+    (let [user (generate-test-user)]
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (webux/update-project! {:user-id user
+                                           :project-id "non-existent-id"
+                                           :updates {:project/name "New Name"}}))
+          "Should throw for non-existent project"))))
+
+(deftest delete-project-validation-test
+  (testing "Deleting non-existent project throws error"
+    (let [user (generate-test-user)]
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (webux/delete-project! {:user-id user
+                                           :project-id "non-existent-id"}))
+          "Should throw for non-existent project"))))
+
 (deftest user-projects-test
   (testing "Getting all projects for a user"
     (let [user1 (generate-test-user)

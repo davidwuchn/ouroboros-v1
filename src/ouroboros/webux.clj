@@ -148,7 +148,7 @@
 ;; Project Operations
 ;; ============================================================================
 
-(defn ^:dynamic *timestamp-fn*
+(defn- ^:dynamic *timestamp-fn*
   "Dynamic var for timestamp generation. Override for testing."
   []
   (System/currentTimeMillis))
@@ -218,7 +218,11 @@
   ;; Validate updates - only allow specific fields to be modified
   (let [allowed-keys #{:project/name :project/description :project/status}
         sanitized (select-keys updates allowed-keys)
-        key (projects-key user-id)]
+        key (projects-key user-id)
+        project-exists? (get (memory/get-value key) project-id)]
+    (when-not project-exists?
+      (throw (ex-info "Project not found" {:project-id project-id :user-id user-id})))
+    
     (memory/update! key
                     (fn [projects]
                       (if-let [project (get projects project-id)]
@@ -239,7 +243,11 @@
   "Delete a project"
   [{:keys [user-id project-id]}]
   {::pco/output [:project/id :project/deleted?]}
-  (let [key (projects-key user-id)]
+  (let [key (projects-key user-id)
+        existed? (contains? (memory/get-value key) project-id)]
+    (when-not existed?
+      (throw (ex-info "Project not found" {:project-id project-id :user-id user-id})))
+    
     (memory/update! key
                     (fn [projects]
                       (dissoc projects project-id)))
@@ -249,7 +257,7 @@
                       :project-id project-id})
 
     {:project/id project-id
-     :project/deleted? true}))
+     :project/deleted? existed?}))
 
 (pco/defresolver page-user
   "Get current user-id from page context.
