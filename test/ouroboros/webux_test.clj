@@ -179,3 +179,18 @@
         (is (= 3 (:webux/project-count stats)) "Should count projects")
         (is (= 0 (:webux/active-sessions-count stats)) "Should count active sessions")
         (is (= 1 (:webux/completed-sessions-count stats)) "Should count completed sessions")))))
+
+(deftest update-session-validation-test
+  (testing "Updating non-existent session throws error"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (webux/update-builder-session! {:user-id :test-user-1
+                                                 :session-id "non-existent-session"
+                                                 :data {:test "data"}}))
+        "Should throw for non-existent session")))
+
+(deftest complete-session-validation-test
+  (testing "Completing non-existent session throws error"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (webux/complete-builder-session! {:user-id :test-user-1
+                                                   :session-id "non-existent-session"}))
+        "Should throw for non-existent session")))

@@ -264,7 +264,7 @@
   [input]
   {::pco/input [:user/id]
    ::pco/output [{:user/projects [:project/id :project/name :project/description
-                                   :project/status :project/path :project/created-at]}]}
+                                   :project/status :project/created-at]}]}
   (let [user-id (or (:user/id input) (:user-id input))
         key (when user-id (projects-key user-id))
         projects (if key (vals (or (memory/get-value key) {})) [])]
@@ -275,7 +275,7 @@
   [input]
   {::pco/input [:user/id :project/id]
    ::pco/output [:project/id :project/name :project/description
-                 :project/status :project/path :project/owner :project/created-at]}
+                 :project/status :project/owner :project/created-at]}
   (let [user-id (or (:user/id input) (:user-id input))
         project-id (or (:project/id input) (:project-id input))
         key (when user-id (projects-key user-id))
@@ -347,7 +347,11 @@
   "Update builder session data"
   [{:keys [user-id session-id data]}]
   {::pco/output [:session/id :session/updated-at]}
-  (let [key (sessions-key user-id)]
+  (let [key (sessions-key user-id)
+        session-exists? (get (memory/get-value key) session-id)]
+    (when-not session-exists?
+      (throw (ex-info "Session not found" {:session-id session-id :user-id user-id})))
+    
     (memory/update! key
                     (fn [sessions]
                       (if-let [session (get sessions session-id)]
@@ -372,7 +376,11 @@
   [{:keys [user-id session-id]}]
   {::pco/output [:session/id :session/state :session/completed-at]}
   (let [key (sessions-key user-id)
-        completed-at (str (java.time.Instant/now))]
+        completed-at (str (java.time.Instant/now))
+        session-exists? (get (memory/get-value key) session-id)]
+    (when-not session-exists?
+      (throw (ex-info "Session not found" {:session-id session-id :user-id user-id})))
+    
     (memory/update! key
                     (fn [sessions]
                       (if-let [session (get sessions session-id)]
@@ -435,6 +443,7 @@
         sessions-key (when user-id (sessions-key user-id))
         projects (if projects-key (or (memory/get-value projects-key) {}) {})
         sessions (if sessions-key (or (memory/get-value sessions-key) {}) {})
+        ;; Empty pattern "" matches all learnings for the user
         learnings (if user-id (learning/recall-by-pattern user-id "") [])]
 
     {:webux/project-count (count projects)
@@ -465,6 +474,14 @@
    ::pco/output [:project/id :project/deleted?]}
   (delete-project! {:user-id (current-user-id) :project-id project-id}))
 
+(pco/defmutation frontend-update-project
+  "Frontend adapter for update-project mutation.
+   Maps frontend mutation symbol to backend update-project! logic."
+  [{:keys [project-id updates]}]
+  {::pco/op-name 'ouroboros.frontend.ui.pages.projects/update-project
+   ::pco/output [:project/id :project/updated-at]}
+  (update-project! {:user-id (current-user-id) :project-id project-id :updates updates}))
+
 ;; ============================================================================
 ;; Registration
 ;; ============================================================================
@@ -473,7 +490,7 @@
 (def mutations [create-project! update-project! delete-project!
                 start-builder-session! update-builder-session! complete-builder-session!
                 ;; Frontend adapters
-                frontend-create-project frontend-delete-project])
+                frontend-create-project frontend-update-project frontend-delete-project])
 
 (registry/register-resolvers! resolvers)
 (registry/register-mutations! mutations)
