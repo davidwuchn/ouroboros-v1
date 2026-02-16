@@ -8,7 +8,7 @@
 This plan incorporates lessons from analyzing similar projects:
 
 ### From [Agent Zero](https://github.com/agent0ai/agent-zero) (14.3k stars, Python AI framework):
-1. **Hierarchical Agent System** - Superior/subordinate agents for context management (P1)
+1. ~~**Hierarchical Agent System**~~ - Superior/subordinate agents for context management (DELEGATED to ECA)
 2. **Context Summarization** - Tiered compression (recent=full, older=summarized) (P1)
 3. **Prompt-Driven Architecture** - All behavior defined in prompt files (P2)
 4. **Projects/Workspaces** - Isolated environments with scoped memory/knowledge (P1 - Complete)
@@ -941,44 +941,23 @@ Based on analysis of [Nanobot](https://github.com/HKUDS/nanobot) (7.9k stars, ~4
 
 Based on analysis of [Agent Zero](https://github.com/agent0ai/agent-zero) (14.3k stars, Python-based AI framework with hierarchical multi-agent system):
 
-### Hierarchical Agent System (P1) 📋 NEW
+### Hierarchical Agent System (P1) ✅ DELEGATED TO ECA
 **Current**: Single agent per chat session, context grows unbounded.
 **Gap**: No way to delegate subtasks to specialized agents with fresh context.
-**Agent Zero Approach**: Superior/subordinate agent hierarchy:
-- Agent 0 delegates to sub-agents for specific tasks
-- Each sub-agent has clean context, focused tools
-- Parallel execution of independent subtasks
-- Sub-agents report back to superior
 
-**Recommendation**: Implement hierarchical agents:
-```clojure
-;; Spawn sub-agent for empathy mapping
-(subordinate/spawn! 
-  {:role :empathy-builder
-   :context {:project-id "proj-123"}
-   :timeout-ms 300000}
-  "Build empathy map for SaaS product")
+**Status**: ✅ **Delegated to ECA** — ECA's architecture already supports:
+- Multi-turn conversation context management
+- Tool scoping per conversation session
+- Parallel tool execution
+- Context isolation between sessions
 
-;; Sub-agent has:
-;; - Fresh context window
-;; - Specialized tools (canvas/create, sticky-note/add)
-;; - Isolated memory for the task
-;; - Callback to parent on completion
-```
+**Why not in Ouroboros:**
+Ouroboros focuses on chat platform integration and persistence. Agent orchestration and context management are core AI capabilities handled by ECA. When ECA adds hierarchical agent support, Ouroboros will benefit via the existing JSON-RPC protocol.
 
-**Use Cases**:
-- Canvas builders (each builder = sub-agent)
-- Research tasks (spawn agent to gather info)
-- Code review (separate agent for analysis)
-- Long-running tasks (don't block main session)
-
-**Implementation Approach**:
-1. Add `ouroboros.subordinate` namespace
-2. Sub-agents are lightweight (shared process, isolated context)
-3. Communication via message passing (not parent/child process)
-4. Results merged back into parent context
-
-**Status**: 📋 P1 — Core capability for Web UX Platform and chat scalability.
+**Ouroboros focus:**
+- Chat platform routing for multiple concurrent ECA sessions
+- Session persistence across sub-agent boundaries
+- Tool approval coordination for multi-agent workflows
 
 ### Context Summarization (P1) 📋 NEW
 **Current**: Memory stores full conversation history; no compaction.
@@ -1194,7 +1173,7 @@ docs/
 | **P1** | Phase C: Continuous Wisdom | Medium | 🔴 High | ✅ Done |
 | **P1** | Protocol compatibility tests | Low | 🟡 High | 📋 Planned |
 | **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
-| **P1** | Hierarchical Agent System | High | 🔴 High | 📋 NEW |
+| **P1** | Hierarchical Agent System | N/A | N/A | ✅ DELEGATED TO ECA |
 | **P1** | Context Summarization | Medium | 🔴 High | 📋 NEW |
 | **P0** | λ(system) Telemetry Integration | Low | 🔴 Critical | ✅ Done |
 | **P0** | λ(system) Reviewer Integration | Low | 🔴 Critical | ✅ Done |
