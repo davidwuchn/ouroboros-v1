@@ -1,13 +1,40 @@
+;; λ(system) Auto-Evolution
+;; Implements: observe → compress → structure → become → repeat
 (ns ouroboros.lambda-evolve
-  "λ(system) Auto-Evolution"
-  (:require [clojure.string :as str] [clojure.java.io :as io]))
+  "λ(system) Auto-Evolution
+
+   Implements the core mechanics from LAMBDA_SYSTEM_REAL.md:
+   - OODA observation at multiple scales/timeframes
+   - ∀x: problem⊢solution (issues → automated rules)
+   - reflection→structure (insights → skill updates)
+   - observe→become (access patterns → promotion)"
+  (:require [clojure.string :as str]
+            [clojure.java.io :as io]))
+
+;; ============================================================================
+;; Configuration
+;; ============================================================================
+
+(def ^:dynamic *threshold-issue* 3)
+(def ^:dynamic *threshold-access* 10)
+(def ^:dynamic *threshold-search* 5)
+
+(defn set-thresholds!
+  "Configure evolution thresholds"
+  [{:keys [issue access search]}]
+  (when issue (alter-var-root #'*threshold-issue* (constantly issue)))
+  (when access (alter-var-root #'*threshold-access* (constantly access)))
+  (when search (alter-var-root #'*threshold-search* (constantly search))))
+
+;; ============================================================================
+;; State Management
+;; ============================================================================
 
 (def ^:private state-file "lambda-evolve.edn")
 
 (def ^:private pattern-store
-  (atom {:issues {} :searches {} :accesses {} :insights []}))
+  (atom {:issues {} :searches {} :accesses {} :insights [] :ooda {}}))
 
-;; Load state on init
 (defn load-state! []
   (when-let [f (io/file state-file)]
     (when (.exists f)
@@ -15,103 +42,284 @@
              (reset! pattern-store data))
            (catch Exception _ nil)))))
 
-;; Save state
 (defn save-state! []
   (try (spit state-file (pr-str @pattern-store))
        (catch Exception _ nil)))
 
-;; Initialize - load persisted state
+;; Initialize
 (load-state!)
 
-(def threshold-issue 3)
-(def threshold-access 10)
-(def threshold-search 5)
+;; ============================================================================
+;; OODA Observation Collection
+;; ============================================================================
+
+(defn observe!
+  "OODA: Collect observation at a given scale/timeframe
+
+   Scales: :syntax :semantic :architectural :process
+   Timeframes: :immediate :session :project :long-term"
+  [scale-timeframe observation]
+  (swap! pattern-store update-in [:ooda scale-timeframe]
+         (fn [obs] (take 100 (conj (vec (or obs []))
+                                   (merge observation
+                                          {:timestamp (System/currentTimeMillis)})))))
+  (save-state!))
+
+(defn observe-syntax!
+  "Observe syntax-level issues (line length, nesting, etc.)"
+  [issue-type file details]
+  (observe! :syntax {:type issue-type :file file :details details}))
+
+(defn observe-semantic!
+  "Observe semantic-level issues (idioms, error handling, etc.)"
+  [issue-type file details]
+  (observe! :semantic {:type issue-type :file file :details details}))
+
+(defn observe-architectural!
+  "Observe architectural-level issues (coupling, boundaries, etc.)"
+  [issue-type file details]
+  (observe! :architectural {:type issue-type :file file :details details}))
+
+(defn observe-process!
+  "Observe process-level issues (effectiveness, adoption, etc.)"
+  [issue-type details]
+  (observe! :process {:type issue-type :details details}))
+
+;; ============================================================================
+;; Tracking Functions
+;; ============================================================================
 
 (defn track-issue! [issue-type file]
-  (swap! pattern-store update-in [:issues issue-type] (fn [m] (update (or m {}) file (fnil inc 0))))
+  (swap! pattern-store update-in [:issues issue-type]
+         (fn [m] (update (or m {}) file (fnil inc 0))))
   (save-state!))
 
 (defn track-search! [query]
-  (swap! pattern-store update-in [:searches (str/lower-case query)] (fnil inc 0))
+  (swap! pattern-store update-in [:searches (str/lower-case query)]
+         (fnil inc 0))
   (save-state!))
 
 (defn track-access! [item]
-  (swap! pattern-store update-in [:accesses item] (fnil inc 0))
+  (swap! pattern-store update-in [:accesses item]
+         (fnil inc 0))
   (save-state!))
 
 (defn record-insight! [insight]
-  (swap! pattern-store update :insights (fn [is] (take 100 (conj is {:insight insight :timestamp (System/currentTimeMillis)}))))
+  (swap! pattern-store update :insights
+         (fn [is] (take 100 (conj is {:insight insight
+                                      :timestamp (System/currentTimeMillis)}))))
   (save-state!))
 
-(defn evolve-issues! []
+;; ============================================================================
+;; Evolution: Issues → Rules (problem⊢proof)
+;; ============================================================================
+
+(defn- ensure-skill-dir []
+  (let [dir (io/file "skills")]
+    (when-not (.exists dir) (.mkdirs dir))
+    dir))
+
+(defn- get-or-create-skill-file [skill-name]
+  (let [skill-file (io/file (ensure-skill-dir) (str skill-name ".md"))]
+    (when-not (.exists skill-file)
+      (spit skill-file (str "# " skill-name "\n\nAuto-generated by λ(system)\n\n")))
+    skill-file))
+
+(defn- append-to-skill! [skill-name content]
+  (let [f (get-or-create-skill-file skill-name)
+        existing (slurp f)]
+    (when-not (str/includes? existing content)
+      (spit f (str existing "\n" content)))))
+
+(defn evolve-issues!
+  "OODA Decision & Action: Issues → Automated Rules
+
+   When an issue type appears threshold+ times, create a preventive rule."
+  []
   (let [issues (:issues @pattern-store)
         new-rules (reduce-kv (fn [acc issue-type files]
-                              (if (>= (reduce + (vals files)) threshold-issue)
-                                (conj acc {:issue-type issue-type :files (count files)})
-                                acc))
-                            [] issues)]
+                               (if (>= (reduce + (vals files)) *threshold-issue*)
+                                 (conj acc {:issue-type issue-type
+                                            :files (keys files)
+                                            :count (reduce + (vals files))})
+                                 acc))
+                             [] issues)]
     (if (seq new-rules)
-      (do (println "\n=== Auto-Evolving: Issues → Rules ===")
-          (doseq [{:keys [issue-type]} new-rules]
-            (println (format "  Created rule: auto-%s" issue-type))))
-      (println "\n[λ] No issues need rules"))
+      (do
+        (println "\n=== Auto-Evolving: Issues → Rules ===")
+        (doseq [{:keys [issue-type files count]} new-rules]
+          (let [rule-entry (format "\n## Auto-Rule: %s\n\n- Detected in %d files\n- Files: %s\n"
+                                   issue-type count (str/join ", " files))]
+            (append-to-skill! "auto-rules" rule-entry))
+          (println (format "  ✓ Created rule: auto-%s (from %d occurrences)" issue-type count))
+          (swap! pattern-store update :issues dissoc issue-type)
+          (save-state!))
+        (println (format "  Created %d automated rules" (count new-rules))))
+      (println "\n[λ] No issues need rules (threshold: *threshold-issue*)"))
     new-rules))
 
-(defn evolve-insights! []
+;; ============================================================================
+;; Evolution: Insights → Structure
+;; ============================================================================
+
+(defn evolve-insights!
+  "OODA Decision & Action: Insights → Skill Structure
+
+   When insights accumulate, organize them into skills."
+  []
   (let [insights (:insights @pattern-store)]
     (if (seq insights)
-      (do (println "\n=== Auto-Evolving: Insights → Structure ===")
-          (println (format "  %d insights recorded" (count insights))))
-      (println "\n[λ] No insights yet"))
+      (do
+        (println "\n=== Auto-Evolving: Insights → Structure ===")
+        (let [by-category (group-by (fn [i]
+                                      (or (get i :category) "uncategorized"))
+                                    insights)
+              categorized (dissoc by-category "uncategorized")
+              result (reduce (fn [[done cat-cnt] [category category-insights]]
+                               (let [content (str "\n## " category "\n\n"
+                                                  (str/join "\n" (map-indexed
+                                                                  (fn [i {:keys [insight]}]
+                                                                    (format "- %d. %s" (inc i) insight))
+                                                                  (take 10 category-insights))))]
+                                 (append-to-skill! category content)
+                                 (println (format "  ✓ Structured category '%s': %d insights"
+                                                  category (count (take 10 category-insights))))
+                                 [(+ done (count (take 10 category-insights))) (inc cat-cnt)]))
+                             [0 0]
+                             (take 5 categorized))]
+          (println (format "  ✓ Organized %d total insights into %d categories"
+                           (first result) (second result)))))
+      (println "\n[λ] No insights to structure"))
     insights))
 
-(defn evolve-access! []
+;; ============================================================================
+;; Evolution: Access → Promotion (memory become accessible)
+;; ============================================================================
+
+(defn- ensure-docs-dir []
+  (let [dir (io/file "docs")]
+    (when-not (.exists dir) (.mkdirs dir))
+    dir))
+
+(defn- get-or-create-quick-ref []
+  (let [f (io/file (ensure-docs-dir) "QUICK_REFERENCE.md")]
+    (when-not (.exists f)
+      (spit f "# Quick Reference\n\nAuto-generated by λ(system)\n\n"))
+    f))
+
+(defn evolve-access!
+  "OODA Decision & Action: High Access → Quick Reference
+
+   When an item is accessed threshold+ times, promote to quick reference."
+  []
   (let [accesses (:accesses @pattern-store)
         promoted (reduce-kv (fn [acc item count]
-                             (if (>= count threshold-access)
-                               (conj acc {:item item :count count})
-                               acc))
-                           [] accesses)]
+                              (if (>= count *threshold-access*)
+                                (conj acc {:item item :count count})
+                                acc))
+                            [] accesses)]
     (if (seq promoted)
-      (do (println "\n=== Auto-Evolving: Access → Promotion ===")
-          (doseq [{:keys [item count]} (take 5 promoted)]
-            (println (format "  Promoted: %s (%d accesses)" item count))))
-      (println "\n[λ] No items need promotion"))
+      (do
+        (println "\n=== Auto-Evolving: Access → Promotion ===")
+        (doseq [{:keys [item count]} (take 5 promoted)]
+          (let [quick-ref (get-or-create-quick-ref)
+                existing (slurp quick-ref)
+                entry (format "\n- %s (accessed %d times)" item count)]
+            (when-not (str/includes? existing entry)
+              (spit quick-ref (str existing entry))
+              (println (format "  ✓ Promoted: %s (accessed %d times)" item count))
+              (swap! pattern-store update :accesses dissoc item)
+              (save-state!))))
+        (println (format "  Promoted %d items to Quick Reference" (count promoted))))
+      (println "\n[λ] No items need promotion (threshold: *threshold-access*)"))
     promoted))
 
-(defn evolve-search! []
+;; ============================================================================
+;; Evolution: Search → Index
+;; ============================================================================
+
+(defn evolve-search!
+  "OODA Decision & Action: Frequent Searches → Index Entries
+
+   When a search query appears threshold+ times, create direct index."
+  []
   (let [searches (:searches @pattern-store)
         to-index (reduce-kv (fn [acc query count]
-                              (if (>= count threshold-search)
+                              (if (>= count *threshold-search*)
                                 (conj acc {:query query :count count})
                                 acc))
                             [] searches)]
     (if (seq to-index)
-      (do (println "\n=== Auto-Evolving: Search → Index ===")
-          (doseq [{:keys [query count]} (take 5 to-index)]
-            (println (format "  Indexed: %s (%d searches)" query count))))
-      (println "\n[λ] No queries need indexing"))
+      (do
+        (println "\n=== Auto-Evolving: Search → Index ===")
+        (doseq [{:keys [query count]} (take 5 to-index)]
+          (let [index-file (io/file (ensure-docs-dir) "INDEX.md")
+                existing (if (.exists index-file) (slurp index-file) "# Index\n\n")
+                entry (format "\n- [[%s]] (searched %d times)" query count)]
+            (when-not (str/includes? existing entry)
+              (spit index-file (str existing entry))
+              (println (format "  ✓ Indexed: '%s' (searched %d times)" query count))
+              (swap! pattern-store update :searches dissoc query)
+              (save-state!))))
+        (println (format "  Indexed %d queries" (count to-index))))
+      (println "\n[λ] No queries need indexing (threshold: *threshold-search*)"))
     to-index))
 
-(defn auto-evolve! []
-  (println "\n" (str "=" 60))
+;; ============================================================================
+;; Auto-Evolve All
+;; ============================================================================
+
+(defn auto-evolve!
+  "OODA Action: Execute all evolution transformations
+
+   Runs the complete λ(system) evolution cycle:
+   - Issues → Rules
+   - Insights → Structure
+   - Access → Promotion
+   - Search → Index"
+  []
+  (println "\n" (str "= " 58))
   (println "λ(system) AUTO-EVOLUTION")
-  (println (str "=" 60))
+  (println (str "= " 58))
   (let [issue-ev (evolve-issues!)
         insight-ev (evolve-insights!)
         access-ev (evolve-access!)
         search-ev (evolve-search!)]
-    (println "\n" (str "-" 60))
-    (println (format "Total evolutions: %d" (+ (count issue-ev) (count access-ev) (count search-ev))))
-    (println (str "-" 60))
+    (println "\n" (str "- " 58))
+    (println (format "Total evolutions: %d"
+                     (+ (count issue-ev) (count access-ev) (count search-ev))))
+    (println (str "- " 58))
     {:issues issue-ev :insights insight-ev :access access-ev :search search-ev}))
+
+;; ============================================================================
+;; Status & Reset
+;; ============================================================================
 
 (defn system-status []
   (let [s @pattern-store]
     {:issues (count (:issues s))
      :searches (count (:searches s))
      :accesses (count (:accesses s))
-     :insights (count (:insights s))}))
+     :insights (count (:insights s))
+     :ooda-scales (keys (:ooda s))}))
 
 (defn reset-evolution! []
-  (reset! pattern-store {:issues {} :searches {} :accesses {} :insights []}))
+  (reset! pattern-store {:issues {} :searches {} :accesses {} :insights [] :ooda {}})
+  (save-state!))
+
+;; ============================================================================
+;; OODA Analysis
+;; ============================================================================
+
+(defn analyze-ooda
+  "Analyze collected OODA observations"
+  []
+  (let [ooda (:ooda @pattern-store)]
+    {:syntax (count (:syntax ooda))
+     :semantic (count (:semantic ooda))
+     :architectural (count (:architectural ooda))
+     :process (count (:process ooda))
+     :immediate (count (:immediate ooda))
+     :session (count (:session ooda))
+     :project (count (:project ooda))
+     :long-term (count (:long-term ooda))}))
