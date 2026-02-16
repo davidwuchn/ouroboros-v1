@@ -206,12 +206,23 @@
      :requires ([ouroboros.lambda-evolve :as evolve])
      :task (evolve/auto-evolve!)}
   
-    lambda:cron
-    {:doc "Run λ(system) scheduled maintenance (evolve + checklist)"
-     :requires ([ouroboros.lambda-evolve :as evolve]
-                [ouroboros.lambda-maintain :as maintain])
-     :task (do (println "\n=== λ(system) Scheduled Maintenance ===")
-               (let [ev (evolve/auto-evolve!)
-                     ch (maintain/run-checklist!)]
-                 (println "\n✓ Maintenance complete")
-                 {:evolution ev :checklist ch}))}}}
+      lambda:cron
+      {:doc "Run λ(system) scheduled maintenance (evolve + checklist)"
+       :requires ([ouroboros.lambda-evolve :as evolve]
+                  [ouroboros.lambda-maintain :as maintain])
+       :task (do (println "\n=== λ(system) Scheduled Maintenance ===")
+                 (let [ev (evolve/auto-evolve!)
+                       ch (maintain/run-checklist!)]
+                   (println "\n✓ Maintenance complete")
+                   {:evolution ev :checklist ch}))}
+    
+      prometheus
+      {:doc "Start Prometheus metrics server"
+       :requires ([ouroboros.telemetry.prometheus :as prom])
+       :task (let [port (or (first *command-line-args*) 9090)]
+               (prom/start-server! (Integer/parseInt (str port))))}
+    
+      prometheus:export
+      {:doc "Export λ(system) metrics in Prometheus format"
+       :requires ([ouroboros.telemetry.prometheus :as prom])
+       :task (println (prom/metrics-text))}}}

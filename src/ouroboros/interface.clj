@@ -540,5 +540,10 @@
   ;; Check what's loaded
   @loaded-namespaces
 
+  ;; λ(system) Prometheus metrics
+  (prometheus/metrics-text)
+  (prometheus/lambda-health-check)
+  (prometheus/start-server! 9090)
+
   ;; Shutdown
   (shutdown!))
