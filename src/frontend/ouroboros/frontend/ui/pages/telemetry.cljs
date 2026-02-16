@@ -187,7 +187,7 @@
 
 (defsc TelemetryEvent
   [_this {:keys [event/id]}]
-  {:query [:event/id :event/timestamp :event/extra]
+  {:query [:event/id :event/timestamp :event :event/extra]
    :ident :event/id}
   (dom/div (str id)))
 
