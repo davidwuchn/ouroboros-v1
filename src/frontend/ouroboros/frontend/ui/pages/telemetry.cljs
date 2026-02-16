@@ -32,13 +32,24 @@
 
 (m/defmutation add-telemetry-event [{:keys [event]}]
   (action [{:keys [state]}]
-    (let [extra (or (:event/extra event) event)]
+    (let [extra (or (:event/extra event) event)
+          event-kw (or (:event extra) (:event/type extra))]
       (swap! state update-in [:page/id :telemetry :telemetry/events]
              (fn [events]
                (vec (cons event (take 49 events)))))
       (swap! state update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
       (when (event-type? extra :tool/invoke)
         (swap! state update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0)))
+      ;; Count ECA activity events (includes assistant responses when tools were likely used)
+      (when (contains? #{:eca/assistant-response
+                         :eca/chat-complete
+                         :ws/eca-tool-call
+                         :ws/eca-tool-auto-approved
+                         :ws/eca-tool-confirmation-required
+                         :eca/tool-approved
+                         :eca/tool-rejected}
+                       event-kw)
+        (swap! state update-in [:page/id :telemetry :telemetry/eca-tool-invocations] (fnil inc 0)))
       (when (false? (:success? extra))
         (swap! state update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0))))))
 
@@ -200,7 +211,7 @@
                 system/current-state
                 system/meta
                 telemetry/total-events
-                telemetry/tool-invocations
+                telemetry/eca-tool-invocations
                 telemetry/query-executions
                 telemetry/errors
                 telemetry/error-rate
@@ -211,7 +222,7 @@
            :system/current-state
            :system/meta
            :telemetry/total-events
-           :telemetry/tool-invocations
+           :telemetry/eca-tool-invocations
            :telemetry/query-executions
            :telemetry/errors
             :telemetry/error-rate
@@ -270,7 +281,7 @@
        ;; Stats Grid
         (dom/div :.telem-stats-grid
          (ui/metric-card {:value (or total-events 0) :label "Total Events"})
-         (ui/metric-card {:value (or tool-invocations 0) :label "Tool Invocations"})
+         (ui/metric-card {:value (or eca-tool-invocations 0) :label "ECA Activity"})
          (ui/metric-card {:value (or query-executions 0) :label "Query Executions"})
          (ui/metric-card {:value (or errors 0)
                           :label "Errors"

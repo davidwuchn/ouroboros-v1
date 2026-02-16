@@ -18,9 +18,9 @@
     (cancel-chat-timeout! state-atom)
     (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
           idx (dec (count messages))]
+      ;; Update message regardless of streaming state (timeout might have marked it as done)
       (when (and (>= idx 0)
-                 (= :assistant (:role (nth messages idx)))
-                 (:streaming? (nth messages idx)))
+                 (= :assistant (:role (nth messages idx))))
         (swap! state-atom
                (fn [s]
                  (-> s
@@ -38,6 +38,7 @@
     (cancel-chat-timeout! state-atom)
     (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
           idx (dec (count messages))]
+      ;; Append token regardless of streaming state
       (when (and (>= idx 0)
                  (= :assistant (:role (nth messages idx))))
         (swap! state-atom update-in

@@ -17,7 +17,8 @@
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.mutations :as m]
    [ouroboros.frontend.ui.components :as ui]
-   [ouroboros.frontend.websocket :as ws]))
+   [ouroboros.frontend.websocket :as ws]
+   [ouroboros.frontend.ws.state :as state]))
 
 ;; ============================================================================
 ;; localStorage Persistence
@@ -226,27 +227,28 @@
               ;; Store timeout-id so we can cancel it when response arrives
               (let [timeout-id (js/setTimeout
                                 (fn []
-                                  ;; Clear the stored timeout-id since we're executing
-                                  (swap! state assoc-in [:chat/id :global :chat/timeout-id] nil)
-                                  (let [messages (get-in @state [:chat/id :global :chat/messages] [])
-                                        idx (dec (count messages))
-                                        last-msg (when (>= idx 0) (nth messages idx))]
-                                    ;; Only fire if we're still in streaming state with no content
-                                    (when (and last-msg
-                                               (= :assistant (:role last-msg))
-                                               (:streaming? last-msg)
-                                               (empty? (:content last-msg)))
-                                      (swap! state
-                                             (fn [s]
-                                               (-> s
-                                                   (update-in [:chat/id :global :chat/messages idx]
-                                                              assoc
-                                                              :error? true
-                                                              :streaming? false
-                                                              :content "AI service is not responding. The backend attempted to restart the AI -- please click Retry.")
-                                                   (assoc-in [:chat/id :global :chat/loading?] false))))
-                                      (ws/schedule-render!))))
-                                25000)]
+                                  ;; Get fresh state from global atom
+                                  (let [state-atom @state/app-state-atom]
+                                    (when state-atom
+                                      (let [messages (get-in @state-atom [:chat/id :global :chat/messages] [])
+                                            idx (dec (count messages))
+                                            last-msg (when (>= idx 0) (nth messages idx))]
+                                        ;; Only fire if we truly got nothing - no tokens, no response, no error
+                                        ;; If we received ANY communication, just update the message to say "still working"
+                                        (when (and last-msg
+                                                   (= :assistant (:role last-msg))
+                                                   (:streaming? last-msg)
+                                                   (empty? (:content last-msg))
+                                                   (not (:error? last-msg)))
+                                          (swap! state-atom
+                                                 (fn [s]
+                                                   (-> s
+                                                       (update-in [:chat/id :global :chat/messages idx]
+                                                                 assoc
+                                                                 :content "⏳ Still working... Please wait.")
+                                                       (assoc-in [:chat/id :global :chat/loading?] false))))
+                                          (ws/schedule-render!)))))
+                                25000))]
                 (swap! state assoc-in [:chat/id :global :chat/timeout-id] timeout-id))))))
 
 (m/defmutation append-streaming-token

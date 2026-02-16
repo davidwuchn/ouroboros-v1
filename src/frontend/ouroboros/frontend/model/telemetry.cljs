@@ -40,6 +40,7 @@
   []
   [:telemetry/total-events
    :telemetry/tool-invocations
+   :telemetry/eca-tool-invocations
    :telemetry/query-executions
    :telemetry/errors
    :telemetry/error-rate])

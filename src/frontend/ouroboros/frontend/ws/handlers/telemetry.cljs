@@ -17,7 +17,8 @@
   (when-let [state-atom @state/app-state-atom]
     (let [normalized {:event/id (or (:event/id data) (str (random-uuid)))
                       :event/timestamp (or (:event/timestamp data) (str (js/Date.)))
-                      :event/extra data}]
+                      :event/extra data}
+          event-kw (or (:event data) (:event/type data))]
       (swap! state-atom update-in [:telemetry/events] (fnil conj []) normalized)
       (swap! state-atom (fn [s]
                           (-> s
@@ -26,8 +27,18 @@
                                            (vec (cons normalized (take 49 events)))))
                               (update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
                               (cond->
-                                (event-type? data :tool/invoke)
+                                (or (= event-kw :tool/invoke) (= event-kw "tool/invoke"))
                                 (update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0))
+                                ;; Count ECA activity events (includes assistant responses when tools were likely used)
+                                (contains? #{:eca/assistant-response
+                                             :eca/chat-complete
+                                             :ws/eca-tool-call
+                                             :ws/eca-tool-auto-approved
+                                             :ws/eca-tool-confirmation-required
+                                             :eca/tool-approved
+                                             :eca/tool-rejected}
+                                           event-kw)
+                                (update-in [:page/id :telemetry :telemetry/eca-tool-invocations] (fnil inc 0))
                                 (false? (:success? data))
                                 (update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0)))))))
     (state/schedule-render!)))

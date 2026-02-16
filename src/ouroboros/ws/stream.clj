@@ -46,6 +46,9 @@
                 (when-not suppress-done-msg?
                   (conn/send-to! client-id (assoc base-msg :type done-type)))
                 (eca/unregister-callback! "chat/contentReceived" listener-id)
+                ;; Emit telemetry for chat completion
+                (telemetry/emit! {:event :eca/chat-complete
+                                  :chat-id chat-id})
                 (when on-done (on-done)))
 
               ;; Assistant text content -> stream as token
@@ -54,7 +57,11 @@
                 (when on-token (on-token (:text content)))
                 (conn/send-to! client-id (assoc base-msg
                                                 :type token-type
-                                                :token (:text content))))
+                                                :token (:text content)))
+                ;; Emit telemetry ECA activity (likely for tool execution happened)
+                (telemetry/emit! {:event :eca/assistant-response
+                                  :has-content? (some? (:text content))
+                                  :content-length (count (str (:text content)))}))
 
               ;; System error text -> send as error message
               (and (= role "system") (= "text" (:type content)) (:text content))
