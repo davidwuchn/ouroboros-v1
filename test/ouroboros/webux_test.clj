@@ -81,7 +81,7 @@
       (webux/delete-project! {:user-id user :project-id project-id})
       (is (nil? (webux/project-by-id {:user-id user :project-id project-id}))
           "Project should be removed")
-      (is (nil? (get (memory/get-value :projects/test-user) project-id))
+      (is (nil? (get (memory/get-value (keyword (str "projects/" (name user)))) project-id))
           "Project should be removed from memory"))))
 
 (deftest user-projects-test
