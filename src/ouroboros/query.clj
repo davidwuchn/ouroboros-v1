@@ -6,18 +6,18 @@
    
    Uses resolver-registry to avoid circular dependencies.
    Resolvers register themselves; this namespace just aggregates them."
-   (:require
-    [clojure.string :as str]
-    [com.wsscode.pathom3.interface.eql :as p.eql]
-    [com.wsscode.pathom3.connect.indexes :as pci]
-    [com.wsscode.pathom3.connect.operation :as pco]
-    [ouroboros.resolver-registry :as registry]
-    [ouroboros.engine :as engine]
+  (:require
+   [clojure.string :as str]
+   [com.wsscode.pathom3.interface.eql :as p.eql]
+   [com.wsscode.pathom3.connect.indexes :as pci]
+   [com.wsscode.pathom3.connect.operation :as pco]
+   [ouroboros.resolver-registry :as registry]
+   [ouroboros.engine :as engine]
     ;; For resolver-based tool registration
-    [ouroboros.history]
-    [ouroboros.memory] [ouroboros.webux]
+   [ouroboros.history]
+   [ouroboros.memory] [ouroboros.webux]
     ;; Additional resolvers for page queries
-    [ouroboros.telemetry :as telemetry])
+   [ouroboros.telemetry :as telemetry])
   (:import [java.time Instant]))
 
 ;; ============================================================================
@@ -55,7 +55,7 @@
     (let [user-id (when-let [slash-idx (str/index-of project-id "/")]
                     (keyword (subs project-id 0 slash-idx)))
           key (when user-id (keyword (str "projects/" (name user-id))))
-          projects (when key 
+          projects (when key
                      (try
                        (require 'ouroboros.memory)
                        ((resolve 'ouroboros.memory/get-value) key)
@@ -81,35 +81,35 @@
    Handles Fulcro ident-based queries by using :page/id as input.
    For :project-detail pages, uses the :project-id from env (passed via params)."
   [env {:page/keys [id]}]
-   {::pco/input [:page/id]
-    ::pco/output [:page/id
-                  :system/healthy?
-                  :system/current-state
-                  :system/meta
-                  :telemetry/total-events
-                  :telemetry/tool-invocations
-                  :telemetry/errors
-                  :telemetry/query-executions
-                  :telemetry/error-rate
-                  :telemetry/events
-                  :debug/enabled?
-                  :project/id
-                  :project/name
-                  :project/description
-                  :project/status
-                  :project/sessions
-                   :empathy/session
-                   :empathy/notes
-                   :valueprop/notes
-                   :mvp/notes
-                   :session/ui
-                   :session/data
-                    :lean-canvas/session
-                    :lean-canvas/notes
-                   :completed-responses
-                   :ui
-                   :ui.fulcro.client.data-fetch.load-markers/by-id
-                   :page/error]}
+  {::pco/input [:page/id]
+   ::pco/output [:page/id
+                 :system/healthy?
+                 :system/current-state
+                 :system/meta
+                 :telemetry/total-events
+                 :telemetry/tool-invocations
+                 :telemetry/errors
+                 :telemetry/query-executions
+                 :telemetry/error-rate
+                 :telemetry/events
+                 :debug/enabled?
+                 :project/id
+                 :project/name
+                 :project/description
+                 :project/status
+                 :project/sessions
+                 :empathy/session
+                 :empathy/notes
+                 :valueprop/notes
+                 :mvp/notes
+                 :session/ui
+                 :session/data
+                 :lean-canvas/session
+                 :lean-canvas/notes
+                 :completed-responses
+                 :ui
+                 :ui.fulcro.client.data-fetch.load-markers/by-id
+                 :page/error]}
   ;; Handle project-detail and builder pages specially
   (cond
     ;; Project detail page
@@ -128,7 +128,7 @@
        :project/sessions (or sessions [])
        :ui.fulcro.client.data-fetch.load-markers/by-id nil
        :page/error (when-not project "Project not found")})
-    
+
     ;; Builder pages (empathy, value-prop, mvp, lean-canvas)
     (#{:empathy-builder :value-prop-builder :mvp-builder :lean-canvas-builder} id)
     (let [project-id (:project-id env)
@@ -136,12 +136,7 @@
           ;; Look up persisted builder session data from memory
           user-id (when-let [slash-idx (and project-id (str/index-of project-id "/"))]
                     (keyword (subs project-id 0 slash-idx)))
-          _builder-type-kw (case id
-                             :empathy-builder :empathy-map
-                             :value-prop-builder :value-proposition
-                             :mvp-builder :mvp-planning
-                             :lean-canvas-builder :lean-canvas
-                             nil)
+          ;; NOTE: builder-type-kw was removed - we use session-prefix for session lookup instead
           session-prefix (case id
                            :empathy-builder "empathy-"
                            :value-prop-builder "valueprop-"
@@ -155,30 +150,30 @@
                              (require 'ouroboros.memory)
                              ((resolve 'ouroboros.memory/get-value) key)
                              (catch Exception _ nil))))
-           session (when session-id (get all-sessions session-id))
-           session-data (:session/data session)
+          session (when session-id (get all-sessions session-id))
+          session-data (:session/data session)
            ;; Defensive normalization: data stored before the websocket fix
            ;; may have string values for :item/section.
            ;; Ensure they are keywords for frontend compatibility.
            ;; All builders now use sticky-note format: {note-id -> note-map}
-            normalized-data (when session-data
-                              (reduce-kv (fn [m k note]
-                                           (let [str-key (if (keyword? k) (name k) k)]
-                                             (assoc m str-key
-                                                    (cond-> note
-                                                      (string? (:item/section note))
-                                                      (update :item/section keyword)))))
-                                         {} session-data))
+          normalized-data (when session-data
+                            (reduce-kv (fn [m k note]
+                                         (let [str-key (if (keyword? k) (name k) k)]
+                                           (assoc m str-key
+                                                  (cond-> note
+                                                    (string? (:item/section note))
+                                                    (update :item/section keyword)))))
+                                       {} session-data))
            ;; Extract data in the right format for each builder type
-           empathy-notes (if (= id :empathy-builder)
-                           (or normalized-data {})
-                           {})
-           lean-canvas-notes (if (= id :lean-canvas-builder)
-                               (or normalized-data {})
-                               {})
-            valueprop-notes (if (= id :value-prop-builder) (or normalized-data {}) {})
-            mvp-notes (if (= id :mvp-builder) (or normalized-data {}) {})
-            completed-responses []]
+          empathy-notes (if (= id :empathy-builder)
+                          (or normalized-data {})
+                          {})
+          lean-canvas-notes (if (= id :lean-canvas-builder)
+                              (or normalized-data {})
+                              {})
+          valueprop-notes (if (= id :value-prop-builder) (or normalized-data {}) {})
+          mvp-notes (if (= id :mvp-builder) (or normalized-data {}) {})
+          completed-responses []]
       {:page/id id
        :project/id (or (:project/id project) project-id)
        :project/name (or (:project/name project) "Unknown Project")
@@ -197,17 +192,17 @@
                     :ui/hint nil
                     :ui/completed-sections []
                     :ui/complete? false}
-        :session/data (or normalized-data {})
+       :session/data (or normalized-data {})
        ;; Lean Canvas builder attributes
        :lean-canvas/session (when (= id :lean-canvas-builder)
                               {:session/id (or session-id "")})
        :lean-canvas/notes lean-canvas-notes
        ;; UI: return empty map - client pre-merge fills in defaults
-        :ui {}
-        :completed-responses completed-responses
-        :ui.fulcro.client.data-fetch.load-markers/by-id nil
+       :ui {}
+       :completed-responses completed-responses
+       :ui.fulcro.client.data-fetch.load-markers/by-id nil
        :page/error (when-not project "Project not found")})
-    
+
     ;; Other pages - use the existing logic
     :else
     (let [ ;; Get telemetry data if needed
@@ -217,26 +212,31 @@
                              (require 'ouroboros.telemetry)
                              ((resolve 'ouroboros.telemetry/get-events))
                              (catch Exception _e nil)))]
-       {:page/id id
-        :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
+      {:page/id id
+       :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
                              (catch Exception _e false))
-        :system/current-state (try ((resolve 'ouroboros.engine/current-state))
+       :system/current-state (try ((resolve 'ouroboros.engine/current-state))
                                   (catch Exception _e nil))
-        :system/meta {:version "0.1.0"}
+       :system/meta {:version "0.1.0"}
        ;; Telemetry data
        :telemetry/total-events (count telemetry-data)
        :telemetry/tool-invocations (count (filter #(= :tool/invoke (:event %)) telemetry-data))
        :telemetry/query-executions (count (filter #(= :query/execute (:event %)) telemetry-data))
        :telemetry/errors (count (filter #(false? (:success? %)) telemetry-data))
        :telemetry/error-rate (if (seq telemetry-data)
-                              (/ (count (filter #(false? (:success? %)) telemetry-data))
-                                 (count telemetry-data) 0.01)
-                              0)
-         :telemetry/events (mapv (fn [evt]
-                                  {:event/id (or (:event/id evt) (str (java.util.UUID/randomUUID)))
-                                   :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
-                                   :event/extra evt})
-                                telemetry-data)
+                               (/ (count (filter #(false? (:success? %)) telemetry-data))
+                                  (count telemetry-data) 0.01)
+                               0)
+       :telemetry/events (mapv (fn [evt]
+                                 {:event/id (or (:event/id evt) (str (java.util.UUID/randomUUID)))
+                                  :event/timestamp (or (:event/timestamp evt) (str (java.time.Instant/now)))
+                                  :event (:event evt)
+                                  :tool (:tool evt)
+                                  :duration-ms (:duration-ms evt)
+                                  :success? (:success? evt)
+                                    ;; Additional fields captured in extra for future extensibility
+                                  :event/extra (select-keys evt [:user-id :project-id :session-id :error])})
+                               telemetry-data)
        ;; Debug flag
        :debug/enabled? false
        ;; Project fields (empty for non-project pages)
@@ -318,13 +318,13 @@
           (q [:system/healthy? :system/meta])
           (q [{[:page/id :project-detail] [...]}] {:project-id \"...\"})"
   ([query] (q query nil))
-   ([query params]
-    (when-let [env @query-env]
-      (let [;; Merge params into environment so resolvers can access them
-            env-with-params (if params
-                              (merge env params)
-                              env)]
-        (telemetry/instrument-query query env-with-params)))))
+  ([query params]
+   (when-let [env @query-env]
+     (let [;; Merge params into environment so resolvers can access them
+           env-with-params (if params
+                             (merge env params)
+                             env)]
+       (telemetry/instrument-query query env-with-params)))))
 
 (defn m
   "Execute a mutation on the system
