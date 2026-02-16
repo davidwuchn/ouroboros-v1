@@ -470,6 +470,52 @@
   (lazy-fn 'ouroboros.interface.educational-approval 'wrap-forward-approval))
 
 ;; ============================================================================
+;; λ(system) - Auto-evolution & Metrics
+;; ============================================================================
+
+(defn lambda-evolve
+  "Run λ(system) auto-evolution loop
+   
+   Usage: (iface/lambda-evolve)"
+  (try (require '[ouroboros.lambda-evolve :as evolve])
+       (evolve/auto-evolve!)
+       (catch Exception e (println "λ evolution error:" (.getMessage e)))))
+
+(defn lambda-metrics
+  "Show λ(system) effectiveness metrics
+   
+   Usage: (iface/lambda-metrics)"
+  (try (require '[ouroboros.lambda-metrics :as lambda])
+       (lambda/lambda-system-report)
+       (catch Exception e (println "λ metrics error:" (.getMessage e)))))
+
+(defn lambda-status
+  "Show λ(system) status and state
+   
+   Usage: (iface/lambda-status)"
+  (try (require '[ouroboros.lambda-evolve :as evolve])
+       (evolve/system-status)
+       (catch Exception e (println "λ status error:" (.getMessage e)))))
+
+(defn lambda-track-issue!
+  "Track an issue for auto-evolution
+   
+   Usage: (iface/lambda-track-issue! \"deep-nesting\" \"src/foo.clj\")"
+  [issue-type file]
+  (try (require '[ouroboros.lambda-evolve :as evolve])
+       (evolve/track-issue! issue-type file)
+       (println "Tracked issue:" issue-type "in" file)
+       (catch Exception e (println "λ track error:" (.getMessage e)))))
+
+(defn lambda-maintain
+  "Run λ(system) maintenance checklist
+   
+   Usage: (iface/lambda-maintain)"
+  (try (require '[ouroboros.lambda-maintain :as maintain])
+       (maintain/run-checklist!)
+       (catch Exception e (println "λ maintain error:" (.getMessage e)))))
+
+;; ============================================================================
 ;; REPL
 ;; ============================================================================
 

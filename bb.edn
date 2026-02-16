@@ -187,4 +187,22 @@
            ("system" "status") (dbg/system-status)
            ("tools") (dbg/tool-registry)
            ("menu" "help") (dbg/debug-menu)
-           (println "Usage: bb debug [eca|system|tools|menu]"))}}}
+           (println "Usage: bb debug [eca|system|tools|menu]"))}
+
+  ;; === λ(system) Metrics & Maintenance ===
+
+  lambda:metrics
+  {:doc "Show λ(system) effectiveness metrics"
+   :requires ([ouroboros.lambda-metrics :as lambda])
+   :task (lambda/lambda-system-report)}
+
+  lambda:maintain
+  {:doc "Run λ(system) maintenance checklist"
+   :requires ([ouroboros.lambda-maintain :as maintain])
+   :task (maintain/run-checklist!)}
+
+  lambda:evolve
+  {:doc "Run λ(system) auto-evolution"
+   :requires ([ouroboros.lambda-evolve :as evolve])
+   :task (evolve/auto-evolve!)}
+}}
