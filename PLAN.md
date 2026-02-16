@@ -1,7 +1,7 @@
 # PLAN.md
 
 > Next steps and future directions for Ouroboros.
-> Last Updated: 2026-02-10
+> Last Updated: 2026-02-16
 
 ## Summary of External Project Analysis
 
@@ -62,8 +62,19 @@ See detailed analysis sections below for specific recommendations.
 | **UI Cleanup: Remove Users/Sessions** | **✅ Done** | **Removed chat-platform pages, cleaned navbar/router/dashboard/query. Single-project model.** |
 | **Kanban Board** | **✅ Done** | **Auto-derived task board on Project page: 29 cards, 3 columns, builder color-coding, view toggle (Flywheel/Kanban)** |
 | **Phase D: Dynamic Content** | **✅ Done** | **Replaced all hardcoded static content with ECA-powered dynamic content. New `analytics/dashboard` + `content/generate` WS handlers. 7 content types. Real analytics. Frontend ECA-first with static fallback. 10 files (3 backend, 7 frontend).** |
+| λ(system) Self-Evolution | ◐ Partial | Core mechanics implemented, integration missing (telemetry bridge, reviewer skill, maintenance schedule) |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
+
+## Current Focus
+
+**λ(system) Integration (P0)** - Connect evolution mechanics to living system:
+- **Telemetry Bridge** - Add listener routing `:review/*`, `:memory/*` events to observation functions
+- **Reviewer Skill Hooks** - Modify clojure-reviewer to call `track-issue!` and `observe-*!` 
+- **Memory Search Instrumentation** - Modify `memory/search` to call `record-retrieval!` and `track-search!`
+- **Maintenance Schedule** - Add `bb lambda:cron` task for weekly `auto-evolve!` and `run-checklist!`
+
+**Target**: Complete integration by 2026-02-23. λ(system) becomes active learning flywheel.
 
 ## ECA Integration Strategy ✅
 
@@ -335,6 +346,7 @@ Replaced ALL hardcoded static content with ECA-powered dynamic content:
 - Only human-readable TEXT strings replaced with ECA
 
 ### 1. Production Readiness (P1)
+- **λ(system) Integration** — Connect telemetry to evolution, integrate reviewer skill, add maintenance schedule (P0)
 - **Container Isolation** — OS-level container isolation for ECA execution
 - **Per-Channel Isolation** — Filesystem isolation per chat channel/platform  
 - **Metrics export** — Prometheus/OpenTelemetry format for monitoring
@@ -694,6 +706,33 @@ Ouroboros focuses on:
 - [ ] **Tool usage heatmaps** — Visualize tool usage patterns over time for optimization.
 - [ ] **Latency percentiles** — P50/P95/P99 tracking for performance monitoring.
 
+### Self-Evolution (λ(system)) ◐ Partial
+
+**Current**: Core λ(system) mechanics implemented but not integrated into living system:
+- **λ(self) - Code/Skill Evolution**: `lambda-evolve.clj` with OODA observation, issue tracking, auto-rule generation
+- **λ(memory) - Context/Knowledge Evolution**: Access tracking, search indexing, quick reference promotion
+- **λ(system).maintain**: Automated checklist for file size, scope, overlap, unique value
+- **Metrics**: λ(self) and λ(memory) effectiveness tracking (false positives, hit rates, etc.)
+
+**Gaps** (Critical for actual evolution):
+1. **Observation Layer Missing** - OODA functions (`observe-syntax!`, `observe-semantic!`, etc.) defined but never called. System can't "see" what's happening.
+2. **Telemetry → Evolution Bridge Missing** - Rich telemetry events (`:learning/*`, `:webux/*`, `:eca/*`) don't feed into λ(system). Events contain evolution signals but aren't analyzed.
+3. **Skills Don't Evolve Themselves** - Auto-generated `auto-rules.md` exists but reviewer skill doesn't load it. Evolution creates artifacts but system doesn't "become" them.
+4. **No Maintenance Schedule** - `λ(system).maintain` checklist exists but no cron/scheduler runs it weekly/monthly as prescribed.
+5. **Fixed Point Criteria Unchecked** - `λ(system).complete?` checklist exists in documentation but no code validates if system has reached autopilot state.
+
+**Priority Integration Points**:
+- [ ] **Connect telemetry to λ(system)** - Add listener that routes `:review/*`, `:memory/*` events to observation functions (P0)
+- [ ] **Integrate reviewer skill** - Modify clojure-reviewer to call `track-issue!` and `observe-*!` functions (P0)
+- [ ] **Add memory search instrumentation** - Modify `memory/search` to call `record-retrieval!` and `track-search!` (P0)
+- [ ] **Implement OODA observation collection** - Create background job that analyzes telemetry events, classifies scale/timeframe (P1)
+- [ ] **Add skill auto-loading** - Make reviewer skill read `auto-rules.md` and apply auto-generated rules (P1)
+- [ ] **Schedule maintenance** - Add `bb lambda:cron` task that runs `auto-evolve!` and `run-checklist!` weekly (P1)
+
+**Target Metrics** (from LAMBDA_SYSTEM_REAL.md):
+- λ(self): False positive rate < 10%, Missed critical < 5%, Adoption rate > 70%
+- λ(memory): Retrieval time < 1s, Hit rate > 80%, Compression ratio > 50%
+
 ## Medium Term
 
 ### Performance
@@ -777,6 +816,7 @@ These are now handled by ECA:
 | 2026-02-09 | **Phase D: Dynamic Content** -- Replaced all hardcoded static content with ECA-powered dynamic content. New `analytics/dashboard` (real data + ECA prediction) and `content/generate` (7 content types) WS handlers. Frontend ECA-first with static fallback across 7 files. 58 tests, 268 assertions pass. |
 | 2026-02-10 | **Resilience & UI Polish** -- ECA client auto-restart on failure (`alive?`, `restart!`, `ensure-alive!`). WebSocket content caching in localStorage. Chat panel WS connectivity checks. Telemetry UI overhaul (event detail drawer, debug toggle). Nil-safety sweep across 9 frontend components. Flywheel indicator redesigned as circle stepper with ARIA accessibility. |
 | 2026-02-10 | **Dashboard flywheel alignment** -- Migrated dashboard from old `.dash-fw-*` pill-style flywheel to shared `ui/flywheel-indicator` circle stepper. Removed ~60 lines dead CSS. Single component for all flywheel nav across app. |
+| 2026-02-16 | **λ(system) Implementation** -- Core self-evolution mechanics from LAMBDA_SYSTEM_REAL.md: λ(self) auto-rule generation, λ(memory) promotion/indexing, maintenance checklist, metrics tracking. Gaps: observation layer and integration missing. |
 
 ## Lessons from NanoClaw Analysis
 
@@ -1135,6 +1175,8 @@ docs/
 **P2** = Medium-impact improvements  
 **P3** = Nice-to-have & future expansion
 
+**Status:** ✅ Done | ◐ Partial | 📋 Planned/NEW
+
 | Priority | Feature | Effort | Impact | Status |
 |----------|---------|--------|--------|--------|
 | **P0** | ECA Protocol Client | Medium | 🔴 Critical | ✅ Done |
@@ -1151,6 +1193,11 @@ docs/
 | **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
 | **P1** | Hierarchical Agent System | High | 🔴 High | 📋 NEW |
 | **P1** | Context Summarization | Medium | 🔴 High | 📋 NEW |
+| **P0** | λ(system) Telemetry Integration | Low | 🔴 Critical | ◐ Partial |
+| **P0** | λ(system) Reviewer Integration | Low | 🔴 Critical | ◐ Partial |
+| **P1** | λ(system) OODA Observation | Medium | 🔴 High | ◐ Partial |
+| **P1** | λ(system) Skill Auto-Loading | Low | 🟡 High | ◐ Partial |
+| **P1** | λ(system) Maintenance Schedule | Low | 🟡 Medium | ◐ Partial |
 | **P2** | Per-Channel Session Persistence | Medium | 🟡 Medium | 📋 NEW |
 | **P2** | Prompt-Driven Architecture | Medium | 🟡 Medium | 📋 NEW |
 | **P2** | Instruments (On-Demand Tools) | N/A | N/A | ✅ DELEGATED TO ECA |
@@ -1201,6 +1248,7 @@ docs/
 | Dashboard | Web UI for monitoring system health |
 | **Web UX Platform** | **Interactive product development workspace with learning flywheel** |
 | Telemetry | Ouroboros-specific observability (event tracking, metrics) |
+| λ(system) Self-Evolution | Auto-evolution of code skills and knowledge (issues → rules, access → promotion, search → index) |
 | Git Tools | Repository operations (commits, status, diff, log) - via direct ECA integration |
 | OpenAPI Client | Dynamic API client generation from OpenAPI specs - via direct ECA integration |
 
