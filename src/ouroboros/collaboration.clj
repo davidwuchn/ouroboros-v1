@@ -48,9 +48,6 @@
 (defn- presence-key [session-id]
   (keyword (str "presence/" session-id)))
 
-(defn- cursors-key [session-id]
-  (keyword (str "cursors/" session-id)))
-
 (defn- comments-key [session-id]
   (keyword (str "comments/" session-id)))
 
@@ -68,14 +65,14 @@
     (swap! session-presence
            (fn [presences]
              (->> presences
-                  (remove (fn [[session-id users]]
+                  (remove (fn [[_session-id users]]
                             (every? #(> cutoff (:user/joined-at %))
                                     (vals users))))
                   (into {}))))
     (swap! cursor-positions
            (fn [cursors]
              (->> cursors
-                  (remove (fn [[session-id positions]]
+                  (remove (fn [[_session-id positions]]
                             (every? #(> cutoff (:timestamp %))
                                     (vals positions))))
                   (into {}))))))
@@ -517,7 +514,7 @@
 
   ;; Create version snapshot
   (create-snapshot! :empathy-session-123 :user-456
-                    {:notes {...} :sections {...}}
+                    {:notes {"n1" "note"} :sections {"s1" "section"}}
                     :label "Initial empathy map"
                     :description "First draft completed")
 

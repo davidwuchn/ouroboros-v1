@@ -24,10 +24,8 @@
        {:profile :standard})"
   (:require
    [clojure.java.shell :as shell]
-   [clojure.string :as str]
    [ouroboros.fs :as fs]
-   [ouroboros.telemetry :as telemetry]
-   [ouroboros.tool-sandbox :as sandbox]))
+   [ouroboros.telemetry :as telemetry]))
 
 ;; ============================================================================
 ;; Configuration
@@ -158,7 +156,7 @@
                       :timeout-ms timeout-ms})
     
     (try
-      (let [{:keys [exit out err] :as result}
+      (let [{:keys [exit out err] :as _result}
             (apply shell/sh (concat full-args
                                     [:env (merge {"HOME" "/workspace"} env-vars)]
                                     [:timeout timeout-ms]))

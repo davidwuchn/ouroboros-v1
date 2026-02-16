@@ -35,7 +35,7 @@
 (defn- list-files
   "List files in a directory"
   ([dir] (list-files dir 1))
-  ([dir depth]
+  ([dir _depth]
    (let [path (fs/path dir)]
      (when (fs/directory? path)
        (->> (fs/list-dir path)

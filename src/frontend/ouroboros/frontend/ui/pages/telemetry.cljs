@@ -23,6 +23,13 @@
   (action [{:keys [state]}]
     (swap! state update :page/error dissoc page-id)))
 
+(defn- event-type?
+  "Check if event type matches, handling both keywords and strings."
+  [event-data expected-kw]
+  (let [evt (:event event-data)]
+    (or (= evt expected-kw)
+        (= evt (name expected-kw)))))
+
 (m/defmutation add-telemetry-event [{:keys [event]}]
   (action [{:keys [state]}]
     (let [extra (or (:event/extra event) event)]
@@ -30,7 +37,7 @@
              (fn [events]
                (vec (cons event (take 49 events)))))
       (swap! state update-in [:page/id :telemetry :telemetry/total-events] (fnil inc 0))
-      (when (= :tool/invoke (:event extra))
+      (when (event-type? extra :tool/invoke)
         (swap! state update-in [:page/id :telemetry :telemetry/tool-invocations] (fnil inc 0)))
       (when (false? (:success? extra))
         (swap! state update-in [:page/id :telemetry :telemetry/errors] (fnil inc 0))))))
@@ -198,8 +205,7 @@
                 telemetry/errors
                 telemetry/error-rate
                 telemetry/events
-                debug/enabled?
-                page/error]
+                debug/enabled?]
           :as props}]
   {:query [:system/healthy?
            :system/current-state
@@ -234,7 +240,7 @@
 
   (let [loading? (df/loading? (get props [df/marker-table :telemetry]))
         error-msg (get-in props [:page/error :telemetry])
-        ws-connected? (ws/connected?)
+        _ws-connected? (ws/connected?)
         drawer-open? (boolean (comp/get-state this :drawer/open?))
         drawer-event (comp/get-state this :drawer/event)
         filter-type (or (comp/get-state this :filter/event-type) "all")]
@@ -340,7 +346,7 @@
                 message-length (get-event-field evt :message-length)
                 title (or (some-> event-type name) "Telemetry Event")
                 ;; Is this an ECA prompt or response event?
-                eca-prompt? (= :eca/chat-prompt event-type)
+                _eca-prompt? (= :eca/chat-prompt event-type)
                 eca-response? (= :eca/chat-response event-type)
                 ;; Fields already rendered explicitly - skip in dynamic section
                 known-keys #{:event/id :event/timestamp :event/seq :event/extra

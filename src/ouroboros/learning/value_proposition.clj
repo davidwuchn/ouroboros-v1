@@ -96,7 +96,7 @@
                     (assoc :vp/updated-at (System/currentTimeMillis)))]
 
     ;; Save as learning insight
-    (let [section-info (first (filter #(= (:key %) section-key) vp-sections))]
+    (let [_section-info (first (filter #(= (:key %) section-key) vp-sections))]
       (learning/save-insight! (:vp/user-id session)
                               {:title (str "Value Proposition: " (name section-key))
                                :insights [response]

@@ -36,7 +36,7 @@
 ;; Router
 ;; ============================================================================
 
-(dr/defrouter MainRouter [this props]
+(dr/defrouter MainRouter [_this _props]
    {:router-targets
     [dashboard/DashboardPage
      telemetry/TelemetryPage

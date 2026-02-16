@@ -867,7 +867,7 @@
 ;; ============================================================================
 
 (defsc WisdomPage
-  [this props]
+  [this _props]
   {:query         [:page/id :ui/dummy]
    :ident         (fn [] [:page/id :wisdom])
    :initial-state (fn [_] {:page/id :wisdom
@@ -886,7 +886,9 @@
    :componentDidMount (fn [this]
                          (let [state-atom @ws/app-state-atom
                                state (when state-atom @state-atom)]
+                           ;; Only request templates if WebSocket is connected
                            (when (and state
+                                      (ws/connected?)
                                       (not (get-in state [:content/generated :templates]))
                                       (not (get-in state [:content/loading? :templates])))
                              (ws/request-content! :templates))
@@ -937,8 +939,8 @@
         ws-project (get state :workspace/project)
         project-id (or route-project-id (:project/id ws-project))
         template-store (get-in state [:wisdom/template])
-        drawer-open? (boolean (comp/get-state this :drawer/open?))
-        drawer-state (or (comp/get-state this :drawer/state) {})
+        _drawer-open? (boolean (comp/get-state this :drawer/open?))
+        _drawer-state (or (comp/get-state this :drawer/state) {})
         tip-drawer-open? (boolean (comp/get-state this :tip-drawer/open?))
         tip-drawer-state (or (comp/get-state this :tip-drawer/state) {})
          resize-width (comp/get-state this :resize/width)
@@ -1049,7 +1051,7 @@
           (dom/h2 "Contextual Wisdom")
           (dom/p :.wisdom-section-desc (str "Guidance for the " builder-label " phase.")))
         (dom/div {:className "wisdom-tips-grid"}
-          (for [{:keys [icon title description] :as tip} wisdom-cards]
+          (for [{:keys [icon title description] :as _tip} wisdom-cards]
             (dom/div {:key title
                       :className "wisdom-tip-card"
                       :role "button"

@@ -136,12 +136,12 @@
           ;; Look up persisted builder session data from memory
           user-id (when-let [slash-idx (and project-id (str/index-of project-id "/"))]
                     (keyword (subs project-id 0 slash-idx)))
-          builder-type-kw (case id
-                            :empathy-builder :empathy-map
-                            :value-prop-builder :value-proposition
-                            :mvp-builder :mvp-planning
-                            :lean-canvas-builder :lean-canvas
-                            nil)
+          _builder-type-kw (case id
+                             :empathy-builder :empathy-map
+                             :value-prop-builder :value-proposition
+                             :mvp-builder :mvp-planning
+                             :lean-canvas-builder :lean-canvas
+                             nil)
           session-prefix (case id
                            :empathy-builder "empathy-"
                            :value-prop-builder "valueprop-"
@@ -216,12 +216,12 @@
                            (try
                              (require 'ouroboros.telemetry)
                              ((resolve 'ouroboros.telemetry/get-events))
-                             (catch Exception e nil)))]
+                             (catch Exception _e nil)))]
        {:page/id id
         :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
-                             (catch Exception e false))
+                             (catch Exception _e false))
         :system/current-state (try ((resolve 'ouroboros.engine/current-state))
-                                  (catch Exception e nil))
+                                  (catch Exception _e nil))
         :system/meta {:version "0.1.0"}
        ;; Telemetry data
        :telemetry/total-events (count telemetry-data)

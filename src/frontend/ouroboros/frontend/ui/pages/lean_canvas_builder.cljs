@@ -214,7 +214,7 @@
 
 (m/defmutation add-canvas-note
   "Add a sticky note to a canvas block"
-  [{:keys [session-id block-key content color]}]
+  [{:keys [_session-id block-key content color]}]
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)

@@ -38,7 +38,7 @@
 
 (defn start-mvp-from-vp!
   "Start an MVP planning session from Value Proposition insights"
-  [user-id project-name {:keys [pain-relievers gain-creators products-services]}]
+  [user-id project-name {:keys [pain-relievers gain-creators _products-services]}]
   (let [mvp-id (generate-mvp-id user-id project-name)]
     {:mvp/id mvp-id
      :mvp/user-id user-id

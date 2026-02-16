@@ -178,6 +178,7 @@ The dashboard provides a web interface for system observability:
 - [AGENTS.md](AGENTS.md) — Bootstrap & vocabulary
 - [LEARNING.md](LEARNING.md) — Patterns discovered
 - [CHANGELOG.md](CHANGELOG.md) — Commit history
+- [RUNTIMEINSTALL.md](RUNTIMEINSTALL.md) — Development environment setup
 
 ## License
 

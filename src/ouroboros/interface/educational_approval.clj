@@ -5,24 +5,13 @@
 
    Usage:
    (require '[ouroboros.interface :as iface])
-   (iface/educational-enhance-approval \"file/write\" {:path \"config.json\"})"
-  (:require
-   [ouroboros.interface :as iface]))
+   (iface/educational-enhance-approval \"file/write\" {:path \"config.json\"})")
 
 ;; Lazy loading - resolve at call time, not load time
 (defn- resolve-educational [sym]
   (let [ns-sym (ns-resolve *ns* 'ouroboros.educational-approval)]
     (when ns-sym
       (ns-resolve ns-sym sym))))
-
-(defmacro deflazy [name]
-  `(def ~name (delay (resolve-educational '~name))))
-
-(deflazy educational-enhance-approval)
-(deflazy educational-calculate-risk)
-(deflazy educational-get-tool-knowledge)
-(deflazy educational-create-learning-from-approval)
-(deflazy educational-wrap-forward-approval)
 
 ;; Convenience wrappers that handle the delay
 (defn enhance-approval

@@ -1,11 +1,12 @@
 # Learning Flywheel: Chat Interaction Design
 
-## Vision
+## Vision {#vision}
+
 Transform Ouroboros chat from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
 ---
 
-## Core Principles
+## Core Principles {#core-principles}
 
 ### 1. **Progressive Disclosure**
 - Start with utility (the answer)
@@ -33,7 +34,7 @@ Transform Ouroboros chat from **utility assistant** to **wisdom partner** by cre
 
 ---
 
-## Interaction Patterns
+## Interaction Patterns {#interaction-patterns}
 
 ### Pattern 1: **Utility → Understanding → Wisdom**
 
@@ -218,7 +219,7 @@ def repeat_string(s: str, times: int) -> str:
 
 ---
 
-## System Architecture
+## System Architecture {#system-architecture}
 
 ### New Components Needed:
 
@@ -300,7 +301,7 @@ def repeat_string(s: str, times: int) -> str:
 
 ---
 
-## Implementation Roadmap
+## Implementation Roadmap {#implementation-roadmap}
 
 ### Phase 1: Foundation (Week 1-2)
 #### Goals:
@@ -369,7 +370,7 @@ def repeat_string(s: str, times: int) -> str:
 
 ---
 
-## Message Templates
+## Message Templates {#message-templates}
 
 ### 1. **Learning Offer Template**
 ```
@@ -448,7 +449,7 @@ def repeat_string(s: str, times: int) -> str:
 
 ---
 
-## Success Metrics
+## Success Metrics {#success-metrics}
 
 ### Quantitative:
 1. **Learning retention**: % of users who save insights
@@ -466,7 +467,7 @@ def repeat_string(s: str, times: int) -> str:
 
 ---
 
-## Risk Mitigation
+## Risk Mitigation {#risk-mitigation}
 
 ### 1. **Information Overload**
 - Progressive disclosure (depth on demand)
@@ -490,7 +491,7 @@ def repeat_string(s: str, times: int) -> str:
 
 ---
 
-## Next Steps
+## Next Steps {#next-steps}
 
 ### Immediate (Week 1):
 1. ✅ Implement learning memory storage

@@ -11,7 +11,6 @@
    [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
-   [com.fulcrologic.fulcro.data-fetch :as df]
    [ouroboros.frontend.ui.components :as ui]
    [ouroboros.frontend.websocket :as ws]))
 
@@ -66,7 +65,7 @@
 
 (defsc FunnelStage
   "Individual funnel stage"
-  [this {:keys [stage reached reached-percentage completed drop-off width]}]
+  [_this {:keys [stage reached reached-percentage _completed drop-off width]}]
   (dom/div :.funnel-stage
            {:style {:width (str width "%")}}
            (dom/div :.funnel-bar
@@ -241,7 +240,7 @@
 
 (defsc AnalyticsDashboard
   "Main analytics dashboard component - reads real data from WebSocket state"
-  [this {:keys [project-id user-id]}]
+  [_this {:keys [project-id _user-id]}]
   (let [state-atom @ws/app-state-atom
         dashboard (when state-atom (get-in @state-atom [:analytics/dashboard project-id]))
         progress-data (:progress dashboard)

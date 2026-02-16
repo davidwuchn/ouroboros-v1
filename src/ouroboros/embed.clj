@@ -15,11 +15,9 @@
    (embed/generate-iframe-html token {:width 800 :height 600})"
   (:require
    [clojure.string :as str]
-   [clojure.edn :as edn]
    [crypto.random :as random]
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.memory :as memory]
-   [ouroboros.auth :as auth]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.resolver-registry :as registry])
   (:import [java.time Instant Duration]))
@@ -70,8 +68,8 @@
   "Revoke an embed token"
   [token]
   (let [key (keyword (str "embed-token/" token))]
-    (memory/update! key assoc :token/active? false)
-    (memory/update! key assoc :token/revoked-at (str (Instant/now)))
+    (memory/update! key #(assoc % :token/active? false))
+    (memory/update! key #(assoc % :token/revoked-at (str (Instant/now))))
     {:revoked? true
      :token token}))
 

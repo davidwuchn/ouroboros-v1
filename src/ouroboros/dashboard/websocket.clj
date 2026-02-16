@@ -42,7 +42,7 @@
       (doseq [channel (.keySet connections)]
         (try
           (httpkit/send! channel message)
-          (catch Exception e
+          (catch Exception _e
             ;; Client disconnected, remove it
             (remove-connection! channel))))))
   (flush-events! [_])
@@ -84,7 +84,7 @@
                              :clients (get-connection-count)}))
     
     (httpkit/on-close channel
-                     (fn [status]
+                     (fn [_status]
                        (remove-connection! channel)
                        (println (str "[WebSocket] Client disconnected. Total: " (get-connection-count)))))
     
@@ -156,7 +156,7 @@
     (doseq [channel (.keySet connections)]
       (try
         (httpkit/send! channel json-msg)
-        (catch Exception e
+        (catch Exception _e
           (remove-connection! channel))))
     {:sent-to (get-connection-count)}))
 

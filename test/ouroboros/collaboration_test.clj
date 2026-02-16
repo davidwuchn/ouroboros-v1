@@ -118,7 +118,7 @@
 
 (deftest cleanup-stale-sessions-test
   (testing "Cleaning up stale sessions"
-    ;; This test verifies the cleanup function exists and runs
-    ;; without error. In real scenarios, it would remove old sessions.
-    (is (nil? (collab/cleanup-stale-sessions!))
-        "Cleanup should run without error")))
+    ;; cleanup-stale-sessions! returns the updated cursor-positions atom state
+    ;; Verify it runs without throwing, return value is a map
+    (is (map? (collab/cleanup-stale-sessions!))
+        "Cleanup should run without error and return a map")))

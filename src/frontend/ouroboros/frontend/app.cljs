@@ -16,7 +16,7 @@
     {:remote (http/fulcro-http-remote {:url "/api/eql"})}
 
     :global-error-action
-    (fn [env error]
+    (fn [_env error]
       (js/console.error "Global error:" error))}))
 
 ;; ============================================================================

@@ -13,15 +13,11 @@
    [cognitect.transit :as transit]
    [org.httpkit.server :as httpkit]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [com.wsscode.pathom3.interface.eql :as p.eql]
    [ouroboros.query :as query]
-   [ouroboros.telemetry :as telemetry]
-   [ouroboros.auth :as auth]
-   [ouroboros.chat :as chat]
    [ouroboros.metrics :as metrics]
    [ouroboros.websocket :as ws])
   (:import [java.time Instant]
-           [java.io File ByteArrayInputStream InputStreamReader]))
+           [java.io File ByteArrayInputStream]))
 
 ;; ============================================================================
 ;; API Handler
@@ -395,6 +391,16 @@
        (reset! dashboard-server server)
        (println (str "Dashboard ready at http://localhost:" actual-port))
        (println (str "WebSocket endpoint: ws://localhost:" actual-port "/ws"))
+       ;; Auto-start ECA for content generation features (templates, learning-categories)
+       (try
+         (require 'ouroboros.eca-client)
+         (let [alive? (resolve 'ouroboros.eca-client/alive?)
+               ensure-alive! (resolve 'ouroboros.eca-client/ensure-alive!)]
+           (when-not (alive?)
+             (println "  Starting ECA for AI content generation features...")
+             (ensure-alive!)))
+         (catch Exception e
+           (println "  ⚠️  ECA not available:" (.getMessage e))))
        {:port actual-port
         :url (str "http://localhost:" actual-port)
         :ws-url (str "ws://localhost:" actual-port "/ws")
@@ -439,7 +445,7 @@
 
 (defn -main
   "Entry point for dashboard server"
-  [& args]
+  [& _args]
   (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)]
     (println "Starting Ouroboros Dashboard...")
     (println "  Port:" port)
@@ -456,5 +462,6 @@
   (stop!)
 
   ;; Via Pathom
-  (require '[ouroboros.query :as q])
-  (q/q [:dashboard/status]))
+  ;; (require '[ouroboros.query :as q])
+  ;; (q/q [:dashboard/status]))
+)

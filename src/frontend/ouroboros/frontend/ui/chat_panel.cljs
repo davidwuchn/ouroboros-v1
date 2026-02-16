@@ -223,27 +223,31 @@
                          :context (or context "")})
               ;; Safety timeout: if no response in 25s, show error in frontend
               ;; (Backend does 10s ack + restart + 10s retry, this is a last-resort fallback)
-              (js/setTimeout
-               (fn []
-                 (let [messages (get-in @state [:chat/id :global :chat/messages] [])
-                       idx (dec (count messages))
-                       last-msg (when (>= idx 0) (nth messages idx))]
-                   ;; Only fire if we're still in streaming state with no content
-                   (when (and last-msg
-                              (= :assistant (:role last-msg))
-                              (:streaming? last-msg)
-                              (empty? (:content last-msg)))
-                     (swap! state
-                            (fn [s]
-                              (-> s
-                                  (update-in [:chat/id :global :chat/messages idx]
-                                             assoc
-                                             :error? true
-                                             :streaming? false
-                                             :content "AI service is not responding. The backend attempted to restart the AI -- please click Retry.")
-                                  (assoc-in [:chat/id :global :chat/loading?] false))))
-                     (ws/schedule-render!))))
-               25000)))))
+              ;; Store timeout-id so we can cancel it when response arrives
+              (let [timeout-id (js/setTimeout
+                                (fn []
+                                  ;; Clear the stored timeout-id since we're executing
+                                  (swap! state assoc-in [:chat/id :global :chat/timeout-id] nil)
+                                  (let [messages (get-in @state [:chat/id :global :chat/messages] [])
+                                        idx (dec (count messages))
+                                        last-msg (when (>= idx 0) (nth messages idx))]
+                                    ;; Only fire if we're still in streaming state with no content
+                                    (when (and last-msg
+                                               (= :assistant (:role last-msg))
+                                               (:streaming? last-msg)
+                                               (empty? (:content last-msg)))
+                                      (swap! state
+                                             (fn [s]
+                                               (-> s
+                                                   (update-in [:chat/id :global :chat/messages idx]
+                                                              assoc
+                                                              :error? true
+                                                              :streaming? false
+                                                              :content "AI service is not responding. The backend attempted to restart the AI -- please click Retry.")
+                                                   (assoc-in [:chat/id :global :chat/loading?] false))))
+                                      (ws/schedule-render!))))
+                                25000)]
+                (swap! state assoc-in [:chat/id :global :chat/timeout-id] timeout-id))))))
 
 (m/defmutation append-streaming-token
   "Append streaming token to the last assistant message"
@@ -576,7 +580,7 @@
 
 (defn chat-message
   "Render a single chat message with markdown, copy, edit/delete actions"
-  [{:keys [role content streaming? error?]} idx {:keys [on-retry on-copy on-delete on-edit editing-idx]}]
+  [{:keys [role content streaming? error?]} idx {:keys [on-retry on-copy on-delete on-edit _editing-idx]}]
   (let [is-user? (= role :user)]
     (dom/div {:key idx
               :className (str "chat-msg chat-msg-" (name role)
@@ -727,20 +731,54 @@
 ;; ============================================================================
 
 (defn context-tab-content
-  "Show current context information"
-  [{:keys [route]}]
-  (let [ctx-info (get-context-info route)]
+  "Show current app context (page/phase) and chat context (conversation stats)"
+  [{:keys [route messages]}]
+  (let [ctx-info (get-context-info route)
+        msg-count (count messages)
+        ;; Summarization threshold from backend config
+        max-history 20
+        _recent-count 10
+        needs-summary? (> msg-count max-history)
+        summarized-count (max 0 (- msg-count max-history))]
     (dom/div :.chat-context-tab
-             (dom/div :.chat-context-tab-header
-                      (dom/span (str (:icon ctx-info) " " (:label ctx-info)))
-                      (dom/span :.chat-context-tab-route
-                                (str "Route: " (str/join "/" (or route ["dashboard"])))))
-             (dom/div :.chat-context-tab-info
-                      (dom/p "The AI assistant is aware of your current page context. It tailors suggestions and responses based on where you are in the product development flywheel.")
-                      (dom/h4 "Current phase suggestions:")
-                      (dom/ul
-                       (for [s (:suggestions ctx-info)]
-                         (dom/li {:key s} s)))))))
+             ;; App Context Section
+             (dom/div :.chat-context-section
+                      (dom/div :.chat-context-section-header
+                               (dom/span :.chat-context-icon "📍")
+                               (dom/span "App Context"))
+                      (dom/div :.chat-context-app-info
+                               (dom/div :.chat-context-app-phase
+                                        (dom/span (:icon ctx-info) " ")
+                                        (dom/strong (:label ctx-info)))
+                               (dom/div :.chat-context-app-route
+                                        (str "Route: " (str/join "/" (or route ["dashboard"]))))
+                               (dom/p :.chat-context-app-desc
+                                      "The AI assistant is aware of your current page. It tailors suggestions based on where you are in the product development flywheel.")))
+
+             ;; Chat Context Section
+             (dom/div :.chat-context-section
+                      (dom/div :.chat-context-section-header
+                               (dom/span :.chat-context-icon "💬")
+                               (dom/span "Chat Context"))
+                      (dom/div :.chat-context-chat-info
+                               (dom/div :.chat-context-stat
+                                        (dom/span :.chat-context-stat-label "Messages:")
+                                        (dom/span :.chat-context-stat-value msg-count))
+                               (when needs-summary?
+                                 (dom/div :.chat-context-summary-status
+                                          (dom/span :.chat-context-summary-icon "🗜")
+                                          (dom/span (str "Context compressed: " summarized-count " older messages summarized"))))
+                               (dom/div :.chat-context-memory
+                                        (dom/p "Recent messages are shown in full. Older messages are compressed to conserve context window while preserving key decisions and outcomes."))))
+
+             ;; Suggestions Section
+             (dom/div :.chat-context-section
+                      (dom/div :.chat-context-section-header
+                               (dom/span :.chat-context-icon "💡")
+                               (dom/span "Suggested Questions"))
+                      (dom/ul :.chat-context-suggestions
+                              (for [s (:suggestions ctx-info)]
+                                (dom/li {:key s} s)))))))
 
 ;; ============================================================================
 ;; Chat Panel Component
@@ -789,7 +827,7 @@
       (let [state-atom @ws/app-state-atom
             eca-suggestions (when state-atom (get-in @state-atom [:content/generated :chat-suggestions]))
             eca-loading? (when state-atom (get-in @state-atom [:content/loading? :chat-suggestions]))]
-        (when (and state-atom (not eca-suggestions) (not eca-loading?))
+        (when (and state-atom (ws/connected?) (not eca-suggestions) (not eca-loading?))
           (let [route (:chat/context (comp/props this))
                 ctx (detect-context route)]
             (ws/request-content! :chat-suggestions :context (or ctx "general"))))))
@@ -1021,6 +1059,7 @@
                         ;; ===== CONTEXT TAB =====
                         :context
                         (dom/div :.chat-tab-content
-                                 (context-tab-content {:route current-route})))))))
+                                 (context-tab-content {:route current-route
+                                                       :messages messages})))))))
 
 (def ui-chat-panel (comp/factory ChatPanel))

@@ -16,7 +16,6 @@
    ;; Direct core access (no interface wrapper)
    [ouroboros.query :as query]
    [ouroboros.memory :as memory]
-   [ouroboros.knowledge :as knowledge]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.api :as api]
    [ouroboros.openapi :as openapi]))
@@ -152,14 +151,14 @@
    
    Usage: (http-get \"https://api.example.com/data\")"
   [url]
-  (api/http-request :get url {}))
+  (api/http-request {:method :get :url url}))
 
 (defn http-request!
   "Make HTTP request with method
    
    Usage: (http-request! :post \"https://api.example.com/data\" {:body {...}})"
   [method url opts]
-  (api/http-request method url opts))
+  (api/http-request (assoc opts :method method :url url)))
 
 ;; ============================================================================
 ;; OpenAPI (Direct)
@@ -469,6 +468,52 @@
 
    Usage: (def enhanced (educational-wrap-forward-approval original-forward-fn))"
   (lazy-fn 'ouroboros.interface.educational-approval 'wrap-forward-approval))
+
+;; ============================================================================
+;; λ(system) - Auto-evolution & Metrics
+;; ============================================================================
+
+(defn lambda-evolve
+  "Run λ(system) auto-evolution loop
+   
+   Usage: (iface/lambda-evolve)"
+  (try (require '[ouroboros.lambda-evolve :as evolve])
+       (evolve/auto-evolve!)
+       (catch Exception e (println "λ evolution error:" (.getMessage e)))))
+
+(defn lambda-metrics
+  "Show λ(system) effectiveness metrics
+   
+   Usage: (iface/lambda-metrics)"
+  (try (require '[ouroboros.lambda-metrics :as lambda])
+       (lambda/lambda-system-report)
+       (catch Exception e (println "λ metrics error:" (.getMessage e)))))
+
+(defn lambda-status
+  "Show λ(system) status and state
+   
+   Usage: (iface/lambda-status)"
+  (try (require '[ouroboros.lambda-evolve :as evolve])
+       (evolve/system-status)
+       (catch Exception e (println "λ status error:" (.getMessage e)))))
+
+(defn lambda-track-issue!
+  "Track an issue for auto-evolution
+   
+   Usage: (iface/lambda-track-issue! \"deep-nesting\" \"src/foo.clj\")"
+  [issue-type file]
+  (try (require '[ouroboros.lambda-evolve :as evolve])
+       (evolve/track-issue! issue-type file)
+       (println "Tracked issue:" issue-type "in" file)
+       (catch Exception e (println "λ track error:" (.getMessage e)))))
+
+(defn lambda-maintain
+  "Run λ(system) maintenance checklist
+   
+   Usage: (iface/lambda-maintain)"
+  (try (require '[ouroboros.lambda-maintain :as maintain])
+       (maintain/run-checklist!)
+       (catch Exception e (println "λ maintain error:" (.getMessage e)))))
 
 ;; ============================================================================
 ;; REPL

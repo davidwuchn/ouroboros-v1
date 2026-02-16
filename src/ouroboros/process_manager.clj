@@ -19,14 +19,13 @@
    Interactive control:
    (send-input! proc \"GET / HTTP/1.0\\n\\n\")
    (read-output! proc) ; returns available output
-   (stream-output! proc println) ; stream output to function")
+   (stream-output! proc println) ; stream output to function"
   (:require
-   [clojure.java.io :as io]
    [clojure.string :as str]
    [taoensso.timbre :as log])
   (:import
    (java.io BufferedReader InputStreamReader OutputStreamWriter)
-   (java.lang ProcessBuilder ProcessBuilder$Redirect)
+   (java.lang ProcessBuilder)
    (java.util.concurrent LinkedBlockingQueue TimeUnit)))
 
 (defonce ^:private processes (atom {}))
@@ -41,10 +40,10 @@
     ;; Set environment variables
     (doseq [[k v] env]
       (.put env-map (name k) (str v)))
-    
+
     ;; Redirect stderr to stdout for combined output
     (.redirectErrorStream pb true)
-    
+
     (.start pb)))
 
 (defn- start-output-reader
@@ -82,32 +81,32 @@
    
    Returns:
      ManagedProcess record"
-  [command args {:keys [name env dir] :as opts}]
+  [command args {:keys [name env _dir] :as _opts}]
   {:pre [(string? name)]}
-  
+
   (when (contains? @processes name)
     (throw (ex-info (str "Process already exists with name: " name)
                     {:name name :existing (@processes name)})))
-  
+
   (log/info "Starting process:" name "with command:" command args)
-  
+
   (let [process (start-process command args (or env {}))
         pid (try
               (let [pid-field (.getDeclaredField (class process) "pid")]
                 (.setAccessible pid-field true)
                 (.get pid-field process))
               (catch Exception _ nil))
-        
+
         output-queue (LinkedBlockingQueue.)
-        output-reader (start-output-reader process output-queue)
+        _output-reader (start-output-reader process output-queue)
         exit-future (start-exit-watcher process name pid output-queue)
-        
+
         proc (->ManagedProcess name pid process
                                (.getOutputStream process)
                                (.getInputStream process)
                                (.getErrorStream process)
                                output-queue exit-future)]
-    
+
     (swap! processes assoc name proc)
     proc))
 
@@ -134,23 +133,23 @@
   (let [proc (if (instance? ManagedProcess proc-or-name)
                proc-or-name
                (get @processes proc-or-name))]
-    
+
     (when proc
       (log/info "Stopping process:" (:name proc))
       (.destroy (:process proc))
-      
+
       ;; Wait for exit (with timeout)
       (try
         (.waitFor (:process proc) 5 TimeUnit/SECONDS)
         (catch Exception _ nil))
-      
+
       ;; Force kill if still alive
       (when (.isAlive (:process proc))
         (.destroyForcibly (:process proc)))
-      
+
       ;; Remove from registry
       (swap! processes dissoc (:name proc))
-      
+
       (try
         (.exitValue (:process proc))
         (catch Exception _ nil)))))
@@ -167,7 +166,7 @@
   (let [proc (if (instance? ManagedProcess proc-or-name)
                proc-or-name
                (get @processes proc-or-name))]
-    
+
     (if proc
       {:name (:name proc)
        :running? (.isAlive (:process proc))
@@ -202,11 +201,11 @@
   (let [proc (if (instance? ManagedProcess proc-or-name)
                proc-or-name
                (get @processes proc-or-name))]
-    
+
     (when proc
       (let [queue (:output-queue proc)
             result (atom [])]
-        
+
         (loop [lines-read 0]
           (when (or (nil? max-lines) (< lines-read max-lines))
             (if-let [line (.poll queue timeout-ms TimeUnit/MILLISECONDS)]
@@ -216,7 +215,7 @@
                   (recur (inc lines-read))))
               ;; No more output within timeout
               nil)))
-        
+
         @result))))
 
 (defn stream-output!
@@ -232,7 +231,7 @@
   (let [proc (if (instance? ManagedProcess proc-or-name)
                proc-or-name
                (get @processes proc-or-name))]
-    
+
     (when proc
       (future
         (let [queue (:output-queue proc)]
@@ -257,7 +256,7 @@
   (let [proc (if (instance? ManagedProcess proc-or-name)
                proc-or-name
                (get @processes proc-or-name))]
-    
+
     (when (and proc (.isAlive (:process proc)))
       (try
         (with-open [writer (OutputStreamWriter. (:stdin proc))]
@@ -292,10 +291,10 @@
                proc-or-name
                (get @processes proc-or-name))
         name (if (string? proc-or-name) proc-or-name (:name proc))]
-    
+
     (stop! proc)
     (Thread/sleep 1000) ; Wait before restart
-    
+
     (if (and command args opts)
       (start! command args (assoc opts :name name))
       (throw (ex-info "Cannot restart without original command/args/opts"
@@ -321,29 +320,28 @@
     (start-shell! "python -m http.server 8080"
                   {:name "web-server"
                    :env {:PYTHONUNBUFFERED "1"}}))
-  
+
   (status web-server)
   ;; => {:name "web-server", :running? true, :pid 12345, :has-output? true}
-  
+
   ;; Read recent output
   (read-output! web-server {:max-lines 10})
-  
+
   ;; Stream output to console
   (stream-output! web-server println)
-  
+
   ;; Send input (for interactive processes)
   (send-input-line! web-server "GET / HTTP/1.0")
   (send-input-line! web-server "")
-  
+
   ;; Check if running
   (.isAlive (:process web-server))
-  
+
   ;; Stop the process
   (stop! web-server)
-  
+
   ;; List all processes
   (list-processes)
-  
+
   ;; Cleanup everything
-  (cleanup-all!)
-  )
+  (cleanup-all!))

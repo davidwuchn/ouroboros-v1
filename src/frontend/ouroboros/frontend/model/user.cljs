@@ -7,8 +7,7 @@
 ;; User Entity
 ;; ============================================================================
 
-(defsc User [this {:keys [:user/id :user/name :user/platform :user/role
-                          :user/created-at :user/last-active]}]
+(defsc User [_this _props]
   {:query [:user/id
            :user/name
            :user/platform
@@ -22,7 +21,7 @@
 ;; User List Component
 ;; ============================================================================
 
-(defsc UserList [this {:keys [:user-list/users]}]
+(defsc UserList [_this _props]
   {:query [{:user-list/users (comp/get-query User)}]
    :ident (fn [] [:component/id :user-list])}
   {})

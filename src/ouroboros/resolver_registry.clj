@@ -9,8 +9,7 @@
    
    Usage in query:
      (def all-resolvers (registry/all-resolvers))"
-  (:require
-   [com.wsscode.pathom3.connect.operation :as pco]))
+  )
 
 (defonce ^:private resolver-registry (atom []))
 (defonce ^:private mutation-registry (atom []))

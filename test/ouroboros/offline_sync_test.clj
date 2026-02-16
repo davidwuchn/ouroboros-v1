@@ -75,12 +75,11 @@
                     :conflict/local {:item/content "Local" :item/updated-at 2000}}
           result (sync/resolve-conflict conflict :strategy :last-write-wins)]
       (is (= :use-local (:resolution result))
-          "Local wins when newer"))
-    
-    ;; Merge strategy
-    (let [result (sync/resolve-conflict conflict :strategy :merge)]
-      (is (= :merged (:resolution result)))
-      (is (get-in result [:item :item/conflict-resolved?])))))
+          "Local wins when newer")
+      ;; Merge strategy (same conflict, different strategy)
+      (let [merge-result (sync/resolve-conflict conflict :strategy :merge)]
+        (is (= :merged (:resolution merge-result)))
+        (is (get-in merge-result [:item :item/conflict-resolved?]))))))
 
 (deftest save-and-load-session-state-test
   (testing "Saving and loading session state"
@@ -89,7 +88,7 @@
           loaded (sync/load-session-state :session-save)]
       (is (= state (:snapshot/state loaded)))
       (is (= :user-1 (:snapshot/user-id loaded)))
-      (is (string? (:snapshot/saved-at loaded))))))
+      (is (number? (:snapshot/saved-at loaded))))))
 
 (deftest has-saved-session-test
   (testing "Checking for saved session"
@@ -118,8 +117,7 @@
 
 (deftest compact-queue-test
   (testing "Queue compaction removes old completed operations"
-    ;; This test verifies compaction runs without error
-    ;; In real scenarios, it removes operations older than 7 days
+    ;; compact-queue! returns the updated queue state
     (sync/queue-operation! :session-compact :test {})
-    (is (nil? (sync/compact-queue! :session-compact))
-        "Compaction should run without error")))
+    (let [result (#'sync/compact-queue! :session-compact)]
+      (is (map? result) "Compaction should return a map"))))

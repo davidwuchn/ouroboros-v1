@@ -9,7 +9,6 @@
     [com.fulcrologic.statecharts.elements :refer [state transition]]
     [com.fulcrologic.statecharts.events :refer [new-event]]
     [com.fulcrologic.statecharts.protocols :as sp]
-    [com.fulcrologic.statecharts.runtime :as rt]
     [com.fulcrologic.statecharts.simple :as simple]
     [ouroboros.telemetry :as telemetry]))
 

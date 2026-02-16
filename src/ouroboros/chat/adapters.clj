@@ -18,8 +18,7 @@
   (:import
    [java.net URI]
    [java.net.http WebSocket HttpClient WebSocket$Listener]
-   [java.time Instant]
-   [java.util.concurrent CompletableFuture]))
+   [java.time Instant]))
 
 ;; ============================================================================
 ;; Telegram Adapter
@@ -169,7 +168,7 @@
                        (when (= 1 (:op data))
                          (.sendText ws (json/generate-string {:op 11}) true))
                        (when-let [message (discord-parse-message data)]
-                         (try (handler message) (catch Exception e)))))
+                         (try (handler message) (catch Exception _e)))))
                    (onError [ws error]
                      (telemetry/emit! {:event :chat/discord-ws-error :error (.getMessage error)}))
                    (onClose [ws status-code reason]
@@ -240,14 +239,10 @@
 (defn- slack-edit-message [bot-token channel ts text]
   (slack-api-call bot-token "chat.update" {:channel channel :ts ts :text text}))
 
-(defn- slack-ack [app-token envelope-id]
-  (slack-api-call app-token "apps.connections.open" {}))
-
 (defn- slack-parse-message [event-data]
   (when-let [payload (:payload event-data)]
     (when (= "event_callback" (:type event-data))
-      (let [event (:event payload)
-            user (:user event)]
+      (let [event (:event payload)]
         (when (= "message" (:type event))
           (when (not (:bot_profile event))
             (chatp/make-message :slack
@@ -267,10 +262,10 @@
         (let [ws-atom (:ws-atom this)
               running-atom (:running this)
               listener (ws/make-listener
-                        {:on-text (fn [ws text last]
+                        {:on-text (fn [_ws text _last]
                                     (when-let [data (try (json/parse-string text true) (catch Exception _ nil))]
                                       (when-let [message (slack-parse-message data)]
-                                        (try (handler-fn message) (catch Exception e)))))})]
+                                        (try (handler-fn message) (catch Exception _e)))))})]
           (ws/connect (:url socket-data) listener ws-atom running-atom))))
     (telemetry/emit! {:event :chat/adapter-started :platform :slack})
     this)

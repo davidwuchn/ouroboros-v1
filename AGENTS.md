@@ -83,6 +83,19 @@ Use symbols in commit messages for searchable git history.
 
 > **Note:** STATE/PLAN/LEARNING mirrors Agent Zero's context compression: STATE=recent (full), PLAN=medium (summarized), LEARNING=old (condensed). Same tiered approach for human-readable project memory.
 
+### Documentation Directory (`docs/`)
+
+Following Compound Engineering patterns:
+
+| Directory | Purpose | Usage |
+|-----------|---------|-------|
+| `docs/agents/` | Prompt-driven reviewer agents | Reference for code review (`review/`, `security/`, `architecture/`) |
+| `docs/plans/` | Per-feature implementation plans | Create before coding, update during implementation |
+| `docs/solutions/` | Institutional knowledge base | Document solved problems with symptoms and fixes |
+| `docs/patterns/` | Reusable architectural patterns | Reference for consistent implementation |
+
+**Workflow:** Plan → Work → Review → Capture (solutions) → Evolve (patterns)
+
 ---
 
 ## Essential Hints
@@ -345,7 +358,7 @@ EOF
 
 ### Testing
 ```bash
-bb test          # Core tests (43 tests)
+bb test          # Run all tests (check output for current count)
 bb test:webux    # WebUX tests (requires Clojure, not Babashka)
 ```
 

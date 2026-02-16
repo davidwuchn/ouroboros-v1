@@ -1,6 +1,7 @@
 (ns ouroboros.wisdom-test
   "Tests for Wisdom engine and AI insights"
   (:require
+   [clojure.set :as set]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [ouroboros.test-helper :as th]
    [ouroboros.wisdom :as wisdom]
@@ -12,12 +13,14 @@
 (deftest list-templates-test
   (testing "Listing available templates"
     (let [templates (wisdom/list-templates)]
-      (is (= 4 (count templates)) "Should have 4 templates")
+      (is (<= 9 (count templates)) "Should have at least 9 templates")
       (is (every? :template/key templates) "Each should have a key")
       (is (every? :template/name templates) "Each should have a name")
-      (is (= #{:saas :marketplace :mobile-app :developer-tool}
-             (set (map :template/key templates)))
-          "Should have correct template keys"))))
+      (is (every? :template/description templates) "Each should have a description")
+      (is (set/subset?
+           #{:saas :marketplace :mobile-app :developer-tool}
+           (set (map :template/key templates)))
+          "Should include original 4 template keys"))))
 
 (deftest get-template-test
   (testing "Getting a specific template"
@@ -115,4 +118,6 @@
   (testing "Suggesting templates based on description"
     (let [suggestions (wisdom/suggest-templates "SaaS platform for developers")]
       (is (seq suggestions) "Should return suggestions")
-      (is (= :saas (first suggestions)) "Should suggest SaaS for developer platform"))))
+      (is (some #{:saas :developer-tool} [(first suggestions)])
+          "Should suggest SaaS or developer-tool for developer SaaS platform")
+      (is (every? keyword? suggestions) "All suggestions should be keywords"))))

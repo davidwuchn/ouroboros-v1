@@ -4,8 +4,7 @@
    Provides a subset of babashka.fs API using Java interop for JVM compatibility."
   (:require [clojure.string :as str])
   (:import [java.io File]
-           [java.nio.file Files Path Paths]
-           [java.nio.file.attribute BasicFileAttributes]))
+           [java.nio.file Files Path Paths]))
 
 ;; ============================================================================
 ;; Path Operations

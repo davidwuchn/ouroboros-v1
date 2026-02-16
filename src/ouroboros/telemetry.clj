@@ -12,10 +12,7 @@
    
    Events are stored in a circular buffer and queryable via EQL."
   (:require
-   [clojure.string :as str]
-   [clojure.edn :as edn]
    [com.wsscode.pathom3.connect.operation :as pco]
-   [com.wsscode.pathom3.connect.indexes :as pci]
    [com.wsscode.pathom3.interface.eql :as p.eql]
    [ouroboros.resolver-registry :as registry]
    [ouroboros.telemetry.protocol :as tp])

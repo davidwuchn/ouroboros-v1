@@ -7,6 +7,8 @@
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Engine (∅) | ✅ Running | Statechart lifecycle operational |
+| **clj-kondo** | **✅ Phase 4 Complete** | **0 errors, 64 warnings (down from 44 errors)** |
+| **Test Coverage** | **⚒ Phase 5 Active** | **75 tests, 307 assertions (+17 new tests)** |
 | Query | ✅ Active | Pathom EQL interface exposed |
 | Interface | ✅ Ready | Unified boot/shutdown via `ouroboros.interface` |
 | nREPL | ✅ Port 8888 | Auto-boots system on connect |
@@ -238,7 +240,9 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 6. **Phase D: Dynamic Content** -- ✅ Replaced ALL hardcoded static content with ECA-powered dynamic content. New backend handlers: `analytics/dashboard` (real analytics from project data + ECA prediction text), `content/generate` (generic ECA content generation with 7 content types: insights, blockers, templates, chat-suggestions, flywheel-guide, section-hints, learning-categories). Frontend reads ECA content from WS state with static fallback. 10 files changed (3 backend, 7 frontend). 58 tests, 268 assertions pass.
 7. **Resilience & UI Polish** -- ✅ ECA client auto-restart on failure with alive checks. WebSocket content caching in localStorage. Chat panel WS connectivity checks. Telemetry UI overhaul with event detail drawer and debug toggle. Nil-safety sweep across 9 frontend components. Flywheel indicator redesigned as circle stepper with accessibility.
 8. **Frontend Bug Fixes (2026-02-11)** -- ✅ Fixed nil-safety in `extract-plain-text-from-markdown` and `str/` call sites (13 sites across 8 files). Added React keys to Fulcro wrapped form elements. Fixed Learning Patterns cards: enriched backend categories with icons/descriptions/default counts. Fixed drawer "Loading insights..." on every click (cache-first pattern). Fixed card count mismatch with drawer (derived counts from actual data, fixed `count` shadowing bug, fixed `enrich-categories` extras path).
-9. **Metrics Export** -- Prometheus/OpenTelemetry format
+9. **Empathy Map Builder Fixes (2026-02-14)** -- ✅ Fixed empathy map interactive session routing. Enhanced WebSocket handler to detect `:empathy/mode` and route responses to empathy processor (not ECA). Added `/empathy` command to list saved maps. Improved rate limit error handling with friendly messages. All 7 sections (Persona → Think & Feel → Hear → See → Say & Do → Pains → Gains) now work end-to-end.
+10. **Context Tab Consolidation** -- ✅ Enhanced Context tab to show both app context (current page/phase) and chat context (message count, summarization status). No `/context` command needed — single source of truth via UI.
+11. **Metrics Export** -- Prometheus/OpenTelemetry format
 
 **Architectural Insight (2026-02-09)**: ECA-powered wisdom is now **fully wired end-to-end**. Backend assembles project context, sends to ECA, streams tokens back via WebSocket. Frontend renders progressively with Fulcro render scheduling. The wisdom sidebar in all 4 builders and the wisdom page Quick Tips section now fetch from ECA with static fallback. **WebUX = state/CRUD/interaction, ECA = knowledge/wisdom/guidance.**
 
@@ -278,7 +282,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 - ✗ Internal AI/agent system (delegated to ECA)
 - ✗ Skill system (replaced by learning flywheel)
 
-**Next Phase**: Production hardening -- container isolation, metrics export.
+**Next Phase**: Code health (websocket split, test coverage) then production hardening (container isolation, metrics export).
 
 **Recent Architectural Changes**:
 - **Single project per instance** -- removed multi-project CRUD, workspace auto-detected from `user.dir`
@@ -378,9 +382,26 @@ All hardcoded static content replaced with ECA-powered dynamic content:
 - ✅ Hardcoded insight/suggestion/prediction TEXT strings emptied (computation logic preserved)
 - ✅ Frontend ECA-first pattern: request on mount, show fallback while loading
 
+### P0: Code Health (from Compound Engineering Analysis, 2026-02-12)
+
+External analysis against compound-engineering-plugin revealed critical gaps:
+
+| Area | Current | Target | Priority |
+|------|---------|--------|----------|
+| God objects | websocket.clj 1420 LOC, websocket.cljs 1704 LOC | Max ~400 LOC per file | 🔴 P0 |
+| Test coverage | ~27% (19/71 source files) | 60%+ (compound ref: ~80%) | 🔴 P0 |
+| Root JSON files | 9 files, duplicates (package.json + package-lock.json) | Consolidate to 1-2 | 🟡 P1 |
+| Inline prompts | Hardcoded strings in websocket.clj | Extract to resources/prompts/ | 🟡 P1 |
+| ~~bb.edn DRY~~ | ~~22 tasks, ~90% duplication in dev tasks~~ | ~~Extract shared helpers~~ | ✅ Done |
+| Handler dispatch | `case` statement in websocket | Data-driven registry map | 🟡 P1 |
+
+**Immediate next:** Split websocket.clj into `ws/handlers/*.clj`, split websocket.cljs into `ws/handlers/*.cljs`.
+
 ### Next Priorities
-1. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
-2. **Container Isolation** -- OS-level isolation for ECA execution
+1. **WebSocket Split** -- Break god objects into handler modules (~400 LOC max each)
+2. **Test Coverage** -- Priority: resolver-registry, eca-client, websocket handlers, analytics, wisdom
+3. **Metrics Export** -- Prometheus/OpenTelemetry format for production monitoring
+4. **Container Isolation** -- OS-level isolation for ECA execution
 
 ---
 

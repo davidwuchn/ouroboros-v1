@@ -111,43 +111,43 @@
   "Start a tour"
   [{:keys [tour-id]}]
   (action [{:keys [state]}]
-    (swap! state assoc-in [:onboarding :active-tour] tour-id)
-    (swap! state assoc-in [:onboarding :current-step] 0)
-    (swap! state assoc-in [:onboarding :tour-completed?] false)))
+          (swap! state assoc-in [:onboarding :active-tour] tour-id)
+          (swap! state assoc-in [:onboarding :current-step] 0)
+          (swap! state assoc-in [:onboarding :tour-completed?] false)))
 
 (m/defmutation next-step
   "Move to next tour step"
   [_]
   (action [{:keys [state]}]
-    (swap! state update-in [:onboarding :current-step] inc)))
+          (swap! state update-in [:onboarding :current-step] inc)))
 
 (m/defmutation prev-step
   "Move to previous tour step"
   [_]
   (action [{:keys [state]}]
-    (swap! state update-in [:onboarding :current-step] dec)))
+          (swap! state update-in [:onboarding :current-step] dec)))
 
 (m/defmutation skip-tour
   "Skip the current tour"
   [_]
   (action [{:keys [state]}]
-    (swap! state assoc-in [:onboarding :active-tour] nil)
-    (swap! state assoc-in [:onboarding :current-step] 0)))
+          (swap! state assoc-in [:onboarding :active-tour] nil)
+          (swap! state assoc-in [:onboarding :current-step] 0)))
 
 (m/defmutation complete-tour
   "Mark tour as completed"
   [{:keys [tour-id]}]
   (action [{:keys [state]}]
-    (swap! state assoc-in [:onboarding :completed-tours tour-id] true)
-    (swap! state assoc-in [:onboarding :active-tour] nil)
-    (swap! state assoc-in [:onboarding :current-step] 0)
-    (swap! state assoc-in [:onboarding :tour-completed?] true)))
+          (swap! state assoc-in [:onboarding :completed-tours tour-id] true)
+          (swap! state assoc-in [:onboarding :active-tour] nil)
+          (swap! state assoc-in [:onboarding :current-step] 0)
+          (swap! state assoc-in [:onboarding :tour-completed?] true)))
 
 (m/defmutation mark-tooltip-seen
   "Mark a contextual tooltip as seen"
   [{:keys [tooltip-id]}]
   (action [{:keys [state]}]
-    (swap! state assoc-in [:onboarding :seen-tooltips tooltip-id] true)))
+          (swap! state assoc-in [:onboarding :seen-tooltips tooltip-id] true)))
 
 ;; ============================================================================
 ;; Tour Components
@@ -160,64 +160,64 @@
         is-first? (= current-step 0)
         is-last? (= current-step (dec total-steps))]
     (dom/div
-      {:className (str "tour-tooltip tour-position-" (name position))
-       :style (when target
+     {:className (str "tour-tooltip tour-position-" (name position))
+      :style (when target
                 ;; Position calculation would go here based on target element
-                {})}
+               {})}
       ;; Arrow
-      (dom/div :.tour-arrow
-        {:className (str "arrow-" (name position))})
-      
+     (dom/div :.tour-arrow
+              {:className (str "arrow-" (name position))})
+
       ;; Content
-      (dom/div :.tour-content
-        (dom/h3 title)
-        (dom/p content))
-      
+     (dom/div :.tour-content
+              (dom/h3 title)
+              (dom/p content))
+
       ;; Progress dots
-      (dom/div :.tour-progress
-        (map (fn [idx]
-               (dom/span
-                 {:key idx
-                  :className (str "tour-dot " (when (= idx current-step) "active"))}))
-             (range total-steps)))
-      
+     (dom/div :.tour-progress
+              (map (fn [idx]
+                     (dom/span
+                      {:key idx
+                       :className (str "tour-dot " (when (= idx current-step) "active"))}))
+                   (range total-steps)))
+
       ;; Actions
-      (dom/div :.tour-actions
-        (when-not is-first?
-          (ui/button
-            {:onClick on-prev
-             :variant :secondary}
-            "← Back"))
-        
-        (if is-last?
-          (ui/button
-            {:onClick on-complete
-             :variant :primary}
-            "✓ Complete")
-          (ui/button
-            {:onClick on-next
-             :variant :primary}
-            "Next →"))
-        
-        (ui/button
-          {:onClick on-skip
-           :variant :ghost}
-          "Skip Tour")))))
+     (dom/div :.tour-actions
+              (when-not is-first?
+                (ui/button
+                 {:onClick on-prev
+                  :variant :secondary}
+                 "← Back"))
+
+              (if is-last?
+                (ui/button
+                 {:onClick on-complete
+                  :variant :primary}
+                 "✓ Complete")
+                (ui/button
+                 {:onClick on-next
+                  :variant :primary}
+                 "Next →"))
+
+              (ui/button
+               {:onClick on-skip
+                :variant :ghost}
+               "Skip Tour")))))
 
 (defsc TourOverlay
   "Overlay that highlights target elements"
   [this {:keys [target children]}]
   (dom/div :.tour-overlay
     ;; Darken background
-    (dom/div :.tour-backdrop)
-    
+           (dom/div :.tour-backdrop)
+
     ;; Highlight box around target (if any)
-    (when target
-      (dom/div :.tour-highlight
-        {:className target}))
-    
+           (when target
+             (dom/div :.tour-highlight
+                      {:className target}))
+
     ;; Tooltip content
-    children))
+           children))
 
 (defsc ActiveTour
   "Currently active tour"
@@ -229,15 +229,15 @@
           step (nth steps current-step nil)]
       (when step
         (ui/component TourOverlay
-          {:target (:target step)}
-          (ui/component TourTooltip
-            {:step step
-             :current-step current-step
-             :total-steps (count steps)
-             :on-next #(comp/transact! this [(next-step {})])
-             :on-prev #(comp/transact! this [(prev-step {})])
-             :on-skip #(comp/transact! this [(skip-tour {})])
-             :on-complete #(comp/transact! this [(complete-tour {:tour-id tour-id})])}))))))
+                      {:target (:target step)}
+                      (ui/component TourTooltip
+                                    {:step step
+                                     :current-step current-step
+                                     :total-steps (count steps)
+                                     :on-next #(comp/transact! this [(next-step {})])
+                                     :on-prev #(comp/transact! this [(prev-step {})])
+                                     :on-skip #(comp/transact! this [(skip-tour {})])
+                                     :on-complete #(comp/transact! this [(complete-tour {:tour-id tour-id})])}))))))
 
 ;; ============================================================================
 ;; Tour Launcher
@@ -247,35 +247,35 @@
   "Component to launch available tours"
   [this {:keys [completed-tours]}]
   (dom/div :.tour-launcher
-    (dom/h3 "🎯 Guided Tours")
-    (dom/p "New here? Take a tour to learn the features.")
-    
-    (dom/div :.tour-list
-      (map (fn [[tour-id tour]]
-             (let [completed? (get completed-tours tour-id)]
-               (dom/div
-                 {:key tour-id
-                  :className (str "tour-item " (when completed? "completed"))}
-                 (dom/div :.tour-info
-                   (dom/h4 (:name tour))
-                   (dom/span :.tour-steps
-                     (str (count (:steps tour)) " steps")))
-                 (if completed?
-                   (dom/span :.tour-completed-badge "✓ Completed")
-                   (ui/button
-                     {:onClick #(comp/transact! this [(start-tour {:tour-id tour-id})])
-                      :variant :primary}
-                     "Start Tour"))))
-           tours))
-    
+           (dom/h3 "🎯 Guided Tours")
+           (dom/p "New here? Take a tour to learn the features.")
+
+           (dom/div :.tour-list
+                    (map (fn [[tour-id tour]]
+                           (let [completed? (get completed-tours tour-id)]
+                             (dom/div
+                              {:key tour-id
+                               :className (str "tour-item " (when completed? "completed"))}
+                              (dom/div :.tour-info
+                                       (dom/h4 (:name tour))
+                                       (dom/span :.tour-steps
+                                                 (str (count (:steps tour)) " steps")))
+                              (if completed?
+                                (dom/span :.tour-completed-badge "✓ Completed")
+                                (ui/button
+                                 {:onClick #(comp/transact! this [(start-tour {:tour-id tour-id})])
+                                  :variant :primary}
+                                 "Start Tour")))))
+                         tours))
+
     ;; Quick tips section
-    (dom/div :.quick-tips
-      (dom/h4 "💡 Quick Tips")
-      (dom/ul
-        (dom/li "Press ? for keyboard shortcuts")
-        (dom/li "Drag sticky notes to organize")
-        (dom/li "Double-click to edit")
-        (dom/li "Invite team members from the sidebar")))))
+           (dom/div :.quick-tips
+                    (dom/h4 "💡 Quick Tips")
+                    (dom/ul
+                     (dom/li "Press ? for keyboard shortcuts")
+                     (dom/li "Drag sticky notes to organize")
+                     (dom/li "Double-click to edit")
+                     (dom/li "Invite team members from the sidebar")))))
 
 ;; ============================================================================
 ;; Contextual Tooltips
@@ -287,13 +287,13 @@
     :content "💡 Tip: Click the + button to add your first sticky note"
     :target ".btn-add"
     :show-after-ms 2000}
-   
+
    :collaboration
    {:id :collaboration
     :content "👥 Invite team members to collaborate in real-time"
     :target ".collaboration-sidebar"
     :show-after-ms 5000}
-   
+
    :ai-help
    {:id :ai-help
     :content "🤖 Ask AI for suggestions on your canvas"
@@ -302,16 +302,16 @@
 
 (defsc ContextualTooltip
   "Single contextual tooltip"
-  [this {:keys [content target on-dismiss]}]
+  [_this {:keys [content _target on-dismiss]}]
   (dom/div
-    {:className "contextual-tooltip"
-     :style {;; Position relative to target
-             }}
-    (dom/p content)
-    (dom/button
-      {:onClick on-dismiss
-       :className "tooltip-dismiss"}
-      "×")))
+   {:className "contextual-tooltip"
+    :style {;; Position relative to target
+            }}
+   (dom/p content)
+   (dom/button
+    {:onClick on-dismiss
+     :className "tooltip-dismiss"}
+    "×")))
 
 ;; ============================================================================
 ;; Progress Tracking
@@ -322,34 +322,34 @@
   [this {:keys [completed-tours total-tours]}]
   (let [completed-count (count completed-tours)
         percentage (if (> total-tours 0)
-                    (int (* 100 (/ completed-count total-tours)))
-                    0)]
+                     (int (* 100 (/ completed-count total-tours)))
+                     0)]
     (dom/div :.onboarding-progress
-      (dom/h4 "Getting Started")
-      (dom/div :.progress-ring
-        (dom/svg
-          {:width 80 :height 80 :viewBox "0 0 80 80"}
-          (dom/circle
-            {:cx 40 :cy 40 :r 35
-             :fill "none"
-             :stroke "#e0e0e0"
-             :strokeWidth 8})
-          (dom/circle
-            {:cx 40 :cy 40 :r 35
-             :fill "none"
-             :stroke "#4CAF50"
-             :strokeWidth 8
-             :strokeDasharray (* 2 Math/PI 35)
-             :strokeDashoffset (* 2 Math/PI 35 (- 1 (/ percentage 100)))
-             :style {:transform "rotate(-90deg)"
-                     :transformOrigin "center"
-                     :transition "stroke-dashoffset 0.5s ease"}}))
-        (dom/span :.progress-text (str percentage "%")))
-      (dom/p (str completed-count " of " total-tours " tours completed"))
-      (ui/button
-        {:onClick #(js/alert "Opening tour launcher...")
-         :variant :secondary}
-        "Continue Learning"))))
+             (dom/h4 "Getting Started")
+             (dom/div :.progress-ring
+                      (dom/svg
+                       {:width 80 :height 80 :viewBox "0 0 80 80"}
+                       (dom/circle
+                        {:cx 40 :cy 40 :r 35
+                         :fill "none"
+                         :stroke "#e0e0e0"
+                         :strokeWidth 8})
+                       (dom/circle
+                        {:cx 40 :cy 40 :r 35
+                         :fill "none"
+                         :stroke "#4CAF50"
+                         :strokeWidth 8
+                         :strokeDasharray (* 2 Math/PI 35)
+                         :strokeDashoffset (* 2 Math/PI 35 (- 1 (/ percentage 100)))
+                         :style {:transform "rotate(-90deg)"
+                                 :transformOrigin "center"
+                                 :transition "stroke-dashoffset 0.5s ease"}}))
+                      (dom/span :.progress-text (str percentage "%")))
+             (dom/p (str completed-count " of " total-tours " tours completed"))
+             (ui/button
+              {:onClick #(js/alert "Opening tour launcher...")
+               :variant :secondary}
+              "Continue Learning"))))
 
 ;; ============================================================================
 ;; Keyboard Shortcuts
@@ -371,10 +371,10 @@
   "Show keyboard shortcuts modal"
   []
   (js/alert
-    (str "Keyboard Shortcuts:\n\n"
-         (str/join "\n"
-           (map (fn [[k v]] (str k " - " v))
-                keyboard-shortcuts)))))
+   (str "Keyboard Shortcuts:\n\n"
+        (str/join "\n"
+                  (map (fn [[k v]] (str k " - " v))
+                       keyboard-shortcuts)))))
 
 ;; ============================================================================
 ;; Export

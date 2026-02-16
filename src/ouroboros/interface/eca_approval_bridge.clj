@@ -5,22 +5,13 @@
 
    Usage:
    (require '[ouroboros.interface :as iface])
-   (iface/eca-approval-status)"
-  (:require
-   [ouroboros.interface :as iface]))
+   (iface/eca-approval-status)")
 
 ;; Lazy loading - resolve at call time, not load time
 (defn- resolve-approval-bridge [sym]
   (let [ns-sym (ns-resolve *ns* 'ouroboros.eca_approval_bridge)]
     (when ns-sym
       (ns-resolve ns-sym sym))))
-
-(defmacro deflazy [name]
-  `(def ~name (delay (resolve-approval-bridge '~name))))
-
-(deflazy eca-approval-status)
-(deflazy eca-pending-approvals)
-(deflazy eca-cleanup-expired!)
 
 ;; Convenience wrappers that handle the delay
 (defn status

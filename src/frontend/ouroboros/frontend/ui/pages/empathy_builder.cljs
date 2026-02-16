@@ -8,16 +8,16 @@
    - Rich text editing
    - Guided onboarding and tutorials
    - Example content and prompts"
-   (:require
-    [clojure.string :as str]
-    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-    [com.fulcrologic.fulcro.dom :as dom]
-    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-    [com.fulcrologic.fulcro.data-fetch :as df]
-    [com.fulcrologic.fulcro.mutations :as m]
-    [ouroboros.frontend.ui.components :as ui]
-    [ouroboros.frontend.ui.canvas-components :as canvas]
-    [ouroboros.frontend.websocket :as ws]))
+  (:require
+   [clojure.string :as str]
+   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+   [com.fulcrologic.fulcro.dom :as dom]
+   [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+   [com.fulcrologic.fulcro.data-fetch :as df]
+   [com.fulcrologic.fulcro.mutations :as m]
+   [ouroboros.frontend.ui.components :as ui]
+   [ouroboros.frontend.ui.canvas-components :as canvas]
+   [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
 ;; Section Configuration with Prompts and Examples
@@ -179,20 +179,20 @@
   (when-let [t @empathy-sync-timer]
     (js/clearTimeout t))
   (reset! empathy-sync-timer
-    (js/setTimeout
-      (fn []
-        (let [s @state-atom
-              project-id (get-in s [:page/id :empathy-builder :project/id])
-              session (get-in s [:page/id :empathy-builder :empathy/session])
-              session-id (or (:session/id session) (str "empathy-" project-id))
-              notes (get-in s [:page/id :empathy-builder :empathy/notes] {})]
-          (when project-id
-            (ws/save-builder-data! project-id session-id :empathy-map notes))))
-      500)))
+          (js/setTimeout
+           (fn []
+             (let [s @state-atom
+                   project-id (get-in s [:page/id :empathy-builder :project/id])
+                   session (get-in s [:page/id :empathy-builder :empathy/session])
+                   session-id (or (:session/id session) (str "empathy-" project-id))
+                   notes (get-in s [:page/id :empathy-builder :empathy/notes] {})]
+               (when project-id
+                 (ws/save-builder-data! project-id session-id :empathy-map notes))))
+           500)))
 
 (m/defmutation add-empathy-note
   "Add a sticky note to an empathy section"
-  [{:keys [session-id section-key content]}]
+  [{:keys [_session-id section-key content]}]
   (action [{:keys [state]}]
           (swap! state (fn [s]
                          (let [s (push-undo! s)
@@ -257,7 +257,6 @@
                          (let [s (push-undo! s)]
                            (assoc-in s [:page/id :empathy-builder :empathy/notes] {}))))
           (sync-empathy-notes! state)))
-
 
 ;; ============================================================================
 ;; Tutorial Modal Component
@@ -337,53 +336,53 @@
                       (dom/div :.modal-body
 
                         ;; Template selector
-                        (dom/div :.persona-templates
-                                 (dom/h4 "Quick start from a template")
-                                 (dom/div :.template-grid
-                                          (for [{tname :name tdetails :details} persona-templates]
-                                            (let [is-selected? (= selected-template tname)
-                                                  is-custom? (= tname "Custom Persona")]
-                                              (dom/div
-                                               {:key tname
-                                                :className (str "template-card"
-                                                                (when is-selected? " selected")
-                                                                (when is-custom? " custom"))
-                                                :onClick #(on-select-template tname tdetails)}
-                                               (dom/div :.template-card-icon
-                                                        (if is-custom? "+" (subs tname 0 1)))
-                                               (dom/span :.template-name tname)
-                                               (when (and (not is-custom?) (seq tdetails))
-                                                 (dom/span :.template-details tdetails)))))))
+                               (dom/div :.persona-templates
+                                        (dom/h4 "Quick start from a template")
+                                        (dom/div :.template-grid
+                                                 (for [{tname :name tdetails :details} persona-templates]
+                                                   (let [is-selected? (= selected-template tname)
+                                                         is-custom? (= tname "Custom Persona")]
+                                                     (dom/div
+                                                      {:key tname
+                                                       :className (str "template-card"
+                                                                       (when is-selected? " selected")
+                                                                       (when is-custom? " custom"))
+                                                       :onClick #(on-select-template tname tdetails)}
+                                                      (dom/div :.template-card-icon
+                                                               (if is-custom? "+" (subs tname 0 1)))
+                                                      (dom/span :.template-name tname)
+                                                      (when (and (not is-custom?) (seq tdetails))
+                                                        (dom/span :.template-details tdetails)))))))
 
                         ;; Form fields
-                        (dom/div {:className (str "form-group" (when show-error? " has-error"))}
-                                 (dom/label "Persona Name "
-                                            (dom/span :.required "*"))
-                                 (dom/input
-                                  {:type "text"
-                                   :value (or persona-name "")
-                                   :autoFocus true
-                                   :className (when show-error? "input-error")
-                                   :placeholder "e.g., Sarah, the Busy Product Manager"
-                                   :onChange #(on-change-name (.. % -target -value))})
-                                 (when show-error?
-                                   (dom/span :.field-error "Give your persona a name to get started")))
+                               (dom/div {:className (str "form-group" (when show-error? " has-error"))}
+                                        (dom/label "Persona Name "
+                                                   (dom/span :.required "*"))
+                                        (dom/input
+                                         {:type "text"
+                                          :value (or persona-name "")
+                                          :autoFocus true
+                                          :className (when show-error? "input-error")
+                                          :placeholder "e.g., Sarah, the Busy Product Manager"
+                                          :onChange #(on-change-name (.. % -target -value))})
+                                        (when show-error?
+                                          (dom/span :.field-error "Give your persona a name to get started")))
 
-                        (dom/div :.form-group
-                                 (dom/label "Key Details")
-                                 (dom/textarea
-                                  {:value (or persona-details "")
-                                   :placeholder "Age, role, key characteristics, goals, challenges..."
-                                   :rows 4
-                                   :onChange #(on-change-details (.. % -target -value))}))
+                               (dom/div :.form-group
+                                        (dom/label "Key Details")
+                                        (dom/textarea
+                                         {:value (or persona-details "")
+                                          :placeholder "Age, role, key characteristics, goals, challenges..."
+                                          :rows 4
+                                          :onChange #(on-change-details (.. % -target -value))}))
 
                         ;; Tips
-                        (dom/div :.persona-tips
-                                 (dom/h4 "Tips for a great persona:")
-                                 (dom/ul
-                                  (dom/li (dom/strong "Name them") " -- \"Sarah, 32\" beats \"busy professionals\"")
-                                  (dom/li (dom/strong "Be specific") " -- one role, one context, one story")
-                                  (dom/li (dom/strong "Make it real") " -- base on interviews, not assumptions"))))
+                               (dom/div :.persona-tips
+                                        (dom/h4 "Tips for a great persona:")
+                                        (dom/ul
+                                         (dom/li (dom/strong "Name them") " -- \"Sarah, 32\" beats \"busy professionals\"")
+                                         (dom/li (dom/strong "Be specific") " -- one role, one context, one story")
+                                         (dom/li (dom/strong "Make it real") " -- base on interviews, not assumptions"))))
 
                       ;; Actions (pinned at bottom)
                       (dom/div :.modal-actions
@@ -448,10 +447,10 @@
                                 "Cancel")
                                (dom/button
                                 {:className "btn btn-primary"
-                                  :onClick #(let [input (js/document.getElementById "section-note-input")
-                                                  value (.-value input)]
-                                              (when (seq (str/trim (or value "")))
-                                                (on-add value)))}
+                                 :onClick #(let [input (js/document.getElementById "section-note-input")
+                                                 value (.-value input)]
+                                             (when (seq (str/trim (or value "")))
+                                               (on-add value)))}
                                 "Add Note"))))))
 
 ;; ============================================================================
@@ -541,50 +540,50 @@
 (defsc EmpathyBuilderPage
   "Empathy Map builder with visual canvas interface and guided UX"
   [this {:keys [project/id empathy/session empathy/notes ui] :as props}]
-   {:query         [:project/id :project/name
-                    :empathy/session
-                    :empathy/notes
-                    {:ui [:ui/persona-name :ui/persona-details :ui/selected-template
-                          :ui/attempted-submit
-                          :ui/show-persona-modal :ui/show-tutorial :ui/tutorial-step
-                          :ui/show-help :ui/show-section-modal :ui/active-section
-                          :ui/undo-stack :ui/redo-stack :ui/presenting?
-                          :ui/show-wisdom]}
-                    [df/marker-table :empathy-builder]]
-    :ident         (fn [] [:page/id :empathy-builder])
-    :route-segment ["project" :project-id "empathy"]
-    :initial-state (fn [_] {:empathy/notes {}
-                             :ui {:ui/persona-name ""
-                                  :ui/persona-details ""
-                                  :ui/selected-template nil
-                                  :ui/attempted-submit false
-                                  :ui/show-persona-modal false
-                                   :ui/show-tutorial false
-                                   :ui/tutorial-step 1
-                                   :ui/show-help false
-                                   :ui/show-section-modal false
-                                   :ui/active-section nil
-                                   :ui/undo-stack []
-                                   :ui/redo-stack []
-                                   :ui/presenting? false
-                                   :ui/show-wisdom false}})
+  {:query         [:project/id :project/name
+                   :empathy/session
+                   :empathy/notes
+                   {:ui [:ui/persona-name :ui/persona-details :ui/selected-template
+                         :ui/attempted-submit
+                         :ui/show-persona-modal :ui/show-tutorial :ui/tutorial-step
+                         :ui/show-help :ui/show-section-modal :ui/active-section
+                         :ui/undo-stack :ui/redo-stack :ui/presenting?
+                         :ui/show-wisdom]}
+                   [df/marker-table :empathy-builder]]
+   :ident         (fn [] [:page/id :empathy-builder])
+   :route-segment ["project" :project-id "empathy"]
+   :initial-state (fn [_] {:empathy/notes {}
+                           :ui {:ui/persona-name ""
+                                :ui/persona-details ""
+                                :ui/selected-template nil
+                                :ui/attempted-submit false
+                                :ui/show-persona-modal false
+                                :ui/show-tutorial false
+                                :ui/tutorial-step 1
+                                :ui/show-help false
+                                :ui/show-section-modal false
+                                :ui/active-section nil
+                                :ui/undo-stack []
+                                :ui/redo-stack []
+                                :ui/presenting? false
+                                :ui/show-wisdom false}})
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
                      ;; Preserve client-only UI state during server loads
                      ;; Remove empty/nil :ui from server data so it doesn't overwrite client state
-                      (let [default-ui {:ui/persona-name ""
-                                        :ui/persona-details ""
-                                        :ui/selected-template nil
-                                        :ui/attempted-submit false
-                                        :ui/show-persona-modal false
-                                        :ui/show-tutorial false
-                                        :ui/tutorial-step 1
-                                        :ui/show-help false
-                                        :ui/show-section-modal false
-                                        :ui/active-section nil
-                                        :ui/undo-stack []
-                                        :ui/redo-stack []
-                                        :ui/presenting? false
-                                        :ui/show-wisdom false}
+                    (let [default-ui {:ui/persona-name ""
+                                      :ui/persona-details ""
+                                      :ui/selected-template nil
+                                      :ui/attempted-submit false
+                                      :ui/show-persona-modal false
+                                      :ui/show-tutorial false
+                                      :ui/tutorial-step 1
+                                      :ui/show-help false
+                                      :ui/show-section-modal false
+                                      :ui/active-section nil
+                                      :ui/undo-stack []
+                                      :ui/redo-stack []
+                                      :ui/presenting? false
+                                      :ui/show-wisdom false}
                           ;; Use existing client UI if it has real keys, otherwise use defaults
                           existing-ui (:ui current-normalized)
                           ui-val (if (and existing-ui (seq existing-ui))
@@ -631,7 +630,7 @@
         sections [:persona :think-feel :hear :see :say-do :pains-gains]
         completed-count (count (filter #(seq (get notes-by-section %)) sections))
         is-complete? (= completed-count (count sections))
-        
+
         ;; Check if persona is defined (has notes in persona section)
         has-persona? (seq (get notes-by-section :persona))]
 
@@ -643,193 +642,193 @@
       (dom/div :.builder-page.empathy-builder
 
         ;; Present Mode (fullscreen overlay)
-        (when presenting?
-          (canvas/presentation
-           {:title "Empathy Map"
-            :sections (mapv (fn [[k v]] {:key k :title (:title v) :icon (:icon v)})
-                            empathy-sections)
-            :notes-by-section notes-by-section
-            :on-exit #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? false)})])}))
+               (when presenting?
+                 (canvas/presentation
+                  {:title "Empathy Map"
+                   :sections (mapv (fn [[k v]] {:key k :title (:title v) :icon (:icon v)})
+                                   empathy-sections)
+                   :notes-by-section notes-by-section
+                   :on-exit #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? false)})])}))
 
         ;; Tutorial Modal (shown on first visit)
-        (when show-tutorial
-          (tutorial-modal
-           {:current-step tutorial-step
-            :on-next #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/tutorial-step (inc tutorial-step))})])
-            :on-prev #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/tutorial-step (dec tutorial-step))})])
-            :on-skip #(comp/transact! this [(m/set-props {:ui (-> ui
-                                                                  (assoc :ui/show-tutorial false)
-                                                                  (assoc :ui/show-persona-modal true))})])
-            :on-complete #(comp/transact! this [(m/set-props {:ui (-> ui
-                                                                      (assoc :ui/show-tutorial false)
-                                                                      (assoc :ui/show-persona-modal true))})])}))
+               (when show-tutorial
+                 (tutorial-modal
+                  {:current-step tutorial-step
+                   :on-next #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/tutorial-step (inc tutorial-step))})])
+                   :on-prev #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/tutorial-step (dec tutorial-step))})])
+                   :on-skip #(comp/transact! this [(m/set-props {:ui (-> ui
+                                                                         (assoc :ui/show-tutorial false)
+                                                                         (assoc :ui/show-persona-modal true))})])
+                   :on-complete #(comp/transact! this [(m/set-props {:ui (-> ui
+                                                                             (assoc :ui/show-tutorial false)
+                                                                             (assoc :ui/show-persona-modal true))})])}))
 
         ;; Persona Modal (after tutorial or if no persona defined)
-        (when (and show-persona-modal (not has-persona?))
-          (persona-modal
-           {:persona-name persona-name
-            :persona-details persona-details
-            :selected-template selected-template
-            :attempted-submit? attempted-submit
-            :on-change-name (fn [v]
+               (when (and show-persona-modal (not has-persona?))
+                 (persona-modal
+                  {:persona-name persona-name
+                   :persona-details persona-details
+                   :selected-template selected-template
+                   :attempted-submit? attempted-submit
+                   :on-change-name (fn [v]
+                                     (comp/transact! this
+                                                     [(m/set-props {:ui (assoc ui
+                                                                               :ui/persona-name v
+                                                                               :ui/attempted-submit false)})]))
+                   :on-change-details (fn [v]
+                                        (comp/transact! this
+                                                        [(m/set-props {:ui (assoc ui :ui/persona-details v)})]))
+                   :on-select-template (fn [tname tdetails]
+                                         (if (= tname "Custom Persona")
+                                           (comp/transact! this
+                                                           [(m/set-props {:ui (assoc ui
+                                                                                     :ui/selected-template tname
+                                                                                     :ui/persona-name ""
+                                                                                     :ui/persona-details "")})])
+                                           (comp/transact! this
+                                                           [(m/set-props {:ui (assoc ui
+                                                                                     :ui/selected-template tname
+                                                                                     :ui/persona-name tname
+                                                                                     :ui/persona-details tdetails)})])))
+                   :on-attempt-submit (fn []
+                                        (comp/transact! this
+                                                        [(m/set-props {:ui (assoc ui :ui/attempted-submit true)})]))
+                   :on-submit (fn [{:keys [persona-name persona-details]}]
+                                (let [content (str persona-name
+                                                   (when (seq persona-details)
+                                                     (str " - " persona-details)))]
+                                  (comp/transact! this
+                                                  [(add-empathy-note
+                                                    {:session-id (:session/id session-data)
+                                                     :section-key :persona
+                                                     :content content})
+                                                   (m/set-props {:ui (assoc ui
+                                                                            :ui/show-persona-modal false
+                                                                            :ui/persona-name ""
+                                                                            :ui/persona-details ""
+                                                                            :ui/selected-template nil
+                                                                            :ui/attempted-submit false)})])))
+                   :on-skip (fn []
                               (comp/transact! this
-                                [(m/set-props {:ui (assoc ui
-                                                          :ui/persona-name v
-                                                          :ui/attempted-submit false)})]))
-            :on-change-details (fn [v]
-                                 (comp/transact! this
-                                   [(m/set-props {:ui (assoc ui :ui/persona-details v)})]))
-            :on-select-template (fn [tname tdetails]
-                                  (if (= tname "Custom Persona")
-                                    (comp/transact! this
-                                      [(m/set-props {:ui (assoc ui
-                                                                :ui/selected-template tname
-                                                                :ui/persona-name ""
-                                                                :ui/persona-details "")})])
-                                    (comp/transact! this
-                                      [(m/set-props {:ui (assoc ui
-                                                                :ui/selected-template tname
-                                                                :ui/persona-name tname
-                                                                :ui/persona-details tdetails)})])))
-            :on-attempt-submit (fn []
-                                 (comp/transact! this
-                                   [(m/set-props {:ui (assoc ui :ui/attempted-submit true)})]))
-            :on-submit (fn [{:keys [persona-name persona-details]}]
-                         (let [content (str persona-name 
-                                            (when (seq persona-details)
-                                              (str " - " persona-details)))]
-                           (comp/transact! this
-                                           [(add-empathy-note
-                                             {:session-id (:session/id session-data)
-                                              :section-key :persona
-                                              :content content})
-                                            (m/set-props {:ui (assoc ui
-                                                                     :ui/show-persona-modal false
-                                                                     :ui/persona-name ""
-                                                                     :ui/persona-details ""
-                                                                     :ui/selected-template nil
-                                                                     :ui/attempted-submit false)})])))
-            :on-skip (fn []
-                       (comp/transact! this
-                                       [(m/set-props {:ui (assoc ui
-                                                                  :ui/show-persona-modal false
-                                                                  :ui/persona-name ""
-                                                                  :ui/persona-details ""
-                                                                  :ui/selected-template nil
-                                                                  :ui/attempted-submit false)})]))}))
+                                              [(m/set-props {:ui (assoc ui
+                                                                        :ui/show-persona-modal false
+                                                                        :ui/persona-name ""
+                                                                        :ui/persona-details ""
+                                                                        :ui/selected-template nil
+                                                                        :ui/attempted-submit false)})]))}))
 
         ;; Section Add Modal (when adding notes with guidance)
-        (when (and show-section-modal active-section)
-          (section-add-modal
-           {:section-key active-section
-            :on-add (fn [content]
-                      (comp/transact! this
-                                      [(add-empathy-note
-                                        {:session-id (:session/id session-data)
-                                         :section-key active-section
-                                         :content content})
-                                       (m/set-props {:ui (-> ui
-                                                             (assoc :ui/show-section-modal false)
-                                                             (assoc :ui/active-section nil))})]))
-            :on-cancel #(comp/transact! this [(m/set-props {:ui (-> ui
+               (when (and show-section-modal active-section)
+                 (section-add-modal
+                  {:section-key active-section
+                   :on-add (fn [content]
+                             (comp/transact! this
+                                             [(add-empathy-note
+                                               {:session-id (:session/id session-data)
+                                                :section-key active-section
+                                                :content content})
+                                              (m/set-props {:ui (-> ui
                                                                     (assoc :ui/show-section-modal false)
-                                                                    (assoc :ui/active-section nil))})])}))
+                                                                    (assoc :ui/active-section nil))})]))
+                   :on-cancel #(comp/transact! this [(m/set-props {:ui (-> ui
+                                                                           (assoc :ui/show-section-modal false)
+                                                                           (assoc :ui/active-section nil))})])}))
 
         ;; Help Panel (slide-out)
-        (when show-help
-          (help-panel
-           {:on-close #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-help false)})])
-            :on-start-tutorial #(comp/transact! this [(m/set-props {:ui (-> ui
-                                                                            (assoc :ui/show-help false)
-                                                                            (assoc :ui/show-tutorial true)
-                                                                            (assoc :ui/tutorial-step 1))})])}))
+               (when show-help
+                 (help-panel
+                  {:on-close #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-help false)})])
+                   :on-start-tutorial #(comp/transact! this [(m/set-props {:ui (-> ui
+                                                                                   (assoc :ui/show-help false)
+                                                                                   (assoc :ui/show-tutorial true)
+                                                                                   (assoc :ui/tutorial-step 1))})])}))
 
         ;; Header
-        (dom/div :.builder-header
-                 (dom/div :.header-content
-                          (dom/h1 "🧠 Empathy Map Builder")
-                          (dom/p :.builder-subtitle
-                                 (str "Understanding your customer for: " project-name)))
-                 (dom/div :.header-actions
+               (dom/div :.builder-header
+                        (dom/div :.header-content
+                                 (dom/h1 "🧠 Empathy Map Builder")
+                                 (dom/p :.builder-subtitle
+                                        (str "Understanding your customer for: " project-name)))
+                        (dom/div :.header-actions
                    ;; Wisdom toggle
-                   (dom/button
-                    {:className (str "btn-wisdom " (when show-wisdom "active"))
-                     :onClick #(comp/transact! this [(m/set-props {:ui (update ui :ui/show-wisdom not)})])}
-                    "💡 Wisdom")
+                                 (dom/button
+                                  {:className (str "btn-wisdom " (when show-wisdom "active"))
+                                   :onClick #(comp/transact! this [(m/set-props {:ui (update ui :ui/show-wisdom not)})])}
+                                  "💡 Wisdom")
                    ;; Help button
-                   (dom/button
-                    {:className "btn btn-help"
-                     :onClick #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-help true)})])
-                     :title "How to use this tool"}
-                    "❓ Help")))
+                                 (dom/button
+                                  {:className "btn btn-help"
+                                   :onClick #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-help true)})])
+                                   :title "How to use this tool"}
+                                  "❓ Help")))
 
         ;; Flywheel progress indicator
-        (ui/flywheel-indicator
-          {:current-step :empathy
-           :project-id project-id
-           :on-navigate (fn [route]
-                          (let [encoded-id (str/replace (str project-id) "/" "~")]
-                            (dr/change-route! this ["project" encoded-id route])))})
+               (ui/flywheel-indicator
+                {:current-step :empathy
+                 :project-id project-id
+                 :on-navigate (fn [route]
+                                (let [encoded-id (str/replace (str project-id) "/" "~")]
+                                  (dr/change-route! this ["project" encoded-id route])))})
 
         ;; Wisdom sidebar (contextual tips)
-        (ui/wisdom-sidebar
-          {:phase :empathy
-           :show? show-wisdom
-           :project-id project-id
-           :on-close #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-wisdom false)})])})
+               (ui/wisdom-sidebar
+                {:phase :empathy
+                 :show? show-wisdom
+                 :project-id project-id
+                 :on-close #(comp/transact! this [(m/set-props {:ui (assoc ui :ui/show-wisdom false)})])})
 
         ;; Toolbar
-        (canvas/toolbar
-         {:on-export (fn []
-                       (let [json-data (canvas/export-canvas-to-json (vals notes-map))]
-                         (canvas/download-json (str "empathy-map-" project-id ".json") json-data)))
-          :on-share (fn [] (js/alert "Share link copied to clipboard!"))
-           :on-present (fn [] (comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? true)})]))
-          :on-clear (fn []
-                      (when (js/confirm "Clear all notes? This cannot be undone.")
-                        (comp/transact! this [(clear-empathy-notes {})])))
-          :on-undo (fn [] (comp/transact! this [(undo-empathy {})]))
-          :on-redo (fn [] (comp/transact! this [(redo-empathy {})]))
-          :can-undo? (seq undo-stack)
-          :can-redo? (seq redo-stack)})
+               (canvas/toolbar
+                {:on-export (fn []
+                              (let [json-data (canvas/export-canvas-to-json (vals notes-map))]
+                                (canvas/download-json (str "empathy-map-" project-id ".json") json-data)))
+                 :on-share (fn [] (js/alert "Share link copied to clipboard!"))
+                 :on-present (fn [] (comp/transact! this [(m/set-props {:ui (assoc ui :ui/presenting? true)})]))
+                 :on-clear (fn []
+                             (when (js/confirm "Clear all notes? This cannot be undone.")
+                               (comp/transact! this [(clear-empathy-notes {})])))
+                 :on-undo (fn [] (comp/transact! this [(undo-empathy {})]))
+                 :on-redo (fn [] (comp/transact! this [(redo-empathy {})]))
+                 :can-undo? (seq undo-stack)
+                 :can-redo? (seq redo-stack)})
 
         ;; Progress
-        (empathy-progress-bar {:completed completed-count
-                               :total (count sections)
-                               :notes-by-section notes-by-section})
+               (empathy-progress-bar {:completed completed-count
+                                      :total (count sections)
+                                      :notes-by-section notes-by-section})
 
         ;; Completion banner (inline, above canvas)
-        (when is-complete?
-          (dom/div :.completion-banner
-                   (dom/div :.completion-banner-content
-                            (dom/span :.completion-banner-icon "🎉")
-                            (dom/span :.completion-banner-text "Empathy Map Complete! Ready for the next step.")
-                            (ui/button
-                             {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~") "valueprop"])
-                              :variant :primary
-                              :className "completion-banner-btn"}
-                             "Continue to Value Proposition →"))))
+               (when is-complete?
+                 (dom/div :.completion-banner
+                          (dom/div :.completion-banner-content
+                                   (dom/span :.completion-banner-icon "🎉")
+                                   (dom/span :.completion-banner-text "Empathy Map Complete! Ready for the next step.")
+                                   (ui/button
+                                    {:on-click #(dr/change-route! this ["project" (str/replace (str project-id) "/" "~") "valueprop"])
+                                     :variant :primary
+                                     :className "completion-banner-btn"}
+                                    "Continue to Value Proposition →"))))
 
         ;; Visual Canvas (always shown)
-        (let [init-data (canvas/initialize-empathy-map)]
-          (dom/div :.canvas-container
-            (canvas/empathy-map
-              {:sections (:canvas/sections init-data)
-               :items (vals notes-map)
-               :on-item-add (fn [section-key]
-                                (comp/transact! this
-                                  [(m/set-props {:ui (-> ui
-                                                         (assoc :ui/show-section-modal true)
-                                                         (assoc :ui/active-section section-key))})]))
-               :on-item-edit (fn [note-id new-content]
-                                (comp/transact! this
-                                  [(update-empathy-note
-                                    {:note-id note-id
-                                     :updates {:item/content new-content}})]))
-               :on-item-delete (fn [note-id]
-                                  (comp/transact! this
-                                    [(delete-empathy-note
-                                      {:note-id note-id})]))})))))))
+               (let [init-data (canvas/initialize-empathy-map)]
+                 (dom/div :.canvas-container
+                          (canvas/empathy-map
+                           {:sections (:canvas/sections init-data)
+                            :items (vals notes-map)
+                            :on-item-add (fn [section-key]
+                                           (comp/transact! this
+                                                           [(m/set-props {:ui (-> ui
+                                                                                  (assoc :ui/show-section-modal true)
+                                                                                  (assoc :ui/active-section section-key))})]))
+                            :on-item-edit (fn [note-id new-content]
+                                            (comp/transact! this
+                                                            [(update-empathy-note
+                                                              {:note-id note-id
+                                                               :updates {:item/content new-content}})]))
+                            :on-item-delete (fn [note-id]
+                                              (comp/transact! this
+                                                              [(delete-empathy-note
+                                                                {:note-id note-id})]))})))))))
 
 
 

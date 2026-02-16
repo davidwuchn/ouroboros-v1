@@ -8,7 +8,7 @@
      (def-resolver-tool!
        #'memory-get                    ; Resolver var
        :memory/get                     ; Tool name
-       {:description "Get value from memory"
+       {:description \"Get value from memory\"
         :unique? true                  ; Expose to ECA
         :category :memory})            ; Category
 
@@ -20,8 +20,21 @@
   (:require
    [com.wsscode.pathom3.connect.operation :as pco]
    [clojure.string :as str]
-   [ouroboros.resolver-registry :as resolver-registry]
    [ouroboros.tool-registry :as tool-registry]))
+
+;; ============================================================================
+;; Query Function (lazy resolution to avoid circular dependency)
+;; ============================================================================
+
+(def ^:private query-fn-delay
+  "Delay for lazy resolution of the query function.
+   This avoids circular dependencies between tool-resolver and query namespaces."
+  (delay (requiring-resolve 'ouroboros.query/q)))
+
+(defn- execute-query
+  "Execute a Pathom query, resolving the query function on first use."
+  [query]
+  (@query-fn-delay query))
 
 ;; ============================================================================
 ;; Tool Mapping Registry
@@ -65,12 +78,12 @@
 (defn- pco-input->tool-params
   "Convert Pathom ::pco/input to tool parameter schema"
   [input-spec]
-  (into {} (for [attr (or input-spec [])]
-             (let [k (if (vector? attr) (first attr) attr)
-                   type-info (when (vector? attr) (second attr))]
-               [k {:type (or (:type type-info) :any)
-                   :description (:description type-info)
-                   :required (not (:optional? type-info false))}]))))
+  (into {}
+        (for [attr (or input-spec [])
+              :let [[k type-info] (if (vector? attr) attr [attr nil])]]
+          [k {:type (or (:type type-info) :any)
+              :description (:description type-info)
+              :required (not (:optional? type-info false))}])))
 
 (defn register-resolver-as-tool!
   "Register a resolver's tool mapping with the tool registry
@@ -88,12 +101,12 @@
        tool-name
        {:description (or (:description mapping) doc (str "Tool: " tool-name))
         :parameters (pco-input->tool-params input-spec)
-        :fn (fn [args]
+        :fn (fn [_args]
               ;; Execute via Pathom
               (let [query (if output-spec
                             [{resolver-kw output-spec}]
                             [resolver-kw])
-                    resolved ((resolve 'ouroboros.query/q) query)]
+                    resolved (execute-query query)]
                 (get resolved resolver-kw)))
         :unique? (:unique? mapping false)
         :category (:category mapping (keyword (namespace tool-name)))
@@ -115,13 +128,11 @@
     (println (str "✓ Registered " (count mappings) " tools from resolvers"))
     names))
 
-
-
 ;; ============================================================================
 ;; Convenience: Define tools from resolvers
 ;; ============================================================================
 
-(defmacro def-resolver-tool!
+(defn def-resolver-tool!
   "Define a tool mapping for a resolver
 
    Usage:
@@ -130,15 +141,15 @@
         :unique? true
         :category :memory})"
   [resolver-var tool-name attrs]
-  `(register-resolver-tool-mapping! ~resolver-var ~tool-name ~attrs))
+  (register-resolver-tool-mapping! resolver-var tool-name attrs))
 
 ;; ============================================================================
 ;; Exports
 ;; ============================================================================
 
 (comment
-  ;; Define tool mappings
-  (def-resolver-tool! #'memory-get :memory/get
+  ;; Define tool mappings (example with placeholder function)
+  (def-resolver-tool! (fn [_] nil) :memory/get
     {:description "Get value from persistent memory"
      :unique? true
      :category :memory})

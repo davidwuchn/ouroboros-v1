@@ -171,14 +171,11 @@
      :funnel/stages
      (mapv (fn [stage]
              (let [reached (count (filter #(contains? % stage) user-progress))
-                   completed (count (filter #(some (fn [s]
-                                                     (and (= (:session/type s) stage)
-                                                          (= (:session/state s) :completed)))
-                                                   (vals (or (memory/get-value
-                                                              (keyword (str "builder-sessions/"
-                                                                            (first user-progress))))
-                                                             {})))
-                                            user-progress))]
+                   completed (let [completed? (fn [session]
+                                                (and (= (:session/type session) stage)
+                                                     (= (:session/state session) :completed)))]
+                               (count (filter #(some completed? %)
+                                              user-progress)))]
                {:stage stage
                 :reached reached
                 :reached-percentage (if (> total-users 0)
@@ -231,7 +228,7 @@
   "Predict likelihood of project success based on patterns"
   [project-id user-id]
   (let [health (calculate-health-score project-id user-id)
-        progress (project-progress project-id user-id)
+        _progress (project-progress project-id user-id)
 
         ;; Simple prediction model
         score (:health/score health)
@@ -292,11 +289,11 @@
 
 (pco/defresolver analytics-project-progress
   "Get project progress analytics"
-  [{:keys [project/id user/id]}]
+  [{project-id :project/id _user-id :user/id}]
   {::pco/input [:project/id :user/id]
    ::pco/output [:project/overall-percentage
                  {:project/stages [:stage/type :stage/status :stage/percentage]}]}
-  (let [progress (project-progress id id)]
+  (let [progress (project-progress project-id project-id)]
     {:project/overall-percentage (:project/overall-percentage progress)
      :project/stages (:project/stages progress)}))
 
@@ -318,17 +315,17 @@
 
 (pco/defresolver analytics-health-score
   "Get project health score"
-  [{:keys [project/id user/id]}]
+  [{project-id :project/id _user-id :user/id}]
   {::pco/input [:project/id :user/id]
    ::pco/output [:health/score :health/factors]}
-  (calculate-health-score id id))
+  (calculate-health-score project-id project-id))
 
 (pco/defresolver analytics-success-prediction
   "Get success prediction"
-  [{:keys [project/id user/id]}]
+  [{project-id :project/id _user-id :user/id}]
   {::pco/input [:project/id :user/id]
    ::pco/output [:likelihood :confidence :message]}
-  (predict-success id id))
+  (predict-success project-id project-id))
 
 ;; ============================================================================
 ;; Registration

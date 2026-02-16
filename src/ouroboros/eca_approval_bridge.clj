@@ -27,7 +27,6 @@
   (:require
    [clojure.string :as str]
    [ouroboros.confirmation :as confirmation]
-   [ouroboros.chat.protocol :as chatp]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.eca-client :as eca-client]
    [ouroboros.educational-approval :as edu]))
@@ -306,7 +305,7 @@
 
    Sends an educational message to all active chat sessions asking for confirmation.
    Includes risk assessment, best practices, and learning opportunities."
-  [confirmation-id description tool-name arguments]
+  [confirmation-id _description tool-name arguments]
   (let [adapter (:adapter @state)
         active-sessions (:active-sessions @state)
         ;; Get educational enhancement
@@ -510,8 +509,8 @@
   "Process /confirm command from chat
 
    Usage: (process-chat-confirm! chat-id \"eca-123\" \"admin\")"
-  [chat-id confirmation-id user-name]
-  (if-let [[prefix eca-id] (str/split confirmation-id #"-" 2)]
+  [_chat-id confirmation-id user-name]
+  (if-let [[prefix _eca-id] (str/split confirmation-id #"-" 2)]
     (if (= prefix "eca")
       (approve-confirmation! confirmation-id user-name)
       {:status :error :reason "Invalid confirmation ID format"})
@@ -521,12 +520,13 @@
   "Process /deny command from chat
 
    Usage: (process-chat-deny! chat-id \"eca-123\" \"Too risky\" \"admin\")"
-  [chat-id confirmation-id reason user-name]
-  (if-let [[prefix eca-id] (str/split confirmation-id #"-" 2)]
+  [_chat-id confirmation-id reason user-name]
+  (if-let [[prefix _eca-id] (str/split confirmation-id #"-" 2)]
     (if (= prefix "eca")
       (deny-confirmation! confirmation-id reason :denied-by user-name)
       {:status :error :reason "Invalid confirmation ID format"})
     {:status :error :reason "Missing confirmation ID"}))
+
 ;; ============================================================================
 ;; Comments / Examples
 ;; ============================================================================

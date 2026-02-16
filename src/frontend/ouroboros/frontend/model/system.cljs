@@ -7,18 +7,14 @@
 ;; System Status
 ;; ============================================================================
 
-(defsc SystemStatus [this {:keys [:system/healthy? :system/current-state :system/meta]}]
+(defsc SystemStatus [_this _props]
   {:query [:system/healthy?
            :system/current-state
            :system/meta]
    :ident (fn [] [:component/id :system-status])}
   {})
 
-(defsc SystemMetrics [this {:keys [:telemetry/total-events
-                                   :telemetry/tool-invocations
-                                   :telemetry/errors
-                                   :telemetry/error-rate
-                                   :telemetry/avg-tool-duration]}]
+(defsc SystemMetrics [_this _props]
   {:query [:telemetry/total-events
            :telemetry/tool-invocations
            :telemetry/errors

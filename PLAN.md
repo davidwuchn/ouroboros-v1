@@ -1103,6 +1103,31 @@ Ouroboros delegates AI capabilities to ECA. ECA manages:
 
 ---
 
+## Documentation Structure (New)
+
+Following the Compound Engineering pattern, we've reorganized documentation:
+
+```
+docs/
+├── agents/              # Prompt-driven reviewer agents
+│   ├── review/          # Code review agents (idioms, style)
+│   ├── security/        # Security-focused reviewers
+│   └── architecture/    # Statechart, resolver patterns
+├── plans/               # Per-feature planning documents
+│   └── TEMPLATE.md      # Standard plan format
+├── solutions/           # Institutional knowledge base
+│   └── TEMPLATE.md      # Solution capture format
+└── patterns/            # Reusable architectural patterns
+    ├── statechart-patterns.md
+    └── pathom-resolver-patterns.md
+```
+
+**Using the new structure:**
+1. **Planning:** Create `docs/plans/YYYY-MM-DD-feature-name.md` before coding
+2. **Review:** Reference appropriate agents in `docs/agents/` for PR review
+3. **Capture:** Document solved problems in `docs/solutions/` after fixes
+4. **Learn:** Reference `docs/patterns/` for implementation guidance
+
 ## Implementation Priority Matrix
 
 **P0** = Critical security & core functionality (completed)  
@@ -1178,6 +1203,34 @@ Ouroboros delegates AI capabilities to ECA. ECA manages:
 | Telemetry | Ouroboros-specific observability (event tracking, metrics) |
 | Git Tools | Repository operations (commits, status, diff, log) - via direct ECA integration |
 | OpenAPI Client | Dynamic API client generation from OpenAPI specs - via direct ECA integration |
+
+## Recent Fixes (2026-02-14)
+
+**Empathy Map Builder Issues Resolved**:
+
+1. **Natural query "show me empathy map" → No response**  
+   - Added dedicated `/empathy` command to list saved empathy maps  
+   - Updated `/help` to include new command  
+   - Natural queries should now use `/empathy` instead of failing via ECA rate limits
+
+2. **Empathy builder responses not processed**  
+   - Enhanced WebSocket chat handler to detect `:empathy/mode` session context  
+   - Responses during empathy mode now route to empathy processor (not ECA)  
+   - Added comprehensive debug telemetry for mode detection  
+   - Session context updates automatically with progress
+
+3. **Rate limit error handling improved**  
+   - Enhanced system error forwarding to detect rate limit errors (429, "rate_limit_reached_error", "quota")  
+   - Friendly user messages suggest fallback actions like `/empathy` command  
+   - Original error details preserved for debugging
+
+**Technical Changes**:
+- Modified: `src/ouroboros/ws/handlers/chat.clj` (mode detection, session routing)
+- Fixed: `src/ouroboros/learning/empathy_map.clj` (tag generation logic)
+- Enhanced: `src/ouroboros/ws/stream.clj` (system error forwarding)
+- Added: `src/ouroboros/chat/commands.clj` (`/empathy` command, help updates)
+
+**Verification**: Empathy map flow now works end-to-end through all 7 sections (Persona → Think & Feel → Hear → See → Say & Do → Pains → Gains) with automatic learning storage.
 
 ## How to Contribute
 
