@@ -228,7 +228,6 @@
   "Predict likelihood of project success based on patterns"
   [project-id user-id]
   (let [health (calculate-health-score project-id user-id)
-        _progress (project-progress project-id user-id)
 
         ;; Simple prediction model
         score (:health/score health)
