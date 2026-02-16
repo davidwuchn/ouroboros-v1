@@ -302,10 +302,12 @@
            (ws/request-flywheel-progress! project-id))
          (when-not (get-in ws-state [:kanban/board project-id])
            (ws/request-kanban-board! project-id)))
-       ;; Pre-fetch wisdom data for the overview card
-       (when-not (get-in ws-state [:content/generated :templates])
+       ;; Pre-fetch wisdom data for the overview card (only if WS is connected)
+       (when (and (ws/connected?)
+                  (not (get-in ws-state [:content/generated :templates])))
          (ws/request-content! :templates))
-       (when-not (get-in ws-state [:content/generated :learning-categories])
+       (when (and (ws/connected?)
+                  (not (get-in ws-state [:content/generated :learning-categories])))
          (ws/request-content! :learning-categories))))}
 
   (let [loading? (df/loading? (get props [df/marker-table :dashboard]))

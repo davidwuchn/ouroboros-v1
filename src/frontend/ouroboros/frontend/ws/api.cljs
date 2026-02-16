@@ -144,6 +144,10 @@
                   :flywheel-guide, :section-hints, :learning-categories
    Includes a 25s safety timeout."
   [content-type & {:keys [project-id context]}]
+  ;; Guard: don't request if WebSocket is not connected
+  (when-not (conn/connected?)
+    (js/console.warn "request-content: WebSocket not connected, skipping request for" (name content-type))
+    nil)
   (when-let [state-atom @state/app-state-atom]
     (swap! state-atom
            (fn [s]

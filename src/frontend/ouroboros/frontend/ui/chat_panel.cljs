@@ -827,7 +827,7 @@
       (let [state-atom @ws/app-state-atom
             eca-suggestions (when state-atom (get-in @state-atom [:content/generated :chat-suggestions]))
             eca-loading? (when state-atom (get-in @state-atom [:content/loading? :chat-suggestions]))]
-        (when (and state-atom (not eca-suggestions) (not eca-loading?))
+        (when (and state-atom (ws/connected?) (not eca-suggestions) (not eca-loading?))
           (let [route (:chat/context (comp/props this))
                 ctx (detect-context route)]
             (ws/request-content! :chat-suggestions :context (or ctx "general"))))))

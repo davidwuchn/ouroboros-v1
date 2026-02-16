@@ -886,7 +886,9 @@
    :componentDidMount (fn [this]
                          (let [state-atom @ws/app-state-atom
                                state (when state-atom @state-atom)]
+                           ;; Only request templates if WebSocket is connected
                            (when (and state
+                                      (ws/connected?)
                                       (not (get-in state [:content/generated :templates]))
                                       (not (get-in state [:content/loading? :templates])))
                              (ws/request-content! :templates))
