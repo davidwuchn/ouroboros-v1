@@ -8,7 +8,9 @@
    Mutations: memory/save!, memory/delete!, memory/clear!"
   (:require
    [clojure.edn :as edn]
+   [clojure.string :as str]
    [ouroboros.fs :as fs]
+   [ouroboros.telemetry :as telemetry]
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.resolver-registry :as registry]))
 
@@ -22,7 +24,7 @@
 
 (defonce memory-store
    ;; In-memory store, persisted to disk
-   (atom {}))
+  (atom {}))
 
 ;; Debounced write state
 (defonce ^:private pending-write? (atom false))
@@ -118,6 +120,63 @@
 ;; NOTE: Do NOT define swap! here - it would shadow clojure.core/swap!
 ;; Use update! for memory updates, or swap! directly on memory-store atom
 
+;; ============================================================================
+;; Search & Retrieval (λ(system) Instrumented)
+;; ============================================================================
+
+(defn search
+  "Search memory keys and values for query string
+   
+   λ(system) Integration: Emits telemetry events for access tracking
+   and evolution analysis.
+   
+   Usage: (search \"config\") => [{:key :db-config :value {...}} ...]"
+  [query & {:keys [limit] :or {limit 10}}]
+  (let [start-ms (System/currentTimeMillis)
+        q (str/lower-case (str query))
+        results (vec
+                 (take limit
+                       (filter (fn [[k v]]
+                                 (or (str/includes? (str/lower-case (str k)) q)
+                                     (str/includes? (str/lower-case (str v)) q)))
+                               @memory-store)))
+        elapsed-ms (- (System/currentTimeMillis) start-ms)]
+
+    ;; Emit telemetry for λ(system) evolution tracking
+    (telemetry/emit!
+     {:event :memory/search
+      :query query
+      :results-count (count results)
+      :duration-ms elapsed-ms
+      :success? true})
+
+    ;; Return formatted results
+    (mapv (fn [[k v]]
+            {:memory/key k
+             :memory/value v
+             :memory/retrieved-at (System/currentTimeMillis)})
+          results)))
+
+(defn get-instrumented
+  "Get value with λ(system) telemetry tracking
+   
+   Usage: (get-instrumented :user/settings)"
+  [key]
+  (let [start-ms (System/currentTimeMillis)
+        value (get-value key)
+        elapsed-ms (- (System/currentTimeMillis) start-ms)
+        found? (contains? @memory-store key)]
+
+    ;; Emit telemetry
+    (telemetry/emit!
+     {:event :memory/retrieve
+      :key key
+      :found? found?
+      :duration-ms elapsed-ms
+      :success? true})
+
+    value))
+
 (defn init!
   "Initialize memory - load from disk"
   []
@@ -139,8 +198,20 @@
 (pco/defresolver memory-get [{:keys [memory/key]}]
   {::pco/input [:memory/key]
    ::pco/output [:memory/value :memory/exists?]}
-  (let [exists? (contains? @memory-store key)]
-    {:memory/value (get @memory-store key)
+  (let [start-ms (System/currentTimeMillis)
+        exists? (contains? @memory-store key)
+        value (get @memory-store key)
+        elapsed-ms (- (System/currentTimeMillis) start-ms)]
+
+    ;; Emit telemetry for λ(system) evolution tracking
+    (telemetry/emit!
+     {:event :memory/retrieve
+      :key key
+      :found? exists?
+      :duration-ms elapsed-ms
+      :success? true})
+
+    {:memory/value value
      :memory/exists? exists?}))
 
 (pco/defresolver memory-keys [_]
@@ -169,13 +240,41 @@
   {::pco/output [:memory/cleared? :memory/count]}
   (clear-memory!))
 
+(pco/defresolver memory-search [{:keys [memory/query memory/limit]}]
+  {::pco/input [:memory/query :memory/limit]
+   ::pco/output [{:memory/search-results [:memory/key :memory/value]}]}
+  (let [start-ms (System/currentTimeMillis)
+        q (str/lower-case (str query))
+        lim (or limit 10)
+        results (vec
+                 (take lim
+                       (filter (fn [[k v]]
+                                 (or (str/includes? (str/lower-case (str k)) q)
+                                     (str/includes? (str/lower-case (str v)) q)))
+                               @memory-store)))
+        elapsed-ms (- (System/currentTimeMillis) start-ms)]
+
+    ;; Emit telemetry for λ(system) evolution tracking
+    (telemetry/emit!
+     {:event :memory/search
+      :query query
+      :results-count (count results)
+      :duration-ms elapsed-ms
+      :success? true})
+
+    {:memory/search-results
+     (mapv (fn [[k v]]
+             {:memory/key k
+              :memory/value v})
+           results)}))
+
 ;; ============================================================================
 ;; Exports
 ;; ============================================================================
 
 (def resolvers
   "Pathom resolvers for memory queries"
-  [memory-all memory-get memory-keys memory-meta])
+  [memory-all memory-get memory-keys memory-meta memory-search])
 
 (def mutations
   "Pathom mutations for memory operations"
@@ -189,8 +288,11 @@
   ;; Direct usage
   (init!)
   (save-value! :test "hello")
+  (save-value! :config {:db {:host "localhost"}})
   (get-value :test)
+  (get-instrumented :test)  ; With telemetry
   (get-all)
+  (search "config")  ; λ(system) instrumented search
   (delete-value! :test)
   (clear-memory!)
 
@@ -198,4 +300,6 @@
   (require '[ouroboros.query :as q])
   (q/q [:memory/keys])
   (q/q [{:memory/all [:memory/key :memory/value]}])
-  (q/q [:memory/meta]))
+  (q/q [:memory/meta])
+  (q/q [{:memory/search-results [:memory/key :memory/value]}]
+       {:memory/query "config"}))

@@ -62,19 +62,22 @@ See detailed analysis sections below for specific recommendations.
 | **UI Cleanup: Remove Users/Sessions** | **✅ Done** | **Removed chat-platform pages, cleaned navbar/router/dashboard/query. Single-project model.** |
 | **Kanban Board** | **✅ Done** | **Auto-derived task board on Project page: 29 cards, 3 columns, builder color-coding, view toggle (Flywheel/Kanban)** |
 | **Phase D: Dynamic Content** | **✅ Done** | **Replaced all hardcoded static content with ECA-powered dynamic content. New `analytics/dashboard` + `content/generate` WS handlers. 7 content types. Real analytics. Frontend ECA-first with static fallback. 10 files (3 backend, 7 frontend).** |
-| λ(system) Self-Evolution | ◐ Partial | Core mechanics implemented, integration missing (telemetry bridge, reviewer skill, maintenance schedule) |
+| λ(system) Self-Evolution | ✅ Done | Telemetry bridge, OODA observation, reviewer skill, memory instrumentation, maintenance schedule all integrated. Evolution loop active. |
 
 **Key Insight**: Ouroboros now has the foundation to transform from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
 
 ## Current Focus
 
-**λ(system) Integration (P0)** - Connect evolution mechanics to living system:
-- **Telemetry Bridge** - Add listener routing `:review/*`, `:memory/*` events to observation functions
-- **Reviewer Skill Hooks** - Modify clojure-reviewer to call `track-issue!` and `observe-*!` 
-- **Memory Search Instrumentation** - Modify `memory/search` to call `record-retrieval!` and `track-search!`
-- **Maintenance Schedule** - Add `bb lambda:cron` task for weekly `auto-evolve!` and `run-checklist!`
+**λ(system) Integration (P0)** - ✅ COMPLETE
+- **Telemetry Bridge** - ✅ Routes `:review/*`, `:memory/*`, `:tool/*`, `:query/*` events to observation functions
+- **Reviewer Skill Hooks** - ✅ `skills/clojure-reviewer.md` with `emit-review-event` integration
+- **Memory Search Instrumentation** - ✅ `memory/search` and `memory-get` resolver emit telemetry
+- **Maintenance Schedule** - ✅ `bb lambda:cron` runs `auto-evolve!` and `run-checklist!`
 
-**Target**: Complete integration by 2026-02-23. λ(system) becomes active learning flywheel.
+**Next Priorities**:
+1. **Container Isolation** - OS-level container isolation for ECA execution (P1)
+2. **Per-Channel Isolation** - Filesystem isolation per chat channel/platform (P1)
+3. **Metrics Export** - Prometheus/OpenTelemetry format for monitoring (P1)
 
 ## ECA Integration Strategy ✅
 
@@ -1193,11 +1196,11 @@ docs/
 | **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
 | **P1** | Hierarchical Agent System | High | 🔴 High | 📋 NEW |
 | **P1** | Context Summarization | Medium | 🔴 High | 📋 NEW |
-| **P0** | λ(system) Telemetry Integration | Low | 🔴 Critical | ◐ Partial |
-| **P0** | λ(system) Reviewer Integration | Low | 🔴 Critical | ◐ Partial |
-| **P1** | λ(system) OODA Observation | Medium | 🔴 High | ◐ Partial |
-| **P1** | λ(system) Skill Auto-Loading | Low | 🟡 High | ◐ Partial |
-| **P1** | λ(system) Maintenance Schedule | Low | 🟡 Medium | ◐ Partial |
+| **P0** | λ(system) Telemetry Integration | Low | 🔴 Critical | ✅ Done |
+| **P0** | λ(system) Reviewer Integration | Low | 🔴 Critical | ✅ Done |
+| **P1** | λ(system) OODA Observation | Medium | 🔴 High | ✅ Done |
+| **P1** | λ(system) Skill Auto-Loading | Low | 🟡 High | ✅ Done |
+| **P1** | λ(system) Maintenance Schedule | Low | 🟡 Medium | ✅ Done |
 | **P2** | Per-Channel Session Persistence | Medium | 🟡 Medium | 📋 NEW |
 | **P2** | Prompt-Driven Architecture | Medium | 🟡 Medium | 📋 NEW |
 | **P2** | Instruments (On-Demand Tools) | N/A | N/A | ✅ DELEGATED TO ECA |

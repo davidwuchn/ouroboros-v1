@@ -48,6 +48,7 @@
 | **UI Cleanup: Remove Users/Sessions** | ✅ Done | **Removed Users and Sessions pages (chat-platform data, empty in single-project model). Navbar: Dashboard, Project, Wisdom, Telemetry + AI Chat toggle** |
 | **Kanban Board** | ✅ Done | **Auto-derived Kanban board on Project page: 29 cards across 4 builders, 3 columns (Not Started/In Progress/Done), color-coded by builder, view toggle (Flywheel/Kanban)** |
 | **Phase D: Dynamic Content** | ✅ Done | **Replaced all hardcoded static content with ECA-powered dynamic content. New `analytics/dashboard` and `content/generate` WS handlers. Real analytics from project data. Generic content generation pipeline with 7 content types. Frontend reads ECA content with static fallback.** |
+| **λ(system) Integration** | ✅ Done | **Telemetry bridge routes events to OODA observation. Memory search/retrieval instrumented. Reviewer skill with hooks. `bb lambda:cron` for scheduled maintenance.** |
 
 **Verified Working:**
 ```clojure

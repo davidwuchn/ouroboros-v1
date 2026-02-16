@@ -201,8 +201,17 @@
    :requires ([ouroboros.lambda-maintain :as maintain])
    :task (maintain/run-checklist!)}
 
-  lambda:evolve
-  {:doc "Run λ(system) auto-evolution"
-   :requires ([ouroboros.lambda-evolve :as evolve])
-   :task (evolve/auto-evolve!)}
-}}
+    lambda:evolve
+    {:doc "Run λ(system) auto-evolution"
+     :requires ([ouroboros.lambda-evolve :as evolve])
+     :task (evolve/auto-evolve!)}
+  
+    lambda:cron
+    {:doc "Run λ(system) scheduled maintenance (evolve + checklist)"
+     :requires ([ouroboros.lambda-evolve :as evolve]
+                [ouroboros.lambda-maintain :as maintain])
+     :task (do (println "\n=== λ(system) Scheduled Maintenance ===")
+               (let [ev (evolve/auto-evolve!)
+                     ch (maintain/run-checklist!)]
+                 (println "\n✓ Maintenance complete")
+                 {:evolution ev :checklist ch}))}}}
