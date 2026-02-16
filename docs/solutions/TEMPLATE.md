@@ -1,16 +1,17 @@
 ---
+title: "[Brief Problem Description]"
 symptom: "Error message or observable behavior"
 module: "Module name"
 stage: 0-6 or post-implementation
-date: 2026-02-14
-status: solved
+date: YYYY-MM-DD
+status: solved  # solved | in-progress | open
 ---
 
 # Solution: [Brief Problem Description]
 
 ## Symptom
 
-Exact error message or behavior observed.
+[Exact error message or behavior observed]
 
 ## Environment
 
@@ -28,11 +29,11 @@ Exact error message or behavior observed.
 
 ## Root Cause
 
-Technical explanation of what was actually wrong.
+[Technical explanation of what was actually wrong]
 
 ## Solution
 
-What fixed it — code changes, config updates, etc.
+[What fixed it — code changes, config updates, etc.]
 
 ```clojure
 ;; Before (problematic)
@@ -45,11 +46,11 @@ What fixed it — code changes, config updates, etc.
 ## Prevention
 
 How to avoid this in the future:
-- Pattern to follow
-- Warning signs to watch for
-- Tests to add
+- [Pattern to follow]
+- [Warning signs to watch for]
+- [Tests to add]
 
-## Related Solutions
+## Related Documentation
 
 - [Link to related docs/solutions/...]
 - [Link to related GitHub issues]

@@ -87,5 +87,5 @@ Added to `docs/patterns/`:
 
 ## Related
 
-- Pattern: `docs/patterns/statechart-patterns.md`
-- Reviewer: `docs/agents/review/clojure-idiom-reviewer.md`
+- Pattern: [Statechart Patterns](../patterns/statechart-patterns.md)
+- Reviewer: [Clojure Idiom Reviewer](../agents/review/clojure-idiom-reviewer.md)

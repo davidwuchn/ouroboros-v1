@@ -76,3 +76,8 @@ Keep guards pure and fast:
   (engine/stop!)
   (is (= #{:stopped :system} (engine/current-state))))
 ```
+
+## Related Documentation
+
+- [Statechart Reviewer](../agents/architecture/statechart-reviewer.md)
+- [WebSocket God Object Split](../plans/2026-02-14-websocket-god-object-split.md)

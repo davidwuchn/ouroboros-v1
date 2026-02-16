@@ -92,7 +92,7 @@ For each file changed:
 - Global state not in namespace atoms
 - Nested try/catch for control flow
 - Functions over 50 lines
-- Files over 400 LOC
+- Files over 400 LOC (project standard)
 - Circular namespace dependencies
 
 ## 10. Nice-to-Haves (Don't Block)

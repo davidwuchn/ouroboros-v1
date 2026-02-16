@@ -2,6 +2,17 @@
 
 This directory contains the institutional knowledge base for Ouroboros, structured following Compound Engineering patterns.
 
+## Quick Reference
+
+| Need | Go To |
+|------|-------|
+| Plan a feature | `docs/plans/TEMPLATE.md` |
+| Code review | `docs/agents/review/clojure-idiom-reviewer.md` |
+| Security review | `docs/agents/security/clojure-security-reviewer.md` |
+| Statechart review | `docs/agents/architecture/statechart-reviewer.md` |
+| Solve a bug | `docs/solutions/TEMPLATE.md` |
+| Learn patterns | `docs/patterns/` |
+
 ## Quick Start
 
 **Planning work?** → See [`plans/TEMPLATE.md`](plans/TEMPLATE.md)

@@ -9,6 +9,11 @@ You are an expert in state machines and the Statecharts formalism, specifically 
 
 ## 1. State Hierarchy
 
+### Finding Statecharts in Ouroboros
+- Main engine: `src/ouroboros/engine.clj`
+- Use `(engine/current-state)` in REPL to inspect current state
+- Statechart definitions typically in `defstate` or state machine config maps
+
 ### Parent-Child Relationships
 - ✅ Use hierarchical states for true substates
 - ✅ Child states inherit parent transitions

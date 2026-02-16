@@ -284,6 +284,11 @@ The refactoring successfully splits a monolithic `chat.clj` (~860 LOC) into 6 fo
 - [ ] **P2**: Add input validation at message handler boundary
 - [ ] **P3**: Add tests for session, commands, streaming modules
 
+## Related Documentation
+
+- [Clojure Idiom Reviewer](./clojure-idiom-reviewer.md)
+- [Pathom Resolver Patterns](../../patterns/pathom-resolver-patterns.md)
+
 ---
 
 **Reviewed by**: clojure-reviewer skill

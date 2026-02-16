@@ -74,3 +74,8 @@ Use batching for N+1 prevention:
 2. **Deep nesting** - More than 3 levels of nesting
 3. **Missing input validation** - Not checking required keys
 4. **Side effects in resolvers** - Resolvers should be pure reads
+
+## Related Documentation
+
+- [Tool/Resolver Convergence](../tool-resolver-convergence.md)
+- [Clojure Idiom Reviewer](../agents/review/clojure-idiom-reviewer.md)

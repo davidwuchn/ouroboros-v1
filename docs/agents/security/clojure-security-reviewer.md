@@ -126,3 +126,33 @@ You are a security-focused Clojure developer specializing in identifying vulnera
 - `src/ouroboros/tool_*.clj` - Tool definitions
 - `src/ouroboros/eca_*.clj` - ECA integration
 - `src/ouroboros/chat.clj` - Message handling
+
+## 10. Ouroboros-Specific Security
+
+### WebSocket Message Handling
+- ✅ Validate message schema before processing
+- ✅ Sanitize user content in responses
+- 🔴 Don't echo raw user input without escaping
+
+### Tool Approval Bypass (Critical)
+- 🔴 **CRITICAL**: Tools calling other tools without user confirmation
+- 🔴 **CRITICAL**: LLM output passed directly to eval/sh
+- ✅ All tool inputs must be validated with schema
+- ✅ External content marked as quarantined
+
+### Memory System
+- ✅ Validate file paths in memory operations
+- ✅ Sanitize keys to prevent path traversal
+- 🔴 Don't allow arbitrary file writes outside memory dir
+- ✅ Use allowlist for allowed operations
+
+### Chat Commands
+- ✅ Validate command arguments with schema
+- ✅ Rate limit command execution
+- 🔴 Don't allow command injection via args
+
+### ECA Integration
+- ✅ Sanitize all LLM responses before processing
+- ✅ Validate JSON-RPC message format
+- ✅ Limit message sizes to prevent DoS
+- 🔴 Never pass user input directly to shell commands

@@ -1,15 +1,17 @@
 ---
+title: "ECA Integration Debugging"
 symptom: "ECA initialization timeout, JSON-RPC protocol errors, Process serialization issues"
 module: "ouroboros.eca-client"
 stage: post-implementation
 date: 2026-02-09
-status: solved
+status: obsolete  # solved | in-progress | open | obsolete
+replaced-by: "../../ECA_LLM_CONNECTION.md"
 ---
 
 # Solution: ECA Integration Debugging
 
-> **HISTORICAL DOCUMENT** — Issues described here were resolved in commits around 2026-02-09  
-> **Current Status**: ECA integration fully operational  
+> **⚠️ OBSOLETE DOCUMENT** — Issues described here were resolved in commits around 2026-02-09
+> **Current Status**: ECA integration fully operational
 > **See**: [ECA_LLM_CONNECTION.md](../../ECA_LLM_CONNECTION.md) for current usage
 
 ## Overview
