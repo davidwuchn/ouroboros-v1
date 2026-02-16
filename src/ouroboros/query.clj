@@ -26,7 +26,7 @@
 
 (pco/defresolver system-state [_]
   {::pco/output [:system/current-state]}
-  {:system/current-state (engine/current-state)})
+  {:system/current-state {:state (engine/current-state)}})
 
 (pco/defresolver system-status-resolver [_]
   {::pco/output [:system/status]}
@@ -215,7 +215,7 @@
       {:page/id id
        :system/healthy? (try ((resolve 'ouroboros.engine/healthy?))
                              (catch Exception _e false))
-       :system/current-state (try ((resolve 'ouroboros.engine/current-state))
+       :system/current-state (try {:state ((resolve 'ouroboros.engine/current-state))}
                                   (catch Exception _e nil))
        :system/meta {:version "0.1.0"}
        ;; Telemetry data
