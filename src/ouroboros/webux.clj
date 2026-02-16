@@ -45,14 +45,14 @@
   "Migrate projects from demo-user to real user."
   [real-name old-projects]
   (let [migrated (reduce-kv
-                   (fn [m old-id project]
-                     (let [new-id (migrate-entity-id old-id real-name)
-                           migrated (-> project
-                                        (assoc :project/id new-id)
-                                        (assoc :project/owner real-name))]
-                       (assoc m new-id migrated)))
-                   {}
-                   old-projects)
+                  (fn [m old-id project]
+                    (let [new-id (migrate-entity-id old-id real-name)
+                          migrated (-> project
+                                       (assoc :project/id new-id)
+                                       (assoc :project/owner real-name))]
+                      (assoc m new-id migrated)))
+                  {}
+                  old-projects)
         new-key (keyword (str "projects/" real-name))]
     (memory/save-value! new-key
                         (merge (or (memory/get-value new-key) {}) migrated))
@@ -63,16 +63,16 @@
   "Migrate builder sessions from demo-user to real user."
   [real-name old-sessions]
   (let [migrated (reduce-kv
-                   (fn [m session-id session]
-                     (let [new-id (migrate-entity-id (str session-id) real-name)
-                           new-project-id (when-let [pid (:session/project-id session)]
-                                            (migrate-entity-id pid real-name))
-                           migrated (cond-> session
-                                      true (assoc :session/id new-id)
-                                      new-project-id (assoc :session/project-id new-project-id))]
-                       (assoc m new-id migrated)))
-                   {}
-                   old-sessions)
+                  (fn [m session-id session]
+                    (let [new-id (migrate-entity-id (str session-id) real-name)
+                          new-project-id (when-let [pid (:session/project-id session)]
+                                           (migrate-entity-id pid real-name))
+                          migrated (cond-> session
+                                     true (assoc :session/id new-id)
+                                     new-project-id (assoc :session/project-id new-project-id))]
+                      (assoc m new-id migrated)))
+                  {}
+                  old-sessions)
         new-key (keyword (str "builder-sessions/" real-name))]
     (memory/save-value! new-key
                         (merge (or (memory/get-value new-key) {}) migrated))
@@ -130,12 +130,17 @@
 
 ;; Project: {:project/id :project/name :project/description :project/owner
 ;;           :project/status :project/created-at :project/updated-at}
+;; NOTE: :project/path was deprecated and removed (was used for file-based storage)
 ;;
 ;; Builder Session: {:session/id :session/project-id :session/type :session/state
 ;;                   :session/data :session/created-at :session/updated-at}
 
 (def ^:private builder-types
   #{:empathy-map :value-proposition :mvp-planning :lean-canvas})
+
+(def ^:private project-statuses
+  "Valid project statuses. Used for validation in update-project!"
+  #{:draft :active :completed :archived})
 
 ;; ============================================================================
 ;; Key Helpers
@@ -222,7 +227,17 @@
         project-exists? (get (memory/get-value key) project-id)]
     (when-not project-exists?
       (throw (ex-info "Project not found" {:project-id project-id :user-id user-id})))
-    
+
+    ;; Validate name is not blank (if provided)
+    (when (and (contains? sanitized :project/name)
+               (str/blank? (:project/name sanitized)))
+      (throw (ex-info "name cannot be blank" {:param :name})))
+
+    ;; Validate status is valid (if provided)
+    (when-let [status (:project/status sanitized)]
+      (when-not (contains? project-statuses status)
+        (throw (ex-info "Invalid status" {:status status :valid (vec project-statuses)}))))
+
     (memory/update! key
                     (fn [projects]
                       (if-let [project (get projects project-id)]
@@ -247,7 +262,7 @@
         existed? (contains? (memory/get-value key) project-id)]
     (when-not existed?
       (throw (ex-info "Project not found" {:project-id project-id :user-id user-id})))
-    
+
     (memory/update! key
                     (fn [projects]
                       (dissoc projects project-id)))
@@ -272,7 +287,7 @@
   [input]
   {::pco/input [:user/id]
    ::pco/output [{:user/projects [:project/id :project/name :project/description
-                                   :project/status :project/created-at]}]}
+                                  :project/status :project/created-at]}]}
   (let [user-id (or (:user/id input) (:user-id input))
         key (when user-id (projects-key user-id))
         projects (if key (vals (or (memory/get-value key) {})) [])]
@@ -359,7 +374,7 @@
         session-exists? (get (memory/get-value key) session-id)]
     (when-not session-exists?
       (throw (ex-info "Session not found" {:session-id session-id :user-id user-id})))
-    
+
     (memory/update! key
                     (fn [sessions]
                       (if-let [session (get sessions session-id)]
@@ -388,7 +403,7 @@
         session-exists? (get (memory/get-value key) session-id)]
     (when-not session-exists?
       (throw (ex-info "Session not found" {:session-id session-id :user-id user-id})))
-    
+
     (memory/update! key
                     (fn [sessions]
                       (if-let [session (get sessions session-id)]
