@@ -1,6 +1,6 @@
 (ns ouroboros.interface.lifecycle
   "System lifecycle - Boot and shutdown
-   
+
    The unified system surface. Boot sequence:
    1. Start statechart (Engine)
    2. Initialize Pathom (Query)
@@ -14,7 +14,7 @@
 
 (defn boot!
   "Boot the complete system
-   
+
    Sequence:
    - Engine: Create statechart session, transition to :running
    - Query: Initialize Pathom environment with all resolvers
@@ -40,11 +40,12 @@
   ;; Step 4: λ(system) Evolution Bridge
   (println "\n[4/4] Enabling λ(system) evolution bridge...")
   (try
-    (require '[ouroboros.telemetry.lambda-bridge :as bridge])
-    (bridge/enable!)
-    (println "✓ λ(system) auto-evolution enabled")
+    (require 'ouroboros.telemetry.lambda-bridge)
+    (when-let [enable-fn (resolve 'ouroboros.telemetry.lambda-bridge/enable!)]
+      (enable-fn)
+      (println "✓ λ(system) auto-evolution enabled"))
     (catch Exception e
-      (println "⚠ λ(system) bridge unavailable:" (.getMessage e))))
+      (println "⚠ λ(system) bridge unavailable:" (.getMessage e)))))
 
   ;; Verification
   (println "\n========================================")
@@ -53,7 +54,7 @@
   (println "========================================")
 
   ;; Return the query function for convenience
-  query/q)
+  query/q
 
 (defn shutdown!
   "Graceful shutdown"
