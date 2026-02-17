@@ -1,6 +1,7 @@
 (ns ouroboros.frontend.ui.wisdom.learning
   "Learning patterns section and category drawer for Wisdom page."
   (:require
+   [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
    [ouroboros.frontend.ui.components :as ui]
@@ -56,7 +57,7 @@
    Shows toast notification on success."
   [insight stage section project-id]
   (when (and project-id stage)
-    (let [encoded-id (clojure.string/replace (str project-id) "/" "~")
+    (let [encoded-id (str/replace (str project-id) "/" "~")
           insight-text (str (:title insight) ": " (first (:insights insight)))]
       ;; Navigate to builder with insight context
       (when-let [nav @ws/navigate-callback]
