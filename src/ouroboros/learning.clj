@@ -53,7 +53,7 @@
   [user title]
   (let [base (str/replace (str/lower-case title) #"[^a-z0-9]+" "-")
         timestamp (System/currentTimeMillis)]
-    (str user "/" base "-" timestamp)))
+    (str (name user) "/" base "-" timestamp)))
 
 ;; ============================================================================
 ;; Core Operations
@@ -61,7 +61,7 @@
 
 (defonce ^:private learning-index (atom {}))
 
-(defn- rebuild-index!
+(defn rebuild-index!
   "Rebuild learning index from all learning records in memory"
   []
   (let [all-learnings (->> (memory/get-all)
@@ -74,7 +74,9 @@
                    (map (fn [[user learnings]]
                           [(keyword user) (mapv :learning/id learnings)]))
                    (into {}))]
-    (reset! learning-index index)))
+    (reset! learning-index index)
+    (memory/save-value! :learning/index @learning-index)
+    index))
 
 (defn init!
   "Initialize learning system - rebuilds index from actual memory state"
@@ -149,12 +151,20 @@
     merged))
 
 (defn delete-learning!
-  "Delete a learning record"
+  "Delete a learning record and update index"
   [learning-id]
-  (memory/delete-value! (keyword learning-id))
-  ;; Remove from index (would need to scan all users)
-  (telemetry/emit! {:event :learning/deleted
-                    :learning-id learning-id}))
+  ;; Get the learning first to find the user
+  (let [learning (memory/get-value (keyword learning-id))
+        user-id (:learning/user learning)]
+    ;; Delete from memory
+    (memory/delete-value! (keyword learning-id))
+    ;; Remove from index
+    (when user-id
+      (swap! learning-index update (keyword user-id)
+             (fn [ids] (remove #(= % learning-id) ids)))
+      (memory/save-value! :learning/index @learning-index))
+    (telemetry/emit! {:event :learning/deleted
+                      :learning-id learning-id})))
 
 ;; ============================================================================
 ;; Query Operations
@@ -262,10 +272,18 @@
   (let [history (get-user-history user-id)
         low-confidence (filter #(< (:learning/confidence %) 3) history)
         rarely-applied (filter #(< (:learning/applied-count %) 2) history)
-        old-learnings (filter #(> (- (System/currentTimeMillis)
-                                     (.getTime (java.time.Instant/parse (:learning/created %))))
-                                  (* 30 24 60 60 1000))  ; Older than 30 days
-                              history)]
+        ;; Safely handle timestamp parsing
+        old-learnings (filter (fn [learning]
+                               (try
+                                 (let [created-str (:learning/created learning)
+                                       created-ms (if (string? created-str)
+                                                    (.toEpochMilli (java.time.Instant/parse created-str))
+                                                    created-str)]
+                                   (> (- (System/currentTimeMillis) created-ms)
+                                      (* 30 24 60 60 1000)))  ; Older than 30 days
+                                 (catch Exception _
+                                   false)))
+                             history)]
     {:low-confidence (map :learning/title low-confidence)
      :rarely-applied (map :learning/title rarely-applied)
      :needs-review (map :learning/title old-learnings)}))

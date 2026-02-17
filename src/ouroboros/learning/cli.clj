@@ -1,5 +1,5 @@
 ;; Learning CLI Tasks
-;; Provides bb tasks for learning gap detection and stats
+;; Provides bb tasks for learning operations
 (ns ouroboros.learning.cli
   "Learning CLI tasks for bb"
   (:require
@@ -54,3 +54,47 @@
       (println "No learnings yet"))
     (println "")
     {:results results}))
+
+(defn list-task
+  "List all learnings"
+  []
+  (let [users (learning/get-all-users)]
+    (println "\n=== All Learnings ===")
+    (if (seq users)
+      (doseq [user users]
+        (let [history (learning/get-user-history user)]
+          (println (str "\n" (name user) " (" (count history) " learnings):"))
+          (doseq [l (take 5 history)]
+            (println (str "  - " (:learning/title l)
+                         " (applied: " (:learning/applied-count l 0)
+                         ", confidence: " (:learning/confidence l 0) ")")))))
+      (println "No learnings yet"))
+    (println "")
+    {:users users}))
+
+(defn recall-task
+  "Recall learnings by pattern"
+  [pattern]
+  (let [users (learning/get-all-users)
+        results (mapcat (fn [user]
+                          (map #(assoc % :user (name user))
+                               (learning/recall-by-pattern user pattern)))
+                        users)]
+    (println (str "\n=== Recall: \"" pattern "\" ==="))
+    (if (seq results)
+      (doseq [r results]
+        (println (str "\n" (:user r) ": " (:learning/title r)))
+        (println (str "  Insights: " (str/join ", " (:learning/insights r))))
+        (println (str "  Applied: " (:learning/applied-count r 0) " times")))
+      (println "No matches"))
+    (println "")
+    {:results results}))
+
+(defn rebuild-index-task
+  "Rebuild learning index"
+  []
+  (println "\n=== Rebuilding Index ===")
+  (let [result (learning/rebuild-index!)]
+    (println (str "Indexed " (count result) " users"))
+    (println "")
+    {:index result}))

@@ -245,6 +245,22 @@
                        {:doc "Show learning statistics"
                         :requires ([ouroboros.learning.cli :as cli])
                         :task (cli/stats-task)}
+
+                       learning:list
+                       {:doc "List all learnings"
+                        :requires ([ouroboros.learning.cli :as cli])
+                        :task (cli/list-task)}
+
+                       learning:recall
+                       {:doc "Recall learnings by pattern"
+                        :requires ([ouroboros.learning.cli :as cli])
+                        :task (let [pattern (or (first *command-line-args*) \"\")]
+                                (cli/recall-task pattern))}
+
+                       learning:reindex
+                       {:doc "Rebuild learning index"
+                        :requires ([ouroboros.learning.cli :as cli])
+                        :task (cli/rebuild-index-task)}
                        
                        prometheus
       {:doc "Start Prometheus metrics server"
