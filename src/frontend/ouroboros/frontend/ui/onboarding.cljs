@@ -1,386 +1,347 @@
 (ns ouroboros.frontend.ui.onboarding
-  "Onboarding tours and guided experiences
-
-   Provides:
-   - Step-by-step guided tours
-   - Contextual tooltips
-   - Progress tracking
-   - Skip/resume functionality"
+  "Interactive onboarding tour for first-time users
+   
+   Guides users through key features with:
+   - Step-by-step tooltips
+   - Highlighted elements
+   - Progress indicator
+   - Skip and restart options"
   (:require
    [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
    [com.fulcrologic.fulcro.mutations :as m]
+   [com.fulcrologic.fulcro.algorithms.react-interop :as interop]
    [ouroboros.frontend.ui.components :as ui]))
 
 ;; ============================================================================
-;; Tour Definitions
+; Tour Configuration
 ;; ============================================================================
 
-(def tours
-  {:empathy-map
-   {:id :empathy-map
-    :name "Empathy Map Tour"
-    :steps
-    [{:id :welcome
-      :title "Welcome to Empathy Mapping"
-      :content "Let's understand your customer deeply. This tour will guide you through each section."
-      :target nil
-      :position :center}
-     {:id :persona
-      :title "Step 1: Define Your Persona"
-      :content "Start by creating a specific persona. Give them a name, age, and role."
-      :target ".empathy-section-persona"
-      :position :bottom}
-     {:id :think-feel
-      :title "Step 2: Think & Feel"
-      :content "What goes on inside their head? Their hopes, fears, dreams?"
-      :target ".empathy-section-think-feel"
-      :position :right}
-     {:id :pains-gains
-      :title "Step 3: Pains & Gains"
-      :content "Identify their frustrations and what they hope to achieve."
-      :target ".empathy-section-pains-gains"
-      :position :left}
-     {:id :complete
-      :title "You're Ready!"
-      :content "Complete all sections to build a deep understanding of your customer."
-      :target nil
-      :position :center}]}
-
-   :lean-canvas
-   {:id :lean-canvas
-    :name "Lean Canvas Tour"
-    :steps
-    [{:id :welcome
-      :title "Build Your Business Model"
-      :content "The Lean Canvas helps you define your business model in one page."
-      :target nil
-      :position :center}
-     {:id :problems
-      :title "Start with Problems"
-      :content "List the top 3 problems your customers face."
-      :target ".canvas-problems"
-      :position :right}
-     {:id :uvp
-      :title "Define Your UVP"
-      :content "Your Unique Value Proposition - why you're different and worth buying."
-      :target ".canvas-uvp"
-      :position :bottom}
-     {:id :revenue
-      :title "How Will You Make Money?"
-      :content "Define your revenue streams and pricing model."
-      :target ".canvas-revenue-streams"
-      :position :top}
-     {:id :complete
-      :title "Validate Your Model"
-      :content "With a complete canvas, you're ready to validate with real customers."
-      :target nil
-      :position :center}]}
-
-   :collaboration
-   {:id :collaboration
-    :name "Collaboration Features"
-    :steps
-    [{:id :presence
-      :title "See Who's Online"
-      :content "The sidebar shows all active collaborators."
-      :target ".collaboration-sidebar"
-      :position :left}
-     {:id :cursors
-      :title "Real-time Cursors"
-      :content "See where others are working in real-time."
-      :target ".canvas-container"
-      :position :center}
-     {:id :comments
-      :title "Leave Comments"
-      :content "Click any sticky note to add a comment or question."
-      :target ".sticky-note"
-      :position :bottom}
-     {:id :versions
-      :title "Save Versions"
-      :content "Create snapshots to track progress and rollback if needed."
-      :target ".version-history"
-      :position :left}]}})
+(def tour-steps
+  "Define the onboarding tour steps"
+  {:start-here
+   [{:id :welcome
+     :title "Welcome to Ouroboros! 🎉"
+     :content "You're about to build something amazing. This tour will show you around."
+     :target nil
+     :position :center}
+    
+    {:id :concepts
+     :title "Two Ways to Build"
+     :content "Product Flywheel helps you think strategically. Dev Workflow helps you implement tactically."
+     :target ".concepts-card"
+     :position :bottom}
+    
+    {:id :journey
+     :title "Your Product Journey"
+     :content "Follow these 4 phases in order. Each unlocks the next. Click any phase to continue."
+     :target ".journey-card"
+     :position :right}
+    
+    {:id :recommended
+     :title "Next Recommended Step"
+     :content "We'll always suggest what to do next based on your progress."
+     :target ".recommended-action"
+     :position :left}
+    
+    {:id :paths
+     :title "Choose Your Path"
+     :content "Start building a product or jump into coding. You can switch anytime."
+     :target ".primary-paths"
+     :position :top}
+    
+    {:id :chat
+     :title "AI Assistant Always Available"
+     :content "Click the 💬 button anytime to chat with ECA for guidance."
+     :target ".chat-toggle-btn"
+     :position :left}
+    
+    {:id :complete
+     :title "You're Ready! 🚀"
+     :content "Start with the Empathy Map to understand your users. Happy building!"
+     :target nil
+     :position :center}]
+   
+   :empathy-builder
+   [{:id :empathy-welcome
+     :title "Empathy Map Builder"
+     :content "Understand your users deeply before building anything."
+     :target nil
+     :position :center}
+    
+    {:id :sections
+     :title "Six Perspectives"
+     :content "Each section helps you understand your customer from a different angle."
+     :target ".canvas-grid"
+     :position :bottom}
+    
+    {:id :sticky-notes
+     :title "Add Insights"
+     :content "Click the + button or double-click to add sticky notes with your insights."
+     :target ".canvas-section:first-child"
+     :position :right}
+    
+    {:id :wisdom
+     :title "AI Guidance"
+     :content "Toggle the Wisdom sidebar for AI-powered tips and examples."
+     :target ".btn-wisdom"
+     :position :bottom}
+    
+    {:id :progress
+     :title "Track Progress"
+     :content "Watch your progress bar fill as you complete sections."
+     :target ".progress-bar-container"
+     :position :top}
+    
+    {:id :empathy-complete
+     :title "Complete All Sections"
+     :content "Finish all 6 sections to unlock Value Proposition!"
+     :target nil
+     :position :center}]})
 
 ;; ============================================================================
-;; Tour State Management
+; Tour State Management
 ;; ============================================================================
-
-(m/defmutation start-tour
-  "Start a tour"
-  [{:keys [tour-id]}]
-  (action [{:keys [state]}]
-          (swap! state assoc-in [:onboarding :active-tour] tour-id)
-          (swap! state assoc-in [:onboarding :current-step] 0)
-          (swap! state assoc-in [:onboarding :tour-completed?] false)))
-
-(m/defmutation next-step
-  "Move to next tour step"
-  [_]
-  (action [{:keys [state]}]
-          (swap! state update-in [:onboarding :current-step] inc)))
-
-(m/defmutation prev-step
-  "Move to previous tour step"
-  [_]
-  (action [{:keys [state]}]
-          (swap! state update-in [:onboarding :current-step] dec)))
-
-(m/defmutation skip-tour
-  "Skip the current tour"
-  [_]
-  (action [{:keys [state]}]
-          (swap! state assoc-in [:onboarding :active-tour] nil)
-          (swap! state assoc-in [:onboarding :current-step] 0)))
-
-(m/defmutation complete-tour
-  "Mark tour as completed"
-  [{:keys [tour-id]}]
-  (action [{:keys [state]}]
-          (swap! state assoc-in [:onboarding :completed-tours tour-id] true)
-          (swap! state assoc-in [:onboarding :active-tour] nil)
-          (swap! state assoc-in [:onboarding :current-step] 0)
-          (swap! state assoc-in [:onboarding :tour-completed?] true)))
-
-(m/defmutation mark-tooltip-seen
-  "Mark a contextual tooltip as seen"
-  [{:keys [tooltip-id]}]
-  (action [{:keys [state]}]
-          (swap! state assoc-in [:onboarding :seen-tooltips tooltip-id] true)))
-
-;; ============================================================================
-;; Tour Components
-;; ============================================================================
-
-(defsc TourTooltip
-  "Individual tour tooltip/step"
-  [this {:keys [step current-step total-steps on-next on-prev on-skip on-complete]}]
-  (let [{:keys [title content position target]} step
-        is-first? (= current-step 0)
-        is-last? (= current-step (dec total-steps))]
-    (dom/div
-     {:className (str "tour-tooltip tour-position-" (name position))
-      :style (when target
-                ;; Position calculation would go here based on target element
-               {})}
-      ;; Arrow
-     (dom/div :.tour-arrow
-              {:className (str "arrow-" (name position))})
-
-      ;; Content
-     (dom/div :.tour-content
-              (dom/h3 title)
-              (dom/p content))
-
-      ;; Progress dots
-     (dom/div :.tour-progress
-              (map (fn [idx]
-                     (dom/span
-                      {:key idx
-                       :className (str "tour-dot " (when (= idx current-step) "active"))}))
-                   (range total-steps)))
-
-      ;; Actions
-     (dom/div :.tour-actions
-              (when-not is-first?
-                (ui/button
-                 {:onClick on-prev
-                  :variant :secondary}
-                 "← Back"))
-
-              (if is-last?
-                (ui/button
-                 {:onClick on-complete
-                  :variant :primary}
-                 "✓ Complete")
-                (ui/button
-                 {:onClick on-next
-                  :variant :primary}
-                 "Next →"))
-
-              (ui/button
-               {:onClick on-skip
-                :variant :ghost}
-               "Skip Tour")))))
 
 (defsc TourOverlay
-  "Overlay that highlights target elements"
-  [this {:keys [target children]}]
-  (dom/div :.tour-overlay
-    ;; Darken background
-           (dom/div :.tour-backdrop)
-
-    ;; Highlight box around target (if any)
-           (when target
-             (dom/div :.tour-highlight
-                      {:className target}))
-
-    ;; Tooltip content
-           children))
-
-(defsc ActiveTour
-  "Currently active tour"
-  [this {:keys [tour-id current-step]}]
-  {:query [:onboarding/active-tour :onboarding/current-step]
-   :ident (fn [] [:component/id :active-tour])}
-  (when-let [tour (get tours tour-id)]
-    (let [steps (:steps tour)
-          step (nth steps current-step nil)]
-      (when step
-        (ui/component TourOverlay
-                      {:target (:target step)}
-                      (ui/component TourTooltip
-                                    {:step step
-                                     :current-step current-step
-                                     :total-steps (count steps)
-                                     :on-next #(comp/transact! this [(next-step {})])
-                                     :on-prev #(comp/transact! this [(prev-step {})])
-                                     :on-skip #(comp/transact! this [(skip-tour {})])
-                                     :on-complete #(comp/transact! this [(complete-tour {:tour-id tour-id})])}))))))
-
-;; ============================================================================
-;; Tour Launcher
-;; ============================================================================
-
-(defsc TourLauncher
-  "Component to launch available tours"
-  [this {:keys [completed-tours]}]
-  (dom/div :.tour-launcher
-           (dom/h3 "🎯 Guided Tours")
-           (dom/p "New here? Take a tour to learn the features.")
-
-           (dom/div :.tour-list
-                    (map (fn [[tour-id tour]]
-                           (let [completed? (get completed-tours tour-id)]
-                             (dom/div
-                              {:key tour-id
-                               :className (str "tour-item " (when completed? "completed"))}
-                              (dom/div :.tour-info
-                                       (dom/h4 (:name tour))
-                                       (dom/span :.tour-steps
-                                                 (str (count (:steps tour)) " steps")))
-                              (if completed?
-                                (dom/span :.tour-completed-badge "✓ Completed")
-                                (ui/button
-                                 {:onClick #(comp/transact! this [(start-tour {:tour-id tour-id})])
-                                  :variant :primary}
-                                 "Start Tour")))))
-                         tours))
-
-    ;; Quick tips section
-           (dom/div :.quick-tips
-                    (dom/h4 "💡 Quick Tips")
-                    (dom/ul
-                     (dom/li "Press ? for keyboard shortcuts")
-                     (dom/li "Drag sticky notes to organize")
-                     (dom/li "Double-click to edit")
-                     (dom/li "Invite team members from the sidebar")))))
+  "Main tour overlay component"
+  [this {:keys [tour-id current-step total-steps step-data on-next on-prev on-skip on-complete]}]
+  {:query [:tour/active?
+           :tour/current-step
+           :tour/total-steps]
+   :ident (fn [] [:component/id :tour-overlay])}
+  
+  (let [{:keys [title content position]} step-data
+        is-first? (= current-step 0)
+        is-last? (= current-step (dec total-steps))
+        progress-pct (* 100 (/ (inc current-step) total-steps))]
+    
+    (dom/div {:className "tour-overlay"
+             :onClick #(when-not is-last? (on-skip))}
+      ;; Backdrop with highlight
+      (dom/div {:className "tour-backdrop"})
+      
+      ;; Tooltip
+      (dom/div {:className (str "tour-tooltip tour-" (name position))
+               :onClick #(.stopPropagation %)}
+        ;; Progress bar
+        (dom/div :.tour-progress
+          (dom/div {:className "tour-progress-fill"
+                   :style {:width (str progress-pct "%")}}))
+        
+        ;; Step counter
+        (dom/div :.tour-step-counter
+          (str "Step " (inc current-step) " of " total-steps))
+        
+        ;; Content
+        (dom/h3 :.tour-title title)
+        (dom/p :.tour-content content)
+        
+        ;; Navigation
+        (dom/div :.tour-nav
+          (when-not is-first?
+            (ui/button {:onClick on-prev
+                       :variant :secondary
+                       :size :small}
+              "← Back"))
+          
+          (dom/div :.tour-nav-spacer)
+          
+          (when-not is-last?
+            (ui/button {:onClick on-skip
+                       :variant :ghost
+                       :size :small}
+              "Skip Tour"))
+          
+          (if is-last?
+            (ui/button {:onClick on-complete
+                       :variant :primary
+                       :size :small}
+              "Get Started! 🚀")
+            (ui/button {:onClick on-next
+                       :variant :primary
+                       :size :small}
+              "Next →")))))))
 
 ;; ============================================================================
-;; Contextual Tooltips
+; Tour Controller
 ;; ============================================================================
 
-(def contextual-tooltips
-  {:first-note
-   {:id :first-note
-    :content "💡 Tip: Click the + button to add your first sticky note"
-    :target ".btn-add"
-    :show-after-ms 2000}
+(defn start-tour
+  "Start a named tour"
+  [component tour-name]
+  (let [steps (get tour-steps tour-name)]
+    (comp/transact! component
+      [(m/set-props {:tour/active? true
+                    :tour/current-step 0
+                    :tour/total-steps (count steps)
+                    :tour/name tour-name})])))
 
-   :collaboration
-   {:id :collaboration
-    :content "👥 Invite team members to collaborate in real-time"
-    :target ".collaboration-sidebar"
-    :show-after-ms 5000}
+(defn next-step
+  "Advance to next tour step"
+  [component]
+  (comp/transact! component
+    [(m/update-props {:tour/current-step inc})]))
 
-   :ai-help
-   {:id :ai-help
-    :content "🤖 Ask AI for suggestions on your canvas"
-    :target ".wisdom-sidebar"
-    :show-after-ms 10000}})
+(defn prev-step
+  "Go back to previous tour step"
+  [component]
+  (comp/transact! component
+    [(m/update-props {:tour/current-step dec})]))
 
-(defsc ContextualTooltip
-  "Single contextual tooltip"
-  [_this {:keys [content _target on-dismiss]}]
-  (dom/div
-   {:className "contextual-tooltip"
-    :style {;; Position relative to target
-            }}
-   (dom/p content)
-   (dom/button
-    {:onClick on-dismiss
-     :className "tooltip-dismiss"}
-    "×")))
+(defn skip-tour
+  "Skip the current tour"
+  [component]
+  (comp/transact! component
+    [(m/set-props {:tour/active? false})]))
 
-;; ============================================================================
-;; Progress Tracking
-;; ============================================================================
+(defn complete-tour
+  "Complete the tour and mark as seen"
+  [component tour-name]
+  (skip-tour component)
+  ;; Persist that user has seen this tour
+  (try
+    (.setItem js/localStorage
+              (str "ouroboros.tour.completed/" (name tour-name))
+              "true")
+    (catch :default _ nil)))
 
-(defsc OnboardingProgress
-  "Show onboarding completion progress"
-  [this {:keys [completed-tours total-tours]}]
-  (let [completed-count (count completed-tours)
-        percentage (if (> total-tours 0)
-                     (int (* 100 (/ completed-count total-tours)))
-                     0)]
-    (dom/div :.onboarding-progress
-             (dom/h4 "Getting Started")
-             (dom/div :.progress-ring
-                      (dom/svg
-                       {:width 80 :height 80 :viewBox "0 0 80 80"}
-                       (dom/circle
-                        {:cx 40 :cy 40 :r 35
-                         :fill "none"
-                         :stroke "#e0e0e0"
-                         :strokeWidth 8})
-                       (dom/circle
-                        {:cx 40 :cy 40 :r 35
-                         :fill "none"
-                         :stroke "#4CAF50"
-                         :strokeWidth 8
-                         :strokeDasharray (* 2 Math/PI 35)
-                         :strokeDashoffset (* 2 Math/PI 35 (- 1 (/ percentage 100)))
-                         :style {:transform "rotate(-90deg)"
-                                 :transformOrigin "center"
-                                 :transition "stroke-dashoffset 0.5s ease"}}))
-                      (dom/span :.progress-text (str percentage "%")))
-             (dom/p (str completed-count " of " total-tours " tours completed"))
-             (ui/button
-              {:onClick #(js/alert "Opening tour launcher...")
-               :variant :secondary}
-              "Continue Learning"))))
+(defn has-seen-tour?
+  "Check if user has already seen a tour"
+  [tour-name]
+  (try
+    (= "true" (.getItem js/localStorage
+                       (str "ouroboros.tour.completed/" (name tour-name))))
+    (catch :default _ false)))
 
 ;; ============================================================================
-;; Keyboard Shortcuts
+; Tour Launcher Component
 ;; ============================================================================
 
-(def keyboard-shortcuts
-  {"?" "Show keyboard shortcuts"
-   "n" "Add new sticky note"
-   "c" "Add comment"
-   "e" "Export canvas"
-   "s" "Save version snapshot"
-   "h" "Toggle collaboration sidebar"
-   "w" "Toggle wisdom sidebar"
-   "→" "Next step (during tour)"
-   "←" "Previous step (during tour)"
-   "Esc" "Close modal or exit tour"})
-
-(defn show-shortcuts-help
-  "Show keyboard shortcuts modal"
-  []
-  (js/alert
-   (str "Keyboard Shortcuts:\n\n"
-        (str/join "\n"
-                  (map (fn [[k v]] (str k " - " v))
-                       keyboard-shortcuts)))))
+(defn tour-launcher
+  "Button to launch or restart tours"
+  [{:keys [tour-name label on-launch]}]
+  (dom/button {:className "tour-launcher"
+              :onClick (fn []
+                        (when on-launch (on-launch))
+                        (start-tour comp/*app* tour-name))}
+    (dom/span :.tour-launcher-icon "🎯")
+    (dom/span :.tour-launcher-text (or label "Start Tour"))))
 
 ;; ============================================================================
-;; Export
+; Contextual Hints (Mini Tours)
 ;; ============================================================================
 
-(def active-tour ActiveTour)
-(def launcher TourLauncher)
-(def progress OnboardingProgress)
-(def shortcuts show-shortcuts-help)
+(defn contextual-hint
+  "Small hint that points to a specific feature"
+  [{:keys [target text position on-dismiss]}]
+  (dom/div {:className (str "contextual-hint hint-" (name position))}
+    (dom/div :.hint-arrow)
+    (dom/p :.hint-text text)
+    (dom/button {:className "hint-dismiss-btn"
+                :onClick on-dismiss
+                :aria-label "Dismiss hint"}
+      "Got it")))
+
+;; ============================================================================
+; Feature Discovery Dots
+;; ============================================================================
+
+(defn feature-discovery-dot
+  "Pulsing dot to draw attention to new features"
+  [{:keys [on-click title]}]
+  (dom/div {:className "feature-discovery"
+           :onClick on-click
+           :title title}
+    (dom/div :.discovery-pulse)
+    (dom/div :.discovery-dot "✨")))
+
+;; ============================================================================
+; Welcome Modal
+;; ============================================================================
+
+(defn welcome-modal
+  "First-time welcome modal"
+  [{:keys [on-start-tour on-skip on-close]}]
+  (dom/div {:className "welcome-modal-overlay"
+           :role "dialog"
+           :aria-modal "true"}
+    (dom/div :.welcome-modal
+      (dom/div :.welcome-illustration "🌟")
+      (dom/h2 :.welcome-title "Welcome to Ouroboros!")
+      (dom/p :.welcome-subtitle
+        "The AI-powered platform for building products with clarity and joy.")
+      
+      (dom/div :.welcome-features
+        (dom/div :.welcome-feature
+          (dom/span :.wf-icon "🎯")
+          (dom/div :.wf-text
+            (dom/h4 "Product Flywheel")
+            (dom/p "4-phase methodology from empathy to business model")))
+        
+        (dom/div :.welcome-feature
+          (dom/span :.wf-icon "🤖")
+          (dom/div :.wf-text
+            (dom/h4 "AI Assistant")
+            (dom/p "ECA provides guidance every step of the way")))
+        
+        (dom/div :.welcome-feature
+          (dom/span :.wf-icon "📊")
+          (dom/div :.wf-text
+            (dom/h4 "Visual Builders")
+            (dom/p "Interactive canvases for structured thinking"))))
+      
+      (dom/div :.welcome-actions
+        (ui/button {:onClick on-start-tour
+                   :variant :primary
+                   :size :large}
+          "Take a Quick Tour 🚀")
+        
+        (dom/button {:className "welcome-skip"
+                    :onClick on-skip}
+          "Skip for now, I'll explore on my own"))
+      
+      (when on-close
+        (dom/button {:className "welcome-close"
+                    :onClick on-close
+                    :aria-label "Close welcome modal"}
+          "×")))))
+
+;; ============================================================================
+; Smart Tour Trigger
+;; ============================================================================
+
+(defn maybe-show-welcome
+  "Show welcome modal if user hasn't seen it"
+  [component]
+  (when-not (has-seen-tour? :welcome)
+    (comp/transact! component
+      [(m/set-props {:ui/show-welcome? true})])))
+
+(defn maybe-show-feature-tour
+  "Show feature tour if user hasn't seen it"
+  [component tour-name]
+  (when-not (has-seen-tour? tour-name)
+    (js/setTimeout
+      #(start-tour component tour-name)
+      1000))) ; Delay slightly for page to load
+
+;; ============================================================================
+; Export
+;; ============================================================================
+
+(def exports
+  {:overlay TourOverlay
+   :start start-tour
+   :next next-step
+   :prev prev-step
+   :skip skip-tour
+   :complete complete-tour
+   :has-seen? has-seen-tour?
+   :launcher tour-launcher
+   :hint contextual-hint
+   :discovery-dot feature-discovery-dot
+   :welcome welcome-modal
+   :maybe-show-welcome maybe-show-welcome
+   :maybe-show-feature-tour maybe-show-feature-tour})
