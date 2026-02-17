@@ -6,6 +6,7 @@
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
    [com.fulcrologic.fulcro.data-fetch :as df]
    [com.fulcrologic.fulcro.mutations :as m]
+   [ouroboros.frontend.app :refer [app]]
    [ouroboros.frontend.ui.components :as ui]))
 
 ;; ============================================================================
@@ -33,6 +34,16 @@
 ;; Components
 ;; ============================================================================
 
+(defn- flywheel-step-clickable [{:keys [phase icon label status on-click]}]
+  (dom/div {:className (str "flywheel-step clickable flywheel-step-" (name status))
+            :onClick on-click
+            :role "button"
+            :tabIndex 0
+            :onKeyDown #(handle-key-activation on-click %)
+            :aria-label (str label " - " (case status :completed "Completed" :active "In Progress" "Not Started"))}
+           (dom/span :.fw-icon icon)
+           (dom/span :.fw-label label)))
+
 (defn concepts-explainer [{:keys [expanded? on-toggle]}]
   (dom/div :.concepts-card
            (dom/div {:className "concepts-header" :onClick on-toggle :role "button" :tabIndex 0
@@ -45,20 +56,24 @@
                                (dom/div :.concept-header
                                         (dom/span :.concept-icon "🎯")
                                         (dom/h4 :.concept-title "Product Development Flywheel"))
-                               (dom/p :.concept-desc "A 4-phase methodology for building products. Each phase feeds into the next.")
+                               (dom/p :.concept-desc "A 4-phase methodology for building products. Each phase feeds into the next. Click any phase to start.")
                                (dom/div :.flywheel-diagram
-                                        (dom/div {:className "flywheel-step completed"}
-                                                 (dom/span :.fw-icon "👥") (dom/span :.fw-label "Empathy"))
+                                        (flywheel-step-clickable
+                                         {:phase :empathy-map :icon "👥" :label "Empathy" :status :completed
+                                          :on-click #(dr/change-route! app ["project" "empathy"])})
                                         (dom/span :.flywheel-arrow "→")
-                                        (dom/div {:className "flywheel-step active"}
-                                                 (dom/span :.fw-icon "💎") (dom/span :.fw-label "Value"))
+                                        (flywheel-step-clickable
+                                         {:phase :value-proposition :icon "💎" :label "Value" :status :active
+                                          :on-click #(dr/change-route! app ["project" "valueprop"])})
                                         (dom/span :.flywheel-arrow "→")
-                                        (dom/div {:className "flywheel-step"}
-                                                 (dom/span :.fw-icon "🚀") (dom/span :.fw-label "MVP"))
+                                        (flywheel-step-clickable
+                                         {:phase :mvp-planning :icon "🚀" :label "MVP" :status :not-started
+                                          :on-click #(dr/change-route! app ["project" "mvp"])})
                                         (dom/span :.flywheel-arrow "→")
-                                        (dom/div {:className "flywheel-step"}
-                                                 (dom/span :.fw-icon "📊") (dom/span :.fw-label "Canvas")))
-                               (dom/p :.concept-hint "📍 Where: Interactive builders on the Project page"))
+                                        (flywheel-step-clickable
+                                         {:phase :lean-canvas :icon "📊" :label "Canvas" :status :not-started
+                                          :on-click #(dr/change-route! app ["project" "canvas"])}))
+                               (dom/p :.concept-hint "📍 Click any phase above to open the builder"))
                       (dom/div :.concept-section
                                (dom/div :.concept-header
                                         (dom/span :.concept-icon "⚡")

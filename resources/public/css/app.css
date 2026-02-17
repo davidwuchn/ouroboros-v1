@@ -10027,6 +10027,36 @@ pre.code-block {
   50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
 }
 
+/* Clickable flywheel steps */
+.flywheel-step.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.flywheel-step.clickable:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.flywheel-step.clickable:active {
+  transform: translateY(-1px) scale(1.02);
+}
+
+.flywheel-step.clickable.flywheel-step-completed:hover {
+  border-color: #16a34a;
+  background: #bbf7d0;
+}
+
+.flywheel-step.clickable.flywheel-step-active:hover {
+  border-color: #f59e0b;
+  background: #fde68a;
+}
+
+.flywheel-step.clickable.flywheel-step-not-started:hover {
+  border-color: var(--color-primary);
+  background: rgba(47, 143, 78, 0.1);
+}
+
 .fw-icon {
   font-size: 1.5rem;
 }
