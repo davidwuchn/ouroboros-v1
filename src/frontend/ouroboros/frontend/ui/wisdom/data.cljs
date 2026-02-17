@@ -308,6 +308,11 @@
    {:key :subscription :label "Subscription" :match-fn #(some #{"Subscription"} (:tags %))}
    {:key :marketplace :label "Marketplace" :match-fn #(some #{"Marketplace" "Platform"} (:tags %))}])
 
+(defn- string-contains?
+  "Check if s contains substr (case-insensitive already handled)."
+  [s substr]
+  (not= -1 (.indexOf s substr)))
+
 (defn matches-search?
   "Check if template matches search query."
   [template query]
@@ -317,9 +322,9 @@
           name (str/lower-case (or (:name template) ""))
           desc (str/lower-case (or (:description template) ""))
           tags (map str/lower-case (or (:tags template) []))]
-      (or (str/includes? name q)
-          (str/includes? desc q)
-          (some #(str/includes? % q) tags)))))
+      (or (string-contains? name q)
+          (string-contains? desc q)
+          (some #(string-contains? % q) tags)))))
 
 (defn filter-templates
   "Filter templates by search query and active filter."
