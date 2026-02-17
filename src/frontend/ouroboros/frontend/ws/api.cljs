@@ -229,6 +229,56 @@
            (state/schedule-render!)))))
    20000))
 
+(defn request-learning-flywheel!
+  "Request user's learning flywheel progress data."
+  []
+  (conn/send! {:type "learning/flywheel"})
+  (js/setTimeout
+   (fn []
+     (when-let [state-atom @state/app-state-atom]
+       (when (get @state-atom :learning/flywheel-loading?)
+         (swap! state-atom assoc :learning/flywheel-loading? false)
+         (state/schedule-render!))))
+   10000))
+
+(defn request-due-reviews!
+  "Request due reviews for spaced repetition."
+  []
+  (conn/send! {:type "learning/due-reviews"})
+  (js/setTimeout
+   (fn []
+     (when-let [state-atom @state/app-state-atom]
+       (when (get @state-atom :learning/due-reviews-loading?)
+         (swap! state-atom assoc :learning/due-reviews-loading? false)
+         (state/schedule-render!))))
+   10000))
+
+(defn complete-review!
+  "Complete a review with confidence level (1-4)."
+  [learning-id confidence]
+  (conn/send! {:type "learning/complete-review"
+               :learning-id learning-id
+               :confidence confidence}))
+
+(defn skip-review!
+  "Skip a review (reschedules with shorter interval)."
+  [learning-id]
+  (conn/send! {:type "learning/skip-review"
+               :learning-id learning-id}))
+
+(defn search-learnings!
+  "Search learning insights by query."
+  [query]
+  (conn/send! {:type "learning/search"
+               :query query})
+  (js/setTimeout
+   (fn []
+     (when-let [state-atom @state/app-state-atom]
+       (when (get @state-atom :learning/search-loading?)
+         (swap! state-atom assoc :learning/search-loading? false)
+         (state/schedule-render!))))
+   10000))
+
 ;; ============================================================================
 ;; Builder Data
 ;; ============================================================================
@@ -241,3 +291,22 @@
                :session-id session-id
                :builder-type (name builder-type)
                :data data}))
+
+(defn apply-template-to-builders!
+  "Atomically apply a template to ALL builders for a project.
+   This is a single transaction - replaces the old pattern of 4 separate WS calls.
+   Backend saves template data to all 4 builders and records a learning insight."
+  [project-id template-key template-data]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom assoc-in [:builder/template-applying? project-id] true))
+  (conn/send! {:type "builder/apply-template"
+               :project-id project-id
+               :template-key (name template-key)
+               :template-data template-data})
+  (js/setTimeout
+    (fn []
+      (when-let [state-atom @state/app-state-atom]
+        (when (get-in @state-atom [:builder/template-applying? project-id])
+          (swap! state-atom assoc-in [:builder/template-applying? project-id] false)
+          (state/schedule-render!))))
+    30000))

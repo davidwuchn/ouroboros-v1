@@ -64,6 +64,8 @@
                               :async? false}
    "builder/save-data"       {:handler builder/handle-save-builder-data!
                               :async? false}
+   "builder/apply-template"  {:handler builder/handle-apply-template!
+                              :async? false}
    "learning/save-examples"  {:handler learning/handle-learning-save-examples!
                               :async? false}
    "learning/categories"     {:handler learning/handle-learning-categories!
@@ -71,6 +73,16 @@
    "learning/category-insights" {:handler learning/handle-learning-category-insights!
                                  :async? false}
    "wisdom/template"         {:handler learning/handle-wisdom-template!
+                              :async? false}
+   "learning/flywheel"       {:handler learning/handle-learning-flywheel!
+                              :async? false}
+   "learning/due-reviews"    {:handler learning/handle-learning-due-reviews!
+                              :async? false}
+   "learning/complete-review" {:handler learning/handle-learning-complete-review!
+                               :async? false}
+   "learning/skip-review"    {:handler learning/handle-learning-skip-review!
+                              :async? false}
+   "learning/search"         {:handler learning/handle-learning-search!
                               :async? false}
    "kanban/board"            {:handler kanban/handle-kanban-board!
                               :async? false}

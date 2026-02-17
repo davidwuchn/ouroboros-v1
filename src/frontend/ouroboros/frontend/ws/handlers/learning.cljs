@@ -86,3 +86,78 @@
                  (assoc-in [:auto-insight/id project-id :auto-insight/loading?] false)
                  (assoc-in [:auto-insight/id project-id :auto-insight/streaming?] false))))
     (state/schedule-render!)))
+
+;; ============================================================================
+;; Learning Flywheel
+;; ============================================================================
+
+(defmethod dispatch/handle-message :learning/flywheel
+  [{:keys [total by-level current-level progress-to-next suggested-focus recent-insights]}]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc :learning/total total)
+                 (assoc :learning/by-level by-level)
+                 (assoc :learning/current-level current-level)
+                 (assoc :learning/progress-to-next progress-to-next)
+                 (assoc :learning/suggested-focus suggested-focus)
+                 (assoc :learning/recent-insights recent-insights)
+                 (assoc :learning/flywheel-loading? false))))
+    (state/schedule-render!)))
+
+;; ============================================================================
+;; Spaced Repetition - Reviews
+;; ============================================================================
+
+(defmethod dispatch/handle-message :learning/due-reviews
+  [{:keys [reviews due-count stats]}]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc :learning/due-reviews reviews)
+                 (assoc :learning/due-count due-count)
+                 (assoc :learning/review-stats stats)
+                 (assoc :learning/due-reviews-loading? false))))
+    (state/schedule-render!)))
+
+(defmethod dispatch/handle-message :learning/review-completed
+  [{:keys [learning-id title level]}]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (update :learning/due-reviews
+                         (fn [reviews]
+                           (remove #(= (:learning-id %) learning-id) reviews)))
+                 (update :learning/due-count dec))))
+    (state/schedule-render!)))
+
+(defmethod dispatch/handle-message :learning/review-skipped
+  [{:keys [learning-id]}]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (update :learning/due-reviews
+                         (fn [reviews]
+                           (remove #(= (:learning-id %) learning-id) reviews)))
+                 (update :learning/due-count dec))))
+    (state/schedule-render!)))
+
+;; ============================================================================
+;; Learning Search
+;; ============================================================================
+
+(defmethod dispatch/handle-message :learning/search-results
+  [{:keys [query results count]}]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc :learning/search-query query)
+                 (assoc :learning/search-results results)
+                 (assoc :learning/search-count count)
+                 (assoc :learning/search-loading? false))))
+    (state/schedule-render!)))

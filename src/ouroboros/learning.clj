@@ -289,6 +289,107 @@
      :needs-review (map :learning/title old-learnings)}))
 
 ;; ============================================================================
+;; Learning Flywheel - Progressive Disclosure Levels
+;; ============================================================================
+
+(def learning-levels
+  "Four levels of the Learning Flywheel"
+  [:utility :understanding :insight :wisdom])
+
+(defn determine-level
+  "Determine learning level based on record maturity and applications
+   
+   Logic:
+   - Utility: Default level for new learnings (0-1 applications)
+   - Understanding: 1+ applications, confidence 2+
+   - Insight: 2+ applications, has transfer connections
+   - Wisdom: 3+ applications, multiple transfers, high confidence"
+  [{:keys [learning/applied-count learning/confidence learning/transfers]}]
+  (cond
+    (and (>= (or applied-count 0) 3)
+         (seq transfers)
+         (>= (or confidence 0) 4)) :wisdom
+    (and (>= (or applied-count 0) 2)
+         (seq transfers)) :insight
+    (>= (or applied-count 0) 1) :understanding
+    :else :utility))
+
+(defn promote-learning!
+  "Promote a learning to the next level based on usage patterns"
+  [learning-id]
+  (when-let [learning (get-learning learning-id)]
+    (let [current-level (or (:learning/level learning) (determine-level learning))
+          level-idx (.indexOf learning-levels current-level)
+          next-idx (min (dec (count learning-levels)) (inc level-idx))
+          new-level (nth learning-levels next-idx)]
+      (when (not= current-level new-level)
+        (update-learning! learning-id {:learning/level new-level})
+        (telemetry/emit! {:event :learning/promoted
+                          :learning-id learning-id
+                          :from-level current-level
+                          :to-level new-level}))
+      new-level)))
+
+(defn flywheel-progress
+  "Get user's progress through the 4 learning levels
+   
+   Returns:
+   {:total N
+    :by-level {:utility N :understanding N :insight N :wisdom N}
+    :current-level :utility|:understanding|:insight|:wisdom
+    :progress-to-next 0.0-1.0
+    :recent-insights [...]
+    :suggested-focus :keyword}"
+  [user-id]
+  (let [history (get-user-history user-id)
+        with-levels (map #(assoc % :learning/level 
+                                   (or (:learning/level %) (determine-level %))) 
+                         history)
+        by-level (group-by :learning/level with-levels)
+        counts (into {} (map (fn [level] 
+                               [level (count (get by-level level))])
+                             learning-levels))
+        total (count history)
+        ;; Determine current level (highest with learnings, or utility if none)
+        current-level (or (->> (reverse learning-levels)
+                               (filter #(pos? (get counts % 0)))
+                               first)
+                        :utility)
+        ;; Calculate progress to next level
+        current-idx (.indexOf learning-levels current-level)
+        next-level (when (< current-idx (dec (count learning-levels)))
+                     (nth learning-levels (inc current-idx)))
+        progress-to-next (if next-level
+                           (let [next-count (get counts next-level 0)
+                                 threshold (case current-level
+                                             :utility 3      ; Need 3 to move to understanding
+                                             :understanding 2 ; Need 2 to move to insight
+                                             :insight 1       ; Need 1 to move to wisdom
+                                             1)]
+                             (min 1.0 (/ next-count threshold)))
+                           1.0)
+        ;; Suggest focus area
+        focus-area (cond
+                     (zero? total) :start-learning
+                     (< (get counts :understanding 0) (get counts :utility 0)) :deepen-understanding
+                     (< (get counts :insight 0) (get counts :understanding 0)) :seek-patterns
+                     (< (get counts :wisdom 0) (get counts :insight 0)) :transfer-knowledge
+                     :else :maintain-wisdom)]
+    {:total total
+     :by-level counts
+     :current-level current-level
+     :progress-to-next progress-to-next
+     :recent-insights (->> with-levels
+                          (sort-by :learning/created)
+                          reverse
+                          (take 5)
+                          (map #(select-keys % [:learning/id
+                                                 :learning/title
+                                                 :learning/level
+                                                 :learning/category])))
+     :suggested-focus focus-area}))
+
+;; ============================================================================
 ;; Integration Helpers
 ;; ============================================================================
 
@@ -355,6 +456,24 @@
      :learning/recent-learnings (map (fn [title] {:learning/title title})
                                      (:recent-learnings stats))}))
 
+(pco/defresolver learning-flywheel-progress [{:keys [user/id]}]
+  {::pco/output [:learning/total
+                 :learning/by-level
+                 :learning/current-level
+                 :learning/progress-to-next
+                 :learning/suggested-focus
+                 {:learning/recent-insights [:learning/id
+                                            :learning/title
+                                            :learning/level
+                                            :learning/category]}]}
+  (let [progress (flywheel-progress id)]
+    {:learning/total (:total progress)
+     :learning/by-level (:by-level progress)
+     :learning/current-level (:current-level progress)
+     :learning/progress-to-next (:progress-to-next progress)
+     :learning/suggested-focus (:suggested-focus progress)
+     :learning/recent-insights (:recent-insights progress)}))
+
 (pco/defmutation learning-save! [{:keys [user/id title insights pattern]}]
   {::pco/output [:learning/id :learning/title :learning/created]}
   (let [record (save-insight! id
@@ -371,8 +490,158 @@
     {:learning/id id
      :learning/applied-count (:learning/applied-count updated)}))
 
-(def resolvers [learning-user-history learning-user-stats])
-(def mutations [learning-save! learning-apply!])
+;; ============================================================================
+;; Spaced Repetition System
+;; ============================================================================
+
+(def review-intervals
+  "Leitner system intervals in milliseconds
+   Level 1: 1 day, Level 2: 3 days, Level 3: 1 week, Level 4: 3 weeks"
+  {1 (* 1 24 60 60 1000)    ; 1 day
+   2 (* 3 24 60 60 1000)    ; 3 days
+   3 (* 7 24 60 60 1000)    ; 1 week
+   4 (* 21 24 60 60 1000)}) ; 3 weeks
+
+(defn schedule-review!
+  "Schedule a review for a learning insight using spaced repetition
+   
+   Usage: (schedule-review! 'user-123/sequence-types-123456' 3)
+   Where confidence is 1-4 (1=hard, 4=easy)"
+  [learning-id confidence]
+  (let [level (min 4 (max 1 (or confidence 2)))
+        interval (get review-intervals level (get review-intervals 2))
+        next-review (+ (System/currentTimeMillis) interval)]
+    (memory/save-value! (keyword (str "review/" learning-id))
+                        {:learning-id learning-id
+                         :level level
+                         :scheduled-at next-review
+                         :created (System/currentTimeMillis)})
+    (telemetry/emit! {:event :learning/review-scheduled
+                      :learning-id learning-id
+                      :level level
+                       :next-review next-review})
+    {:learning-id learning-id
+     :level level
+     :next-review next-review}))
+
+(defn get-due-reviews
+  "Get all learning reviews due for a user
+   Returns list of {:learning-id :title :scheduled-at :level}"
+  [user-id]
+  (let [all-data (memory/get-all)
+        review-keys (filter #(and (namespace %)
+                                  (str/starts-with? (name %) "review/"))
+                            (keys all-data))
+        now (System/currentTimeMillis)
+        due-reviews (filter #(> now (get-in (val %) [:scheduled-at] 0))
+                           (select-keys all-data review-keys))]
+    (->> due-reviews
+         (map (fn [[_ review-data]]
+                (when-let [learning (get-learning (:learning-id review-data))]
+                  {:learning-id (:learning-id review-data)
+                   :title (:learning/title learning)
+                   :category (:learning/category learning)
+                   :level (:level review-data)
+                   :scheduled-at (:scheduled-at review-data)})))
+         (remove nil?)
+         (sort-by :scheduled-at))))
+
+(defn complete-review!
+  "Mark a review as completed and schedule next one
+   Returns the next scheduled review"
+  [learning-id confidence]
+  (let [old-review (memory/get-value (keyword (str "review/" learning-id)))
+        new-level (min 4 (inc (or (:level old-review) 1)))
+        next-review (schedule-review! learning-id (or confidence new-level))]
+    (increment-application! learning-id)
+    (telemetry/emit! {:event :learning/review-completed
+                      :learning-id learning-id
+                      :old-level (:level old-review)
+                      :new-level new-level})
+    next-review))
+
+(defn skip-review!
+  "Skip a review without completing it (reschedule with shorter interval)"
+  [learning-id]
+  (let [review (memory/get-value (keyword (str "review/" learning-id)))
+        current-level (or (:level review) 2)
+        ;; If skipped, reduce level but not below 1
+        new-level (max 1 (dec current-level))
+        rescheduled (schedule-review! learning-id new-level)]
+    (telemetry/emit! {:event :learning/review-skipped
+                      :learning-id learning-id
+                      :old-level current-level
+                      :new-level new-level})
+    rescheduled))
+
+(defn get-review-stats
+  "Get spaced repetition statistics for a user"
+  [user-id]
+  (let [all-data (memory/get-all)
+        review-keys (filter #(and (namespace %)
+                                  (str/starts-with? (name %) "review/"))
+                            (keys all-data))
+        reviews (vals (select-keys all-data review-keys))
+        now (System/currentTimeMillis)
+        due-count (count (filter #(> now (:scheduled-at %)) reviews))
+        upcoming-count (count (filter #(< now (:scheduled-at %)) reviews))]
+    {:total-scheduled (count reviews)
+     :due-now due-count
+     :upcoming upcoming-count
+     :by-level (frequencies (map :level reviews))}))
+
+(defn- ensure-review-scheduled!
+  "Ensure a learning has a review scheduled (called when insight is saved)"
+  [learning-id]
+  (let [review-key (keyword (str "review/" learning-id))
+        existing (memory/get-value review-key)]
+    (when-not existing
+      (schedule-review! learning-id 1))))
+
+;; ============================================================================
+;; Spaced Repetition Pathom Integration
+;; ============================================================================
+
+(pco/defresolver learning-due-reviews [{:keys [user/id]}]
+  {::pco/output [{:learning/due-reviews [:learning-id :title :category :level :scheduled-at]}]}
+  {:learning/due-reviews (get-due-reviews id)})
+
+(pco/defresolver learning-review-stats [{:keys [user/id]}]
+  {::pco/output [:learning/total-scheduled
+                 :learning/due-now
+                 :learning/upcoming-reviews
+                 :learning/reviews-by-level]}
+  (let [stats (get-review-stats id)]
+    {:learning/total-scheduled (:total-scheduled stats)
+     :learning/due-now (:due-now stats)
+     :learning/upcoming-reviews (:upcoming stats)
+     :learning/reviews-by-level (:by-level stats)}))
+
+(pco/defmutation learning-complete-review! [{:keys [learning/id confidence]}]
+  {::pco/output [:learning/id :learning/next-review :learning/level]}
+  (let [result (complete-review! id confidence)]
+    {:learning/id id
+     :learning/next-review (:next-review result)
+     :learning/level (:level result)}))
+
+(pco/defmutation learning-skip-review! [{:keys [learning/id]}]
+  {::pco/output [:learning/id :learning/next-review :learning/level]}
+  (let [result (skip-review! id)]
+    {:learning/id id
+     :learning/next-review (:next-review result)
+     :learning/level (:level result)}))
+
+;; Override save-insight! to auto-schedule review
+(defn save-insight-with-review!
+  "Save insight and schedule initial review"
+  [user-id data]
+  (let [record (save-insight! user-id data)]
+    (ensure-review-scheduled! (:learning/id record))
+    record))
+
+(def resolvers [learning-user-history learning-user-stats learning-flywheel-progress
+                learning-due-reviews learning-review-stats])
+(def mutations [learning-save! learning-apply! learning-complete-review! learning-skip-review!])
 
 ;; ============================================================================
 ;; Initialization

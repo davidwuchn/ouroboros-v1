@@ -7,10 +7,10 @@
    This namespace is an implementation detail - prefer using
    the public API in ouroboros.eca-client"
   (:require
-    [clojure.string :as str]
-    [ouroboros.fs :as fs]
-    [ouroboros.telemetry :as telemetry]
-    [ouroboros.eca-client.core :as core])
+   [clojure.string :as str]
+   [ouroboros.fs :as fs]
+   [ouroboros.telemetry :as telemetry]
+   [ouroboros.eca-client.core :as core])
   (:import [java.io BufferedReader InputStreamReader]
            [java.util.concurrent TimeUnit]))
 
@@ -357,12 +357,16 @@
           exit-code (.waitFor proc)]
       (if (zero? exit-code)
         (->> (str/split-lines output)
-             (filter #(str/includes? % "eca"))
-             (filter #(str/includes? % "server"))
              (map #(let [trimmed (str/trim %)
-                          parts (str/split trimmed #"\s+" 3)]  ;; pid, comm, args
+                         parts (str/split trimmed #"\s+" 3)]  ;; pid, comm, args
                      {:pid (str/trim (first parts))
+                      :comm (str/trim (second parts))
                       :command (str/trim (nth parts 2 ""))}))
+             (filter #(let [binary-path (first (str/split (:command %) #"\s+" 2))
+                            binary-name (fs/file-name binary-path)]
+                        (and binary-name (= "eca" binary-name))))
+             (filter #(str/includes? (:command %) "server"))
+             (map #(select-keys % [:pid :command]))
              vec)
         []))
     (catch Exception _

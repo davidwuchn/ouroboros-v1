@@ -305,8 +305,12 @@
     (register-resolver-tools))
 
   ;; Also register traditional tools from tool_defs for backward compatibility
-  (when-let [register-tools (resolve 'ouroboros.tool-defs/register-all-tools!)]
-    (register-tools))
+  (try
+    (require 'ouroboros.tool-defs)
+    (when-let [register-tools (resolve 'ouroboros.tool-defs/register-all-tools!)]
+      (register-tools))
+    (catch Exception e
+      (println "⚠ Could not register tool-defs tools:" (.getMessage e))))
 
   (println "Query environment initialized"))
 

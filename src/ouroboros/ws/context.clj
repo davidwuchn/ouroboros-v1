@@ -81,7 +81,10 @@
 
 (defn ensure-workspace-project!
   "Find or create the project for the current workspace directory.
-   Returns the project map."
+   Returns the project map.
+   
+   Note: Project ID is deterministic based on user-id and path to avoid
+   creating duplicate projects on each WebSocket reconnect."
   []
   (let [user-id (current-user-id)
         {:keys [name description path]} (detect-workspace-info)
@@ -92,9 +95,12 @@
                                 existing-projects))]
     (if existing
       (val existing)
-      (let [project-id (str (clojure.core/name user-id) "/project-"
+      ;; Create deterministic project-id based on user-id and path hash
+      ;; This ensures the same workspace always gets the same project-id
+      (let [path-hash (str (hash path))
+            project-id (str (clojure.core/name user-id) "/"
                             (str/replace (str/lower-case name) #"[^a-z0-9]+" "-")
-                            "-" (System/currentTimeMillis))
+                            "-" path-hash)
             project {:project/id project-id
                      :project/name name
                      :project/description (or description "")

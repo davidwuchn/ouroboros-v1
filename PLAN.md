@@ -78,6 +78,7 @@ See detailed analysis sections below for specific recommendations.
 1. **Container Isolation** - OS-level container isolation for ECA execution (P1)
 2. **Per-Channel Isolation** - Filesystem isolation per chat channel/platform (P1)
 3. **Metrics Export** - Prometheus/OpenTelemetry format for monitoring (P1)
+4. **Learning System Activation** - Transform learning capture into wisdom flywheel (P1) — ✅ Analysis complete, ready for implementation
 
 ## ECA Integration Strategy ✅
 
@@ -825,6 +826,7 @@ These are now handled by ECA:
 | 2026-02-10 | **Resilience & UI Polish** -- ECA client auto-restart on failure (`alive?`, `restart!`, `ensure-alive!`). WebSocket content caching in localStorage. Chat panel WS connectivity checks. Telemetry UI overhaul (event detail drawer, debug toggle). Nil-safety sweep across 9 frontend components. Flywheel indicator redesigned as circle stepper with ARIA accessibility. |
 | 2026-02-10 | **Dashboard flywheel alignment** -- Migrated dashboard from old `.dash-fw-*` pill-style flywheel to shared `ui/flywheel-indicator` circle stepper. Removed ~60 lines dead CSS. Single component for all flywheel nav across app. |
 | 2026-02-16 | **λ(system) Implementation** -- Core self-evolution mechanics from LAMBDA_SYSTEM_REAL.md: λ(self) auto-rule generation, λ(memory) promotion/indexing, maintenance checklist, metrics tracking. Gaps: observation layer and integration missing. |
+| 2026-02-16 | **Learning system analysis** -- Comprehensive review of learning system architecture, identification of activation gaps, ready for implementation. |
 
 ## Lessons from NanoClaw Analysis
 
@@ -995,6 +997,79 @@ We just need to apply the same pattern to conversation memory.
 - Preserved important decisions
 
 **Status**: 📋 P1 — Critical for production chat usage; prevents context overflow.
+
+### Learning System Activation (P1) 📋 ANALYSIS COMPLETE
+
+**Progress**: Comprehensive analysis complete. The learning system has a solid foundation with:
+- ✅ Modular design (learning.clj, wisdom.clj, empathy_map.clj, value_proposition.clj)
+- ✅ Memory integration (EDN/JSONL persistence, telemetry bridge)
+- ✅ λ(system) integration (telemetry routing, OODA observation, reviewer skill hooks)
+- ✅ Builder auto-save integration (empathy map, value proposition builders)
+- ✅ Pathom resolvers for query access
+- ✅ Test coverage (learning, wisdom, empathy_map tests)
+
+**Current**: Learning system captures insights but lacks activation mechanisms. It's a storage system with great potential to become a true learning partner.
+
+**Gap**: The documented "Learning Flywheel" (Utility→Understanding→Insight→Wisdom) exists in CONCEPTS.md but isn't implemented as a cohesive user experience. Users can save insights but don't experience progressive disclosure or wisdom transformation.
+
+**Review Findings**:
+1. **Architectural Strengths**: Modular design, proper memory integration, λ(system) telemetry bridge, builder integration
+2. **Critical Gaps**: 
+   - No operational learning flywheel UI/UX
+   - No cross-user pattern aggregation (siloed per user)
+   - Missing spaced repetition & review system
+   - Pattern matching is string-based (no semantic search)
+   - Learning categories are static (no dynamic creation)
+
+**Recommendation**: Implement three activation layers:
+
+```clojure
+;; 1. Learning Flywheel UI - 4-level progression
+(defn flywheel-stage [user-id context]
+  (let [utility (provide-utility context)        ; Immediate help
+        understanding (build-understanding context) ; Connect dots
+        insight (generate-insight context)        ; New perspective
+        wisdom (extract-wisdom context)]          ; Transferable principle
+    {:stage (determine-current-stage utility understanding insight wisdom)
+     :content {:utility utility
+               :understanding understanding
+               :insight insight
+               :wisdom wisdom}}))
+
+;; 2. Spaced Repetition System (Leitner intervals)
+(defn schedule-review! [learning-id confidence]
+  (let [intervals {1 (* 1 24 60 60 1000)   ; 1 day
+                   2 (* 3 24 60 60 1000)   ; 3 days
+                   3 (* 7 24 60 60 1000)   ; 1 week
+                   4 (* 21 24 60 60 1000)} ; 3 weeks
+        next-review (+ (System/currentTimeMillis)
+                       (get intervals confidence (get intervals 1)))]
+    (memory/save-value! (keyword (str "review/" learning-id))
+                       {:learning-id learning-id
+                        :next-review next-review})))
+
+;; 3. Cross-user pattern aggregation (opt-in)
+(defn aggregate-patterns! [learning-record]
+  (when (:allow-aggregation? learning-record)
+    (swap! global-patterns update (:learning/pattern learning-record)
+           (fnil inc 0))
+    ;; Emit telemetry for λ(system) to detect common patterns
+    (telemetry/emit! {:event :pattern/aggregated
+                      :pattern (:learning/pattern learning-record)
+                      :anonymized true})))
+```
+
+**Key Insight**: The learning system has excellent **capture** mechanics but needs **activation** mechanisms. Currently it's a library - needs to become a librarian who proactively suggests relevant books, reminds you to review, and notices when you're ready for deeper wisdom.
+
+**Next Steps**:
+1. **Implement Learning Flywheel UI** — Create a cohesive 4-level progression interface (Utility→Understanding→Insight→Wisdom) with visual indicators and stage transitions
+2. **Build Spaced Repetition System** — Leitner interval scheduling with review notifications and confidence tracking
+3. **Add Cross-User Pattern Aggregation** — Opt-in anonymized aggregation to detect common patterns across users
+4. **Upgrade Search to Semantic** — Replace string-based pattern matching with embedding-based semantic search
+5. **Dynamic Category Creation** — Allow learning categories to emerge from patterns rather than being predefined
+6. **Integrate with ECA Wisdom Pipeline** — Connect learning activation to existing ECA-powered wisdom system for AI-generated insights
+
+**Status**: 📋 ANALYSIS COMPLETE, READY FOR IMPLEMENTATION — Critical for transforming Ouroboros from utility assistant to wisdom partner.
 
 ### Prompt-Driven Architecture (P2) 📋 NEW
 **Current**: System prompts hardcoded in namespaces.
@@ -1180,6 +1255,7 @@ docs/
 | **P1** | Config unification | Low | 🟡 Medium | 📋 Planned |
 | **P1** | Hierarchical Agent System | N/A | N/A | ✅ DELEGATED TO ECA |
 | **P1** | Context Summarization | Medium | 🔴 High | 📋 NEW |
+| **P1** | Learning System Activation | Medium | 🔴 High | 📋 ANALYSIS COMPLETE |
 | **P0** | λ(system) Telemetry Integration | Low | 🔴 Critical | ✅ Done |
 | **P0** | λ(system) Reviewer Integration | Low | 🔴 Critical | ✅ Done |
 | **P1** | λ(system) OODA Observation | Medium | 🔴 High | ✅ Done |

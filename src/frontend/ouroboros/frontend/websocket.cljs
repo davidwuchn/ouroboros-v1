@@ -82,8 +82,14 @@
 (def request-wisdom-template! api/request-wisdom-template!)
 (def request-learning-categories! api/request-learning-categories!)
 (def request-category-insights! api/request-category-insights!)
+(def request-learning-flywheel! api/request-learning-flywheel!)
+(def request-due-reviews! api/request-due-reviews!)
+(def complete-review! api/complete-review!)
+(def skip-review! api/skip-review!)
+(def search-learnings! api/search-learnings!)
 (def save-builder-data! api/save-builder-data!)
 (def merge-builder-data-into-state! builder-handler/merge-builder-data-into-state!)
+(def apply-template-to-builders! api/apply-template-to-builders!)
 
 ;; ============================================================================
 ;; Lifecycle (re-exports from ws/lifecycle)

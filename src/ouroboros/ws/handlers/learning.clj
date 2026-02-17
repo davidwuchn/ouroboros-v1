@@ -122,3 +122,85 @@
                               :template-key (name template-kw)
                               :data template
                               :timestamp (System/currentTimeMillis)})))
+
+;; ============================================================================
+;; Learning Flywheel
+;; ============================================================================
+
+(defn handle-learning-flywheel!
+  "Return user's learning flywheel progress data."
+  [client-id _message]
+  (let [user-id (ctx/current-user-id)
+        progress (learning/flywheel-progress user-id)]
+    (conn/send-to! client-id {:type :learning/flywheel
+                              :total (:total progress)
+                              :by-level (:by-level progress)
+                              :current-level (:current-level progress)
+                              :progress-to-next (:progress-to-next progress)
+                              :suggested-focus (:suggested-focus progress)
+                              :recent-insights (:recent-insights progress)
+                              :timestamp (System/currentTimeMillis)})))
+
+;; ============================================================================
+;; Spaced Repetition - Review System
+;; ============================================================================
+
+(defn handle-learning-due-reviews!
+  "Return learning reviews that are due for the user"
+  [client-id _message]
+  (let [user-id (ctx/current-user-id)
+        due (learning/get-due-reviews user-id)
+        stats (learning/get-review-stats user-id)]
+    (conn/send-to! client-id {:type :learning/due-reviews
+                              :reviews due
+                              :due-count (count due)
+                              :stats stats
+                              :timestamp (System/currentTimeMillis)})))
+
+(defn handle-learning-complete-review!
+  "Complete a review and schedule next one"
+  [client-id {:keys [learning-id confidence]}]
+  (let [result (learning/complete-review! learning-id confidence)
+        updated-learning (learning/get-learning learning-id)]
+    (conn/send-to! client-id {:type :learning/review-completed
+                              :learning-id learning-id
+                              :next-review (:next-review result)
+                              :level (:level result)
+                              :title (:learning/title updated-learning)
+                              :timestamp (System/currentTimeMillis)})
+    ;; Send updated due reviews
+    (handle-learning-due-reviews! client-id nil)))
+
+(defn handle-learning-skip-review!
+  "Skip a review (reschedule with shorter interval)"
+  [client-id {:keys [learning-id]}]
+  (let [result (learning/skip-review! learning-id)
+        updated-learning (learning/get-learning learning-id)]
+    (conn/send-to! client-id {:type :learning/review-skipped
+                              :learning-id learning-id
+                              :next-review (:next-review result)
+                              :level (:level result)
+                              :title (:learning/title updated-learning)
+                              :timestamp (System/currentTimeMillis)})
+    ;; Send updated due reviews
+    (handle-learning-due-reviews! client-id nil)))
+
+;; ============================================================================
+;; Learning Search
+;; ============================================================================
+
+(defn handle-learning-search!
+  "Search learning insights by query string"
+  [client-id {:keys [query]}]
+  (let [user-id (ctx/current-user-id)
+        results (learning/find-related user-id (or query ""))]
+    (conn/send-to! client-id {:type :learning/search-results
+                              :query query
+                              :results (mapv #(select-keys % [:learning/id
+                                                              :learning/title
+                                                              :learning/category
+                                                              :learning/insights
+                                                              :match-score])
+                                            results)
+                              :count (count results)
+                              :timestamp (System/currentTimeMillis)})))

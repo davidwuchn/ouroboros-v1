@@ -101,6 +101,8 @@
                       "*Learning*\n"
                       "/learn <topic> <insight> - Save learning\n"
                       "/recall <pattern> - Recall learnings\n"
+                      "/reviews - Due reviews (spaced repetition)\n"
+                      "/reviews all - All scheduled reviews\n"
                       "/wisdom - Wisdom summary\n\n"
                       "*Workflows (Plan → Review)*\n"
                       "/plan <desc> - Create implementation plan\n"
@@ -121,9 +123,19 @@
   [adapter chat-id _user-name _cmd _args]
   (telemetry/emit! {:event :chat/command :command :status :chat-id chat-id})
   (let [result (tool-registry/call-tool :system/status {})]
-    (send-message! adapter chat-id
-                   (str "*System Status*\n\n"
-                        (pr-str (:result result))))))
+    (if-let [status (:result result)]
+      (let [{:keys [state running? ready?]} status
+            state-str (cond
+                       (set? state) (name (first state))
+                       :else (str state))]
+        (send-message! adapter chat-id
+                       (str "*System Status*\n\n"
+                            "🟢 Running: " (if running? "Yes" "No") "\n"
+                            "✅ Ready: " (if ready? "Yes" "No") "\n"
+                            "📊 State: " state-str)))
+      (send-message! adapter chat-id
+                     (str "*System Status*\n\n"
+                          "⚠️ System not initialized or unavailable")))))
 
 ;; /tools
 (defmethod handle-command :tools
@@ -193,14 +205,14 @@
     (let [insight (str/join " " insight-parts)]
       (if (or (str/blank? topic) (str/blank? insight))
         (send-message! adapter chat-id "⚠️ Usage: /learn <topic> <insight>\n\nExample: /learn clojure \"Use keywords for map keys, not strings\"")
-        (do (learning/save-insight! chat-id
-                                    {:title (str "Learning: " topic)
-                                     :insights [insight]
-                                     :pattern (str "user-learning-" (str/replace topic #"\s+" "-"))
-                                     :category "user-insights"
-                                     :tags #{topic "learning"}})
-            (send-message! adapter chat-id (str "✓ Learning saved: " topic)))))
-    (send-message! adapter chat-id "*Learning Commands*\n\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary")))
+        (let [record (learning/save-insight-with-review! chat-id
+                                                         {:title (str "Learning: " topic)
+                                                          :insights [insight]
+                                                          :pattern (str "user-learning-" (str/replace topic #"\s+" "-"))
+                                                          :category "user-insights"
+                                                          :tags #{topic "learning"}})]
+          (send-message! adapter chat-id (str "✓ Learning saved: " topic "\n📅 Review scheduled in 1 day")))))
+    (send-message! adapter chat-id "*Learning Commands*\n\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/review - Due reviews\n/wisdom - Wisdom summary")))
 
 ;; /recall
 (defmethod handle-command :recall
@@ -218,16 +230,90 @@
         (send-message! adapter chat-id (str "No learnings found matching: " args))))
     (send-message! adapter chat-id "⚠️ Usage: /recall <pattern>\n\nExample: /recall auth")))
 
+;; /reviews - Spaced Repetition System
+(defmethod handle-command :reviews
+  [adapter chat-id _user-name _cmd args]
+  (telemetry/emit! {:event :chat/command :command :reviews :chat-id chat-id})
+  (let [subcmd (str/lower-case (or args ""))]
+    (case subcmd
+      ("" "due" "now")
+      (let [due (learning/get-due-reviews chat-id)]
+        (if (seq due)
+          (do
+            (send-markdown! adapter chat-id
+                            (str "*📚 Reviews Due* (" (count due) ")\n\n"
+                                 (str/join "\n\n"
+                                           (map-indexed (fn [idx review]
+                                                          (str (inc idx) ". **" (:title review) "**\n"
+                                                               "   Category: " (:category review) "\n"
+                                                               "   Reply with: /reviews done " idx " <1-4> (confidence)\n"
+                                                               "   Or: /reviews skip " idx))
+                                                        due))))
+            ;; Store due reviews in session for reference
+            (session/assoc-context! chat-id :review/due-list due))
+          (let [stats (learning/get-review-stats chat-id)]
+            (send-message! adapter chat-id
+                           (str "✅ No reviews due!\n\n"
+                                "Reviews scheduled: " (:total-scheduled stats) "\n"
+                                "Upcoming: " (:upcoming stats) "\n\n"
+                                "Use /learn to save new insights.")))))
+
+      "all"
+      (let [stats (learning/get-review-stats chat-id)]
+        (send-markdown! adapter chat-id
+                        (str "*📅 All Scheduled Reviews*\n\n"
+                             "Total: " (:total-scheduled stats) "\n"
+                             "Due now: " (:due-now stats) "\n"
+                             "Upcoming: " (:upcoming stats) "\n\n"
+                             "By level:\n"
+                             (str/join "\n" (map (fn [[level count]]
+                                                   (str "  Level " level ": " count))
+                                                 (:by-level stats))))))
+
+      ("done" "skip")
+      (let [parts (str/split (or args "") #"\s+" 3)
+            action (first parts)
+            idx-str (second parts)
+            confidence-str (nth parts 2 nil)
+            due-list (session/get-context chat-id :review/due-list)
+            idx (when idx-str (try (dec (Integer/parseInt idx-str)) (catch Exception _ nil)))]
+        (if (and due-list idx (>= idx 0) (< idx (count due-list)))
+          (let [review (nth due-list idx)
+                learning-id (:learning-id review)]
+            (case action
+              "done" (let [confidence (try (Integer/parseInt confidence-str) (catch Exception _ 3))]
+                       (learning/complete-review! learning-id confidence)
+                       (send-message! adapter chat-id
+                                      (str "✓ Review completed: " (:title review) "\n"
+                                           "📅 Next review scheduled")))
+              "skip" (do
+                       (learning/skip-review! learning-id)
+                       (send-message! adapter chat-id
+                                      (str "⏭ Review skipped: " (:title review) "\n"
+                                           "📅 Rescheduled with shorter interval")))))
+          (send-message! adapter chat-id "⚠️ Invalid review index. Use /reviews to see due reviews.")))
+
+      ;; Default: show help
+      (send-message! adapter chat-id "*Review Commands*\n\n/reviews - Show due reviews\n/reviews all - Show all scheduled reviews\n/reviews done <index> <1-4> - Complete a review (confidence 1=hard, 4=easy)\n/reviews skip <index> - Skip/reschedule a review"))))
+
 ;; /wisdom
 (defmethod handle-command :wisdom
   [adapter chat-id _user-name _cmd _args]
   (telemetry/emit! {:event :chat/command :command :wisdom :chat-id chat-id})
-  (let [stats (learning/get-user-stats chat-id)]
+  (let [stats (learning/get-user-stats chat-id)
+        review-stats (learning/get-review-stats chat-id)
+        due-count (:due-now review-stats)]
     (send-markdown! adapter chat-id
                     (str "*🧠 Your Wisdom Summary*\n\n"
                          "Total learnings: " (:total-learnings stats) "\n"
                          "Applications: " (:total-applications stats) "\n"
                          "Avg confidence: " (:average-confidence stats) "/5\n\n"
+                         "*Spaced Repetition*\n"
+                         "Reviews scheduled: " (:total-scheduled review-stats) "\n"
+                         "Due now: " due-count (when (pos? due-count) " 📚") "\n"
+                         "Upcoming: " (:upcoming review-stats) "\n\n"
+                         (when (pos? due-count)
+                           "⚡ You have reviews due! Use /review to start.\n\n")
                          "Use /learn to save new insights."))))
 
 ;; /plan

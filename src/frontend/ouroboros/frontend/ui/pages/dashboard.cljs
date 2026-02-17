@@ -9,6 +9,7 @@
    [com.fulcrologic.fulcro.mutations :as m]
    [ouroboros.frontend.app :refer [app]]
    [ouroboros.frontend.ui.components :as ui]
+   [ouroboros.frontend.ui.chat-panel :as chat]
    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
@@ -32,6 +33,21 @@
     (.preventDefault e)
     (on-activate)))
 
+(defn- open-ai-chat []
+  "Open the AI Chat panel"
+  (comp/transact! app [(chat/open-chat {})]))
+
+(defn- navigate-to-builder!
+  "Navigate to a builder page with the current project ID.
+   Replaces / with ~ in project-id for safe URL routing."
+  [builder-route]
+  (let [ws-state (when-let [sa @ws/app-state-atom] @sa)
+        project-id (get-in ws-state [:workspace/project :project/id])
+        encoded-id (when project-id (str/replace project-id "/" "~"))]
+    (if encoded-id
+      (dr/change-route! app ["project" encoded-id builder-route])
+      (js/console.warn "No project ID available for navigation"))))
+
 ;; ============================================================================
 ;; Components
 ;; ============================================================================
@@ -46,55 +62,71 @@
            (dom/span :.fw-icon icon)
            (dom/span :.fw-label label)))
 
-(defn concepts-explainer [{:keys [expanded? on-toggle project-id]}]
-  (let [encoded-id (when project-id (str/replace (str project-id) "/" "~"))]
-    (dom/div :.concepts-card
-             (dom/div {:className "concepts-header" :onClick on-toggle :role "button" :tabIndex 0
-                       :onKeyDown #(handle-key-activation on-toggle %) :aria-expanded (if expanded? "true" "false")}
-                      (dom/h3 :.concepts-title "📖 Understanding Ouroboros")
-                      (dom/span :.concepts-toggle (if expanded? "−" "+")))
-             (when expanded?
-               (dom/div :.concepts-content
-                        (dom/div :.concept-section
-                                 (dom/div :.concept-header
-                                          (dom/span :.concept-icon "🎯")
-                                          (dom/h4 :.concept-title "Product Development Flywheel"))
-                                 (dom/p :.concept-desc "A 4-phase methodology for building products. Each phase feeds into the next. Click any phase to start.")
-                                 (dom/div :.flywheel-diagram
-                                          (flywheel-step-clickable
-                                           {:phase :empathy-map :icon "👥" :label "Empathy" :status :completed
-                                            :on-click #(when encoded-id (dr/change-route! app ["project" encoded-id "empathy"]))})
-                                          (dom/span :.flywheel-arrow "→")
-                                          (flywheel-step-clickable
-                                           {:phase :value-proposition :icon "💎" :label "Value" :status :active
-                                            :on-click #(when encoded-id (dr/change-route! app ["project" encoded-id "valueprop"]))})
-                                          (dom/span :.flywheel-arrow "→")
-                                          (flywheel-step-clickable
-                                           {:phase :mvp-planning :icon "🚀" :label "MVP" :status :not-started
-                                            :on-click #(when encoded-id (dr/change-route! app ["project" encoded-id "mvp"]))})
-                                          (dom/span :.flywheel-arrow "→")
-                                          (flywheel-step-clickable
-                                           {:phase :lean-canvas :icon "📊" :label "Canvas" :status :not-started
-                                            :on-click #(when encoded-id (dr/change-route! app ["project" encoded-id "canvas"]))}))
-                                 (dom/p :.concept-hint "📍 Click any phase above to open the builder")))
-               (dom/div :.concept-section
-                        (dom/div :.concept-header
-                                 (dom/span :.concept-icon "⚡")
-                                 (dom/h4 :.concept-title "Development Workflow"))
-                        (dom/p :.concept-desc "Plan and review code changes with AI assistance via chat.")
-                        (dom/div :.workflow-diagram
-                                 (dom/div {:className "workflow-step"}
-                                          (dom/span :.wf-icon "/plan") (dom/span :.wf-label "Plan"))
-                                 (dom/span :.workflow-arrow "→")
-                                 (dom/div {:className "workflow-step wide"}
-                                          (dom/span :.wf-icon "💬") (dom/span :.wf-label "Implement"))
-                                 (dom/span :.workflow-arrow "→")
-                                 (dom/div {:className "workflow-step"}
-                                          (dom/span :.wf-icon "/review") (dom/span :.wf-label "Review")))
-                        (dom/p :.concept-hint "📍 Where: AI Chat sidebar (/plan and /review commands)"))
-               (dom/div :.concepts-tip
-                        (dom/strong "💡 Tip: ")
-                        "Use the Product Flywheel for strategic thinking. Use the Dev Workflow for tactical implementation.")))))
+(defn- workflow-step-clickable [{:keys [icon label on-click]}]
+  (dom/div {:className "workflow-step clickable"
+            :onClick on-click
+            :role "button"
+            :tabIndex 0
+            :onKeyDown #(handle-key-activation on-click %)
+            :aria-label (str label " - Click to open")}
+           (dom/span :.wf-icon icon)
+           (dom/span :.wf-label label)))
+
+(defn concepts-explainer [{:keys [expanded? on-toggle]}]
+  (dom/div :.concepts-card
+           (dom/div {:className "concepts-header" :onClick on-toggle :role "button" :tabIndex 0
+                     :onKeyDown #(handle-key-activation on-toggle %) :aria-expanded (if expanded? "true" "false")}
+                    (dom/h3 :.concepts-title "📖 Understanding Ouroboros")
+                    (dom/span :.concepts-toggle (if expanded? "−" "+")))
+           (when expanded?
+             (dom/div :.concepts-content
+                      (dom/div :.concept-section
+                               (dom/div :.concept-header
+                                        (dom/span :.concept-icon "🎯")
+                                        (dom/h4 :.concept-title "Product Development Flywheel"))
+                               (dom/p :.concept-desc "A 4-phase methodology for building products. Each phase feeds into the next. Click any phase to start.")
+                               (dom/div :.flywheel-diagram
+                                        (flywheel-step-clickable
+                                         {:phase :empathy-map :icon "👥" :label "Empathy" :status :completed
+                                          :on-click #(navigate-to-builder! "empathy")})
+                                        (dom/span :.flywheel-arrow "→")
+                                        (flywheel-step-clickable
+                                         {:phase :value-proposition :icon "💎" :label "Value" :status :active
+                                          :on-click #(navigate-to-builder! "valueprop")})
+                                        (dom/span :.flywheel-arrow "→")
+                                        (flywheel-step-clickable
+                                         {:phase :mvp-planning :icon "🚀" :label "MVP" :status :not-started
+                                          :on-click #(navigate-to-builder! "mvp")})
+                                        (dom/span :.flywheel-arrow "→")
+                                        (flywheel-step-clickable
+                                         {:phase :lean-canvas :icon "📊" :label "Canvas" :status :not-started
+                                          :on-click #(navigate-to-builder! "canvas")}))
+                               (dom/p :.concept-hint "📍 Click any phase above to open the builder"))
+                      (dom/div :.concept-section
+                               (dom/div :.concept-header
+                                        (dom/span :.concept-icon "⚡")
+                                        (dom/h4 :.concept-title "Development Workflow"))
+                               (dom/p :.concept-desc "Plan and review code changes with AI assistance via chat.")
+                               (dom/div :.workflow-diagram
+                                        (workflow-step-clickable
+                                         {:icon "/plan" :label "Plan"
+                                          :on-click #(open-ai-chat)})
+                                        (dom/span :.workflow-arrow "→")
+                                        (workflow-step-clickable
+                                         {:icon "💬" :label "Implement"
+                                          :on-click #(open-ai-chat)})
+                                        (dom/span :.workflow-arrow "→")
+                                        (workflow-step-clickable
+                                         {:icon "/review" :label "Review"
+                                          :on-click #(open-ai-chat)})
+                                        (dom/span :.workflow-arrow "→")
+                                        (workflow-step-clickable
+                                         {:icon "/learn" :label "Learn"
+                                          :on-click #(dr/change-route! app ["wisdom"])}))
+                               (dom/p :.concept-hint "📍 Click any step to open AI Chat. Use /plan, /review, /learn commands."))
+                      (dom/div :.concepts-tip
+                               (dom/strong "💡 Tip: ")
+                               "Use the Product Flywheel for strategic thinking. Use the Dev Workflow for tactical implementation.")))))
 
 (defn dashboard-loading []
   (dom/div {:key "dashboard-loading" :className "start-here-loading"}
@@ -129,10 +161,7 @@
                                                       :post-mutation-params {:target [:page/id :dashboard]}}))))}
   (let [loading? (df/loading? (get props [df/marker-table :dashboard]))
         error-msg (get-in props [:page/error :dashboard])
-        concepts-expanded? (get props :ui/concepts-expanded? false)
-        ws-state (when-let [sa @ws/app-state-atom] @sa)
-        ws-project (get ws-state :workspace/project)
-        project-id (:project/id ws-project)]
+        concepts-expanded? (get props :ui/concepts-expanded? false)]
     (cond
       error-msg
       (error-state {:message error-msg
@@ -148,5 +177,4 @@
                         (dom/h1 :.page-title "🌟 Start Here")
                         (dom/p :.page-subtitle "Build products with joy. Let Ouroboros guide you."))
                (concepts-explainer {:expanded? concepts-expanded?
-                                    :on-toggle #(m/set-value! this :ui/concepts-expanded? (not concepts-expanded?))
-                                    :project-id project-id})))))
+                                    :on-toggle #(m/set-value! this :ui/concepts-expanded? (not concepts-expanded?))})))))

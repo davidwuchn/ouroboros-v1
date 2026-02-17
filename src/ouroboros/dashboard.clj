@@ -384,6 +384,10 @@
      (ouroboros.engine/boot!)
      (require '[ouroboros.query :as q])
      ((resolve 'ouroboros.query/init!))
+     ;; Register all tools
+     (require '[ouroboros.tool-defs :as tool-defs])
+     (when-let [register-tools (resolve 'tool-defs/register-all-tools!)]
+       (register-tools))
      ;; Register WebSocket telemetry listener
      (ws/register-telemetry-listener!)
      ;; Start http-kit server (supports WebSocket natively)
