@@ -275,3 +275,115 @@
     "mvp" "MVP Planning"
     "canvas" "Lean Canvas"
     "Builder"))
+
+;; ============================================================================
+;; State Management (Single Source of Truth)
+;; ============================================================================
+
+(defonce wisdom-state
+  "Global state atom for Wisdom page.
+   
+   Structure:
+   {:templates {:status :loading|:loaded|:error
+                :data [...]
+                :search-query ''
+                :active-filter nil}
+    :insights {:status :loading|:loaded|:error
+               :categories [...]
+               :category-insights {category [...]}}
+    :ui {:toast {:message nil :visible? false}
+         :selected-template nil
+         :drawer-open? false}}"
+  (atom {:templates {:status :loading
+                     :data fallback-templates
+                     :search-query ""
+                     :active-filter nil}
+         :insights {:status :loading
+                    :categories []
+                    :category-insights {}}
+         :ui {:toast {:message nil :visible? false :type :info}
+              :selected-template nil
+              :drawer {:open? false
+                       :category nil
+                       :label nil}}}))
+
+;; ============================================================================
+;; Template Search & Filter
+;; ============================================================================
+
+(def template-filters
+  "Available filter options for templates."
+  [{:key :b2b :label "B2B" :match-fn #(some #{"B2B"} (:tags %))}
+   {:key :b2c :label "B2C" :match-fn #(some #{"Consumer" "B2C" "Creator"} (:tags %))}
+   {:key :dev :label "Developer" :match-fn #(some #{"B2D" "API" "Developer" "Open Source"} (:tags %))}
+   {:key :subscription :label "Subscription" :match-fn #(some #{"Subscription"} (:tags %))}
+   {:key :marketplace :label "Marketplace" :match-fn #(some #{"Marketplace" "Platform"} (:tags %))}])
+
+(defn matches-search?
+  "Check if template matches search query."
+  [template query]
+  (if (str/blank? query)
+    true
+    (let [q (str/lower-case query)
+          name (str/lower-case (or (:name template) ""))
+          desc (str/lower-case (or (:description template) ""))
+          tags (map str/lower-case (or (:tags template) []))]
+      (or (str/includes? name q)
+          (str/includes? desc q)
+          (some #(str/includes? % q) tags)))))
+
+(defn filter-templates
+  "Filter templates by search query and active filter."
+  [templates query active-filter]
+  (let [by-search (filter #(matches-search? % query) templates)
+        by-filter (if active-filter
+                    (let [filter-fn (:match-fn (first (filter #(= (:key %) active-filter) template-filters)))]
+                      (if filter-fn
+                        (filter filter-fn by-search)
+                        by-search))
+                    by-search)]
+    by-filter))
+
+;; ============================================================================
+;; Skeleton Loading Data
+;; ============================================================================
+
+(def skeleton-template
+  "Single skeleton template for loading state."
+  {:key :skeleton :icon "" :name "" :description "" :tags [] :skeleton? true})
+
+(defn skeleton-templates
+  "Generate n skeleton templates for loading state."
+  [n]
+  (vec (repeat n skeleton-template)))
+
+;; ============================================================================
+;; Toast Notifications
+;; ============================================================================
+
+(defn show-toast!
+  "Show a toast notification."
+  ([message] (show-toast! message :info))
+  ([message type]
+   (swap! wisdom-state assoc-in [:ui :toast] {:message message :visible? true :type type})
+   ;; Auto-hide after 3 seconds
+   (js/setTimeout #(swap! wisdom-state assoc-in [:ui :toast :visible?] false) 3000)))
+
+(defn hide-toast! []
+  (swap! wisdom-state assoc-in [:ui :toast :visible?] false))
+
+;; ============================================================================
+;; BMC Block Configuration
+;; ============================================================================
+
+(def bmc-block-nav
+  "Mapping from BMC block to builder stage and section for navigation."
+  {:key-partners {:stage "canvas" :section :unfair-advantage :label "Key Partners"}
+   :key-activities {:stage "canvas" :section :solution :label "Key Activities"}
+   :key-resources {:stage "mvp" :section :must-have-features :label "Key Resources"}
+   :value-props {:stage "valueprop" :section :uvp :label "Value Propositions"}
+   :customer-rel {:stage "valueprop" :section :gain-creators :label "Customer Relationships"}
+   :channels {:stage "canvas" :section :channels :label "Channels"}
+   :customer-segments {:stage "empathy" :section :customer-segments :label "Customer Segments"}
+   :cost-structure {:stage "canvas" :section :cost-structure :label "Cost Structure"}
+   :revenue-streams {:stage "canvas" :section :revenue-streams :label "Revenue Streams"}})

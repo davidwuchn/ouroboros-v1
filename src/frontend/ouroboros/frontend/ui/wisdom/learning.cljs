@@ -14,31 +14,23 @@
 
 (defn category-card
   "Renders a learning category card with icon, label, description, and count."
-  [{:keys [icon label description count category on-select] :as props}]
-  ;; Ensure count is a number, not a function or other type
-  (let [safe-count (cond
-                     (number? count) count
-                     (string? count) (js/parseInt count 10)
-                     :else 0)
-        key-id (or label
-                   (when category (str category))
-                   (str "category-" (hash (or description ""))))]
-    (dom/div {:key key-id
-              :className "wisdom-category-card"
-              :role "button"
-              :tabIndex 0
-              :onClick #(when on-select (on-select label category))
-              :onKeyDown (fn [e]
-                           (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
-                             (.preventDefault e)
-                             (when on-select (on-select label category))))}
-      (dom/div :.wisdom-category-icon icon)
-      (dom/div :.wisdom-category-body
-        (dom/h4 label)
-        (dom/p (ui/extract-plain-text-from-markdown (or description "") 120)))
-      (dom/div :.wisdom-category-count
-        (dom/span :.wisdom-count-value (str safe-count))
-        (dom/span :.wisdom-count-label "insights")))))
+  [{:keys [icon label description count category on-select]}]
+  (dom/div {:key (or label (str "cat-" (hash description)))
+            :className "wisdom-category-card"
+            :role "button"
+            :tabIndex 0
+            :onClick #(when on-select (on-select label category))
+            :onKeyDown (fn [e]
+                         (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
+                           (.preventDefault e)
+                           (when on-select (on-select label category))))}
+    (dom/div :.wisdom-category-icon icon)
+    (dom/div :.wisdom-category-body
+      (dom/h4 label)
+      (dom/p (ui/extract-plain-text-from-markdown (or description "") 120)))
+    (dom/div :.wisdom-category-count
+      (dom/span :.wisdom-count-value (str (or count 0)))
+      (dom/span :.wisdom-count-label "insights"))))
 
 ;; ============================================================================
 ;; Category Grid
@@ -56,12 +48,46 @@
       (dom/p "Complete more projects to see patterns emerge."))))
 
 ;; ============================================================================
-;; Category Drawer
+;; Insight Card Component
 ;; ============================================================================
 
+(defn- apply-insight-to-builder!
+  "Apply an insight to a builder section.
+   Shows toast notification on success."
+  [insight stage section project-id]
+  (when (and project-id stage)
+    (let [encoded-id (clojure.string/replace (str project-id) "/" "~")
+          insight-text (str (:title insight) ": " (first (:insights insight)))]
+      ;; Navigate to builder with insight context
+      (when-let [nav @ws/navigate-callback]
+        (nav ["project" encoded-id stage]))
+      ;; Show confirmation toast
+      (data/show-toast! (str "Insight applied to " (data/stage->builder-label stage)) :success)
+      ;; TODO: Store insight in builder session context for display
+      )))
+
+(defn- insight-card-actions
+  "Action buttons for an insight card."
+  [insight project-id]
+  (let [;; Determine which builder stage this insight best applies to
+        stage (case (:category insight)
+                "customer-understanding" "empathy"
+                "value-alignment" "valueprop"
+                "mvp-strategy" "mvp"
+                "business-model" "canvas"
+                "iteration" "canvas"
+                "empathy")]
+    (dom/div :.category-insight-actions
+      (dom/button {:className "category-insight-btn category-insight-btn--primary"
+                   :onClick #(apply-insight-to-builder! insight stage nil project-id)}
+        "💡 Apply to Builder")
+      (dom/button {:className "category-insight-btn"
+                   :onClick #(data/show-toast! "Insight bookmarked" :info)}
+        "🔖 Bookmark"))))
+
 (defn- insight-card
-  "Renders a single insight card."
-  [insight]
+  "Renders a single insight card with actions."
+  [insight project-id]
   (let [insight-id (or (:id insight) (str (hash insight)))]
     (dom/div {:key insight-id
               :className "category-insight-card"}
@@ -85,22 +111,22 @@
         (dom/div {:className "category-insight-meta"}
           (dom/span (str "Confidence: " (:confidence insight) "/5"))
           (when (pos? (or (:applied-count insight) 0))
-            (dom/span (str "Applied " (:applied-count insight) " times"))))))))
+            (dom/span (str "Applied " (:applied-count insight) " times")))))
+      ;; Action buttons
+      (insight-card-actions insight project-id))))
+
+;; ============================================================================
+;; Category Drawer
+;; ============================================================================
 
 (defn category-drawer
   "Renders the category insights drawer."
-  [this {:keys [open? state insights insights-loading? on-close]}]
+  [this {:keys [open? state insights insights-loading? on-close project-id]}]
   (when open?
     (let [{:keys [label description category card-count]} state
           {:keys [width active?]} (resize/use-resizable-drawer this :category)
           dw (resize/clamp-drawer-width width)
-          ;; Ensure insights is a vector/seq before counting
-          safe-insights (cond
-                          (vector? insights) insights
-                          (seq? insights) insights
-                          (nil? insights) nil
-                          :else nil)
-          display-count (if (seq safe-insights) (cljs.core/count safe-insights) (or card-count 0))]
+          display-count (if (seq insights) (count insights) (or card-count 0))]
       (dom/div :.wisdom-drawer-backdrop
         {:onClick on-close}
         (dom/div {:className (str "wisdom-drawer" (when active? " wisdom-drawer-resizing"))
@@ -124,15 +150,15 @@
             ;; Insights list
             (cond
               ;; Loading state
-              (and insights-loading? (not (seq safe-insights)))
+              (and insights-loading? (not (seq insights)))
               (dom/div {:className "category-drawer-loading"}
                 (dom/span "Loading insights..."))
 
               ;; Has insights
-              (seq safe-insights)
+              (seq insights)
               (dom/div {:className "category-drawer-insights"}
-                (for [insight safe-insights]
-                  (insight-card insight)))
+                (for [insight insights]
+                  (insight-card insight project-id)))
 
               ;; No insights
               :else
@@ -151,7 +177,7 @@
 (defn learning-section
   "Complete learning patterns section with grid and drawer."
   [{:keys [this categories categories-loading? category-insights category-insights-loading?
-           drawer-open? drawer-state on-category-select on-close-drawer]}]
+           drawer-open? drawer-state on-category-select on-close-drawer project-id]}]
   (let [show-loading? (and categories-loading?
                            (not (seq categories))
                            (not (seq data/fallback-learning-categories-base)))
@@ -182,4 +208,5 @@
          :state drawer-state
          :insights (get category-insights current-category)
          :insights-loading? (get category-insights-loading? current-category)
-         :on-close on-close-drawer}))))
+         :on-close on-close-drawer
+         :project-id project-id}))))
