@@ -280,20 +280,9 @@
 ;; State Management (Single Source of Truth)
 ;; ============================================================================
 
+;; Global state atom for Wisdom page.
+;; Structure: {:templates {...} :insights {...} :ui {...}}
 (defonce wisdom-state
-  "Global state atom for Wisdom page.
-   
-   Structure:
-   {:templates {:status :loading|:loaded|:error
-                :data [...]
-                :search-query ''
-                :active-filter nil}
-    :insights {:status :loading|:loaded|:error
-               :categories [...]
-               :category-insights {category [...]}}
-    :ui {:toast {:message nil :visible? false}
-         :selected-template nil
-         :drawer-open? false}}"
   (atom {:templates {:status :loading
                      :data fallback-templates
                      :search-query ""
