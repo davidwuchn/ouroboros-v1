@@ -8,7 +8,7 @@
 |-----------|--------|-------|
 | Engine (∅) | ✅ Running | Statechart lifecycle operational |
 | **clj-kondo** | **✅ Phase 4 Complete** | **0 errors, 64 warnings (down from 44 errors)** |
-| **Test Coverage** | **⚒ Phase 5 Active** | **75 tests, 307 assertions (+17 new tests)** |
+| **Test Coverage** | **⚒ Phase 5 Active** | **91 tests, 381 assertions (+16 new tests)** |
 | Query | ✅ Active | Pathom EQL interface exposed |
 | Interface | ✅ Ready | Unified boot/shutdown via `ouroboros.interface` |
 | nREPL | ✅ Port 8888 | Auto-boots system on connect |
@@ -35,7 +35,7 @@
 | **Human Confirmation** | ✅ Done | **Require approval for dangerous operations (file/write, shell/exec)** |
 | **Output Schema Validation** | ✅ Done | **Validate LLM tool calls against schemas before execution** |
 | **ECA Client** | ✅ Done | **JSON-RPC connection to ECA binary (auto-start)** |
-| **Learning Memory System** | ✅ Done | **Store/recall insights, patterns, wisdom** |
+| **Learning Memory System** | ✅ Done | **Modularized: core, index, review, analytics, search. O(1) lookups, WAL, soft deletes, 91 tests** |
 | **Educational Approval** | ✅ Done | **Tool approvals with risk explanations, best practices** |
 | **Learning Interface** | ✅ Done | **Lazy-loaded API for learning operations** |
 | **Lean Canvas Builder** | ✅ Done | **Interactive Lean Canvas creation with learning integration** |

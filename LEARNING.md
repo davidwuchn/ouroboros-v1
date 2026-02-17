@@ -62,6 +62,44 @@
 
 **Key Insight:** Protocols and registries should live in their own namespaces to break cycles.
 
+### 2026-02: Learning System Modularization
+
+**Problem:** `learning.clj` grew to 700+ lines with mixed concerns: CRUD, indexing, review scheduling, analytics, and search.
+
+**Solution:** Split into 5 focused namespaces with thin wrapper facade.
+
+**Structure:**
+```
+src/ouroboros/learning/
+├── core.clj      (326 LOC) - CRUD, deduplication, batch operations
+├── index.clj     (227 LOC) - O(1) indexes, WAL, caching
+├── review.clj    (184 LOC) - Spaced repetition, Leitner system
+├── analytics.clj (257 LOC) - Flywheel progression, stats, gaps
+├── search.clj    (218 LOC) - Pattern matching, export/import v2.0
+└── learning.clj  (202 LOC) - Thin wrapper, re-exports, Pathom resolvers
+```
+
+**Key Improvements:**
+- **O(1) Lookups:** Index-backed instead of full memory scans
+  - `get-due-reviews`: O(n) → O(1) via review-index
+  - `recall-by-pattern`: O(n) → O(tags) via tag-index
+- **WAL (Write-Ahead Log):** Atomic index updates with crash recovery
+- **Soft Deletes:** Mark :deleted, async cleanup, enables restore
+- **Deduplication:** Jaccard similarity + tag-index candidate generation
+- **Analytics Caching:** 60s TTL avoids recomputing flywheel progress
+
+**Lessons:**
+- Use `(declare fn-name)` for forward references within a namespace
+- Add empty `resolvers`/`mutations` vectors for Pathom integration even if empty
+- Always require `clojure.string` explicitly - don't rely on transitive requires
+- Test after every namespace split to catch missing requires early
+
+**Results:**
+- All 91 tests pass
+- 5 focused modules vs 1 god module
+- Clear separation of concerns
+- Easier to test and extend
+
 ---
 
 ## Patterns
