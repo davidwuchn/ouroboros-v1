@@ -1,5 +1,5 @@
 (ns ouroboros.frontend.ui.pages.dashboard
-  "Dashboard overview page - shows project info, flywheel progress, wisdom summary, quick actions"
+  "Start Here - Main entry point - shows project info, flywheel progress, wisdom summary, quick actions"
   (:require
    [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
@@ -45,7 +45,7 @@
 
 (defn dashboard-loading []
   (dom/div {:key "dashboard-loading"}
-           (dom/h1 {:key "dashboard-title"} "Dashboard")
+           (dom/h1 {:key "dashboard-title"} "Start Here")
            (dom/div {:key "dashboard-skeleton" :className "dash-loading-grid"}
                     (dom/div :.skeleton-card)
                     (dom/div :.skeleton-card)
@@ -340,7 +340,9 @@
 
       :else
       (dom/div :.dash-page
-               (dom/h1 :.dash-title "Dashboard")
+               (dom/div :.page-header
+               (dom/h1 :.dash-title "Start Here")
+               (dom/p :.dash-subtitle "Build products with joy. Let Ouroboros guide you."))
 
                ;; Two-column layout: project overview + wisdom summary
                (dom/div :.dash-grid
