@@ -10411,6 +10411,27 @@ pre.code-block {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.06) 0%, rgba(239, 68, 68, 0.06) 100%);
 }
 
+/* Active states for click feedback */
+.path-card:active {
+  transform: translateY(-2px) scale(0.98);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.path-card.product-path:active {
+  background: linear-gradient(135deg, rgba(47, 143, 78, 0.12) 0%, rgba(47, 111, 191, 0.12) 100%);
+  border-color: #22c55e;
+}
+
+.path-card.dev-path:active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(59, 130, 246, 0.12) 100%);
+  border-color: #7c3aed;
+}
+
+.path-card.resource-path:active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(239, 68, 68, 0.12) 100%);
+  border-color: #ea580c;
+}
+
 .path-visual {
   display: flex;
   align-items: center;

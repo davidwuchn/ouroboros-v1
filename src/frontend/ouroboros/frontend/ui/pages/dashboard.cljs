@@ -169,8 +169,8 @@
                                       (dom/p :.path-desc "Follow the Product Development Flywheel from empathy to business model.")
                                       (dom/div :.path-tags (dom/span :.path-tag "Startups") (dom/span :.path-tag "New Products") (dom/span :.path-tag "Features"))
                                       (dom/span :.path-cta "Start Building →")))
-                    (dom/div {:className "path-card dev-path" :onClick #(comp/transact! this [(chat/toggle-chat {})])
-                              :role "button" :tabIndex 0 :onKeyDown (fn [e] (handle-key-activation (fn [] (comp/transact! this [(chat/toggle-chat {})])) e))}
+                    (dom/div {:className "path-card dev-path" :onClick #(comp/transact! this-comp [(chat/toggle-chat {})])
+                              :role "button" :tabIndex 0 :onKeyDown (fn [e] (handle-key-activation (fn [] (comp/transact! this-comp [(chat/toggle-chat {})])) e))}
                              (dom/div :.path-visual
                                       (dom/span :.path-icon "⚡")
                                       (dom/div :.path-mini-workflow (dom/code :.mini-wf "/plan") (dom/span :.mini-arrow "→") (dom/code :.mini-wf "/review")))
