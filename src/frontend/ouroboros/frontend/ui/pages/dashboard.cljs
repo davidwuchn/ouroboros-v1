@@ -1,5 +1,5 @@
 (ns ouroboros.frontend.ui.pages.dashboard
-  "Start Here - Main entry point - shows project info, flywheel progress, wisdom summary, quick actions"
+  "Start Here - Main entry point with joyful onboarding experience"
   (:require
    [clojure.string :as str]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
@@ -12,352 +12,258 @@
    [ouroboros.frontend.ui.chat-panel :as chat]
    [ouroboros.frontend.websocket :as ws]))
 
-;; ============================================================================
-;; Error Handling Mutation
-;; ============================================================================
+(defn- handle-key-activation [on-activate e]
+  (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
+    (.preventDefault e)
+    (on-activate)))
 
-(m/defmutation handle-load-error [{:keys [page-id error-message]}]
-  (action [{:keys [state]}]
-          (swap! state assoc-in [:page/error page-id] error-message)))
+(defn- get-phase-status [phase progress]
+  (let [phases (:phases progress)
+        phase-data (first (filter #(= (:phase %) phase) phases))
+        status (:status phase-data)]
+    (case status
+      :completed :completed
+      :active :active
+      :not-started)))
 
-(m/defmutation clear-page-error [{:keys [page-id]}]
-  (action [{:keys [state]}]
-          (swap! state update :page/error dissoc page-id)))
+(defn- get-next-recommended-phase [progress]
+  (let [phases (:phases progress)]
+    (or (->> phases
+             (filter #(not= (:status %) :completed))
+             first
+             :phase)
+        :lean-canvas)))
 
-;; ============================================================================
-;; Error UI Component
-;; ============================================================================
+(defn- calculate-completion-pct [progress]
+  (let [phases (:phases progress)
+        total (count phases)
+        completed (count (filter #(= (:status %) :completed) phases))]
+    (if (pos? total)
+      (int (* 100 (/ completed total)))
+      0)))
 
-(defn error-state [{:keys [message] :as props}]
-  (let [retry-fn (:on-retry props)]
-    (dom/div :.error-state
-             (dom/div :.error-state-icon "!!!")
-             (dom/div :.error-state-message message)
-             (when retry-fn
-               (ui/button
-                {:on-click retry-fn
-                 :variant :primary}
-                "Try Again")))))
+(defn celebration-banner [{:keys [completed-count]}]
+  (when (pos? completed-count)
+    (let [message (case completed-count
+                    1 "🎉 You've started! First section complete. Keep going!"
+                    2 "🚀 Making progress! Two phases done. You're building momentum!"
+                    3 "🔥 Almost there! Three phases complete. Finish strong!"
+                    4 "🏆 Product vision complete! You're ready to build something amazing!")]
+      (dom/div {:className "celebration-banner" :role "status" :aria-live "polite"}
+               (dom/span :.celebration-icon (case completed-count 1 "🎉" 2 "🚀" 3 "🔥" 4 "🏆"))
+               (dom/span :.celebration-text message)))))
 
-;; ============================================================================
-;; Loading Skeleton Components
-;; ============================================================================
+(defn concepts-explainer [{:keys [expanded? on-toggle]}]
+  (dom/div :.concepts-card
+           (dom/div {:className "concepts-header" :onClick on-toggle :role "button" :tabIndex 0
+                     :onKeyDown #(handle-key-activation on-toggle %) :aria-expanded (if expanded? "true" "false")}
+                    (dom/h3 :.concepts-title "📖 Understanding Ouroboros")
+                    (dom/span :.concepts-toggle (if expanded? "−" "+")))
+           (when expanded?
+             (dom/div :.concepts-content
+                      (dom/div :.concept-section
+                               (dom/div :.concept-header
+                                        (dom/span :.concept-icon "🎯")
+                                        (dom/h4 :.concept-title "Product Development Flywheel"))
+                               (dom/p :.concept-desc "A 4-phase methodology for building products. Each phase feeds into the next.")
+                               (dom/div :.flywheel-diagram
+                                        (dom/div {:className "flywheel-step completed"}
+                                                 (dom/span :.fw-icon "👥") (dom/span :.fw-label "Empathy"))
+                                        (dom/span :.flywheel-arrow "→")
+                                        (dom/div {:className "flywheel-step active"}
+                                                 (dom/span :.fw-icon "💎") (dom/span :.fw-label "Value"))
+                                        (dom/span :.flywheel-arrow "→")
+                                        (dom/div {:className "flywheel-step"}
+                                                 (dom/span :.fw-icon "🚀") (dom/span :.fw-label "MVP"))
+                                        (dom/span :.flywheel-arrow "→")
+                                        (dom/div {:className "flywheel-step"}
+                                                 (dom/span :.fw-icon "📊") (dom/span :.fw-label "Canvas")))
+                               (dom/p :.concept-hint "📍 Where: Interactive builders on the Project page"))
+                      (dom/div :.concept-section
+                               (dom/div :.concept-header
+                                        (dom/span :.concept-icon "⚡")
+                                        (dom/h4 :.concept-title "Development Workflow"))
+                               (dom/p :.concept-desc "Plan and review code changes with AI assistance via chat.")
+                               (dom/div :.workflow-diagram
+                                        (dom/div {:className "workflow-step"}
+                                                 (dom/span :.wf-icon "/plan") (dom/span :.wf-label "Plan"))
+                                        (dom/span :.workflow-arrow "→")
+                                        (dom/div {:className "workflow-step wide"}
+                                                 (dom/span :.wf-icon "💬") (dom/span :.wf-label "Implement"))
+                                        (dom/span :.workflow-arrow "→")
+                                        (dom/div {:className "workflow-step"}
+                                                 (dom/span :.wf-icon "/review") (dom/span :.wf-label "Review")))
+                               (dom/p :.concept-hint "📍 Where: AI Chat sidebar (/plan and /review commands)"))
+                      (dom/div :.concepts-tip
+                               (dom/strong "💡 Tip: ")
+                               "Use the Product Flywheel for strategic thinking. Use the Dev Workflow for tactical implementation.")))))
+
+(defn flywheel-journey [{:keys [progress encoded-id]}]
+  (let [phases [[:empathy-map "Empathy Map" "👥" "Understand your users"]
+                [:value-proposition "Value Proposition" "💎" "Define your unique value"]
+                [:mvp-planning "MVP Planning" "🚀" "Scope your minimum product"]
+                [:lean-canvas "Lean Canvas" "📊" "Model your business"]]
+        completed-count (count (filter #(= (:status %) :completed) (:phases progress)))]
+    (dom/div :.journey-card
+             (dom/div :.journey-header
+                      (dom/h3 :.journey-title "🛤️ Your Product Journey")
+                      (when (pos? completed-count)
+                        (dom/span :.journey-progress (str completed-count "/4 complete"))))
+             (dom/div :.journey-path
+                      (map-indexed
+                       (fn [idx [phase-key label icon desc]]
+                         (let [status (get-phase-status phase-key progress)
+                               route (case phase-key :empathy-map "empathy" :value-proposition "valueprop" :mvp-planning "mvp" :lean-canvas "canvas")]
+                           (dom/div {:key (name phase-key) :className (str "journey-stop journey-" (name status))}
+                                    (when (pos? idx)
+                                      (dom/div {:className (str "journey-connector " (when (= status :completed) "connector-completed"))}))
+                                    (dom/div {:className "journey-node" :onClick #(when encoded-id (dr/change-route! app ["project" encoded-id route]))
+                                              :role "button" :tabIndex 0
+                                              :onKeyDown #(handle-key-activation #(dr/change-route! app ["project" encoded-id route]) %)
+                                              :aria-label (str label " - " (case status :completed "Completed" :active "In Progress" "Not Started"))}
+                                             (dom/span :.journey-icon icon)
+                                             (when (= status :completed) (dom/span :.journey-check "✓")))
+                                    (dom/div :.journey-info
+                                             (dom/span :.journey-label label)
+                                             (dom/span :.journey-desc desc)
+                                             (when (= status :active) (dom/span :.journey-badge "Continue Here →"))))))
+                       phases)))))
+
+(defn recommended-action [{:keys [progress encoded-id]}]
+  (let [next-phase (get-next-recommended-phase progress)
+        completion-pct (calculate-completion-pct progress)
+        [action-title action-desc action-route cta-text icon]
+        (case next-phase
+          :empathy-map ["👥 Start with Empathy" "Understand your users' pains, gains, and behaviors before building anything." "empathy" "Begin Understanding Users" "👥"]
+          :value-proposition ["💎 Define Your Value" "What makes your product unique? How do you solve customer pains?" "valueprop" "Define Value Proposition" "💎"]
+          :mvp-planning ["🚀 Plan Your MVP" "Scope the minimum features needed to solve the core problem." "mvp" "Start MVP Planning" "🚀"]
+          :lean-canvas ["📊 Map Your Business" "Create a one-page business model to align your thinking." "canvas" "Build Lean Canvas" "📊"])]
+    (dom/div {:className (str "recommended-action " (when (pos? completion-pct) "has-progress"))}
+             (dom/div :.rec-badge-container
+                      (dom/span :.rec-badge "⭐ Recommended Next Step")
+                      (when (pos? completion-pct) (dom/span :.rec-progress (str completion-pct "% complete"))))
+             (dom/div :.rec-content
+                      (dom/span :.rec-icon icon)
+                      (dom/div :.rec-text
+                               (dom/h4 :.rec-title action-title)
+                               (dom/p :.rec-desc action-desc)))
+             (when encoded-id
+               (ui/button {:onClick #(dr/change-route! app ["project" encoded-id action-route]) :variant :primary :size :large :className "rec-cta"}
+                          (str cta-text " →"))))))
+
+(defn primary-paths [{:keys [encoded-id this-comp]}]
+  (dom/div :.primary-paths
+           (dom/h3 :.paths-title "🚀 What would you like to do?")
+           (dom/div :.paths-grid
+                    (dom/div {:className "path-card product-path" :onClick #(when encoded-id (dr/change-route! app ["project" encoded-id]))
+                              :role "button" :tabIndex 0 :onKeyDown #(handle-key-activation #(when encoded-id (dr/change-route! app ["project" encoded-id])) %)}
+                             (dom/div :.path-visual
+                                      (dom/span :.path-icon "🎯")
+                                      (dom/div :.path-mini-flywheel (dom/span :.mini-fw "👥") (dom/span :.mini-fw "💎") (dom/span :.mini-fw "🚀") (dom/span :.mini-fw "📊")))
+                             (dom/div :.path-content
+                                      (dom/h4 :.path-name "Build a Product")
+                                      (dom/p :.path-desc "Follow the Product Development Flywheel from empathy to business model.")
+                                      (dom/div :.path-tags (dom/span :.path-tag "Startups") (dom/span :.path-tag "New Products") (dom/span :.path-tag "Features"))
+                                      (dom/span :.path-cta "Start Building →")))
+                    (dom/div {:className "path-card dev-path" :onClick #(comp/transact! this [(chat/toggle-chat {})])
+                              :role "button" :tabIndex 0 :onKeyDown #(handle-key-activation #(comp/transact! this [(chat/toggle-chat {})]) %)}
+                             (dom/div :.path-visual
+                                      (dom/span :.path-icon "⚡")
+                                      (dom/div :.path-mini-workflow (dom/code :.mini-wf "/plan") (dom/span :.mini-arrow "→") (dom/code :.mini-wf "/review")))
+                             (dom/div :.path-content
+                                      (dom/h4 :.path-name "Write Code")
+                                      (dom/p :.path-desc "Plan features, implement with AI assistance, and review code quality.")
+                                      (dom/div :.path-tags (dom/span :.path-tag "Implementation") (dom/span :.path-tag "Refactoring") (dom/span :.path-tag "Code Review"))
+                                      (dom/span :.path-cta "Open AI Chat →")))
+                    (dom/div {:className "path-card resource-path" :onClick #(dr/change-route! app ["wisdom"])
+                              :role "button" :tabIndex 0 :onKeyDown #(handle-key-activation #(dr/change-route! app ["wisdom"]) %)}
+                             (dom/div :.path-visual (dom/span :.path-icon "📚"))
+                             (dom/div :.path-content
+                                      (dom/h4 :.path-name "Browse Resources")
+                                      (dom/p :.path-desc "Templates, learning patterns, and AI-powered insights.")
+                                      (dom/span :.path-cta.secondary "Explore Wisdom →"))))))
+
+(defn empty-state-welcome [{:keys [on-create-project]}]
+  (dom/div :.empty-state
+           (dom/div :.empty-illustration "🌱")
+           (dom/h3 :.empty-title "Welcome to Ouroboros!")
+           (dom/p :.empty-desc "You're about to build something amazing. Ouroboros guides you through the Product Development Flywheel.")
+           (dom/div :.empty-features
+                    (dom/div :.empty-feature (dom/span :.ef-icon "🎯") (dom/span :.ef-text "4-phase methodology"))
+                    (dom/div :.empty-feature (dom/span :.ef-icon "🤖") (dom/span :.ef-text "AI-powered guidance"))
+                    (dom/div :.empty-feature (dom/span :.ef-icon "📊") (dom/span :.ef-text "Visual builders")))
+           (ui/button {:onClick on-create-project :variant :primary :size :large} "🚀 Start Your First Project")))
+
+(defn hint-bubble [{:keys [text on-dismiss]}]
+  (dom/div :.hint-bubble
+           (dom/span :.hint-icon "💡")
+           (dom/span :.hint-text text)
+           (when on-dismiss
+             (dom/button {:className "hint-dismiss" :onClick on-dismiss :aria-label "Dismiss hint"} "×"))))
 
 (defn dashboard-loading []
-  (dom/div {:key "dashboard-loading"}
-           (dom/h1 {:key "dashboard-title"} "Start Here")
+  (dom/div {:key "dashboard-loading" :className "start-here-loading"}
+           (dom/div :.loading-header
+                    (dom/h1 :.loading-title "🌟 Start Here")
+                    (dom/p :.loading-subtitle "Loading your dashboard..."))
            (dom/div {:key "dashboard-skeleton" :className "dash-loading-grid"}
+                    (dom/div :.skeleton-card)
                     (dom/div :.skeleton-card)
                     (dom/div :.skeleton-card)
                     (dom/div :.skeleton-card))))
 
-;; ============================================================================
-;; Shared Card Helpers
-;; ============================================================================
+(defn error-state [{:keys [message on-retry]}]
+  (dom/div :.error-state
+           (dom/div :.error-state-icon "⚠️")
+           (dom/div :.error-state-message message)
+           (when on-retry
+             (ui/button {:on-click on-retry :variant :primary} "Try Again"))))
 
-(defn- handle-card-key
-  "Keyboard handler for clickable cards - activates on Enter or Space."
-  [on-click-fn e]
-  (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
-    (.preventDefault e)
-    (on-click-fn)))
-
-;; ============================================================================
-;; Project Overview Card (moved from project-detail page)
-;; ============================================================================
-
-(defn project-overview-card
-  "Project info card for the dashboard - shows name, status, description, flywheel progress.
-   Entire card is clickable (navigates to project detail). Flywheel steps have their own nav.
-   All data passed via props from parent (no independent atom reads)."
-  [{:keys [project-name project-status project-description project-id
-           progress board]}]
-  (let [encoded-id (when project-id (str/replace (str project-id) "/" "~"))
-        navigate-project! (when encoded-id
-                            #(dr/change-route! app ["project" encoded-id]))
-        current-step (or (when progress
-                           (let [step (:current-step progress)]
-                             (case step
-                               :empathy-map :empathy
-                               :value-proposition :valueprop
-                               :mvp-planning :mvp
-                               :lean-canvas :canvas
-                               :empathy)))
-                         :empathy)
-        summary (:summary board)]
-    (dom/div (cond-> {:className (str "dash-project-card"
-                                      (when encoded-id " dash-project-clickable"))}
-               encoded-id (assoc :role "button"
-                                 :tabIndex 0
-                                 :onClick navigate-project!
-                                 :onKeyDown #(handle-card-key navigate-project! %)))
-             ;; Project header
-             (dom/div :.dash-project-header
-                      (dom/div :.dash-project-info
-                               (dom/h2 :.dash-project-name (or project-name "Project"))
-                               (dom/span {:className (str "dash-project-status dash-status-"
-                                                          (name (or project-status :draft)))}
-                                         (name (or project-status :draft))))
-                      (when encoded-id
-                        (dom/span :.dash-project-arrow ">")))
-             ;; Description
-             (when (seq project-description)
-               (dom/p :.dash-project-desc project-description))
-             ;; Kanban summary stats
-             (when summary
-               (let [total (:total summary 0)
-                     done (:done summary 0)
-                     in-prog (:in-progress summary 0)
-                     pct (if (pos? total) (int (* 100 (/ done total))) 0)]
-                 (dom/div :.dash-progress-section
-                          (dom/div :.dash-progress-stats
-                                   (dom/span :.dash-progress-pct (str pct "% complete"))
-                                   (dom/span :.dash-progress-detail
-                                             (str done " done, " in-prog " active, "
-                                                  (- total done in-prog) " remaining")))
-                          (dom/div :.dash-progress-bar
-                                   (dom/div {:className "dash-progress-bar-fill"
-                                             :style {:width (str pct "%")}})))))
-             ;; Flywheel nav -- uses shared circle stepper (clicks handled internally)
-             (dom/div {:onClick #(.stopPropagation %)}
-                      (ui/flywheel-indicator
-                       {:current-step current-step
-                        :project-id encoded-id
-                        :on-navigate (when encoded-id
-                                       #(dr/change-route! app ["project" encoded-id %]))})))))
-
-;; ============================================================================
-;; Wisdom Overview Card
-;; ============================================================================
-
-(def ^:private fallback-wisdom-stats
-  "Static wisdom summary shown before ECA data loads."
-  {:templates 4
-   :learning-categories 5
-   :phase-tips 4})
-
-(defn- navigate-wisdom!
-  "Navigate to Wisdom page, optionally scrolling to a section after route change."
-  ([] (dr/change-route! app ["wisdom"]))
-  ([section-id]
-   (dr/change-route! app ["wisdom"])
-   ;; Scroll to section after route renders (requestAnimationFrame to wait for DOM)
-   (js/requestAnimationFrame
-    (fn []
-      (js/setTimeout
-       (fn []
-         (when-let [el (.getElementById js/document section-id)]
-           (.scrollIntoView el #js {:behavior "smooth" :block "start"})))
-       120)))))
-
-(defn wisdom-overview-card
-  "Shows a brief summary of available wisdom resources with link to Wisdom page.
-   Reads template/category counts from WS state (ECA content or fallbacks).
-   Entire card is clickable; stat boxes deep-link to sections."
-  [{:keys [ws-state]}]
-  (let [eca-templates (get-in ws-state [:content/generated :templates])
-        eca-categories (get-in ws-state [:content/generated :learning-categories])
-        template-count (if (seq eca-templates) (count eca-templates) (:templates fallback-wisdom-stats))
-        category-count (if (seq eca-categories) (count eca-categories) (:learning-categories fallback-wisdom-stats))
-        templates-loading? (get-in ws-state [:content/loading? :templates])
-        categories-loading? (get-in ws-state [:content/loading? :learning-categories])
-        ;; Only show loading when we have zero content (no cache, no ECA response, no fallback counts)
-        any-loading? (and (or templates-loading? categories-loading?)
-                          (not (seq eca-templates))
-                          (not (seq eca-categories)))
-        ;; Check wisdom cache for recent content
-        wisdom-cache (:wisdom/cache ws-state)
-        cached-count (count wisdom-cache)]
-    (dom/div {:className "dash-wisdom-card dash-wisdom-clickable"
-              :role "button"
-              :tabIndex 0
-              :onClick #(navigate-wisdom!)
-              :onKeyDown #(handle-card-key navigate-wisdom! %)}
-             (dom/div :.dash-wisdom-header
-                      (dom/div :.dash-wisdom-title-row
-                               (dom/span :.dash-wisdom-icon "~")
-                               (dom/h3 :.dash-wisdom-title "Wisdom Library"))
-                      (dom/span :.dash-wisdom-arrow ">"))
-             (dom/p :.dash-wisdom-desc
-                    "Templates, learning patterns, and AI-powered insights to guide your product thinking.")
-             (dom/div :.dash-wisdom-stats
-                      (dom/div {:className "dash-wstat dash-wstat-clickable"
-                                :role "button"
-                                :tabIndex 0
-                                :onClick (fn [e]
-                                           (.stopPropagation e)
-                                           (navigate-wisdom! "wisdom-templates"))
-                                :onKeyDown (fn [e]
-                                             (.stopPropagation e)
-                                             (handle-card-key #(navigate-wisdom! "wisdom-templates") e))}
-                               (dom/span :.dash-wstat-value (str template-count))
-                               (dom/span :.dash-wstat-label "Templates"))
-                      (dom/div {:className "dash-wstat dash-wstat-clickable"
-                                :role "button"
-                                :tabIndex 0
-                                :onClick (fn [e]
-                                           (.stopPropagation e)
-                                           (navigate-wisdom! "wisdom-learning"))
-                                :onKeyDown (fn [e]
-                                             (.stopPropagation e)
-                                             (handle-card-key #(navigate-wisdom! "wisdom-learning") e))}
-                               (dom/span :.dash-wstat-value (str category-count))
-                               (dom/span :.dash-wstat-label "Learning Patterns"))
-                      (dom/div {:className "dash-wstat dash-wstat-clickable"
-                                :role "button"
-                                :tabIndex 0
-                                :onClick (fn [e]
-                                           (.stopPropagation e)
-                                           (navigate-wisdom! "wisdom-contextual"))
-                                :onKeyDown (fn [e]
-                                             (.stopPropagation e)
-                                             (handle-card-key #(navigate-wisdom! "wisdom-contextual") e))}
-                               (dom/span :.dash-wstat-value (str cached-count))
-                               (dom/span :.dash-wstat-label "Cached Insights")))
-             (when any-loading?
-               (dom/div :.dash-wisdom-loading
-                        (dom/span :.dash-wisdom-loading-dot)
-                        (dom/span "Loading from AI..."))))))
-
-;; ============================================================================
-;; Quick Actions
-;; ============================================================================
-
-(defn quick-actions
-  "Quick action buttons for common tasks - navigate builders, open chat, view wisdom."
-  [{:keys [encoded-id this-comp]}]
-  (dom/div :.dash-actions
-           (dom/h3 :.dash-actions-title "Quick Actions")
-           (dom/div :.dash-actions-grid
-                    ;; Start with Empathy Map
-                    (dom/button {:className "dash-action-btn dash-action-empathy"
-                                 :onClick #(when encoded-id
-                                             (dr/change-route! app ["project" encoded-id "empathy"]))}
-                                (dom/span :.dash-action-icon "~")
-                                (dom/span :.dash-action-label "Empathy Map")
-                                (dom/span :.dash-action-hint "Start understanding your users"))
-                    ;; Value Proposition
-                    (dom/button {:className "dash-action-btn dash-action-valueprop"
-                                 :onClick #(when encoded-id
-                                             (dr/change-route! app ["project" encoded-id "valueprop"]))}
-                                (dom/span :.dash-action-icon "~")
-                                (dom/span :.dash-action-label "Value Proposition")
-                                (dom/span :.dash-action-hint "Define your unique value"))
-                    ;; MVP Planning
-                    (dom/button {:className "dash-action-btn dash-action-mvp"
-                                 :onClick #(when encoded-id
-                                             (dr/change-route! app ["project" encoded-id "mvp"]))}
-                                (dom/span :.dash-action-icon "~")
-                                (dom/span :.dash-action-label "MVP Planning")
-                                (dom/span :.dash-action-hint "Scope your minimum product"))
-                    ;; Lean Canvas
-                    (dom/button {:className "dash-action-btn dash-action-canvas"
-                                 :onClick #(when encoded-id
-                                             (dr/change-route! app ["project" encoded-id "canvas"]))}
-                                (dom/span :.dash-action-icon "~")
-                                (dom/span :.dash-action-label "Lean Canvas")
-                                (dom/span :.dash-action-hint "Map your business model"))
-                    ;; AI Chat
-                    (dom/button {:className "dash-action-btn dash-action-chat"
-                                 :onClick #(comp/transact! this-comp [(chat/toggle-chat {})])}
-                                (dom/span :.dash-action-icon "~")
-                                (dom/span :.dash-action-label "Ask AI")
-                                (dom/span :.dash-action-hint "Get guidance from ECA"))
-                    ;; Wisdom
-                    (dom/button {:className "dash-action-btn dash-action-wisdom"
-                                 :onClick #(dr/change-route! app ["wisdom"])}
-                                (dom/span :.dash-action-icon "~")
-                                (dom/span :.dash-action-label "Wisdom")
-                                (dom/span :.dash-action-hint "Templates and insights")))))
-
-;; ============================================================================
-;; Main Dashboard Page
-;; ============================================================================
-
-(defsc DashboardPage
-  [this props]
-  {:query         [[df/marker-table :dashboard]
-                   :page/error]
-   :ident         (fn [] [:page/id :dashboard])
-   :initial-state (fn [_] {})
+(defsc DashboardPage [this props]
+  {:query [[df/marker-table :dashboard] :page/error :ui/concepts-expanded?]
+   :ident (fn [] [:page/id :dashboard])
+   :initial-state (fn [_] {:ui/concepts-expanded? false})
    :route-segment ["dashboard"]
-   :will-enter    (fn [app _route-params]
-                    (dr/route-deferred [:page/id :dashboard]
-                                       (fn []
-                                         (df/load! app [:page/id :dashboard] DashboardPage
-                                                   {:marker :dashboard
-                                                    :post-mutation `dr/target-ready
-                                                    :post-mutation-params {:target [:page/id :dashboard]}
-                                                    :fallback `handle-load-error
-                                                    :fallback-params {:page-id :dashboard
-                                                                      :error-message "Failed to load dashboard data"}}))))
-   ;; Request WS data on mount instead of during render
-   :componentDidMount
-   (fn [this]
-     (let [ws-state (when-let [sa @ws/app-state-atom] @sa)
-           ws-project (get ws-state :workspace/project)
-           project-id (:project/id ws-project)]
-       (when project-id
-         (when-not (get-in ws-state [:flywheel/progress project-id])
-           (ws/request-flywheel-progress! project-id))
-         (when-not (get-in ws-state [:kanban/board project-id])
-           (ws/request-kanban-board! project-id)))
-       ;; Pre-fetch wisdom data for the overview card (only if WS is connected)
-       (when (and (ws/connected?)
-                  (not (get-in ws-state [:content/generated :templates])))
-         (ws/request-content! :templates))
-       (when (and (ws/connected?)
-                  (not (get-in ws-state [:content/generated :learning-categories])))
-         (ws/request-content! :learning-categories))))}
-
+   :will-enter (fn [app _route-params]
+                 (dr/route-deferred [:page/id :dashboard]
+                                    (fn [] (df/load! app [:page/id :dashboard] DashboardPage
+                                                     {:marker :dashboard :post-mutation `dr/target-ready
+                                                      :post-mutation-params {:target [:page/id :dashboard]}}))))
+   :componentDidMount (fn [this]
+                        (let [ws-state (when-let [sa @ws/app-state-atom] @sa)
+                              ws-project (get ws-state :workspace/project)
+                              project-id (:project/id ws-project)]
+                          (when project-id
+                            (when-not (get-in ws-state [:flywheel/progress project-id])
+                              (ws/request-flywheel-progress! project-id))
+                            (when-not (get-in ws-state [:kanban/board project-id])
+                              (ws/request-kanban-board! project-id)))))}
   (let [loading? (df/loading? (get props [df/marker-table :dashboard]))
         error-msg (get-in props [:page/error :dashboard])
-        ;; Read workspace project from WS state (schedule-render! triggers re-render when WS data arrives)
         ws-state (when-let [sa @ws/app-state-atom] @sa)
         ws-project (get ws-state :workspace/project)
         project-id (:project/id ws-project)
-        project-name (:project/name ws-project)
-        project-status (:project/status ws-project)
-        project-desc (:project/description ws-project)
-        ;; Read WS data for child components (passed via props, not re-read by children)
         progress (when project-id (get-in ws-state [:flywheel/progress project-id]))
-        board (when project-id (get-in ws-state [:kanban/board project-id]))
-        encoded-id (when project-id (str/replace (str project-id) "/" "~"))]
+        encoded-id (when project-id (str/replace (str project-id) "/" "~"))
+        concepts-expanded? (get props :ui/concepts-expanded? false)
+        completed-count (count (filter #(= (:status %) :completed) (:phases progress [])))]
     (cond
-      error-msg
-      (error-state
-       {:message error-msg
-        :on-retry #(do
-                     (comp/transact! this `[(clear-page-error {:page-id :dashboard})])
-                     (df/load! this [:page/id :dashboard] DashboardPage
-                               {:marker :dashboard
-                                :fallback `handle-load-error
-                                :fallback-params {:page-id :dashboard
-                                                  :error-message "Failed to load dashboard data"}}))})
-
-      loading?
-      (dashboard-loading)
-
-      :else
-      (dom/div :.dash-page
-               (dom/div :.page-header
-               (dom/h1 :.dash-title "Start Here")
-               (dom/p :.dash-subtitle "Build products with joy. Let Ouroboros guide you."))
-
-               ;; Two-column layout: project overview + wisdom summary
-               (dom/div :.dash-grid
-                        ;; Left column: Project overview
-                        (when ws-project
-                          (project-overview-card
-                           {:project-name project-name
-                            :project-status project-status
-                            :project-description project-desc
-                            :project-id project-id
-                            :progress progress
-                            :board board}))
-                        ;; Right column: Wisdom overview
-                        (wisdom-overview-card {:ws-state ws-state}))
-
-               ;; Quick actions
-               (quick-actions {:encoded-id encoded-id
-                               :this-comp this})))))
+      error-msg (error-state {:message error-msg :on-retry #(do (comp/transact! this [(m/set-value! this :page/error nil)])
+                                                                (df/load! this [:page/id :dashboard] DashboardPage {:marker :dashboard}))})
+      loading? (dashboard-loading)
+      :else (dom/div :.start-here-page
+                     (dom/div :.page-header
+                              (dom/h1 :.page-title "🌟 Start Here")
+                              (dom/p :.page-subtitle "Build products with joy. Let Ouroboros guide you."))
+                     (celebration-banner {:completed-count completed-count})
+                     (concepts-explainer {:expanded? concepts-expanded? :on-toggle #(m/set-value! this :ui/concepts-expanded? (not concepts-expanded?))})
+                     (if ws-project
+                       (dom/div :.main-content
+                                (dom/div :.content-grid
+                                         (flywheel-journey {:progress progress :encoded-id encoded-id})
+                                         (recommended-action {:progress progress :encoded-id encoded-id}))
+                                (primary-paths {:encoded-id encoded-id :this-comp this})
+                                (when (zero? completed-count)
+                                  (hint-bubble {:text "💡 Tip: Start with the Empathy Map to understand your users. It's the foundation of everything!"
+                                                :on-dismiss #(m/set-value! this :ui/hint-dismissed? true)})))
+                       (empty-state-welcome {:on-create-project #(dr/change-route! app ["project" "new"])}))))))
