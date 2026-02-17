@@ -234,9 +234,19 @@
                  (let [ev (evolve/auto-evolve!)
                        ch (maintain/run-checklist!)]
                    (println "\n✓ Maintenance complete")
-                   {:evolution ev :checklist ch}))}
-    
-      prometheus
+                                      {:evolution ev :checklist ch}))}
+                   
+                       learning:gaps
+                       {:doc "Detect learning gaps for all users"
+                        :requires ([ouroboros.learning.cli :as cli])
+                        :task (cli/gaps-task)}
+                   
+                       learning:stats
+                       {:doc "Show learning statistics"
+                        :requires ([ouroboros.learning.cli :as cli])
+                        :task (cli/stats-task)}
+                       
+                       prometheus
       {:doc "Start Prometheus metrics server"
        :requires ([ouroboros.telemetry.prometheus :as prom])
        :task (let [port (or (first *command-line-args*) 9090)]

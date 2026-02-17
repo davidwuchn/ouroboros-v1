@@ -168,6 +168,11 @@
          (map get-learning)
          (remove nil?))))
 
+(defn get-all-users
+  "Get all users with learning records"
+  []
+  (keys @learning-index))
+
 (defn recall-by-pattern
   "Find learnings matching a pattern
 
