@@ -12,7 +12,8 @@
    [ouroboros.chat.commands :as commands]
    [ouroboros.chat.session :as session]
    [ouroboros.chat.protocol :as chatp]
-   [ouroboros.learning.empathy-map :as empathy]))
+   [ouroboros.learning.empathy-map :as empathy]
+   [ouroboros.learning :as learning]))
 
 ;; ============================================================================
 ;; Tool Approval
@@ -42,6 +43,40 @@
   (let [tool (str/lower-case (or tool-name ""))]
     (or (contains? safe-tools tool)
         (some #(str/starts-with? tool %) ["file/read" "file/list" "git/" "memory/get"]))))
+
+;; ============================================================================
+;; Learning: Auto-capture repeat queries
+;; ============================================================================
+
+(defn- check-repeat-query
+  "Check if user asked similar question before.
+   If repeat detected, send prompt to save insight."
+  [client-id query]
+  (let [user-id (keyword (str "ws-" client-id))
+        ;; Extract key terms from query for pattern matching
+        terms (-> query str/lower-case (str/split #"\s+") set)
+        ;; Search existing learnings for related topics
+        related (learning/find-related user-id query)]
+    (when (seq related)
+      ;; User has asked about this before - emit telemetry and could prompt
+      (telemetry/emit! {:event :learning/repeat-query
+                         :client-id client-id
+                         :query query
+                         :related-count (count related)
+                         :matches (map :learning/title related)})
+      ;; Return related learnings for context
+      related)))
+
+(defn- suggest-save-insight
+  "Send message suggesting user save their knowledge"
+  [client-id related-learnings]
+  (let [titles (map :learning/title related-learnings)
+        msg (str "💡 You asked about this before. Your previous topics: "
+                 (str/join ", " (take 3 titles))
+                 ". Want to save this as a learning? Use /learn save <topic>: <insight>")]
+    (conn/send-to! client-id {:type :learning/suggest-save
+                              :text msg
+                              :timestamp (System/currentTimeMillis)})))
 
 (defn- register-tool-approval-handler!
   "Register handler for ECA tool calls.
@@ -262,9 +297,16 @@
               (telemetry/emit! {:event :ws/command-not-recognized
                                 :client-id client-id
                                 :text text})
+              ;; Check for repeat query and suggest saving
+              (when-let [related (check-repeat-query client-id text)]
+                (suggest-save-insight client-id related))
               (handle-eca-chat-raw client-id text context))))
         ;; Not a command, send to ECA as usual
-        (handle-eca-chat-raw client-id text context)))))
+        (do
+          ;; Check for repeat query and suggest saving
+          (when-let [related (check-repeat-query client-id text)]
+            (suggest-save-insight client-id related))
+          (handle-eca-chat-raw client-id text context))))))
 
 (defn approve-tool!
   "Approve a tool call from the frontend.
