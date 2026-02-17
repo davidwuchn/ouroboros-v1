@@ -6,7 +6,7 @@
    - Empathy Map (/build empathy)
    - Value Proposition (/build valueprop)
    - MVP Planning (/build mvp)
-   - Workflow modes (/plan, /work, /review, /compound)
+   - Workflow modes (/plan, /work, /review)
 
    This namespace is an implementation detail - prefer using
    the public API in ouroboros.chat"
@@ -275,13 +275,6 @@
                     (do
                       (session/update-context! chat-id dissoc :workflow/type :workflow/mode)
                       (send-markdown! adapter chat-id (:message result)))))
-
-        :compound (let [result (workflow/process-compound-response! chat-id text)]
-                    (if (= :complete (:status result))
-                      (do
-                        (session/update-context! chat-id dissoc :workflow/type :workflow/mode)
-                        (send-markdown! adapter chat-id (:message result)))
-                      (send-markdown! adapter chat-id (:message result))))
 
         ;; Unknown workflow type - exit and treat as normal message
         (do

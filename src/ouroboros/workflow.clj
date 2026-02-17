@@ -1,5 +1,5 @@
 ;; Workflow Commands - Structured development workflow
-;; Based on compound-engineering pattern: Plan → Work → Review → Compound
+;; Based on compound-engineering pattern: Plan → Work → Review
 (ns ouroboros.workflow
   "Workflow - Structured development workflow
 
@@ -10,7 +10,9 @@
    - /plan: Transform ideas into detailed implementation plans
    - /work: Execute plans with task tracking
    - /review: Multi-agent code review
-   - /compound: Document learnings to make future work easier"
+
+   Note: Learnings are auto-captured via telemetry and /learn command.
+   The old /compound step is deprecated - use /learn directly."
   (:require
    [clojure.string :as str]
    [ouroboros.learning :as learning]
@@ -161,7 +163,7 @@
                          "Next steps:\n"
                          "1. `/work " plan-id "` - Start implementation\n"
                          "2. `/review` - Review changes before committing\n"
-                         "3. `/compound` - Document what you learned")})
+                         "3. `/learn <topic> <insight>` - Save learnings for auto-evolution")})
 
         {:error "Unknown plan status"}))))
 

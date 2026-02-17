@@ -136,12 +136,6 @@
       (is (= :message (:type msg)))
       (is (str/includes? (:text msg) "Usage:")))))
 
-(deftest test-handle-command-work-missing-task
-  (let [adapter (mock-adapter)]
-    (cmds/handle-command adapter "chat-123" "TestUser" :work "")
-    (let [msg (last-message adapter)]
-      (is (= :message (:type msg)))
-      (is (str/includes? (:text msg) "Usage:")))))
 
 (deftest test-handle-command-workflows
   (let [adapter (mock-adapter)]

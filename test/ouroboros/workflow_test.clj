@@ -1,5 +1,5 @@
 (ns ouroboros.workflow-test
-  "Workflow Tests - Plan/Work/Review/Compound cycle"
+  "Workflow Tests - Plan/Work/Review cycle"
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [clojure.string :as str]
@@ -133,38 +133,13 @@
     (is (contains? workflow/review-agents :clojure))
     (is (vector? (get workflow/review-agents :general)))))
 
-(deftest test-start-compound
-  (testing "Compound session creation"
-    (let [result (workflow/start-compound! "chat-123")]
-      (is (= :started (:status result)))
-      (is (= :compound (get-in result [:session :type])))
-      (is (str/includes? (:message result) "Compound Learning"))))
-  (testing "Session is stored"
-    (workflow/start-compound! "chat-456")
-    (let [session (workflow/get-workflow-session "chat-456")]
-      (is (= :compound (:type session))))))
-
-(deftest test-process-compound-response
-  (testing "Process learning insight"
-    (workflow/start-compound! "chat-123")
-    (let [result (workflow/process-compound-response! "chat-123" "Use protocols for polymorphism")]
-      (is (= :complete (:status result)))
-      (is (= :complete (get-in result [:session :status])))
-      (is (some? (get-in result [:session :learning-id]))))))
-
-(deftest test-process-compound-no-session
-  (testing "Error when no active compound session"
-    (let [result (workflow/process-compound-response! "chat-999" "some learning")]
-      (is (= "No active compound session" (:error result))))))
-
-(deftest test-get-workflow-session
   (testing "Get existing session"
     (workflow/start-plan! "chat-123" "Feature")
     (let [session (workflow/get-workflow-session "chat-123")]
       (is (some? session))
       (is (= :plan (:type session)))))
   (testing "Get non-existent session returns nil"
-    (is (nil? (workflow/get-workflow-session "chat-nonexistent")))))
+    (is (nil? (workflow/get-workflow-session "chat-nonexistent"))))
 
 (deftest test-cancel-workflow
   (testing "Cancel active workflow"
@@ -212,11 +187,6 @@
       (is (contains? result :message))
       (is (str/includes? (:message result) "Code Review")))))
 
-(deftest test-handle-compound-command
-  (testing "Compound command starts session"
-    (let [result (workflow/handle-compound-command nil "chat-123" "")]
-      (is (contains? result :message))
-      (is (str/includes? (:message result) "Compound Learning")))))
 
 (deftest test-workflow-help-constant
   (testing "Help text exists and contains commands"
@@ -224,7 +194,6 @@
     (is (str/includes? workflow/workflow-help "/plan"))
     (is (str/includes? workflow/workflow-help "/work"))
     (is (str/includes? workflow/workflow-help "/review"))
-    (is (str/includes? workflow/workflow-help "/compound"))))
 
 (deftest test-multiple-sessions-isolated
   (testing "Different chats have isolated sessions"
@@ -251,4 +220,4 @@
     (workflow/process-plan-response! "chat-123" "Outcome")
     (is (= :outlining (:status (workflow/get-workflow-session "chat-123"))))
     (workflow/process-plan-response! "chat-123" "Details")
-    (is (= :complete (:status (workflow/get-workflow-session "chat-123"))))))
+    (is (= :complete (:status (workflow/get-workflow-session "chat-123"))))))))
