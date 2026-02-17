@@ -28,11 +28,13 @@
 
 (defn- get-next-recommended-phase [progress]
   (let [phases (:phases progress)]
-    (or (->> phases
-             (filter #(not= (:status %) :completed))
-             first
-             :phase)
-        :lean-canvas)))
+    (if (seq phases)
+      (or (->> phases
+               (filter #(not= (:status %) :completed))
+               first
+               :phase)
+          :lean-canvas)
+      :empathy-map)))
 
 (defn- calculate-completion-pct [progress]
   (let [phases (:phases progress)
@@ -137,7 +139,9 @@
           :empathy-map ["👥 Start with Empathy" "Understand your users' pains, gains, and behaviors before building anything." "empathy" "Begin Understanding Users" "👥"]
           :value-proposition ["💎 Define Your Value" "What makes your product unique? How do you solve customer pains?" "valueprop" "Define Value Proposition" "💎"]
           :mvp-planning ["🚀 Plan Your MVP" "Scope the minimum features needed to solve the core problem." "mvp" "Start MVP Planning" "🚀"]
-          :lean-canvas ["📊 Map Your Business" "Create a one-page business model to align your thinking." "canvas" "Build Lean Canvas" "📊"])]
+          :lean-canvas ["📊 Map Your Business" "Create a one-page business model to align your thinking." "canvas" "Build Lean Canvas" "📊"]
+          ;; Default fallback
+          ["👥 Start with Empathy" "Understand your users' pains, gains, and behaviors before building anything." "empathy" "Begin Understanding Users" "👥"])]
     (dom/div {:className (str "recommended-action " (when (pos? completion-pct) "has-progress"))}
              (dom/div :.rec-badge-container
                       (dom/span :.rec-badge "⭐ Recommended Next Step")
