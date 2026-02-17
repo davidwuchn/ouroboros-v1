@@ -45,11 +45,11 @@
 
 (defn dashboard-loading []
   (dom/div {:key "dashboard-loading"}
-   (dom/h1 {:key "dashboard-title"} "Dashboard")
-   (dom/div {:key "dashboard-skeleton" :className "dash-loading-grid"}
-            (dom/div :.skeleton-card)
-            (dom/div :.skeleton-card)
-            (dom/div :.skeleton-card))))
+           (dom/h1 {:key "dashboard-title"} "Dashboard")
+           (dom/div {:key "dashboard-skeleton" :className "dash-loading-grid"}
+                    (dom/div :.skeleton-card)
+                    (dom/div :.skeleton-card)
+                    (dom/div :.skeleton-card))))
 
 ;; ============================================================================
 ;; Shared Card Helpers
@@ -278,9 +278,9 @@
   [this props]
   {:query         [[df/marker-table :dashboard]
                    :page/error]
-    :ident         (fn [] [:page/id :dashboard])
-    :initial-state (fn [_] {})
-    :route-segment ["dashboard"]
+   :ident         (fn [] [:page/id :dashboard])
+   :initial-state (fn [_] {})
+   :route-segment ["dashboard"]
    :will-enter    (fn [app _route-params]
                     (dr/route-deferred [:page/id :dashboard]
                                        (fn []
