@@ -89,7 +89,12 @@
 ;; Tracking Functions
 ;; ============================================================================
 
-(defn track-issue! [issue-type file]
+(defn track-issue!
+  "Track an issue with optional details
+  
+   Usage: (track-issue! :deep-nesting \"src/foo.clj\")
+          (track-issue! :slow-query \"query-system\" {:duration-ms 1500})"
+  [issue-type file & [details]]
   (swap! pattern-store update-in [:issues issue-type]
          (fn [m] (update (or m {}) file (fnil inc 0))))
   (save-state!))

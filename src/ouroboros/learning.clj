@@ -208,13 +208,26 @@
          (take 5))))
 
 (defn increment-application!
-  "Increment application count for a learning"
+  "Increment application count for a learning
+  
+   Emits telemetry for λ(system) evolution tracking.
+   When applied 3+ times, the bridge will track as proven pattern."
   [learning-id]
   (let [current (get-learning learning-id)
+        new-count (inc (or (:learning/applied-count current) 0))
         updated (-> current
                     (update :learning/applied-count (fnil inc 0))
                     (assoc :learning/last-applied (str (java.time.Instant/now))))]
     (update-learning! learning-id updated)
+    
+    ;; Emit telemetry for λ(system) evolution
+    (telemetry/emit! {:event :learning/applied
+                      :learning-id learning-id
+                      :title (:learning/title current)
+                      :pattern (:learning/pattern current)
+                      :applied-count new-count
+                      :category (:learning/category current)})
+    
     updated))
 
 ;; ============================================================================

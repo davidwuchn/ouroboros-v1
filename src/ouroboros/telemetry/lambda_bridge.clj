@@ -23,15 +23,8 @@
 
 (defonce ^:private bridge-enabled? (atom false))
 
-(defonce ^:private lambda-backend
-  (reify tp/TelemetryBackend
-    (emit-event! [_ event]
-      (process-event event))
-    (flush-events! [_])
-    (close-backend! [_])))
-
 ;; ============================================================================
-;; Event Processing
+;; Event Processing (defined first to avoid forward reference)
 ;; ============================================================================
 
 (defn- classify-scale
@@ -186,13 +179,47 @@
       (= :query/execute event-type)
       (process-query-event event)
 
-      ;; WebUX/learning events
+      ;; Learning events - track insights and applications
+      (= :learning/saved event-type)
+      (let [title (:title event)
+            pattern (:pattern event)
+            learning-id (:learning-id event)
+            category (:category event)]
+        (when pattern
+          (evolve/track-issue! (keyword (str "learning-" pattern)) 
+                              (str "learning/" learning-id)
+                              {:title title :category category}))
+        (evolve/record-insight! (str "New learning: " title)))
+
+      (= :learning/applied event-type)
+      (let [learning-id (:learning-id event)
+            title (:title event)
+            pattern (:pattern event)
+            applied-count (:applied-count event)]
+        (evolve/track-access! (str "learning/" learning-id))
+        ;; When proven (3+), elevate to system insight
+        (when (>= (or applied-count 0) 3)
+          (evolve/record-insight! 
+            (str "Proven pattern: '" pattern "' applied " applied-count " times"))))
+
+      ;; WebUX/learning insights
       (= :learning/insight event-type)
       (when-let [insight (get-in event [:params :insight])]
         (evolve/record-insight! insight))
 
       ;; Default: ignore
       :else nil)))
+
+;; ============================================================================
+;; Backend Definition (after process-event)
+;; ============================================================================
+
+(defonce ^:private lambda-backend
+  (reify tp/TelemetryBackend
+    (emit-event! [_ event]
+      (process-event event))
+    (flush-events! [_])
+    (close-backend! [_])))
 
 ;; ============================================================================
 ;; Public API
