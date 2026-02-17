@@ -205,6 +205,26 @@
     {:doc "Run λ(system) auto-evolution"
      :requires ([ouroboros.lambda-evolve :as evolve])
      :task (evolve/auto-evolve!)}
+
+    lambda:evolve:status
+    {:doc "Show λ(system) evolution status"
+     :requires ([ouroboros.lambda-evolve :as evolve])
+     :task (do
+             (println "\n=== λ(system) Status ===")
+             (let [status (evolve/system-status)
+                   ooda (evolve/analyze-ooda)]
+               (println "\n--- Tracking ---")
+               (println "Issues:" (:issues status))
+               (println "Searches:" (:searches status))
+               (println "Accesses:" (:accesses status))
+               (println "Insights:" (:insights status))
+               (println "\n--- OODA Observations ---")
+               (println "Syntax:" (:syntax ooda))
+               (println "Semantic:" (:semantic ooda))
+               (println "Architectural:" (:architectural ooda))
+               (println "Process:" (:process ooda))
+               (println "")
+               {:status status :ooda ooda}))}
   
       lambda:cron
       {:doc "Run λ(system) scheduled maintenance (evolve + checklist)"
