@@ -198,13 +198,6 @@
                     (dom/div :.empty-feature (dom/span :.ef-icon "📊") (dom/span :.ef-text "Visual builders")))
            (ui/button {:onClick on-create-project :variant :primary :size :large} "🚀 Start Your First Project")))
 
-(defn hint-bubble [{:keys [text on-dismiss]}]
-  (dom/div :.hint-bubble
-           (dom/span :.hint-icon "💡")
-           (dom/span :.hint-text text)
-           (when on-dismiss
-             (dom/button {:className "hint-dismiss" :onClick on-dismiss :aria-label "Dismiss hint"} "×"))))
-
 (defn dashboard-loading []
   (dom/div {:key "dashboard-loading" :className "start-here-loading"}
            (dom/div :.loading-header
@@ -266,8 +259,5 @@
                                 (dom/div :.content-grid
                                          (flywheel-journey {:progress progress :encoded-id encoded-id})
                                          (recommended-action {:progress progress :encoded-id encoded-id}))
-                                (primary-paths {:encoded-id encoded-id :this-comp this})
-                                (when (zero? completed-count)
-                                  (hint-bubble {:text "💡 Tip: Start with the Empathy Map to understand your users. It's the foundation of everything!"
-                                                :on-dismiss #(m/set-value! this :ui/hint-dismissed? true)})))
+                                (primary-paths {:encoded-id encoded-id :this-comp this}))
                        (empty-state-welcome {:on-create-project #(dr/change-route! app ["project" "new"])}))))))
