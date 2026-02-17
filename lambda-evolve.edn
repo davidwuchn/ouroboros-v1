@@ -1,1 +1,1 @@
-{:issues {}, :searches {"clojure spec" 3}, :accesses {"repl-workflow" 3}, :insights [], :ooda {}}
+{:issues {}, :searches {}, :accesses {}, :insights ({:insight "New learning: HTTP Retry 3", :timestamp 1771293675605} {:insight "New learning: HTTP Retry 2", :timestamp 1771293675605} {:insight "New learning: HTTP Retry", :timestamp 1771293675603}), :ooda {}}

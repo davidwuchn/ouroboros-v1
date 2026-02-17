@@ -296,7 +296,12 @@ bb frontend:server # Shadow-CLJS server (proc-frontend-server)
 
 ### System Overview (30-Second Context)
 Ouroboros = Chat platforms (Telegram/Discord/Slack) + Web UX collaborative canvas + ECA AI integration.
-Current focus: 5-phase product development flywheel (Empathy→Value Prop→MVP→Lean Canvas).
+Current focus: 4-phase product development flywheel (Empathy→Value Prop→MVP→Lean Canvas).
+
+**Note:** Two different "flywheels" exist:
+- **Product Dev Flywheel** (4 phases): Empathy→Value Prop→MVP→Canvas — visual builders for product development
+- **Learning Flywheel** (4 levels): Utility→Understanding→Insight→Wisdom — chat interaction pattern  
+See docs/CONCEPTS.md for details.
 
 ### Key Namespaces
 | File | Purpose |

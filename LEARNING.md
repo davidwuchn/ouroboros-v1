@@ -7,6 +7,7 @@
 - [Architecture Evolution](#architecture-evolution)
 - [Patterns](#patterns)
   - [Development Methodology](#patterns)
+  - [Communication & Naming](#patterns)
   - [System Design](#patterns)
   - [AI Integration](#patterns)
   - [Tooling](#patterns)
@@ -79,7 +80,23 @@ Build in phases: Core → Intelligence → Interface → Production. Each phase 
 
 ---
 
-### 2. Protocol-Based Abstraction
+### 2. Distinguish Similar Concepts Explicitly
+
+**Problem:** Two different "flywheels" with similar names caused confusion:
+- **Product Dev Flywheel** (4 phases): Empathy→Value Prop→MVP→Canvas
+- **Learning Flywheel** (4 levels): Utility→Understanding→Insight→Wisdom
+
+**Solution:** 
+- Always qualify: "Product Dev Flywheel" vs "Learning Flywheel"
+- Never say "the flywheel" without context
+- Create CONCEPTS.md with clear definitions
+- Add notes in documents that might be confused
+
+**Lesson:** When two concepts share a name, explicitly distinguish them everywhere. Don't assume context makes it clear.
+
+---
+
+### 3. Protocol-Based Abstraction
 
 Define interfaces first (`ChatAdapter`), implement platforms second (Telegram, Slack).
 

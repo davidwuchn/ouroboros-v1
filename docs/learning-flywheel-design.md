@@ -1,5 +1,8 @@
 # Learning Flywheel: Chat Interaction Design
 
+> **Note:** This is the **Learning Flywheel** (chat/wisdom building).  
+> For the **Product Development Flywheel** (Empathy→Value Prop→MVP→Canvas), see [CONCEPTS.md](./CONCEPTS.md).
+
 ## Vision {#vision}
 
 Transform Ouroboros chat from **utility assistant** to **wisdom partner** by creating a learning flywheel where each interaction builds understanding, context, and transferable knowledge.
