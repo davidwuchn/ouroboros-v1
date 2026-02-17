@@ -190,6 +190,54 @@
                  (ws/save-builder-data! project-id session-id :empathy-map notes))))
            500)))
 
+(m/defmutation apply-insight-to-canvas
+  "Apply insight from Learning Patterns to canvas notes"
+  [{:keys [insight]}]
+  (action [{:keys [state]}]
+          (when (and insight (seq (:texts insight)))
+            (swap! state (fn [s]
+                           (let [s (push-undo! s)
+                                 notes-to-add (map-indexed
+                                               (fn [idx text]
+                                                 (canvas/create-sticky-note :think-feel (str text)))
+                                               (:texts insight))
+                                 title-note (when (:title insight)
+                                              (canvas/create-sticky-note :persona
+                                                                         (str "Insight: " (:title insight))))]
+                             (reduce
+                              (fn [s* note]
+                                (update-in s* [:page/id :empathy-builder :empathy/notes]
+                                           (fnil assoc {}) (:item/id note) note))
+                              (if title-note
+                                (update-in s [:page/id :empathy-builder :empathy/notes]
+                                           (fnil assoc {}) (:item/id title-note) title-note)
+                                s)
+                              notes-to-add)))))
+          (sync-empathy-notes! state)))
+
+(m/defmutation apply-template-to-canvas
+  "Apply template data from Wisdom templates to canvas notes"
+  [{:keys [template-data]}]
+  (action [{:keys [state]}]
+          (when (map? template-data)
+            (swap! state (fn [s]
+                           (let [s (push-undo! s)]
+                             (reduce-kv
+                              (fn [s* k v]
+                                (let [section-key (if (keyword? k) k (keyword k))
+                                      content (cond
+                                                (string? v) v
+                                                (map? v) (or (:content v) (:text v) (first (vals v)))
+                                                :else (str v))
+                                      note (when (and content (seq (str/trim content)))
+                                             (canvas/create-sticky-note section-key content))]
+                                  (if note
+                                    (update-in s* [:page/id :empathy-builder :empathy/notes]
+                                               (fnil assoc {}) (:item/id note) note)
+                                    s*)))
+                              s template-data))))
+            (sync-empathy-notes! state))))
+
 (m/defmutation add-empathy-note
   "Add a sticky note to an empathy section"
   [{:keys [_session-id section-key content]}]
@@ -552,6 +600,11 @@
                    [df/marker-table :empathy-builder]]
    :ident         (fn [] [:page/id :empathy-builder])
    :route-segment ["project" :project-id "empathy"]
+   :component-did-mount (fn [_this]
+                         ;; localStorage fallback removed - template data now flows
+                         ;; correctly via :builder/template-applied WebSocket response
+                         ;; which merges actual note data into Fulcro state
+                          nil)
    :initial-state (fn [_] {:empathy/notes {}
                            :ui {:ui/persona-name ""
                                 :ui/persona-details ""
@@ -829,6 +882,3 @@
                                               (comp/transact! this
                                                               [(delete-empathy-note
                                                                 {:note-id note-id})]))})))))))
-
-
-

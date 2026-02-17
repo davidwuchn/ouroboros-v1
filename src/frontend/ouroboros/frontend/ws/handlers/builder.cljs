@@ -24,28 +24,29 @@
         (send! {:type "kanban/board" :project-id project-id})))))
 
 (defmethod dispatch/handle-message :builder/template-applied
-  [{:keys [project-id template-key results]}]
+  [{:keys [project-id template-key results builder-data]}]
   (js/console.log "Template applied to all builders:" template-key results)
   (when-let [state-atom @state/app-state-atom]
-    ;; Clear applying state
+    ;; Clear applying state and merge actual note data into builder state
     (swap! state-atom
            (fn [s]
              (-> s
                  (assoc-in [:builder/template-applying? project-id] false)
-                 ;; Merge results into each builder's state
+                 ;; Merge actual note data (not counts) into each builder's state
+                 ;; builder-data contains the full note maps from the backend
                  (cond->
-                   (:empathy-map results)
-                   (update-in [:page/id :empathy-builder :empathy/notes] merge
-                              (:empathy-map results))
-                   (:lean-canvas results)
-                   (update-in [:page/id :lean-canvas-builder :lean-canvas/notes] merge
-                              (:lean-canvas results))
-                   (:value-proposition results)
-                   (update-in [:page/id :value-prop-builder :valueprop/notes] merge
-                              (:value-proposition results))
-                   (:mvp-planning results)
-                   (update-in [:page/id :mvp-builder :mvp/notes] merge
-                              (:mvp-planning results))))))
+                  (seq (:empathy-map builder-data))
+                   (assoc-in [:page/id :empathy-builder :empathy/notes]
+                             (:empathy-map builder-data))
+                   (seq (:lean-canvas builder-data))
+                   (assoc-in [:page/id :lean-canvas-builder :lean-canvas/notes]
+                             (:lean-canvas builder-data))
+                   (seq (:value-proposition builder-data))
+                   (assoc-in [:page/id :value-prop-builder :valueprop/notes]
+                             (:value-proposition builder-data))
+                   (seq (:mvp-planning builder-data))
+                   (assoc-in [:page/id :mvp-builder :mvp/notes]
+                             (:mvp-planning builder-data))))))
     ;; Refresh kanban board
     (when (and (get-in @state-atom [:kanban/board project-id]) @send-fn)
       (@send-fn {:type "kanban/board" :project-id project-id}))

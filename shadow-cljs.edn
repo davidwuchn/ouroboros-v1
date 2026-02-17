@@ -1,26 +1,18 @@
-;; Shadow CLJS Configuration for Ouroboros Dashboard
 {:deps {:aliases [:frontend]}
-
- ;; Development HTTP server serves static files
- ;; Proxy /api requests to backend on port 8080
  :dev-http {8081 {:root "resources/public"
                   :proxy-url "http://localhost:8080"}}
-
  :builds
  {:dashboard
   {:target     :browser
    :output-dir "resources/public/js"
    :asset-path "/js"
-
    :modules    {:main {:init-fn ouroboros.frontend.client/init}}
-
    :devtools   {:after-load ouroboros.frontend.client/refresh}
-
    :dev        {:compiler-options
                 {:external-config {:fulcro {:html-source-annotations? true}}
                  :closure-defines {goog.DEBUG true}}}
-
    :release    {:compiler-options
                 {:optimizations :advanced
                  :elide-asserts true
+                 :pseudo-names true
                  :closure-defines {goog.DEBUG false}}}}}}

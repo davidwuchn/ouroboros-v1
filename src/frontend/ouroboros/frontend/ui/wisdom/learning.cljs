@@ -54,18 +54,22 @@
 
 (defn- apply-insight-to-builder!
   "Apply an insight to a builder section.
-   Shows toast notification on success."
+   Stores insight in global state before navigating so builder can pick it up."
   [insight stage section project-id]
   (when (and project-id stage)
     (let [encoded-id (str/replace (str project-id) "/" "~")
-          insight-text (str (:title insight) ": " (first (:insights insight)))]
-      ;; Navigate to builder with insight context
+          ;; Store insight in app state for builder to pick up
+          insight-data {:title (:title insight)
+                        :texts (:insights insight)}
+          ;; Store pending insight by stage key
+          stage-key (keyword (str "pending-insight-" stage))]
+      (when-let [sa @ws/app-state-atom]
+        (swap! sa assoc stage-key insight-data))
+      ;; Navigate to builder
       (when-let [nav @ws/navigate-callback]
         (nav ["project" encoded-id stage]))
       ;; Show confirmation toast
-      (data/show-toast! (str "Insight applied to " (data/stage->builder-label stage)) :success)
-      ;; TODO: Store insight in builder session context for display
-      )))
+      (data/show-toast! (str "Insight applied to " (data/stage->builder-label stage)) :success))))
 
 (defn- insight-card-actions
   "Action buttons for an insight card."

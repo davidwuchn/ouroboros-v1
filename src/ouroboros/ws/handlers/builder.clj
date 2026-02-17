@@ -125,141 +125,146 @@
                                        :on-error (fn [error-msg]
                                                    (telemetry/emit! {:event :ws/auto-insight-error
                                                                      :client-id client-id
-                                                                     :error error-msg}))}))))
+                                                                     :error error-msg}))})))))
 
 ;; ============================================================================
 ;; Atomic Template Application
 ;; ============================================================================
 
-  (def ^:private builder-type->prefix
-    "Session ID prefixes for each builder type"
-    {:empathy-map "empathy-"
-     :value-proposition "valueprop-"
-     :mvp-planning "mvp-"
-     :lean-canvas "canvas-"})
+(def ^:private builder-type->prefix
+  "Session ID prefixes for each builder type"
+  {:empathy-map "empathy-"
+   :value-proposition "valueprop-"
+   :mvp-planning "mvp-"
+   :lean-canvas "canvas-"})
 
-  (def ^:private lean-canvas-colors
-    "Color mapping for lean canvas blocks"
-    {:problems "red"
-     :customer-segments "blue"
-     :uvp "purple"
-     :solution "green"
-     :channels "orange"
-     :revenue-streams "green"
-     :cost-structure "pink"
-     :key-metrics "teal"
-     :unfair-advantage "gold"})
+(def ^:private lean-canvas-colors
+  "Color mapping for lean canvas blocks"
+  {:problems "red"
+   :customer-segments "blue"
+   :uvp "purple"
+   :solution "green"
+   :channels "orange"
+   :revenue-streams "green"
+   :cost-structure "pink"
+   :key-metrics "teal"
+   :unfair-advantage "gold"})
 
-  (defn- template-section->items
-    "Convert template section data to builder items."
-    [builder-type section-key content]
-    (let [id (str "wisdom-" (name section-key) "-" (random-uuid))
-          color (case builder-type
-                  :lean-canvas (get lean-canvas-colors section-key "yellow")
-                  "yellow")]
-      {id {:item/id id
-           :item/section section-key
-           :item/content content
-           :item/color color
-           :item/position {:x 0 :y 0}}}))
+(defn- template-section->items
+  "Convert template section data to builder items."
+  [builder-type section-key content]
+  (let [id (str "wisdom-" (name section-key) "-" (random-uuid))
+        color (case builder-type
+                :lean-canvas (get lean-canvas-colors section-key "yellow")
+                "yellow")]
+    {id {:item/id id
+         :item/section section-key
+         :item/content content
+         :item/color color
+         :item/position {:x 0 :y 0}}}))
 
-  (defn- extract-builder-data-from-template
-    "Extract builder-specific data from a template."
-    [builder-type template-data]
-    (case builder-type
-      :empathy-map
-      (when-let [sections (:empathy-map template-data)]
-        (reduce-kv (fn [acc k v]
-                     (merge acc (template-section->items builder-type k v)))
-                   {} sections))
+(defn- extract-builder-data-from-template
+  "Extract builder-specific data from a template."
+  [builder-type template-data]
+  (case builder-type
+    :empathy-map
+    (when-let [sections (:empathy-map template-data)]
+      (reduce-kv (fn [acc k v]
+                   (merge acc (template-section->items builder-type k v)))
+                 {} sections))
 
-      :lean-canvas
-      (when-let [blocks (:lean-canvas template-data)]
-        (reduce-kv (fn [acc k v]
-                     (merge acc (template-section->items builder-type k v)))
-                   {} blocks))
+    :lean-canvas
+    (when-let [blocks (:lean-canvas template-data)]
+      (reduce-kv (fn [acc k v]
+                   (merge acc (template-section->items builder-type k v)))
+                 {} blocks))
 
-      :value-proposition
-      (when-let [sections (:value-proposition template-data)]
-        (reduce-kv (fn [acc k v]
-                     (merge acc (template-section->items builder-type k v)))
-                   {} sections))
+    :value-proposition
+    (when-let [sections (:value-proposition template-data)]
+      (reduce-kv (fn [acc k v]
+                   (merge acc (template-section->items builder-type k v)))
+                 {} sections))
 
-      :mvp-planning
-      (when-let [sections (:mvp-planning template-data)]
-        (reduce-kv (fn [acc k v]
-                     (merge acc (template-section->items builder-type k v)))
-                   {} sections))
+    :mvp-planning
+    (when-let [sections (:mvp-planning template-data)]
+      (reduce-kv (fn [acc k v]
+                   (merge acc (template-section->items builder-type k v)))
+                 {} sections))
 
-      nil))
+    nil))
 
-  (defn handle-apply-template!
-    "Atomically apply a template to ALL 4 builders for a project.
+(defn handle-apply-template!
+  "Atomically apply a template to ALL 4 builders for a project.
    This is a single transaction - all builders updated together.
-   Returns counts of items applied per builder."
-    [client-id {:keys [project-id template-key template-data]}]
-    (let [user-id (ctx/current-user-id)
-          memory-key (keyword (str "builder-sessions/" (name user-id)))
-          now (str (java.time.Instant/now))
-          results (atom {})]
+   Returns actual note data per builder so frontend can populate state immediately."
+  [client-id {:keys [project-id template-key template-data]}]
+  (let [user-id (ctx/current-user-id)
+        memory-key (keyword (str "builder-sessions/" (name user-id)))
+        now (str (java.time.Instant/now))
+        builder-data (atom {})
+        results (atom {})]
 
-      (telemetry/emit! {:event :ws/template-apply-start
-                        :client-id client-id
-                        :project-id project-id
-                        :template-key template-key})
+    (telemetry/emit! {:event :ws/template-apply-start
+                      :client-id client-id
+                      :project-id project-id
+                      :template-key template-key})
 
     ;; Atomic update: all builders in one swap!
-      (memory/update! memory-key
-                      (fn [sessions]
-                        (reduce (fn [sess [builder-type prefix]]
-                                  (if-let [data (extract-builder-data-from-template builder-type template-data)]
-                                    (let [session-id (str prefix project-id)
-                                          existing (get sess session-id)]
-                                      (swap! results assoc builder-type (count data))
-                                      (assoc sess session-id
-                                             (if existing
-                                               (assoc existing
-                                                      :session/data data
-                                                      :session/type builder-type
-                                                      :session/updated-at now)
-                                               {:session/id session-id
-                                                :session/project-id project-id
-                                                :session/type builder-type
-                                                :session/state :active
-                                                :session/data data
-                                                :session/created-at now
-                                                :session/updated-at now}))))
-                                  sess))
-                        (or sessions {})
-                        builder-type->prefix))
+    (memory/update! memory-key
+                    (fn [sessions]
+                      (reduce
+                       (fn [sess [builder-type prefix]]
+                         (if-let [data (extract-builder-data-from-template builder-type template-data)]
+                           (let [session-id (str prefix project-id)
+                                 existing (get sess session-id)]
+                             (swap! builder-data assoc builder-type data)
+                             (swap! results assoc builder-type (count data))
+                             (assoc sess session-id
+                                    (if existing
+                                      (assoc existing
+                                             :session/data data
+                                             :session/type builder-type
+                                             :session/updated-at now)
+                                      {:session/id session-id
+                                       :session/project-id project-id
+                                       :session/type builder-type
+                                       :session/state :active
+                                       :session/data data
+                                       :session/created-at now
+                                       :session/updated-at now})))
+                           ;; No data extracted for this builder - return accumulator unchanged
+                           sess))
+                       (or sessions {})
+                       builder-type->prefix)))
 
-      ;; Send confirmation with results
-      (conn/send-to! client-id {:type :builder/template-applied
-                                :project-id project-id
-                                :template-key template-key
-                                :results @results
-                                :timestamp (System/currentTimeMillis)})
+    ;; Send confirmation with results AND actual note data
+    (conn/send-to! client-id {:type :builder/template-applied
+                              :project-id project-id
+                              :template-key template-key
+                              :results @results
+                              :builder-data @builder-data
+                              :timestamp (System/currentTimeMillis)})
 
-      ;; Save insight about template usage
-      (try
-        (learning/save-insight! user-id
-                                {:title (str "Applied template: " template-key)
-                                 :insights [(str "Applied " template-key " template to " (count (filter pos? (vals @results))) " builders")]
-                                 :pattern "template-usage"
-                                 :category "product-development"
-                                 :tags #{"template" "multi-builder" (str template-key) (str project-id)}
-                                 :examples [{:project-id project-id
-                                             :template template-key
-                                             :results @results}]})
-        (catch Exception e
-          (telemetry/emit! {:event :ws/template-insight-save-error
-                            :error (.getMessage e)})))
+    ;; Save insight about template usage
+    (try
+      (learning/save-insight! user-id
+                              {:title (str "Applied template: " template-key)
+                               :insights [(str "Applied " template-key " template to " (count (filter pos? (vals @results))) " builders")]
+                               :pattern "template-usage"
+                               :category "product-development"
+                               :tags #{"template" "multi-builder" (str template-key) (str project-id)}
+                               :examples [{:project-id project-id
+                                           :template template-key
+                                           :results @results}]})
+      (catch Exception e
+        (telemetry/emit! {:event :ws/template-insight-save-error
+                          :error (.getMessage e)})))
 
-      (telemetry/emit! {:event :ws/template-apply-done
-                        :client-id client-id
-                        :project-id project-id
-                        :template-key template-key
-                        :results @results}))))
+    (telemetry/emit! {:event :ws/template-apply-done
+                      :client-id client-id
+                      :project-id project-id
+                      :template-key template-key
+                      :results @results})))
 
 ;; ============================================================================
 ;; Save Builder Data

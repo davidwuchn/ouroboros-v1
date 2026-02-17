@@ -132,13 +132,16 @@
   "Renders the Apply button bar below BMC.
    Uses atomic backend operation instead of 4 separate WS calls."
   [{:keys [template-name template-key template-data project-id on-applied]}]
-  (when (and project-id template-data)
+  (when (and project-id (seq template-data) (:empathy-map template-data))
     (let [encoded-id (str/replace (str project-id) "/" "~")]
       (dom/div {:className "bmc-apply-bar"}
                (dom/button
                 {:className "btn btn-primary"
                  :onClick (fn [_]
                       ;; Atomic template application - single WS call
+                      ;; Backend saves to all 4 builders and returns actual note data
+                      ;; in :builder/template-applied response, which the handler
+                      ;; merges into Fulcro state immediately
                             (ws/apply-template-to-builders! project-id template-key template-data)
                       ;; Show toast notification
                             (data/show-toast! (str "Applied \"" template-name "\" to all builders") :success)

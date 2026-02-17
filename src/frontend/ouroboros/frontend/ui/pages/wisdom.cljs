@@ -61,6 +61,11 @@
                                      (not (get-in state [:content/generated :templates]))
                                      (not (get-in state [:content/loading? :templates])))
                             (ws/request-content! :templates))
+                          ;; Request default template data (:saas) if not already in store
+                          (when (and state
+                                     (ws/connected?)
+                                     (not (get-in state [:wisdom/template :saas])))
+                            (ws/request-wisdom-template! :saas))
                           ;; Pre-seed category insights with defaults
                           (when state-atom
                             (swap! state-atom
