@@ -1,5 +1,5 @@
 ;; Workflow Commands - Structured development workflow
-;; Based on compound-engineering pattern: Plan → Work → Review
+;; Based on compound-engineering pattern: Plan → Review
 (ns ouroboros.workflow
   "Workflow - Structured development workflow
 
@@ -8,11 +8,10 @@
 
    Workflows:
    - /plan: Transform ideas into detailed implementation plans
-   - /work: Execute plans with task tracking
    - /review: Multi-agent code review
 
-   Note: Learnings are auto-captured via telemetry and /learn command.
-   The old /compound step is deprecated - use /learn directly."
+   Note: Implementation happens naturally via ECA chat.
+   Learnings are auto-captured via telemetry and /learn command."
   (:require
    [clojure.string :as str]
    [ouroboros.learning :as learning]
@@ -161,54 +160,12 @@
            :message (str "✅ Plan created!\n\n"
                          "File: `" plan-file "`\n\n"
                          "Next steps:\n"
-                         "1. `/work " plan-id "` - Start implementation\n"
+                         "1. Implement with ECA chat assistance\n"
                          "2. `/review` - Review changes before committing\n"
                          "3. `/learn <topic> <insight>` - Save learnings for auto-evolution")})
 
         {:error "Unknown plan status"}))))
 
-;; ============================================================================
-;; Work Workflow
-;; ============================================================================
-
-(defn start-work!
-  "Start a new work session"
-  [chat-id task-id]
-  (let [stack (detect-stack)
-        work-session {:type :work
-                      :chat-id chat-id
-                      :task-id task-id
-                      :stack stack
-                      :created-at (str (Instant/now))
-                      :status :starting
-                      :current-step 0
-                      :completed-steps []}]
-    (swap! workflow-state assoc chat-id work-session)
-    {:status :started
-     :session work-session
-     :message (str "🔨 Work session started!\n\n"
-                   "Task: " task-id "\n"
-                   "Stack: " (get stack-descriptions stack "Unknown") "\n\n"
-                   "I'll track progress through implementation steps.\n\n"
-                   "Let's start! *What's the first step?* (or 'help' for suggestions)")}))
-
-(defn process-work-response!
-  "Process user response during work workflow"
-  [chat-id response]
-  (let [session (get @workflow-state chat-id)
-        is-work? (= (:type session) :work)]
-    (if (not is-work?)
-      {:error "No active work session"}
-      (let [step {:description response
-                  :completed-at (str (Instant/now))}
-            updated-session (update session :completed-steps conj step)]
-        (swap! workflow-state assoc chat-id updated-session)
-        {:status :continued
-         :session updated-session
-         :message (str "✓ Step recorded: " response "\n\n"
-                       "What's next? (or 'done' to finish work session)")}))))
-
-;; ============================================================================
 ;; Review Workflow
 ;; ============================================================================
 
@@ -283,14 +240,6 @@
     (let [result (start-plan! chat-id args)]
       {:message (:message result)})))
 
-(defn handle-work-command
-  "Handle /work command"
-  [_adapter chat-id args]
-  (if (str/blank? args)
-    {:message "⚠️ Usage: /work <task-id>\n\nExample: /work feature-123\n\nUse /plan first to create a task."}
-    (let [result (start-work! chat-id args)]
-      {:message (:message result)})))
-
 (defn handle-review-command
   "Handle /review command"
   [_adapter chat-id _args]
@@ -331,10 +280,10 @@
 
 (def ^:const workflow-help
   (str "*Workflow Commands*\n\n"
-       "Plan → Work → Review\n"
+       "Plan → Review\n"
        "Each cycle compounds knowledge.\n\n"
        "*Commands:*\n"
-       "/plan <description> - Create plan and start work\n"
+       "/plan <description> - Create implementation plan\n"
        "/review - Start code review\n"
        "/workflows - Show this help\n"
        "/cancel - Cancel current workflow\n\n"

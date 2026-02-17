@@ -1,5 +1,5 @@
 (ns ouroboros.workflow-test
-  "Workflow Tests - Plan/Work/Review cycle"
+  "Workflow Tests - Plan/Review cycle"
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [clojure.string :as str]
@@ -69,39 +69,8 @@
 (deftest test-process-plan-no-session
   (testing "Error when no active plan session"
     (let [result (workflow/process-plan-response! "chat-999" "Some response")]
-      (is (= "No active plan session" (:error result))))))
+      (is (= "No active plan session" (:error result)))))
 
-(deftest test-start-work
-  (testing "Work session creation"
-    (let [result (workflow/start-work! "chat-123" "task-456")]
-      (is (= :started (:status result)))
-      (is (= :work (get-in result [:session :type])))
-      (is (= "task-456" (get-in result [:session :task-id])))
-      (is (str/includes? (:message result) "Work session started"))))
-  (testing "Session is stored"
-    (workflow/start-work! "chat-789" "my-task")
-    (let [session (workflow/get-workflow-session "chat-789")]
-      (is (= :work (:type session))))))
-
-(deftest test-process-work-response
-  (testing "Process work step"
-    (workflow/start-work! "chat-123" "task-456")
-    (let [result (workflow/process-work-response! "chat-123" "Implemented login form")]
-      (is (= :continued (:status result)))
-      (is (= 1 (count (get-in result [:session :completed-steps]))))))
-  (testing "Multiple steps accumulate"
-    (workflow/start-work! "chat-123" "task-789")
-    (workflow/process-work-response! "chat-123" "Step 1")
-    (workflow/process-work-response! "chat-123" "Step 2")
-    (let [session (workflow/get-workflow-session "chat-123")]
-      (is (= 2 (count (:completed-steps session)))))))
-
-(deftest test-process-work-no-session
-  (testing "Error when no active work session"
-    (let [result (workflow/process-work-response! "chat-999" "Some work")]
-      (is (= "No active work session" (:error result))))))
-
-(deftest test-start-review
   (testing "Review session creation"
     (let [result (workflow/start-review! "chat-123")]
       (is (= :started (:status result)))
@@ -131,7 +100,7 @@
   (testing "Review agents defined for common stacks"
     (is (contains? workflow/review-agents :general))
     (is (contains? workflow/review-agents :clojure))
-    (is (vector? (get workflow/review-agents :general)))))
+    (is (vector? (get workflow/review-agents :general))))
 
   (testing "Get existing session"
     (workflow/start-plan! "chat-123" "Feature")
@@ -139,7 +108,7 @@
       (is (some? session))
       (is (= :plan (:type session)))))
   (testing "Get non-existent session returns nil"
-    (is (nil? (workflow/get-workflow-session "chat-nonexistent"))))
+    (is (nil? (workflow/get-workflow-session "chat-nonexistent")))))
 
 (deftest test-cancel-workflow
   (testing "Cancel active workflow"
@@ -170,41 +139,29 @@
       (is (str/includes? (:message result) "Planning session"))))
   (testing "Empty args shows usage"
     (let [result (workflow/handle-plan-command nil "chat-123" "")]
-      (is (str/includes? (:message result) "Usage:")))))
+      (is (str/includes? (:message result) "Usage:"))))
 
-(deftest test-handle-work-command
-  (testing "Valid work command"
-    (let [result (workflow/handle-work-command nil "chat-123" "task-456")]
-      (is (contains? result :message))
-      (is (str/includes? (:message result) "Work session"))))
-  (testing "Empty args shows usage"
-    (let [result (workflow/handle-work-command nil "chat-123" "")]
-      (is (str/includes? (:message result) "Usage:")))))
-
-(deftest test-handle-review-command
   (testing "Review command starts session"
     (let [result (workflow/handle-review-command nil "chat-123" "")]
       (is (contains? result :message))
       (is (str/includes? (:message result) "Code Review")))))
 
-
 (deftest test-workflow-help-constant
   (testing "Help text exists and contains commands"
     (is (string? workflow/workflow-help))
     (is (str/includes? workflow/workflow-help "/plan"))
-    (is (str/includes? workflow/workflow-help "/work"))
-    (is (str/includes? workflow/workflow-help "/review"))
+    (is (str/includes? workflow/workflow-help "/review"))))
 
 (deftest test-multiple-sessions-isolated
   (testing "Different chats have isolated sessions"
     (workflow/start-plan! "chat-1" "Feature A")
-    (workflow/start-work! "chat-2" "Task B")
+    (workflow/start-review! "chat-2")
     (workflow/start-review! "chat-3")
     (let [session-1 (workflow/get-workflow-session "chat-1")
           session-2 (workflow/get-workflow-session "chat-2")
           session-3 (workflow/get-workflow-session "chat-3")]
       (is (= :plan (:type session-1)))
-      (is (= :work (:type session-2)))
+      (is (= :review (:type session-2)))
       (is (= :review (:type session-3)))
       (workflow/cancel-workflow! "chat-2")
       (is (some? (workflow/get-workflow-session "chat-1")))
@@ -220,4 +177,4 @@
     (workflow/process-plan-response! "chat-123" "Outcome")
     (is (= :outlining (:status (workflow/get-workflow-session "chat-123"))))
     (workflow/process-plan-response! "chat-123" "Details")
-    (is (= :complete (:status (workflow/get-workflow-session "chat-123"))))))))
+    (is (= :complete (:status (workflow/get-workflow-session "chat-123"))))))

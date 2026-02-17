@@ -79,7 +79,7 @@
   [adapter chat-id _user-name _cmd _args]
   (telemetry/emit! {:event :chat/command :command :start :chat-id chat-id})
   (send-message! adapter chat-id
-                 "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build canvas empathy <persona> - Empathy Map Canvas\n/build empathy <persona> - Empathy Map (shorthand)\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n/plan <desc> - Create plan and start work\n/work <task> - Execute planned task\n/review - Start code review\n\nJust type naturally to chat with ECA!"))
+                 "🐍 Ouroboros Assistant ready!\n\nPowered by ECA (Editor Code Assistant)\nhttps://github.com/editor-code-assistant/eca\n\nAvailable commands:\n/help - Show help\n/clear - Clear conversation\n/status - System status\n/tools - List available tools\n/confirm <id> - Approve operation\n/deny <id> <reason> - Reject operation\n/build canvas <name> - Create Lean Canvas\n/build canvas empathy <persona> - Empathy Map Canvas\n/build empathy <persona> - Empathy Map (shorthand)\n/build valueprop <project> - Value Proposition Canvas\n/build mvp <project> - MVP Planning\n/learn <topic> <insight> - Save learning\n/recall <pattern> - Recall learnings\n/wisdom - Wisdom summary\n/plan <desc> - Create plan and start work\n/review - Start code review\n\nJust type naturally to chat with ECA!"))
 
 ;; /help
 (defmethod handle-command :help
@@ -102,9 +102,8 @@
                       "/learn <topic> <insight> - Save learning\n"
                       "/recall <pattern> - Recall learnings\n"
                       "/wisdom - Wisdom summary\n\n"
-                      "*Workflows (Plan → Work → Review)*\n"
+                      "*Workflows (Plan → Review)*\n"
                       "/plan <desc> - Create implementation plan\n"
-                      "/work <task> - Execute planned task\n"
                       "/review - Start code review\n"
                       "/workflows - Show workflow help\n"
                       "/cancel - Cancel current workflow\n\n"
@@ -231,18 +230,16 @@
                          "Avg confidence: " (:average-confidence stats) "/5\n\n"
                          "Use /learn to save new insights."))))
 
-;; /plan (merged with /work - creates plan and starts work)
+;; /plan
 (defmethod handle-command :plan
   [adapter chat-id _user-name _cmd args]
   (telemetry/emit! {:event :chat/command :command :plan :chat-id chat-id})
   (if (str/blank? args)
-    (send-message! adapter chat-id "⚠️ Usage: /plan <feature description>\n\nExample: /plan Add user authentication\n\nThis creates a plan and starts a work session.")
+    (send-message! adapter chat-id "⚠️ Usage: /plan <feature description>\n\nExample: /plan Add user authentication")
     (let [plan-result (workflow/start-plan! chat-id args)]
-      ;; Start work session immediately after planning
-      (let [work-result (workflow/start-work! chat-id (:plan-id plan-result))]
-        (session/assoc-context! chat-id :workflow/type :plan+work)
-        (session/assoc-context! chat-id :workflow/mode true)
-        (send-markdown! adapter chat-id (str (:message plan-result) "\n\n" (:message work-result)))))))
+      (session/assoc-context! chat-id :workflow/type :plan)
+      (session/assoc-context! chat-id :workflow/mode true)
+      (send-markdown! adapter chat-id (:message plan-result)))))
 
 ;; /review
 (defmethod handle-command :review
