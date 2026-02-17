@@ -25,13 +25,13 @@
                          (when (or (= "Enter" (.-key e)) (= " " (.-key e)))
                            (.preventDefault e)
                            (when on-select (on-select label category))))}
-    (dom/div :.wisdom-category-icon icon)
-    (dom/div :.wisdom-category-body
-      (dom/h4 label)
-      (dom/p (ui/extract-plain-text-from-markdown (or description "") 120)))
-    (dom/div :.wisdom-category-count
-      (dom/span :.wisdom-count-value (str (or count 0)))
-      (dom/span :.wisdom-count-label "insights"))))
+           (dom/div :.wisdom-category-icon icon)
+           (dom/div :.wisdom-category-body
+                    (dom/h4 label)
+                    (dom/p (ui/extract-plain-text-from-markdown (or description "") 120)))
+           (dom/div :.wisdom-category-count
+                    (dom/span :.wisdom-count-value (str (or count 0)))
+                    (dom/span :.wisdom-count-label "insights"))))
 
 ;; ============================================================================
 ;; Category Grid
@@ -42,11 +42,11 @@
   [{:keys [categories on-select]}]
   (if (seq categories)
     (dom/div {:className "wisdom-category-grid"}
-      (for [c categories]
-        (category-card (assoc c :on-select on-select))))
+             (for [c categories]
+               (category-card (assoc c :on-select on-select))))
     (dom/div :.wisdom-empty-state
-      (dom/div :.wisdom-empty-icon "📚")
-      (dom/p "Complete more projects to see patterns emerge."))))
+             (dom/div :.wisdom-empty-icon "📚")
+             (dom/p "Complete more projects to see patterns emerge."))))
 
 ;; ============================================================================
 ;; Insight Card Component
@@ -79,12 +79,12 @@
                 "iteration" "canvas"
                 "empathy")]
     (dom/div :.category-insight-actions
-      (dom/button {:className "category-insight-btn category-insight-btn--primary"
-                   :onClick #(apply-insight-to-builder! insight stage nil project-id)}
-        "💡 Apply to Builder")
-      (dom/button {:className "category-insight-btn"
-                   :onClick #(data/show-toast! "Insight bookmarked" :info)}
-        "🔖 Bookmark"))))
+             (dom/button {:className "category-insight-btn category-insight-btn--primary"
+                          :onClick #(apply-insight-to-builder! insight stage nil project-id)}
+                         "💡 Apply to Builder")
+             (dom/button {:className "category-insight-btn"
+                          :onClick #(data/show-toast! "Insight bookmarked" :info)}
+                         "🔖 Bookmark"))))
 
 (defn- insight-card
   "Renders a single insight card with actions."
@@ -92,29 +92,29 @@
   (let [insight-id (or (:id insight) (str (hash insight)))]
     (dom/div {:key insight-id
               :className "category-insight-card"}
-      (dom/div {:className "category-insight-header"}
-        (dom/h4 (or (:title insight) "Untitled Insight"))
-        (when (:created insight)
-          (dom/span {:className "category-insight-date"}
-            (let [created (:created insight)]
-              (if (> (count created) 10)
-                (subs created 0 10)
-                created)))))
-      (when (seq (:insights insight))
-        (dom/ul {:className "category-insight-points"}
-          (for [[idx point] (map-indexed vector (:insights insight))]
-            (dom/li {:key idx} point))))
-      (when (seq (:tags insight))
-        (dom/div {:className "category-insight-tags"}
-          (for [tag (:tags insight)]
-            (dom/span {:key tag :className "category-insight-tag"} tag))))
-      (when (:confidence insight)
-        (dom/div {:className "category-insight-meta"}
-          (dom/span (str "Confidence: " (:confidence insight) "/5"))
-          (when (pos? (or (:applied-count insight) 0))
-            (dom/span (str "Applied " (:applied-count insight) " times")))))
+             (dom/div {:className "category-insight-header"}
+                      (dom/h4 (or (:title insight) "Untitled Insight"))
+                      (when (:created insight)
+                        (dom/span {:className "category-insight-date"}
+                                  (let [created (:created insight)]
+                                    (if (> (count created) 10)
+                                      (subs created 0 10)
+                                      created)))))
+             (when (seq (:insights insight))
+               (dom/ul {:className "category-insight-points"}
+                       (for [[idx point] (map-indexed vector (:insights insight))]
+                         (dom/li {:key idx} point))))
+             (when (seq (:tags insight))
+               (dom/div {:className "category-insight-tags"}
+                        (for [tag (:tags insight)]
+                          (dom/span {:key tag :className "category-insight-tag"} tag))))
+             (when (:confidence insight)
+               (dom/div {:className "category-insight-meta"}
+                        (dom/span (str "Confidence: " (:confidence insight) "/5"))
+                        (when (pos? (or (:applied-count insight) 0))
+                          (dom/span (str "Applied " (:applied-count insight) " times")))))
       ;; Action buttons
-      (insight-card-actions insight project-id))))
+             (insight-card-actions insight project-id))))
 
 ;; ============================================================================
 ;; Category Drawer
@@ -129,47 +129,47 @@
           dw (resize/clamp-drawer-width width)
           display-count (if (seq insights) (count insights) (or card-count 0))]
       (dom/div :.wisdom-drawer-backdrop
-        {:onClick on-close}
-        (dom/div {:className (str "wisdom-drawer" (when active? " wisdom-drawer-resizing"))
-                  :style {:width (str dw "px")}
-                  :onClick #(.stopPropagation %)}
-          (resize/drawer-resize-handle this :category dw)
-          (dom/div :.wisdom-drawer-header
-            (dom/div
-              (dom/h3 (or label "Learning Pattern"))
-              (dom/p (str display-count " insights in " (or category "this category"))))
-            (dom/button {:className "btn btn-secondary"
-                         :onClick on-close}
-                        "Close"))
+               {:onClick on-close}
+               (dom/div {:className (str "wisdom-drawer" (when active? " wisdom-drawer-resizing"))
+                         :style {:width (str dw "px")}
+                         :onClick #(.stopPropagation %)}
+                        (resize/drawer-resize-handle this :category dw)
+                        (dom/div :.wisdom-drawer-header
+                                 (dom/div
+                                  (dom/h3 (or label "Learning Pattern"))
+                                  (dom/p (str display-count " insights in " (or category "this category"))))
+                                 (dom/button {:className "btn btn-secondary"
+                                              :onClick on-close}
+                                             "Close"))
 
-          (dom/div :.wisdom-drawer-body
+                        (dom/div :.wisdom-drawer-body
             ;; Category description
-            (when (seq description)
-              (dom/div {:className "category-drawer-description"}
-                (dom/p description)))
+                                 (when (seq description)
+                                   (dom/div {:className "category-drawer-description"}
+                                            (dom/p description)))
 
             ;; Insights list
-            (cond
+                                 (cond
               ;; Loading state
-              (and insights-loading? (not (seq insights)))
-              (dom/div {:className "category-drawer-loading"}
-                (dom/span "Loading insights..."))
+                                   (and insights-loading? (not (seq insights)))
+                                   (dom/div {:className "category-drawer-loading"}
+                                            (dom/span "Loading insights..."))
 
               ;; Has insights
-              (seq insights)
-              (dom/div {:className "category-drawer-insights"}
-                (for [insight insights]
-                  (insight-card insight project-id)))
+                                   (seq insights)
+                                   (dom/div {:className "category-drawer-insights"}
+                                            (for [insight insights]
+                                              (insight-card insight project-id)))
 
               ;; No insights
-              :else
-              (dom/div {:className "wisdom-drawer-feedback wisdom-drawer-info"}
-                (dom/span "No insights recorded yet. Insights are captured as you work through builders."))))
+                                   :else
+                                   (dom/div {:className "wisdom-drawer-feedback wisdom-drawer-info"}
+                                            (dom/span "No insights recorded yet. Insights are captured as you work through builders."))))
 
-          (dom/div :.wisdom-drawer-footer
-            (dom/button {:className "btn btn-primary btn-sm"
-                         :onClick on-close}
-                        "Got it")))))))
+                        (dom/div :.wisdom-drawer-footer
+                                 (dom/button {:className "btn btn-primary btn-sm"
+                                              :onClick on-close}
+                                             "Got it")))))))
 
 ;; ============================================================================
 ;; Learning Section Component
@@ -184,30 +184,30 @@
                            (not (seq data/fallback-learning-categories-base)))
         current-category (:category drawer-state)]
     (dom/section {:className "wisdom-section" :id "wisdom-learning"}
-      (dom/div :.wisdom-section-header
-        (dom/h2 "Learning Patterns")
-        (dom/p :.wisdom-section-desc "Insights discovered across your projects.")
-        (when show-loading?
-          (dom/span :.wisdom-loading-badge "Loading...")))
+                 (dom/div :.wisdom-section-header
+                          (dom/h2 "Learning Patterns")
+                          (dom/p :.wisdom-section-desc "Insights discovered across your projects.")
+                          (when show-loading?
+                            (dom/span :.wisdom-loading-badge "Loading...")))
 
-      (category-grid
-        {:categories categories
-         :on-select (fn [label category]
+                 (category-grid
+                  {:categories categories
+                   :on-select (fn [label category]
                       ;; Ensure defaults are in state
-                      (when-let [sa @ws/app-state-atom]
-                        (when (not (seq (get-in @sa [:learning/category-insights category])))
-                          (when-let [fallback (get data/default-category-insights category)]
-                            (swap! sa assoc-in [:learning/category-insights category] fallback))))
+                                (when-let [sa @ws/app-state-atom]
+                                  (when (not (seq (get-in @sa [:learning/category-insights category])))
+                                    (when-let [fallback (get data/default-category-insights category)]
+                                      (swap! sa assoc-in [:learning/category-insights category] fallback))))
                       ;; Request fresh data
-                      (ws/request-category-insights! category)
+                                (ws/request-category-insights! category)
                       ;; Open drawer
-                      (on-category-select label category))})
+                                (on-category-select label category))})
 
-      (category-drawer
-        this
-        {:open? drawer-open?
-         :state drawer-state
-         :insights (get category-insights current-category)
-         :insights-loading? (get category-insights-loading? current-category)
-         :on-close on-close-drawer
-         :project-id project-id}))))
+                 (category-drawer
+                  this
+                  {:open? drawer-open?
+                   :state drawer-state
+                   :insights (get category-insights current-category)
+                   :insights-loading? (get category-insights-loading? current-category)
+                   :on-close on-close-drawer
+                   :project-id project-id}))))

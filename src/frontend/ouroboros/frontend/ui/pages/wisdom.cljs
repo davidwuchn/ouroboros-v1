@@ -32,8 +32,8 @@
                "ℹ")]
     (when message
       (dom/div {:className (str "wisdom-toast" (when visible? " wisdom-toast--visible"))}
-        (dom/span :.wisdom-toast-icon icon)
-        (dom/span message)))))
+               (dom/span :.wisdom-toast-icon icon)
+               (dom/span message)))))
 
 ;; ============================================================================
 ;; Wisdom Page Component
@@ -103,50 +103,50 @@
 
     (dom/div {:className "wisdom-page"}
       ;; Toast Notification
-      (toast-notification)
+             (toast-notification)
 
       ;; Page Header
-      (dom/div :.wisdom-page-header
-        (dom/h1 "Wisdom")
-        (dom/p :.wisdom-subtitle
-          "Templates, insights, and patterns to accelerate your product thinking."))
+             (dom/div :.wisdom-page-header
+                      (dom/h1 "Wisdom")
+                      (dom/p :.wisdom-subtitle
+                             "Templates, insights, and patterns to accelerate your product thinking."))
 
       ;; Templates Section (with search, filters, skeleton loading)
-      (templates/templates-section
-        {:templates templates
-         :templates-loading? templates-loading?
-         :template-store template-store
-         :selected-key selected-key
-         :project-id project-id
-         :search-query search-query
-         :active-filter active-filter
-         :on-select-template (fn [k]
-                               (comp/set-state! this {:bmc/selected-key k}))
-         :on-search-change (fn [query]
-                             (comp/set-state! this {:template/search-query query}))
-         :on-filter-change (fn [filter-key]
-                             (comp/set-state! this {:template/active-filter filter-key}))})
+             (templates/templates-section
+              {:templates templates
+               :templates-loading? templates-loading?
+               :template-store template-store
+               :selected-key selected-key
+               :project-id project-id
+               :search-query search-query
+               :active-filter active-filter
+               :on-select-template (fn [k]
+                                     (comp/set-state! this {:bmc/selected-key k}))
+               :on-search-change (fn [query]
+                                   (comp/set-state! this {:template/search-query query}))
+               :on-filter-change (fn [filter-key]
+                                   (comp/set-state! this {:template/active-filter filter-key}))})
 
       ;; Learning Patterns Section (with apply actions, project-id for navigation)
-      (learning/learning-section
-        {:this this
-         :categories categories
-         :categories-loading? categories-loading?
-         :category-insights (get state :learning/category-insights)
-         :category-insights-loading? (get state :learning/category-insights-loading?)
-         :drawer-open? drawer-open?
-         :drawer-state drawer-state
-         :project-id project-id
-         :on-category-select (fn [label category]
-                               (let [insights (get data/default-category-insights category [])
-                                     insight-count (count insights)]
-                                 (comp/set-state! this
-                                   {:category-drawer/open? true
-                                    :category-drawer/state {:category category
-                                                            :label label
-                                                            :description (get-in data/category-metadata [category :description])
-                                                            :card-count insight-count}})))
-         :on-close-drawer (fn []
-                            (comp/set-state! this {:category-drawer/open? false}))}))))
+             (learning/learning-section
+              {:this this
+               :categories categories
+               :categories-loading? categories-loading?
+               :category-insights (get state :learning/category-insights)
+               :category-insights-loading? (get state :learning/category-insights-loading?)
+               :drawer-open? drawer-open?
+               :drawer-state drawer-state
+               :project-id project-id
+               :on-category-select (fn [label category]
+                                     (let [insights (get data/default-category-insights category [])
+                                           insight-count (count insights)]
+                                       (comp/set-state! this
+                                                        {:category-drawer/open? true
+                                                         :category-drawer/state {:category category
+                                                                                 :label label
+                                                                                 :description (get-in data/category-metadata [category :description])
+                                                                                 :card-count insight-count}})))
+               :on-close-drawer (fn []
+                                  (comp/set-state! this {:category-drawer/open? false}))}))))
 
 (def ui-wisdom-page (comp/factory WisdomPage))

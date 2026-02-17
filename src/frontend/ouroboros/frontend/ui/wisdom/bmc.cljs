@@ -41,13 +41,13 @@
                                (let [encoded-id (str/replace (str project-id) "/" "~")]
                                  (when-let [nav @ws/navigate-callback]
                                    (nav ["project" encoded-id stage]))))))}
-      (dom/div :.bmc-block-label block-label)
-      (dom/div :.bmc-block-content
-        (if (seq content)
-          content
-          (dom/span :.bmc-block-empty (if clickable?
-                                        "Click to edit in builder"
-                                        "Select a template below")))))))
+             (dom/div :.bmc-block-label block-label)
+             (dom/div :.bmc-block-content
+                      (if (seq content)
+                        content
+                        (dom/span :.bmc-block-empty (if clickable?
+                                                      "Click to edit in builder"
+                                                      "Select a template below")))))))
 
 ;; ============================================================================
 ;; BMC Canvas Grid
@@ -66,57 +66,57 @@
                    (when template-data
                      (get-in template-data [section key])))]
      (dom/div {:className "bmc-canvas"}
-       (when template-name
-         (dom/div :.bmc-canvas-title template-name))
-       (dom/div {:className "bmc-grid"}
+              (when template-name
+                (dom/div :.bmc-canvas-title template-name))
+              (dom/div {:className "bmc-grid"}
          ;; Row 1: Key Partners (spans 2) | Key Activities (top) | Value Props (spans 2) | Customer Rel (top) | Customer Segments (spans 2)
-         (bmc-block {:block-key :key-partners
-                     :label "Key Partners"
-                     :content (get-val :lean-canvas :unfair-advantage)
-                     :clickable? (some? project-id)
-                     :project-id project-id})
-         (bmc-block {:block-key :key-activities
-                     :label "Key Activities"
-                     :content (get-val :lean-canvas :solution)
-                     :clickable? (some? project-id)
-                     :project-id project-id})
-         (bmc-block {:block-key :value-props
-                     :label "Value Propositions"
-                     :content (get-val :lean-canvas :uvp)
-                     :clickable? (some? project-id)
-                     :project-id project-id})
-         (bmc-block {:block-key :customer-rel
-                     :label "Customer Relationships"
-                     :content (get-val :value-proposition :gain-creators)
-                     :clickable? (some? project-id)
-                     :project-id project-id})
-         (bmc-block {:block-key :customer-segments
-                     :label "Customer Segments"
-                     :content (get-val :lean-canvas :customer-segments)
-                     :clickable? (some? project-id)
-                     :project-id project-id})
+                       (bmc-block {:block-key :key-partners
+                                   :label "Key Partners"
+                                   :content (get-val :lean-canvas :unfair-advantage)
+                                   :clickable? (some? project-id)
+                                   :project-id project-id})
+                       (bmc-block {:block-key :key-activities
+                                   :label "Key Activities"
+                                   :content (get-val :lean-canvas :solution)
+                                   :clickable? (some? project-id)
+                                   :project-id project-id})
+                       (bmc-block {:block-key :value-props
+                                   :label "Value Propositions"
+                                   :content (get-val :lean-canvas :uvp)
+                                   :clickable? (some? project-id)
+                                   :project-id project-id})
+                       (bmc-block {:block-key :customer-rel
+                                   :label "Customer Relationships"
+                                   :content (get-val :value-proposition :gain-creators)
+                                   :clickable? (some? project-id)
+                                   :project-id project-id})
+                       (bmc-block {:block-key :customer-segments
+                                   :label "Customer Segments"
+                                   :content (get-val :lean-canvas :customer-segments)
+                                   :clickable? (some? project-id)
+                                   :project-id project-id})
          ;; Row 2: Key Resources (bottom) | Channels (bottom)
-         (bmc-block {:block-key :key-resources
-                     :label "Key Resources"
-                     :content (get-val :mvp-planning :must-have-features)
-                     :clickable? (some? project-id)
-                     :project-id project-id})
-         (bmc-block {:block-key :channels
-                     :label "Channels"
-                     :content (get-val :lean-canvas :channels)
-                     :clickable? (some? project-id)
-                     :project-id project-id})
+                       (bmc-block {:block-key :key-resources
+                                   :label "Key Resources"
+                                   :content (get-val :mvp-planning :must-have-features)
+                                   :clickable? (some? project-id)
+                                   :project-id project-id})
+                       (bmc-block {:block-key :channels
+                                   :label "Channels"
+                                   :content (get-val :lean-canvas :channels)
+                                   :clickable? (some? project-id)
+                                   :project-id project-id})
          ;; Row 3: Cost Structure (left) | Revenue Streams (right)
-         (bmc-block {:block-key :cost-structure
-                     :label "Cost Structure"
-                     :content (get-val :lean-canvas :cost-structure)
-                     :clickable? (some? project-id)
-                     :project-id project-id})
-         (bmc-block {:block-key :revenue-streams
-                     :label "Revenue Streams"
-                     :content (get-val :lean-canvas :revenue-streams)
-                     :clickable? (some? project-id)
-                     :project-id project-id}))))))
+                       (bmc-block {:block-key :cost-structure
+                                   :label "Cost Structure"
+                                   :content (get-val :lean-canvas :cost-structure)
+                                   :clickable? (some? project-id)
+                                   :project-id project-id})
+                       (bmc-block {:block-key :revenue-streams
+                                   :label "Revenue Streams"
+                                   :content (get-val :lean-canvas :revenue-streams)
+                                   :clickable? (some? project-id)
+                                   :project-id project-id}))))))
 
 ;; ============================================================================
 ;; BMC Container Component (Fulcro)
