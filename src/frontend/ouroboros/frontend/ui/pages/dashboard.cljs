@@ -119,7 +119,7 @@
                                       (dom/div {:className (str "journey-connector " (when (= status :completed) "connector-completed"))}))
                                     (dom/div {:className "journey-node" :onClick #(when encoded-id (dr/change-route! app ["project" encoded-id route]))
                                               :role "button" :tabIndex 0
-                                              :onKeyDown #(handle-key-activation #(dr/change-route! app ["project" encoded-id route]) %)
+                                              :onKeyDown (fn [e] (handle-key-activation (fn [] (dr/change-route! app ["project" encoded-id route])) e))
                                               :aria-label (str label " - " (case status :completed "Completed" :active "In Progress" "Not Started"))}
                                              (dom/span :.journey-icon icon)
                                              (when (= status :completed) (dom/span :.journey-check "✓")))
@@ -156,7 +156,7 @@
            (dom/h3 :.paths-title "🚀 What would you like to do?")
            (dom/div :.paths-grid
                     (dom/div {:className "path-card product-path" :onClick #(when encoded-id (dr/change-route! app ["project" encoded-id]))
-                              :role "button" :tabIndex 0 :onKeyDown #(handle-key-activation #(when encoded-id (dr/change-route! app ["project" encoded-id])) %)}
+                              :role "button" :tabIndex 0 :onKeyDown (fn [e] (handle-key-activation (fn [] (when encoded-id (dr/change-route! app ["project" encoded-id]))) e))}
                              (dom/div :.path-visual
                                       (dom/span :.path-icon "🎯")
                                       (dom/div :.path-mini-flywheel (dom/span :.mini-fw "👥") (dom/span :.mini-fw "💎") (dom/span :.mini-fw "🚀") (dom/span :.mini-fw "📊")))
@@ -166,7 +166,7 @@
                                       (dom/div :.path-tags (dom/span :.path-tag "Startups") (dom/span :.path-tag "New Products") (dom/span :.path-tag "Features"))
                                       (dom/span :.path-cta "Start Building →")))
                     (dom/div {:className "path-card dev-path" :onClick #(comp/transact! this [(chat/toggle-chat {})])
-                              :role "button" :tabIndex 0 :onKeyDown #(handle-key-activation #(comp/transact! this [(chat/toggle-chat {})]) %)}
+                              :role "button" :tabIndex 0 :onKeyDown (fn [e] (handle-key-activation (fn [] (comp/transact! this [(chat/toggle-chat {})])) e))}
                              (dom/div :.path-visual
                                       (dom/span :.path-icon "⚡")
                                       (dom/div :.path-mini-workflow (dom/code :.mini-wf "/plan") (dom/span :.mini-arrow "→") (dom/code :.mini-wf "/review")))
@@ -176,7 +176,7 @@
                                       (dom/div :.path-tags (dom/span :.path-tag "Implementation") (dom/span :.path-tag "Refactoring") (dom/span :.path-tag "Code Review"))
                                       (dom/span :.path-cta "Open AI Chat →")))
                     (dom/div {:className "path-card resource-path" :onClick #(dr/change-route! app ["wisdom"])
-                              :role "button" :tabIndex 0 :onKeyDown #(handle-key-activation #(dr/change-route! app ["wisdom"]) %)}
+                              :role "button" :tabIndex 0 :onKeyDown (fn [e] (handle-key-activation (fn [] (dr/change-route! app ["wisdom"])) e))}
                              (dom/div :.path-visual (dom/span :.path-icon "📚"))
                              (dom/div :.path-content
                                       (dom/h4 :.path-name "Browse Resources")
