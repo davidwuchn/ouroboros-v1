@@ -76,8 +76,10 @@
   "Start a new planning workflow"
   [chat-id feature-description]
   (let [stack (detect-stack)
+        plan-id (str "plan-" (System/currentTimeMillis))
         plan-session {:type :plan
                       :chat-id chat-id
+                      :plan-id plan-id
                       :stack stack
                       :feature feature-description
                       :created-at (str (Instant/now))
@@ -87,7 +89,9 @@
     (swap! workflow-state assoc chat-id plan-session)
     {:status :started
      :session plan-session
+     :plan-id plan-id
      :message (str "📋 Planning session started!\n\n"
+                   "Plan ID: " plan-id "\n"
                    "Detected stack: " (get stack-descriptions stack "Unknown") "\n"
                    "Feature: " feature-description "\n\n"
                    "I'll help you create a detailed implementation plan.\n\n"
@@ -266,59 +270,6 @@
                        "- Create a follow-up plan?")}))))
 
 ;; ============================================================================
-;; Compound (Learn) Workflow
-;; ============================================================================
-
-(defn start-compound!
-  "Start a compound (learning) session"
-  [chat-id]
-  (let [compound-session {:type :compound
-                          :chat-id chat-id
-                          :created-at (str (Instant/now))
-                          :status :gathering}]
-    (swap! workflow-state assoc chat-id compound-session)
-    {:status :started
-     :session compound-session
-     :message (str "📚 Compound Learning Session\n\n"
-                   "Let's capture what you learned to make future work easier!\n\n"
-                   "*What did you learn?* This could be:\n"
-                   "- A pattern that worked well\n"
-                   "- A mistake to avoid\n"
-                   "- A trick or technique\n"
-                   "- Something surprising you discovered\n\n"
-                   "Share your insight and I'll save it to the knowledge base.")}))
-
-(defn process-compound-response!
-  "Process user response during compound workflow"
-  [chat-id response]
-  (let [session (get @workflow-state chat-id)
-        is-compound? (= (:type session) :compound)]
-    (if (not is-compound?)
-      {:error "No active compound session"}
-      (let [learning-id (str "learning-" (System/currentTimeMillis))
-            ;; Save as learning insight
-            _ (learning/save-insight! chat-id
-                                      {:title learning-id
-                                       :insights [response]
-                                       :pattern "compound-learning"
-                                       :category "learnings"
-                                       :tags #{"compound" "learning"}})
-            updated-session (assoc session
-                                   :status :complete
-                                   :learning-id learning-id)]
-        (swap! workflow-state assoc chat-id updated-session)
-        {:status :complete
-         :session updated-session
-         :message (str "✅ Learning saved!\n\n"
-                       "> " response "\n\n"
-                       "This insight has been stored and will appear in future context.\n\n"
-                       "Ready for another cycle of the workflow!\n"
-                       "- /plan - Plan new work\n"
-                       "- /work - Execute current tasks\n"
-                       "- /review - Review code\n"
-                       "- /compound - Capture more learnings")}))))
-
-;; ============================================================================
 ;; Command Handlers
 ;; ============================================================================
 
@@ -342,12 +293,6 @@
   "Handle /review command"
   [_adapter chat-id _args]
   (let [result (start-review! chat-id)]
-    {:message (:message result)}))
-
-(defn handle-compound-command
-  "Handle /compound command"
-  [_adapter chat-id _args]
-  (let [result (start-compound! chat-id)]
     {:message (:message result)}))
 
 ;; ============================================================================
@@ -384,19 +329,16 @@
 
 (def ^:const workflow-help
   (str "*Workflow Commands*\n\n"
-       "Plan → Work → Review → Compound\n"
+       "Plan → Work → Review\n"
        "Each cycle compounds knowledge.\n\n"
        "*Commands:*\n"
-       "/plan <description> - Create implementation plan\n"
-       "/work <task-id> - Execute planned task\n"
+       "/plan <description> - Create plan and start work\n"
        "/review - Start code review\n"
-       "/compound - Document learnings\n"
        "/workflows - Show this help\n"
        "/cancel - Cancel current workflow\n\n"
        "*Examples:*\n"
-       "/plan Add user login feature\n"
-       "/work login-123\n"
-       "/compound\n"))
+       "/plan Add user login feature\n\n"
+       "Use /learn to save learnings."))
 
 (comment
   ;; Test
