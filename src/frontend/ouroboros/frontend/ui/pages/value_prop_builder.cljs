@@ -490,7 +490,7 @@
         tutorial-step (or tutorial-step 1)
 
         ;; Organize notes by section
-        notes-by-section (group-by :item/section (vals notes-map))
+        notes-by-section (group-by #(keyword (name (or (:item/section %) ""))) (vals notes-map))
 
         ;; Calculate progress
         section-keys [:customer-job :pains :gains :products :pain-relievers :gain-creators]

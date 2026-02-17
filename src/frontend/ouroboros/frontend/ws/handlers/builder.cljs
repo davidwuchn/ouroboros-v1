@@ -15,6 +15,30 @@
   [f]
   (reset! send-fn f))
 
+;; ============================================================================
+;; Normalization
+;; ============================================================================
+
+(defn- normalize-notes
+  "Normalize notes after JSON round-trip via WebSocket.
+   JSON serialization converts keyword values to strings, so :item/section
+   becomes \"persona\" instead of :persona. The canvas renderer filters by
+   (= (:item/section note) :section-key) which fails on strings.
+   This ensures all :item/section values are keywords."
+  [notes-map]
+  (when (map? notes-map)
+    (reduce-kv
+     (fn [m k note]
+       (assoc m k
+              (cond-> note
+                (string? (:item/section note))
+                (update :item/section keyword))))
+     {} notes-map)))
+
+;; ============================================================================
+;; Handlers
+;; ============================================================================
+
 (defmethod dispatch/handle-message :builder/data-saved
   [{:keys [session-id project-id builder-type]}]
   (js/console.log "Builder data saved:" builder-type session-id)
@@ -27,26 +51,24 @@
   [{:keys [project-id template-key results builder-data]}]
   (js/console.log "Template applied to all builders:" template-key results)
   (when-let [state-atom @state/app-state-atom]
-    ;; Clear applying state and merge actual note data into builder state
+    ;; Clear applying state and merge normalized note data into builder state
     (swap! state-atom
            (fn [s]
              (-> s
                  (assoc-in [:builder/template-applying? project-id] false)
-                 ;; Merge actual note data (not counts) into each builder's state
-                 ;; builder-data contains the full note maps from the backend
                  (cond->
-                  (seq (:empathy-map builder-data))
+                   (seq (:empathy-map builder-data))
                    (assoc-in [:page/id :empathy-builder :empathy/notes]
-                             (:empathy-map builder-data))
+                             (normalize-notes (:empathy-map builder-data)))
                    (seq (:lean-canvas builder-data))
                    (assoc-in [:page/id :lean-canvas-builder :lean-canvas/notes]
-                             (:lean-canvas builder-data))
+                             (normalize-notes (:lean-canvas builder-data)))
                    (seq (:value-proposition builder-data))
                    (assoc-in [:page/id :value-prop-builder :valueprop/notes]
-                             (:value-proposition builder-data))
+                             (normalize-notes (:value-proposition builder-data)))
                    (seq (:mvp-planning builder-data))
                    (assoc-in [:page/id :mvp-builder :mvp/notes]
-                             (:mvp-planning builder-data))))))
+                             (normalize-notes (:mvp-planning builder-data)))))))
     ;; Refresh kanban board
     (when (and (get-in @state-atom [:kanban/board project-id]) @send-fn)
       (@send-fn {:type "kanban/board" :project-id project-id}))
@@ -66,21 +88,23 @@
 (defn merge-builder-data-into-state!
   "Write builder data directly into Fulcro state at the correct ident path.
    Called after template injection to make data immediately available to builder
-   components without requiring navigation + df/load! round-trip."
+   components without requiring navigation + df/load! round-trip.
+   Normalizes :item/section values from strings to keywords."
   [builder-type data]
   (when-let [state-atom @state/app-state-atom]
-    (case builder-type
-      :empathy-map
-      (swap! state-atom assoc-in [:page/id :empathy-builder :empathy/notes] data)
+    (let [normalized (normalize-notes data)]
+      (case builder-type
+        :empathy-map
+        (swap! state-atom assoc-in [:page/id :empathy-builder :empathy/notes] normalized)
 
-      :lean-canvas
-      (swap! state-atom assoc-in [:page/id :lean-canvas-builder :lean-canvas/notes] data)
+        :lean-canvas
+        (swap! state-atom assoc-in [:page/id :lean-canvas-builder :lean-canvas/notes] normalized)
 
-      :value-proposition
-      (swap! state-atom assoc-in [:page/id :value-prop-builder :valueprop/notes] data)
+        :value-proposition
+        (swap! state-atom assoc-in [:page/id :value-prop-builder :valueprop/notes] normalized)
 
-      :mvp-planning
-      (swap! state-atom assoc-in [:page/id :mvp-builder :mvp/notes] data)
+        :mvp-planning
+        (swap! state-atom assoc-in [:page/id :mvp-builder :mvp/notes] normalized)
 
-      nil)
+        nil))
     (state/schedule-render!)))

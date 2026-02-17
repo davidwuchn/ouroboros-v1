@@ -21,6 +21,19 @@
    [goog.events.EventType :as event-type]))
 
 ;; ============================================================================
+;; Section Matching (defensive against string/keyword mismatch after JSON)
+;; ============================================================================
+
+(defn- section-matches?
+  "Check if a note's :item/section matches the given section key.
+   Tolerates both keyword and string values for :item/section since JSON
+   round-trip via WebSocket converts keywords to strings."
+  [note section-key]
+  (let [note-section (:item/section note)]
+    (or (= note-section section-key)
+        (= (name note-section) (name section-key)))))
+
+;; ============================================================================
 ;; Canvas State Management
 ;; ============================================================================
 
@@ -295,7 +308,7 @@
    :on-item-delete (fn [note-id]) to make notes editable."
   [{:keys [sections items on-item-add on-item-edit on-item-delete]}]
   (let [find-section (fn [k] (first (filter #(= (:section/key %) k) sections)))
-        items-for (fn [k] (filter #(= (:item/section %) k) items))
+        items-for (fn [k] (filter #(section-matches? % k) items))
         edit-opts (when (or on-item-edit on-item-delete)
                     {:on-item-edit on-item-edit
                      :on-item-delete on-item-delete})
@@ -368,7 +381,7 @@
   "Visual Lean Canvas with business model layout (plain function)"
   [{:keys [sections items on-item-add on-item-edit on-item-delete]}]
   (let [find-section (fn [k] (first (filter #(= (:section/key %) k) sections)))
-        items-for (fn [k] (filter #(= (:item/section %) k) items))
+        items-for (fn [k] (filter #(section-matches? % k) items))
         edit-opts (when (or on-item-edit on-item-delete)
                     (cond-> {}
                       on-item-edit   (assoc :on-item-edit on-item-edit)
@@ -428,7 +441,7 @@
    Accepts :on-item-edit and :on-item-delete for editable notes."
   [{:keys [sections items on-item-add on-item-edit on-item-delete]}]
   (let [find-section (fn [k] (first (filter #(= (:section/key %) k) sections)))
-        items-for (fn [k] (filter #(= (:item/section %) k) items))
+        items-for (fn [k] (filter #(section-matches? % k) items))
         edit-opts (when (or on-item-edit on-item-delete)
                     {:on-item-edit on-item-edit
                      :on-item-delete on-item-delete})
@@ -498,7 +511,7 @@
    Accepts :on-item-edit and :on-item-delete for editable notes."
   [{:keys [sections items on-item-add on-item-edit on-item-delete]}]
   (let [find-section (fn [k] (first (filter #(= (:section/key %) k) sections)))
-        items-for (fn [k] (filter #(= (:item/section %) k) items))
+        items-for (fn [k] (filter #(section-matches? % k) items))
         edit-opts (when (or on-item-edit on-item-delete)
                     {:on-item-edit on-item-edit
                      :on-item-delete on-item-delete})

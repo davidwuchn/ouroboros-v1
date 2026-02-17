@@ -525,7 +525,7 @@
         tutorial-step (or tutorial-step 1)
 
         ;; Organize notes by block
-        notes-by-block (group-by :item/section (vals notes-map))
+        notes-by-block (group-by #(keyword (name (or (:item/section %) ""))) (vals notes-map))
 
         ;; Calculate progress
         blocks (map :key lean-canvas-blocks)
