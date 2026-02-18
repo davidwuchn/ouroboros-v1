@@ -11,7 +11,7 @@
  {:requires ([clojure.string :as str]
              [babashka.process :refer [shell]])
 
-  ;; === Core ===
+  ;; === ESSENTIAL (Daily Use) ===
 
   boot
   {:doc "Boot the Ouroboros system"
@@ -19,37 +19,73 @@
    :task (do (iface/boot!)
              (println "System ready: (iface/q [:system/status])"))}
 
+  dev
+  {:doc "Start full dev stack (blocking, Ctrl+C to stop)"
+   :requires ([ouroboros.dev :as dev])
+   :task (dev/start-stack!)}
+
+  dev:start
+  {:doc "Start dev stack in tmux (non-blocking, returns immediately)"
+   :requires ([ouroboros.process-runner :as pr])
+   :task (do
+           ;; Start backend
+           (pr/start-or-ignore! "ouroboros-backend" "clojure -M -m ouroboros.dashboard")
+           (println "✓ Backend started in tmux:proc-ouroboros-backend")
+           ;; Start frontend
+           (pr/start-or-ignore! "ouroboros-frontend" "npx shadow-cljs watch dashboard")
+           (println "✓ Frontend started in tmux:proc-ouroboros-frontend")
+           (println "\nView logs: bb process logs <name> -f")
+           (println "Attach: bb process attach <name>")
+           (println "Stop: bb dev:stop"))}
+
+  test
+  {:doc "Run all tests"
+   :requires ([ouroboros.test-runner :as tr])
+   :task (tr/run-suites
+          "All Tests"
+          ['ouroboros.core-test
+           'ouroboros.chat-adapter-test
+           'ouroboros.chat-commands-test
+           'ouroboros.workflow-test
+           'ouroboros.knowledge-test
+           'ouroboros.streaming-test
+           'ouroboros.tool-execution-test
+           'ouroboros.integration-test])}
+
+  debug
+  {:doc "Debug utilities: bb debug [system|eca|tools|menu]"
+   :requires ([ouroboros.debug :as dbg])
+   :task (case (first *command-line-args*)
+           ("eca" nil) (dbg/eca-status)
+           ("system") (dbg/system-status)
+           ("tools") (dbg/tool-registry)
+           (dbg/debug-menu))}
+
+  ;; === DEVELOPMENT (Regular Use) ===
+
   nrepl
-  {:doc "Start nREPL on port 8888 (tmux: proc-nrepl)"
+  {:doc "Start nREPL server on port 8888"
    :requires ([ouroboros.process-runner :as pr])
    :task (do (pr/start-or-ignore! "nrepl" "bb nrepl:server")
              (pr/logs "nrepl" :follow? true))}
 
   nrepl:server
-  {:doc "Internal: nREPL server (port 8888)"
+  {:doc "Internal: nREPL server"
    :requires ([babashka.nrepl.server :as nrepl]
               [ouroboros.interface :as iface])
-   :task (let [port 8888]
-           (iface/boot!)
-           (nrepl/start-server! {:host "localhost" :port port})
-           (println "nREPL listening on port" port)
-           (deref (promise)))}
-
-  chat
-  {:doc "Start chat bots from environment"
-   :requires ([ouroboros.config :as config])
-   :task (config/start-from-env!)}
-
-  ;; === Dashboard & Frontend ===
+   :task (do (iface/boot!)
+             (nrepl/start-server! {:host "localhost" :port 8888})
+             (println "nREPL on port 8888")
+             (deref (promise)))}
 
   dashboard
-  {:doc "Start dashboard server (tmux: proc-dashboard)"
+  {:doc "Start dashboard server"
    :requires ([ouroboros.process-runner :as pr])
    :task (do (pr/start-or-ignore! "dashboard" "clojure -M -m ouroboros.dashboard")
              (pr/logs "dashboard" :follow? true))}
 
   frontend:dev
-  {:doc "Start shadow-cljs dev server (tmux: proc-frontend-dev)"
+  {:doc "Start frontend dev server"
    :requires ([ouroboros.process-runner :as pr])
    :task (do (pr/start-or-ignore! "frontend-dev" "npx shadow-cljs watch dashboard")
              (pr/logs "frontend-dev" :follow? true))}
@@ -58,21 +94,33 @@
   {:doc "Build frontend for production"
    :task (shell "npx shadow-cljs release dashboard")}
 
-  frontend:install
-  {:doc "Install npm dependencies"
-   :task (shell "npm install")}
+  chat
+  {:doc "Start chat bots from environment"
+   :requires ([ouroboros.config :as config])
+   :task (config/start-from-env!)}
 
-  ;; === Dev Stack ===
+  ;; === LEARNING (Pattern System) ===
 
-  dev
-  {:doc "Start full dev stack (blocking, Ctrl+C to stop)"
-   :requires ([ouroboros.dev :as dev])
-   :task (dev/start-stack!)}
+  learn
+  {:doc "Learn: bb learn [list|context|record]"
+   :task (case (first *command-line-args*)
+           ("list" nil) (shell "bb scripts/lambda-list.clj")
+           ("context" "for")
+           (shell "bb scripts/lambda-learn.clj" (second *command-line-args*))
+           ("record" "observe")
+           (apply shell "bb scripts/lambda-observe.clj" (rest *command-line-args*))
+           (println "Usage: bb learn [list|context <topic>|record :trigger '...' :action '...']"))}
 
-  dev:start
-  {:doc "Start dev stack (non-blocking, returns immediately)"
-   :requires ([ouroboros.dev :as dev])
-   :task (dev/start-stack-detached!)}
+  learn:maintain
+  {:doc "Run maintenance on learning system"
+   :task (shell "bb scripts/lambda-maintain.clj")}
+
+  ;; === OPERATIONS (As Needed) ===
+
+  process
+  {:doc "Process management: bb process [list|start|stop|logs|attach]"
+   :requires ([ouroboros.process-runner])
+   :task (apply ouroboros.process-runner/-main *command-line-args*)}
 
   dev:stop
   {:doc "Stop dev stack"
@@ -81,15 +129,6 @@
            (if (pr/stop! proc)
              (println proc "stopped")
              (println proc "was not running")))}
-
-  ;; === Process Management ===
-
-  process
-  {:doc "Manage processes (start, stop, logs, attach)"
-   :requires ([ouroboros.process-runner])
-   :task (apply ouroboros.process-runner/-main *command-line-args*)}
-
-  ;; === Utilities ===
 
   config
   {:doc "Show configuration"
@@ -107,53 +146,7 @@
                  (println "Pre-commit hook installed"))
              (println "Hook source not found:" source)))}
 
-  audit:ns
-  {:doc "Audit namespace dependencies"
-   :task (shell "bb scripts/ns-audit.clj")}
-
-  download
-  {:doc "Fast download with auto-resume"
-   :task (let [args *command-line-args*]
-           (if (seq args)
-             (apply shell "bb" "scripts/fast-download.clj" args)
-             (do (println "Usage: bb download <url> [file] [-c 16]")
-                 (println "  -c N  Connections (default: 16)"))))}
-
-  setup
-  {:doc "Setup tasks: bb setup:eca"
-   :task (println "Setup commands:\n  bb setup:eca  - Install ECA binary for AI chat")}
-
-  setup:eca
-  {:doc "Install ECA binary for AI chat features"
-   :task (let [prefix (first *command-line-args*)]
-           (if prefix
-             (shell "bb" "scripts/install-eca.clj" prefix)
-             (shell "bb" "scripts/install-eca.clj")))}
-
-  eca:diagnose
-  {:doc "Diagnose ECA startup issues"
-   :task (shell "bb" "scripts/eca-diagnose.clj")}
-
-  eca:status
-  {:doc "Show ECA process status (our process vs orphaned)"
-   :requires ([ouroboros.eca-client :as eca])
-   :task (eca/print-process-status)}
-
-  ;; === Testing ===
-
-  test
-  {:doc "Run all tests"
-   :requires ([ouroboros.test-runner :as tr])
-   :task (tr/run-suites
-          "Running Tests"
-          ['ouroboros.core-test
-           'ouroboros.chat-adapter-test
-           'ouroboros.chat-commands-test
-           'ouroboros.workflow-test
-           'ouroboros.knowledge-test
-           'ouroboros.streaming-test
-           'ouroboros.tool-execution-test
-           'ouroboros.integration-test])}
+  ;; === SPECIALIZED TESTS ===
 
   test:webux
   {:doc "Run WebUX tests (requires Clojure)"
@@ -170,105 +163,14 @@
            'ouroboros.eca-protocol-test
            'ouroboros.eca-websocket-integration-test])}
 
-  ;; === Debug ===
+  ;; === UTILITIES ===
 
-  debug
-  {:doc "Debug utilities: bb debug [eca|system|tools|menu]"
-   :requires ([ouroboros.debug :as dbg])
-   :task (case (first *command-line-args*)
-           ("eca" nil) (let [s (dbg/eca-status)]
-                         (println "\n=== ECA ===")
-                         (if (:exists? s)
-                           (do (println "✓" (:path s) "(" (:version s) ")")
-                               (println "\nECA is ready for AI chat features."))
-                           (do (println "✗ Not found at" (:path s))
-                               (println "\n⚠️  ECA is required for AI chat.")
-                               (println "   Install: bb setup:eca"))))
-           ("system" "status") (dbg/system-status)
-           ("tools") (dbg/tool-registry)
-           ("menu" "help") (dbg/debug-menu)
-           (println "Usage: bb debug [eca|system|tools|menu]"))}
+  download
+  {:doc "Fast download with auto-resume: bb download <url> [file]"
+   :task (if (seq *command-line-args*)
+           (apply shell "bb scripts/fast-download.clj" *command-line-args*)
+           (println "Usage: bb download <url> [file] [-c 16]"))}
 
-  ;; === λ(system) Metrics & Maintenance ===
-
-  lambda:metrics
-  {:doc "Show λ(system) effectiveness metrics"
-   :requires ([ouroboros.lambda-metrics :as lambda])
-   :task (lambda/lambda-system-report)}
-
-  lambda:maintain
-  {:doc "Run λ(system) maintenance checklist"
-   :requires ([ouroboros.lambda-maintain :as maintain])
-   :task (maintain/run-checklist!)}
-
-    lambda:evolve
-    {:doc "Run λ(system) auto-evolution"
-     :requires ([ouroboros.lambda-evolve :as evolve])
-     :task (evolve/auto-evolve!)}
-
-    lambda:evolve:status
-    {:doc "Show λ(system) evolution status"
-     :requires ([ouroboros.lambda-evolve :as evolve])
-     :task (do
-             (println "\n=== λ(system) Status ===")
-             (let [status (evolve/system-status)
-                   ooda (evolve/analyze-ooda)]
-               (println "\n--- Tracking ---")
-               (println "Issues:" (:issues status))
-               (println "Searches:" (:searches status))
-               (println "Accesses:" (:accesses status))
-               (println "Insights:" (:insights status))
-               (println "\n--- OODA Observations ---")
-               (println "Syntax:" (:syntax ooda))
-               (println "Semantic:" (:semantic ooda))
-               (println "Architectural:" (:architectural ooda))
-               (println "Process:" (:process ooda))
-               (println "")
-               {:status status :ooda ooda}))}
-  
-      lambda:cron
-      {:doc "Run λ(system) scheduled maintenance (evolve + checklist)"
-       :requires ([ouroboros.lambda-evolve :as evolve]
-                  [ouroboros.lambda-maintain :as maintain])
-       :task (do (println "\n=== λ(system) Scheduled Maintenance ===")
-                 (let [ev (evolve/auto-evolve!)
-                       ch (maintain/run-checklist!)]
-                   (println "\n✓ Maintenance complete")
-                                      {:evolution ev :checklist ch}))}
-                   
-                       learning:gaps
-                       {:doc "Detect learning gaps for all users"
-                        :requires ([ouroboros.learning.cli :as cli])
-                        :task (cli/gaps-task)}
-                   
-                       learning:stats
-                       {:doc "Show learning statistics"
-                        :requires ([ouroboros.learning.cli :as cli])
-                        :task (cli/stats-task)}
-
-                       learning:list
-                       {:doc "List all learnings"
-                        :requires ([ouroboros.learning.cli :as cli])
-                        :task (cli/list-task)}
-
-                       learning:recall
-                       {:doc "Recall learnings by pattern"
-                        :requires ([ouroboros.learning.cli :as cli])
-                        :task (let [pattern (or (first *command-line-args*) \"\")]
-                                (cli/recall-task pattern))}
-
-                       learning:reindex
-                       {:doc "Rebuild learning index"
-                        :requires ([ouroboros.learning.cli :as cli])
-                        :task (cli/rebuild-index-task)}
-                       
-                       prometheus
-      {:doc "Start Prometheus metrics server"
-       :requires ([ouroboros.telemetry.prometheus :as prom])
-       :task (let [port (or (first *command-line-args*) 9090)]
-               (prom/start-server! (Integer/parseInt (str port))))}
-    
-      prometheus:export
-      {:doc "Export λ(system) metrics in Prometheus format"
-       :requires ([ouroboros.telemetry.prometheus :as prom])
-       :task (println (prom/metrics-text))}}}
+  setup:eca
+  {:doc "Install ECA binary for AI chat"
+   :task (shell "bb scripts/install-eca.clj" (first *command-line-args*))}}}
