@@ -1,7 +1,7 @@
 # PLAN.md
 
 > Project roadmap and future directions for Ouroboros.
-> **Last Updated:** 2026-02-16
+> **Last Updated:** 2026-02-19
 
 ---
 
@@ -28,11 +28,22 @@
   - Statechart (OODA execution)
   - Statecharts Registry (5 registered)
   - Dual Persistence (Datalevin + Git)
+- **Development Workflow v0.2:**
+  - Four Skills System (planning, clojure-expert, clojure-reviewer, continuous-learning)
+  - Dashboard UX (Interactive workflow, Quick actions, Skills reference)
+  - AI Chat Integration (Auto-load skills based on context)
+  - Git Tag 0.2 Released
 
 ### 📋 This Month
 1. **Wire new architecture** into actual workflow
 2. **Wisdom System** - Split wisdom.clj, batch endpoint
 3. **Learning Activation** - Flywheel UI, spaced repetition
+4. **Learning + Embed Gaps** - Address critical integration issues:
+   - Auto index updates on git commits
+   - Binary health checks
+   - Hybrid search fix
+   - Code re-linking on changes
+   - Chat command integration
 
 ### 🔮 Future
 - Container Isolation
@@ -55,6 +66,11 @@
 
 | Date | Change |
 |------|--------|
+| 2026-02-19 | **Tag 0.2** - Development Workflow with Four Skills released |
+| 2026-02-19 | Dashboard UX improvements - Interactive workflow, quick actions |
+| 2026-02-19 | AI Chat auto-skill loading based on context |
+| 2026-02-19 | Learning system modular re-exports, git-embed fixes |
+| 2026-02-18 | Datalevin upgrade 0.6.14 → 0.10.5 |
 | 2026-02-16 | Added component, signal, statechart systems |
 | 2026-02-16 | Split PLAN.md into docs/plan/ |
 | 2026-02-16 | Removed auto-rules (unused) |

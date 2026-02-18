@@ -32,6 +32,23 @@
 | Signal Bus | ✅ Added |
 | Statechart | ✅ Added |
 | Skill Cleanup | ✅ Done |
+| **Development Workflow** | ✅ **Complete** |
+| - Four Skills Integration | ✅ Dashboard + Chat |
+| - Planning Skill | ✅ task_plan.md pattern |
+| - Clojure-Expert Skill | ✅ REPL-first workflow |
+| - Clojure-Reviewer Skill | ✅ Multi-scale review |
+| - Continuous-Learning Skill | ✅ λ-based patterns |
+| **Dashboard Improvements** | ✅ UX Enhancement |
+| - Interactive Workflow Steps | ✅ Plan → Build → Review → Learn |
+| - Quick Actions | ✅ One-click commands |
+| - Skills Reference | ✅ Visual skill cards |
+| - Pro Tips Section | ✅ Usage examples |
+| **AI Chat Integration** | ✅ Auto-skill loading |
+| - Context-aware skills | ✅ Based on route |
+| - eca/load-skills handler | ✅ Backend support |
+| **Learning System Fixes** | ✅ Modular re-exports |
+| - git-embed integration | ✅ Fixed function refs |
+| - Backward compatibility | ✅ All functions exposed |
 
 ---
 
