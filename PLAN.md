@@ -75,10 +75,77 @@ See detailed analysis sections below for specific recommendations.
 - **Maintenance Schedule** - ✅ `bb lambda:cron` runs `auto-evolve!` and `run-checklist!`
 
 **Next Priorities**:
-1. **Container Isolation** - OS-level container isolation for ECA execution (P1)
-2. **Per-Channel Isolation** - Filesystem isolation per chat channel/platform (P1)
-3. **Metrics Export** - Prometheus/OpenTelemetry format for monitoring (P1)
-4. **Learning System Activation** - Transform learning capture into wisdom flywheel (P1) — ✅ Analysis complete, ready for implementation
+1. **Wisdom System Improvements** - Remove duplication, add personalization, connect real data (P1) — 📋 Analysis complete, see section below
+2. **Container Isolation** - OS-level container isolation for ECA execution (P1)
+3. **Per-Channel Isolation** - Filesystem isolation per chat channel/platform (P1)
+4. **Metrics Export** - Prometheus/OpenTelemetry format for monitoring (P1)
+5. **Learning System Activation** - Transform learning capture into wisdom flywheel (P1) — ✅ Analysis complete, ready for implementation
+
+---
+
+## Wisdom System Improvements (P1) 📋 NEW
+
+### Current Issues
+
+| Issue | Impact | Severity |
+|-------|--------|----------|
+| **Template Data Duplication** | Updates require 2 places, risk of divergence, large bundle | 🔴 Critical |
+| **No Template Personalization** | Static templates regardless of user product description | 🟡 High |
+| **Learning Patterns Not Connected** | Static insights don't reflect actual user patterns | 🟡 Medium |
+| **Wisdom Page Load Time** | 4 WebSocket requests on mount | 🟡 Medium |
+| **Missing Wisdom Analytics** | No tracking of template usage or insight application | 🟢 Low |
+
+### Detailed Analysis
+
+**1. Template Data Duplication**
+- `wisdom.clj` lines 18-250: Hardcoded `canvas-templates` (600+ lines)
+- `resources/prompts/wisdom/templates.md`: ECA prompt with same data
+- **Solution**: Extract metadata-only to EDN, remove hardcoded data
+
+**2. No Template Personalization**
+- Current: User selects "SaaS" → Gets generic SaaS example data
+- Desired: User describes product → ECA generates personalized template
+- **Solution**: Add `handle-template-personalize!` handler with ECA streaming
+
+**3. Learning Patterns Not Connected**
+- `wisdom.data/default-category-insights` contains static insights
+- Should fetch from actual `learning` namespace
+- **Solution**: Connect to `(learning/recall-by-category user-id category)`
+
+**4. Wisdom Page Load Time**
+- 4 sequential WS requests: templates, template data, insights, categories
+- **Solution**: Single `wisdom/init-data` batch endpoint
+
+### Implementation Phases
+
+#### Phase 1: Remove Duplication (This Week)
+- [ ] Create `resources/templates/metadata.edn` with keys/icons/names only
+- [ ] Remove 600-line `canvas-templates` from `wisdom.clj`
+- [ ] Load from ECA or fallback to metadata
+- **Impact**: -400 lines, single source of truth
+
+#### Phase 2: Template Personalization (Next Week)
+- [ ] Add product description input to template selection UI
+- [ ] Create `handle-template-personalize!` WS handler
+- [ ] Stream personalized template from ECA
+- **Impact**: Templates match user's actual product
+
+#### Phase 3: Real Data Connection (Following Week)
+- [ ] Connect learning patterns to `learning` namespace
+- [ ] Add `wisdom/init-data` batch endpoint
+- [ ] Add telemetry for template usage
+- **Impact**: Insights reflect actual user patterns
+
+### Success Metrics
+
+| Metric | Current | Target |
+|--------|---------|--------|
+| `wisdom.clj` LOC | 643 | < 200 |
+| Template data locations | 2 | 1 |
+| WS requests on load | 4 | 1 |
+| Static insights | 100% | < 30% |
+
+---
 
 ## ECA Integration Strategy ✅
 
