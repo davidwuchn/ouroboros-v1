@@ -6,7 +6,7 @@
         cheshire/cheshire                             {:mvn/version "5.13.0"}
 
         ;; Persistence - Datalevin (fast) + File-based
-        com.github.huahaiy/datalevin                  {:mvn/version "0.6.14"}
+        datalevin/datalevin                           {:mvn/version "0.10.5"}
 
         ;; HTTP
         org.babashka/http-client                      {:mvn/version "0.4.23"}
