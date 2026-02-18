@@ -520,6 +520,84 @@
        (catch Exception e (println "λ maintain error:" (.getMessage e)))))
 
 ;; ============================================================================
+;; Git-Embed (Semantic Code Search)
+;; ============================================================================
+
+(defn git-embed-update!
+  "Update git-embed index for semantic search
+   
+   Usage: (iface/git-embed-update!)"
+  []
+  (require '[ouroboros.git-embed :as embed])
+  (embed/update-index!))
+
+(defn git-embed-search
+  "Semantic search for code
+   
+   Usage: (iface/git-embed-search \"threading macros\" 5)"
+  [query & [limit]]
+  (require '[ouroboros.git-embed :as embed])
+  (embed/search query (or limit 5)))
+
+(defn git-embed-similar
+  "Find similar files
+   
+   Usage: (iface/git-embed-similar \"src/api.clj\")"
+  [file & [limit]]
+  (require '[ouroboros.git-embed :as embed])
+  (embed/similar file (or limit 5)))
+
+(defn git-embed-status
+  "Check git-embed status"
+  []
+  (require '[ouroboros.git-embed :as embed])
+  (embed/status))
+
+(defn git-embed-healthy?
+  "Check if git-embed is available"
+  []
+  (require '[ouroboros.git-embed :as embed])
+  (embed/healthy?))
+
+;; ============================================================================
+;; Learning (with Git-Embed)
+;; ============================================================================
+
+(defn learn-save!
+  "Save insight with automatic code context
+   
+   Usage: (iface/learn-save! \"Use threading macros\" :category :style)"
+  [content & {:keys [category tags source]}]
+  (require '[ouroboros.learning :as learning])
+  (learning/save-insight! content :category category :tags tags :source source))
+
+(defn learn-recall
+  "Recall insights by query or category"
+  [query-or-category & {:keys [limit]}]
+  (require '[ouroboros.learning :as learning])
+  (if (keyword? query-or-category)
+    (learning/recall query-or-category :limit (or limit 10))
+    (learning/recall query-or-category :limit (or limit 10))))
+
+(defn learn-semantic-recall
+  "Semantic recall using git-embed"
+  [query & {:keys [limit]}]
+  (require '[ouroboros.learning :as learning])
+  (learning/semantic-recall query :limit (or limit 5)))
+
+(defn learn-stats
+  "Get learning statistics"
+  []
+  (require '[ouroboros.learning :as learning])
+  (learning/learning-stats))
+
+(defn learn-categories
+  "List learning categories"
+  []
+  (require '[ouroboros.learning :as learning])
+  (learning/list-categories))
+
+;; ============================================================================
 ;; REPL
 ;; ============================================================================
 

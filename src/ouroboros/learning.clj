@@ -1,202 +1,207 @@
+;; Learning System with Git-Embed Integration
+;; Semantic learning with code context
 (ns ouroboros.learning
-  "Learning memory system - re-exports from modular namespaces
-
-   Namespaces:
-   - ouroboros.learning.core      - CRUD, deduplication, batch operations
-   - ouroboros.learning.index     - Index management, caching, WAL
-   - ouroboros.learning.review    - Spaced repetition system
-   - ouroboros.learning.analytics - Flywheel, stats, gaps
-   - ouroboros.learning.search    - Pattern matching, export/import
-
-   Improvements:
-   - O(1) index lookups (no more full-memory scans)
-   - Atomic index updates with WAL
-   - Tag-based inverted index for search
-   - Analytics caching with TTL
-   - Soft deletes with recovery
-   - Batch operations
-   - Normalized deduplication"
-  (:require
-   [clojure.string :as str]
-   [ouroboros.learning.core :as core]
-   [ouroboros.learning.index :as idx]
-   [ouroboros.learning.review :as review]
-   [ouroboros.learning.analytics :as analytics]
-   [ouroboros.learning.search :as search]))
+  "Learning System - Capture, recall, and evolve insights
+   
+   Now with git-embed integration for semantic code search!"
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [ouroboros.git-embed :as embed]))
 
 ;; ============================================================================
-;; Re-exports from core
+;; Learning Data
 ;; ============================================================================
 
-(def learning-config core/learning-config)
-(def learning-levels analytics/learning-levels)
+(def ^:private learning-file "data/learning.edn")
 
-;; CRUD
-(def get-learning core/get-learning)
-(def get-user-history core/get-user-history)
-(def save-insight! core/save-insight!)
-(def save-insight-with-review! core/save-insight-with-review!)  ; Backward compat
-(def save-insights-batch! core/save-insights-batch!)
-(def update-learning! core/update-learning!)
-(def delete-learning! core/delete-learning!)
-(def restore-learning! core/restore-learning!)
+(defn- ensure-learning-dir []
+  (let [dir (io/file "data")]
+    (when-not (.exists dir) (.mkdirs dir))))
 
-;; Application tracking
-(def increment-application! core/increment-application!)
+(defn- load-learning []
+  (ensure-learning-dir)
+  (if-let [f (io/file learning-file)]
+    (if (.exists f)
+      (read-string (slurp f))
+      {:insights [] :patterns {} :categories []})
+    {:insights [] :patterns {} :categories []}))
 
-;; ============================================================================
-;; Re-exports from index
-;; ============================================================================
-
-(def init! idx/init!)
+(defn- save-learning [data]
+  (ensure-learning-dir)
+  (spit learning-file (pr-str data)))
 
 ;; ============================================================================
-;; Re-exports from review
+;; Core Learning Functions
 ;; ============================================================================
 
-(def schedule-review! review/schedule-review!)
-(def get-due-reviews review/get-due-reviews)
-(def get-review-stats review/get-review-stats)
-(def complete-review! review/complete-review!)
-(def skip-review! review/skip-review!)
-(def ensure-review-scheduled! review/ensure-review-scheduled!)
+(defn save-insight!
+  "Save an insight with automatic code context linking
+   
+   Usage: (save-insight! \"Use threading macros\" :category :style)
+   
+   Now uses git-embed to find related code!"
+  [content & {:keys [category tags source]
+              :or {category :general tags [] source :manual}}]
+  (let [data (load-learning)
+        
+        ;; NEW: Find related code using git-embed
+        related-code (try
+                       (embed/find-related-to-insight content)
+                       (catch Exception _ nil))
+        
+        insight {:id (str (UUID/randomUUID))
+                 :content content
+                 :category category
+                 :tags tags
+                 :source source
+                 :created-at (System/currentTimeMillis)
+                 :related-code related-code  ;; NEW: semantic links
+                 :code-context (when related-code
+                                 (map (fn [f]
+                                        (try
+                                          {:file f :snippet (first (str/split-lines (slurp f)))}
+                                          (catch Exception _ nil)))
+                                      (take 3 related-code)))}]
+    
+    (save-learning (update data :insights conj insight))
+    insight))
+
+(defn recall
+  "Recall insights by category or search term"
+  [query & {:keys [category limit]
+             :or {limit 10}}]
+  (let [data (load-learning)
+        insights (:insights data)]
+    
+    (if category
+      (filter #(= category (:category %)) insights)
+      (filter #(str/includes? (str/lower-case (:content %))
+                             (str/lower-case query))
+              insights))))
+
+;; NEW: Semantic recall using git-embed
+(defn semantic-recall
+  "Recall insights using semantic similarity
+   
+   Usage: (semantic-recall \"error handling patterns\")"
+  [query & {:keys [limit]
+             :or {limit 5}}]
+  (let [data (load-learning)
+        
+        ;; Find related code to query
+        related-files (try
+                        (embed/find-related-to-insight query)
+                        (catch Exception _ nil))
+        
+        ;; Find insights that reference similar code
+        insights (:insights data)
+        
+        ;; Score by code similarity
+        scored (map (fn [insight]
+                      {:insight insight
+                       :score (count (clojure.set/intersection
+                                     (set related-files)
+                                     (set (:related-code insight))))})
+                    insights)]
+    
+    (->> scored
+         (filter #(pos? (:score %)))
+         (sort-by :score >)
+         (take limit)
+         (map :insight))))
 
 ;; ============================================================================
-;; Re-exports from analytics
+;; Pattern Tracking
 ;; ============================================================================
 
-(def determine-level analytics/determine-level)
-(def flywheel-progress analytics/flywheel-progress)
-(def get-learning-analytics analytics/get-learning-analytics)
-(def get-user-stats analytics/get-user-stats)
-(def get-learning-gaps analytics/get-learning-gaps)
+(defn track-pattern!
+  "Track a recurring pattern
+   
+   Usage: (track-pattern! :threading-macros [:src/api.clj :src/webux.clj])"
+  [pattern files]
+  (let [data (load-learning)]
+    (save-learning (update-in data [:patterns pattern]
+                             (fn [existing]
+                               (vec (distinct (concat existing files))))))
+    pattern))
+
+(defn get-pattern
+  "Get files that exhibit a pattern"
+  [pattern]
+  (get-in (load-learning) [:patterns pattern] []))
 
 ;; ============================================================================
-;; Re-exports from search
+;; Categories
 ;; ============================================================================
 
-(def recall-by-pattern search/recall-by-pattern)
-(def recall-by-category search/recall-by-category)
-(def find-related search/find-related)
-(def full-text-search search/full-text-search)
-(def export-user-learning search/export-user-learning)
-(def import-user-learning search/import-user-learning)
+(defn add-category!
+  "Add a learning category"
+  [category]
+  (let [data (load-learning)]
+    (save-learning (update data :categories
+                           (fn [cats] (vec (distinct (conj cats category))))))
+    category))
+
+(defn list-categories []
+  (:categories (load-learning)))
 
 ;; ============================================================================
-;; Backward Compatibility Aliases
+;; Learning Analytics
 ;; ============================================================================
 
-(defn create-from-error
-  "Create a learning record from an error/fix pattern"
-  [user-id error-type fix-explanation context]
-  (save-insight! user-id
-                 {:title (str "Fix: " error-type)
-                  :insights [(str "Error: " error-type)
-                             (str "Fix: " fix-explanation)]
-                  :pattern (str/replace (str/lower-case error-type) #"\s+" "-")
-                  :category "errors/fixes"
-                  :tags #{error-type "fix" "debugging"}
-                  :examples [{:context context}]}))
-
-(defn create-from-explanation
-  "Create a learning record from an explanation"
-  [user-id topic explanation depth]
-  (save-insight! user-id
-                 {:title (str "Understanding: " topic)
-                  :insights [explanation]
-                  :pattern (str/replace (str/lower-case topic) #"\s+" "-")
-                  :category "understanding"
-                  :tags #{topic "explanation" "learning"}
-                  :confidence (case depth
-                               :shallow 2
-                               :medium 3
-                               :deep 4
-                               3)}))
+(defn learning-stats
+  "Get learning statistics"
+  []
+  (let [data (load-learning)
+        insights (:insights data)]
+    {:total-insights (count insights)
+     :by-category (frequencies (map :category insights))
+     :with-code-context (count (filter :related-code insights))
+     :patterns (count (:patterns data))}))
 
 ;; ============================================================================
-;; Initialization
+;; Git-Embed Integration
 ;; ============================================================================
 
-(init!)
+(defn update-code-index!
+  "Update the code embedding index"
+  []
+  (try
+    (embed/update-index!)
+    {:success true}
+    (catch Exception e
+      {:success false :error (.getMessage e)})))
+
+(defn find-similar-code
+  "Find code similar to a file
+   
+   Usage: (find-similar-code \"src/api.clj\")"
+  [file]
+  (try
+    (embed/find-similar-files file)
+    (catch Exception e
+      {:error (.getMessage e)})))
 
 ;; ============================================================================
-;; Pathom Integration
+;; Link Insight to Code
 ;; ============================================================================
 
-(require '[com.wsscode.pathom3.connect.operation :as pco])
-
-;; Re-export resolvers and mutations from all namespaces
-(def resolvers
-  (concat
-   core/resolvers
-   idx/resolvers
-   review/resolvers
-   analytics/resolvers
-   search/resolvers))
-
-(def mutations
-  (concat
-   core/mutations
-   review/mutations
-   search/mutations))
-
-;; Legacy aliases for common operations
-(pco/defresolver learning-user-history
-  [{:keys [user/id]}]
-  {::pco/output [{:learning/history [:learning/id
-                                     :learning/title
-                                     :learning/created
-                                     :learning/category
-                                     :learning/confidence
-                                     :learning/applied-count]}]}
-  {:learning/history (get-user-history id)})
-
-(pco/defmutation learning-save!
-  [{:keys [user/id title insights pattern category]}]
-  {::pco/output [:learning/id :learning/title :learning/created]}
-  (let [record (save-insight! id
-                              {:title title
-                               :insights insights
-                               :pattern pattern
-                               :category category})]
-    {:learning/id (:learning/id record)
-     :learning/title (:learning/title record)
-     :learning/created (:learning/created record)}))
-
-(pco/defmutation learning-apply!
-  [{:keys [learning/id]}]
-  {::pco/output [:learning/id :learning/applied-count]}
-  (let [updated (increment-application! id)]
-    {:learning/id id
-     :learning/applied-count (:learning/applied-count updated)}))
-
-;; Add legacy resolvers/mutations to exports
-(def all-resolvers (conj resolvers learning-user-history))
-(def all-mutations (conj mutations learning-save! learning-apply!))
-
-(comment
-  ;; Usage examples
-  (require '[ouroboros.learning :as learning])
-
-  ;; Save with auto-deduplication
-  (learning/save-insight! :user-123
-                          {:title "Type Safety"
-                           :insights ["Types prevent bugs"]
-                           :tags #{"types" "safety"}})
-
-  ;; Batch save
-  (learning/save-insights-batch! :user-123
-                                 [{:title "One" :insights ["..."]}
-                                  {:title "Two" :insights ["..."]}])
-
-  ;; O(1) lookups
-  (learning/get-due-reviews :user-123)  ; Uses review index
-  (learning/recall-by-pattern :user-123 "type")  ; Uses tag index
-
-  ;; Cached analytics
-  (learning/flywheel-progress :user-123)  ; 60s TTL
-  (learning/get-learning-analytics :user-123)
-
-  ;; Export/Import
-  (learning/export-user-learning :user-123)
-  (learning/import-user-learning :user-123 exported-data))
+(defn link-insight-to-code!
+  "Manually link an insight to related code files"
+  [insight-id files]
+  (let [data (load-learning)
+        insights (:insights data)
+        updated (map (fn [insight]
+                      (if (= insight-id (:id insight))
+                        (assoc insight
+                               :related-code files
+                               :code-context (map (fn [f]
+                                                   {:file f
+                                                    :snippet (try
+                                                               (first (str/split-lines (slurp f)))
+                                                               (catch Exception _ nil))})
+                                                 (take 3 files)))
+                        insight))
+                    insights)]
+    (save-learning (assoc data :insights updated))
+    insight-id))
