@@ -28,7 +28,8 @@
    [ouroboros.learning.core :as core]
    [ouroboros.learning.search :as search]
    [ouroboros.resolver-registry :as registry]
-   [ouroboros.telemetry :as telemetry]))
+   [ouroboros.telemetry :as telemetry]
+   [com.wsscode.pathom3.connect.operation :as pco]))
 
 ;; ============================================================================
 ;; Health & Availability
@@ -365,10 +366,104 @@
     {:success? false :error "git-embed not available"}))
 
 ;; ============================================================================
-;; Pathom Integration
+;; Stale Link Detection & Batch Operations (NEW)
 ;; ============================================================================
 
-(require '[com.wsscode.pathom3.connect.operation :as pco])
+(defn- file-exists?
+  "Check if a file still exists"
+  [file-path]
+  (.exists (io/file file-path)))
+
+(defn detect-stale-links
+  "Detect learnings with code links to non-existent files
+   
+   Returns: [{:learning/id :learning/title :stale-files [string]}]"
+  [user-id]
+  (let [learnings (core/get-user-history user-id {:limit 1000})
+        with-code (filter :learning/code-files learnings)]
+    (->> with-code
+         (map (fn [learning]
+                (let [files (:learning/code-files learning)
+                      stale (remove file-exists? files)]
+                  (when (seq stale)
+                    {:learning/id (:learning/id learning)
+                     :learning/title (:learning/title learning)
+                     :stale-files stale
+                     :stale-count (count stale)
+                     :total-files (count files)}))))
+         (remove nil?))))
+
+(defn batch-relink!
+  "Re-link code for all learnings of a user
+   
+   Options:
+   - :force? - Re-link even if code-files already exist (default false)
+   - :batch-size - Process in batches (default 10)
+   
+   Returns: {:relinked number :errors number :details [map]}"
+  [user-id & {:keys [force? batch-size] :or {force? false batch-size 10}}]
+  (let [learnings (core/get-user-history user-id {:limit 1000})
+        to-relink (if force?
+                    learnings
+                    (filter #(or (nil? (:learning/code-files %))
+                                 (seq (detect-stale-links user-id)))
+                            learnings))
+        batches (partition-all batch-size to-relink)
+        results (atom {:relinked 0 :errors 0 :details []})]
+
+    (doseq [batch batches]
+      (doseq [learning batch]
+        (try
+          (auto-link-code! (:learning/id learning))
+          (swap! results update :relinked inc)
+          (Thread/sleep 100) ; Rate limiting
+          (catch Exception e
+            (swap! results update :errors inc)
+            (swap! results update :details conj
+                   {:learning-id (:learning/id learning)
+                    :error (.getMessage e)})))))
+
+    (telemetry/emit! {:event :semantic/batch-relink
+                      :user user-id
+                      :relinked (:relinked @results)
+                      :errors (:errors @results)})
+
+    @results))
+
+(defn cleanup-stale-links!
+  "Remove stale code file references from learnings
+   
+   Returns: {:cleaned number :removed-files number}"
+  [user-id]
+  (let [stale (detect-stale-links user-id)
+        cleaned (atom 0)
+        removed-files (atom 0)]
+
+    (doseq [{:keys [learning/id stale-files]} stale]
+      (try
+        (let [learning (core/get-learning id)
+              current-files (:learning/code-files learning)
+              valid-files (remove (set stale-files) current-files)]
+          (core/update-learning! id
+                                 {:learning/code-files valid-files
+                                  :learning/code-stale-removed-at (str (java.time.Instant/now))})
+          (swap! cleaned inc)
+          (swap! removed-files + (count stale-files)))
+        (catch Exception e
+          (telemetry/emit! {:event :semantic/cleanup-error
+                            :learning-id id
+                            :error (.getMessage e)}))))
+
+    (telemetry/emit! {:event :semantic/stale-cleanup
+                      :user user-id
+                      :cleaned @cleaned
+                      :removed-files @removed-files})
+
+    {:cleaned @cleaned :removed-files @removed-files}))
+
+;; ============================================================================
+;; Pathom Integration
+;; ============================================================================
 
 (pco/defresolver learning-semantic-search
   "Resolver for semantic learning search

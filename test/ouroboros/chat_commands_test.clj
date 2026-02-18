@@ -166,4 +166,41 @@
         (is (= :message (:type msg)))
         (is (= "chat-456" (:chat msg))))))
 
+(deftest test-handle-command-semantic-search-missing-args
+  (let [adapter (mock-adapter)]
+    (cmds/handle-command adapter "chat-123" "TestUser" :semantic-search "")
+    (let [msg (last-message adapter)]
+      (is (= :message (:type msg)))
+      (is (str/includes? (:text msg) "Usage:")))))
+
+(deftest test-handle-command-relink-all
+  (let [adapter (mock-adapter)]
+    ;; Test relink-all command exists and is callable
+    (cmds/handle-command adapter "chat-123" "TestUser" :relink-all "")
+    ;; Should send at least one message (either "starting" or "not available")
+    (is (>= (count (get-messages adapter)) 1))))
+
+(deftest test-handle-command-stale-links
+  (let [adapter (mock-adapter)]
+    ;; Test stale-links with no args (check mode)
+    (cmds/handle-command adapter "chat-123" "TestUser" :stale-links "")
+    (let [msg (last-message adapter)]
+      ;; Either shows "no stale links" or the help text
+      (is (or (str/includes? (:text msg) "No stale")
+              (str/includes? (:text msg) "Commands:"))))))
+
+(deftest test-handle-command-semantic-stats
+  (let [adapter (mock-adapter)]
+    (cmds/handle-command adapter "chat-123" "TestUser" :semantic-stats "")
+    (let [msg (last-message adapter)]
+      (is (= :markdown (:type msg)))
+      (is (str/includes? (:text msg) "Semantic Search Statistics")))))
+
+(deftest test-semantic-command-extraction
+  (testing "Extract semantic search command"
+    (is (= [:semantic-search "error handling"] (cmds/extract-command "/semantic-search error handling")))
+    (is (= [:relink-all ""] (cmds/extract-command "/relink-all")))
+    (is (= [:stale-links "cleanup"] (cmds/extract-command "/stale-links cleanup")))
+    (is (= [:semantic-stats ""] (cmds/extract-command "/semantic-stats")))))
+
 )

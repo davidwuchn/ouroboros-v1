@@ -284,6 +284,20 @@
     ;; Re-index tags if changed
     (when (:learning/tags updates)
       (idx/index-learning-tags! learning-id (:learning/tags merged)))
+    
+    ;; Async re-link code if title or insights changed
+    (when (or (:learning/title updates) (:learning/insights updates))
+      (future
+        (try
+          (require '[ouroboros.learning.semantic :as sem])
+          ((resolve 'sem/auto-link-code!) learning-id)
+          (catch Exception e
+            (telemetry/emit! {:event :learning/relink-error
+                              :learning-id learning-id
+                              :error (.getMessage e)}))))
+      
+      (telemetry/emit! {:event :learning/scheduled-relink
+                        :learning-id learning-id}))
 
     (telemetry/emit! {:event :learning/updated
                       :learning-id learning-id

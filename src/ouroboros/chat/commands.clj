@@ -17,6 +17,8 @@
    [ouroboros.learning.empathy-map :as empathy]
    [ouroboros.learning.value-proposition :as vp]
    [ouroboros.learning.mvp-planning :as mvp]
+   [ouroboros.learning.semantic :as semantic]
+   [ouroboros.git-embed :as embed]
    [ouroboros.workflow :as workflow]))
 
 ;; Re-export protocol functions
@@ -132,8 +134,8 @@
     (if-let [status (:result result)]
       (let [{:keys [state running? ready?]} status
             state-str (cond
-                       (set? state) (name (first state))
-                       :else (str state))]
+                        (set? state) (name (first state))
+                        :else (str state))]
         (send-message! adapter chat-id
                        (str "*System Status*\n\n"
                             "🟢 Running: " (if running? "Yes" "No") "\n"
@@ -161,21 +163,21 @@
       (case subcmd
         ;; /build canvas - Lean Canvas Builder
         "canvas" (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)
-                        url (str "http://localhost:" port)]
-                    (send-markdown! adapter chat-id
-                      (str "Opening Lean Canvas Builder...\n" url "#/lean-canvas-builder")))
+                       url (str "http://localhost:" port)]
+                   (send-markdown! adapter chat-id
+                                   (str "Opening Lean Canvas Builder...\n" url "#/lean-canvas-builder")))
         "empathy" (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)
                         url (str "http://localhost:" port)]
                     (send-markdown! adapter chat-id
-                      (str "Opening Empathy Map Builder...\n" url "#/empathy-builder")))
+                                    (str "Opening Empathy Map Builder...\n" url "#/empathy-builder")))
         "valueprop" (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)
-                         url (str "http://localhost:" port)]
-                     (send-markdown! adapter chat-id
-                       (str "Opening Value Proposition Builder...\n" url "#/value-prop-builder")))
+                          url (str "http://localhost:" port)]
+                      (send-markdown! adapter chat-id
+                                      (str "Opening Value Proposition Builder...\n" url "#/value-prop-builder")))
         "mvp" (let [port (or (some-> (System/getenv "PORT") Integer/parseInt) 8080)
                     url (str "http://localhost:" port)]
                 (send-markdown! adapter chat-id
-                  (str "Opening MVP Builder...\n" url "#/mvp-builder")))
+                                (str "Opening MVP Builder...\n" url "#/mvp-builder")))
         (send-message! adapter chat-id (str "Unknown build command: " subcmd))))
     (send-message! adapter chat-id "*Build Commands*\n\n/build canvas - Open Lean Canvas Builder\n/build empathy - Open Empathy Map Builder\n/build valueprop - Open Value Proposition Builder\n/build mvp - Open MVP Builder\n/build help - Show help")))
 
@@ -370,6 +372,130 @@
   (let [result (workflow/cancel-workflow! chat-id)]
     (session/update-context! chat-id dissoc :workflow/type :workflow/mode)
     (send-message! adapter chat-id (str "✓ Cancelled: " (name (:session-type result)) " workflow"))))
+
+;; ============================================================================
+;; Semantic Search Commands
+;; ============================================================================
+
+;; /semantic-search
+(defmethod handle-command :semantic-search
+  [adapter chat-id _user-name _cmd args]
+  (telemetry/emit! {:event :chat/command :command :semantic-search :chat-id chat-id})
+  (if (str/blank? args)
+    (send-message! adapter chat-id
+                   (str "⚠️ Usage: /semantic-search <query>\n\n"
+                        "Example: /semantic-search error handling patterns\n\n"
+                        "Searches your learnings using code-aware semantic similarity."))
+    (if-not (semantic/available?)
+      (send-message! adapter chat-id
+                     (str "⚠️ Semantic search not available\n\n"
+                          "git-embed is not installed or not healthy.\n"
+                          "Install with: cargo install git-embed\n"
+                          "Then run: /semantic-stats to check status"))
+      (let [results (semantic/recall-semantic (keyword chat-id) args :limit 5 :hybrid? true)]
+        (if (seq results)
+          (send-markdown! adapter chat-id
+                          (str "*🔍 Semantic Search Results*\n\n"
+                               "Query: _" args "_\n"
+                               "Found: " (count results) " learnings\n\n"
+                               (str/join "\n\n"
+                                         (map-indexed (fn [idx result]
+                                                        (str (inc idx) ". **" (:learning/title result) "**\n"
+                                                             "   Score: " (format "%.2f" (:combined/score result)) " "
+                                                             "(semantic: " (format "%.1f" (:semantic/score result)) ", "
+                                                             "keyword: " (format "%.1f" (:keyword/score result)) ")\n"
+                                                             (when (seq (:learning/insights result))
+                                                               (str "   " (first (:learning/insights result))))))
+                                                      results))
+                               "\n\n_Use /recall for keyword-only search_"))
+          (send-message! adapter chat-id
+                         (str "No learnings found matching: " args "\n\n"
+                              "Try:\n"
+                              "• /recall " args " (keyword search)\n"
+                              "• /learn to save a new insight")))))))
+
+;; /relink-all
+(defmethod handle-command :relink-all
+  [adapter chat-id _user-name _cmd _args]
+  (telemetry/emit! {:event :chat/command :command :relink-all :chat-id chat-id})
+  (if-not (semantic/available?)
+    (send-message! adapter chat-id
+                   (str "⚠️ Semantic search not available\n\n"
+                        "git-embed is not installed or not healthy.\n"
+                        "Install with: cargo install git-embed"))
+    (do
+      (send-message! adapter chat-id "🔗 Starting batch re-link... This may take a moment.")
+      (let [result (semantic/batch-relink! (keyword chat-id) :force? false :batch-size 5)]
+        (send-markdown! adapter chat-id
+                        (str "*✓ Batch Re-link Complete*\n\n"
+                             "Re-linked: " (:relinked result) " learnings\n"
+                             "Errors: " (:errors result) "\n\n"
+                             (when (seq (:details result))
+                               (str "⚠️ Some errors occurred. Use /semantic-stats for details.\n\n"))
+                             "Your learnings are now connected to relevant code."))))))
+
+;; /stale-links
+(defmethod handle-command :stale-links
+  [adapter chat-id _user-name _cmd args]
+  (telemetry/emit! {:event :chat/command :command :stale-links :chat-id chat-id})
+  (let [subcmd (str/lower-case (or args ""))]
+    (case subcmd
+      ("" "check")
+      (let [stale (semantic/detect-stale-links (keyword chat-id))]
+        (if (seq stale)
+          (send-markdown! adapter chat-id
+                          (str "*⚠️ Stale Code Links Detected*\n\n"
+                               "Found " (count stale) " learnings with stale links:\n\n"
+                               (str/join "\n"
+                                         (map (fn [item]
+                                                (str "• **" (:learning/title item) "**\n"
+                                                     "  " (:stale-count item) " of " (:total-files item) " files missing"))
+                                              stale))
+                               "\n\nUse `/stale-links cleanup` to remove stale references."))
+          (send-message! adapter chat-id "✓ No stale links found. All code references are valid.")))
+
+      "cleanup"
+      (let [result (semantic/cleanup-stale-links! (keyword chat-id))]
+        (send-markdown! adapter chat-id
+                        (str "*✓ Stale Links Cleaned*\n\n"
+                             "Cleaned: " (:cleaned result) " learnings\n"
+                             "Removed " (:removed-files result) " stale file references\n\n"
+                             "Your learning index is now up to date.")))
+
+      ;; Default: show help
+      (send-message! adapter chat-id
+                     (str "*Stale Links Commands*\n\n"
+                          "/stale-links - Check for stale code links\n"
+                          "/stale-links cleanup - Remove stale references\n\n"
+                          "Detects learnings that reference deleted or moved code files.")))))
+
+;; /semantic-stats
+(defmethod handle-command :semantic-stats
+  [adapter chat-id _user-name _cmd _args]
+  (telemetry/emit! {:event :chat/command :command :semantic-stats :chat-id chat-id})
+  (let [health (embed/comprehensive-health)
+        stats (semantic/semantic-stats (keyword chat-id))]
+    (send-markdown! adapter chat-id
+                    (str "*📊 Semantic Search Statistics*\n\n"
+                         "*Git-Embed Health*\n"
+                         (if (:healthy? health)
+                           "🟢 Healthy\n"
+                           "🔴 Issues detected\n")
+                         "Version: " (or (:version health) "unknown") "\n"
+                         "Index: " (if (get-in health [:index :exists?])
+                                     (str (get-in health [:index :size]) " files")
+                                     "not initialized") "\n\n"
+                         "*Your Learning Index*\n"
+                         "Learnings with code: " (:learnings-with-code stats) "\n"
+                         "Total code files: " (:total-code-files stats) "\n"
+                         "Code coverage: " (format "%.1f%%" (* 100 (:code-coverage stats))) "\n\n"
+                         (when (seq (:recommendations health))
+                           (str "*Recommendations*\n"
+                                (str/join "\n" (map #(str "• " %) (:recommendations health))) "\n\n"))
+                         "Commands:\n"
+                         "/semantic-search <query> - Search learnings\n"
+                         "/relink-all - Re-link all learnings\n"
+                         "/stale-links - Check for stale links"))))
 
 ;; ============================================================================
 ;; Confirmation Commands (delegated to confirmation system)

@@ -1,0 +1,19 @@
+#!/bin/bash
+# Git Embed Auto-Update Hook
+# Automatically updates semantic code index after each commit
+# Installed by Ouroboros learning system
+
+set -e
+
+# Only run if git-embed is available
+if ! command -v git-embed &> /dev/null; then
+    exit 0
+fi
+
+# Update index in background (don't block commit)
+(
+    cd "$(git rev-parse --show-toplevel)"
+    git-embed embed update > /dev/null 2>&1 || true
+) &
+
+exit 0
