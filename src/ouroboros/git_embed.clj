@@ -11,7 +11,8 @@
      (embed/similar \"src/api.clj\")
      (embed/status)"
   (:require [clojure.java.shell :as shell]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.java.io :as io]))
 
 (def ^:private binary "git-embed")
 
@@ -87,3 +88,55 @@
   (let [result (status)]
     (and (:success result)
          (not (str/blank? (:output result))))))
+
+;; ============================================================================
+;; Binary Validation (NEW)
+;; ============================================================================
+
+(def ^:private install-checked (atom false))
+(def ^:private install-status (atom nil))
+
+(defn- check-binary-exists?
+  "Check if git-embed binary exists in PATH"
+  []
+  (try
+    (let [result (shell/sh "which" binary)]
+      (zero? (:exit result)))
+    (catch Exception _
+      false)))
+
+(defn installed?
+  "Check if git-embed is installed and available.
+   
+   Returns: {:installed? boolean :path string? :error string?}"
+  []
+  (if @install-checked
+    @install-status
+    (let [exists? (check-binary-exists?)
+          path (when exists?
+                 (try
+                   (str/trim (:out (shell/sh "which" binary)))
+                   (catch Exception _ nil)))
+          status {:installed? exists?
+                  :path path
+                  :error (when-not exists?
+                           "git-embed not found in PATH. Install from: https://github.com/davidwuchn/git-embed")}]
+      (reset! install-checked true)
+      (reset! install-status status)
+      status)))
+
+(defn ensure-installed!
+  "Throw if git-embed is not installed"
+  []
+  (let [{:keys [installed? error]} (installed?)]
+    (when-not installed?
+      (throw (ex-info error
+                      {:type :git-embed/not-installed
+                       :install-url "https://github.com/davidwuchn/git-embed"
+                       :help "Run: cargo install git-embed (requires Rust)"})))))
+
+(defn reset-install-check!
+  "Reset install check cache (useful after installation)"
+  []
+  (reset! install-checked false)
+  (reset! install-status nil))

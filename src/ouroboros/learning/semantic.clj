@@ -185,9 +185,10 @@
       cached
 
       ;; Perform search
-      (let [;; Get keyword results if hybrid (for future hybrid scoring enhancement)
-            _keyword-results (when hybrid?
-                               (search/full-text-search user-id query :limit limit))
+      (let [;; Get keyword results if hybrid
+            keyword-results (when hybrid?
+                              (search/full-text-search user-id query :limit limit))
+            keyword-ids (set (map :learning/id keyword-results))
 
             ;; Get semantic code results
             code-results (semantic-search-code query limit)
@@ -196,21 +197,31 @@
             ;; Get user learnings to score
             user-learnings (core/get-user-history user-id {:limit 200})
 
-            ;; Score by semantic relevance
+            ;; Create lookup for keyword scores
+            keyword-score-map (into {} (map #(vector (:learning/id %) (:search-score % 0)) keyword-results))
+
+            ;; Score by semantic relevance + keyword overlap
             scored (map (fn [learning]
                           (let [semantic-score (score-by-code-overlap learning code-results)
-                                keyword-score (or (:search-score learning) 0)]
+                                ;; Get keyword score from search results, not from learning record
+                                keyword-score (get keyword-score-map (:learning/id learning) 0)
+                                ;; Boost score if learning appears in both semantic and keyword
+                                hybrid-bonus (if (contains? keyword-ids (:learning/id learning)) 2.0 0.0)]
                             (assoc learning
                                    :semantic/score semantic-score
                                    :semantic/code-files (vec code-files)
                                    :keyword/score keyword-score
+                                   :hybrid/bonus hybrid-bonus
                                    :combined/score (+ (* semantic-score 0.6)
-                                                      (* keyword-score 0.4)))))
+                                                      (* keyword-score 0.3)
+                                                      (* hybrid-bonus 0.1)))))
                         user-learnings)
 
-            ;; Filter and sort
+            ;; Filter and sort - include results with either semantic OR keyword match
             results (->> scored
-                         (filter #(pos? (:semantic/score %)))
+                         (filter #(or (pos? (:semantic/score %))
+                                      (pos? (:keyword/score %))
+                                      (pos? (:hybrid/bonus %))))
                          (sort-by :combined/score >)
                          (take limit)
                          vec)]
