@@ -61,11 +61,12 @@
 (s/def ::status #{:active :deleted})
 (s/def ::transfer-count nat-int?)
 
+;; Use explicit keywords to match record keys (:learning/id not ::learning-id)
 (s/def ::learning-record
-  (s/keys :req-un [::learning-id ::title ::user ::created]
-          :opt-un [::category ::insights ::examples ::pattern ::transfers
-                   ::tags ::confidence ::applied-count ::last-applied ::level ::status
-                   ::instinct-level ::transfer-count]))
+  (s/keys :req [:learning/id :learning/title :learning/user :learning/created]
+          :opt [:learning/category :learning/insights :learning/examples :learning/pattern :learning/transfers
+                :learning/tags :learning/confidence :learning/applied-count :learning/last-applied :learning/level :learning/status
+                :learning/instinct-level :learning/transfer-count]))
 
 (defn validate-record
   "Validate learning record using clojure.spec"
@@ -413,8 +414,10 @@
    
    Returns nil if capture not enabled, or a map with suggestion details"
   [user-id context-type data]
-  (let [prompts (:capture-prompts learning-config)]
-    (when (get prompts (keyword (str context-type "?")))
+  (let [prompts (:capture-prompts learning-config)
+        ;; Use name to get unqualified keyword name
+        key (keyword (str (name context-type) "?"))]
+    (when (get prompts key)
       {:user-id user-id
        :context-type context-type
        :suggestion (case context-type
