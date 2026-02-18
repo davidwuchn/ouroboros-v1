@@ -19,6 +19,12 @@
     :understanding {:min-applications 3 :min-confidence 2 :min-transfers 0}
     :insight {:min-applications 5 :min-confidence 3 :min-transfers 1}
     :wisdom {:min-applications 8 :min-confidence 4 :min-transfers 2}}
+   :instinct-thresholds
+   {:novice 0      ; just saved
+    :learning 3    ; applied 3+ times
+    :practicing 10 ; applied 10+ times
+    :instinct 25   ; applied 25+ times - automatic behavior
+    :master 50}    ; taught others (transfers)
    :review-intervals
    {1 (* 1 24 60 60 1000)    ; 1 day
     2 (* 3 24 60 60 1000)    ; 3 days
@@ -27,7 +33,11 @@
    :default-pagination 50
    :similarity-threshold 0.8
    :title-similarity-threshold 0.7
-   :analytics-cache-ttl 60000})  ; 60 seconds
+   :analytics-cache-ttl 60000   ; 60 seconds
+   :capture-prompts
+   {:error-pattern? true      ; Prompt after tool errors
+    :session-end? true        ; Prompt at session end
+    :planning-phase? true}})  ; Prompt after planning phases
 
 ;; ============================================================================
 ;; Schema (clojure.spec)
@@ -47,12 +57,15 @@
 (s/def ::applied-count nat-int?)
 (s/def ::last-applied (s/nilable string?))
 (s/def ::level #{:utility :understanding :insight :wisdom})
+(s/def ::instinct-level #{:novice :learning :practicing :instinct :master})
 (s/def ::status #{:active :deleted})
+(s/def ::transfer-count nat-int?)
 
 (s/def ::learning-record
   (s/keys :req-un [::learning-id ::title ::user ::created]
           :opt-un [::category ::insights ::examples ::pattern ::transfers
-                   ::tags ::confidence ::applied-count ::last-applied ::level ::status]))
+                   ::tags ::confidence ::applied-count ::last-applied ::level ::status
+                   ::instinct-level ::transfer-count]))
 
 (defn validate-record
   "Validate learning record using clojure.spec"
@@ -98,6 +111,57 @@
 ;; ============================================================================
 
 (declare get-learning)
+
+;; ============================================================================
+;; Instinct Level (Behavioral Commitment)
+;; ============================================================================
+
+(defn determine-instinct-level
+  "Determine instinct level based on application count and transfers.
+   
+   Progression: novice → learning → practicing → instinct → master
+   - :novice (0) - just saved
+   - :learning (3+) - applied 3+ times  
+   - :practicing (10+) - applied 10+ times
+   - :instinct (25+) - automatic behavior
+   - :master (50+ transfers) - taught others"
+  [{:keys [learning/applied-count learning/transfers]}]
+  (let [transfer-count (count (or transfers []))
+        applied (or applied-count 0)]
+    (cond
+      (>= transfer-count 1) :master      ; Taught others takes precedence
+      (>= applied 25) :instinct
+      (>= applied 10) :practicing
+      (>= applied 3) :learning
+      :else :novice)))
+
+(defn get-instinct-threshold
+  "Get the minimum applications needed for a given instinct level"
+  [level]
+  (get-in learning-config [:instinct-thresholds level]))
+
+(defn instinct-level-progress
+  "Calculate progress toward next instinct level (0.0 - 1.0)"
+  [learning]
+  (let [current-level (determine-instinct-level learning)
+        applied (or (:learning/applied-count learning) 0)
+        transfer-count (count (or (:learning/transfers learning) []))
+        
+        ;; Find current and next level
+        levels [:novice :learning :practicing :instinct :master]
+        current-idx (.indexOf levels current-level)
+        next-level (when (< current-idx (dec (count levels)))
+                     (nth levels (inc current-idx)))
+        
+        ;; Calculate progress
+        next-threshold (if next-level
+                        (get-in learning-config [:instinct-thresholds next-level])
+                        nil)]
+    (if (= current-level :master)
+      1.0
+      (if next-level
+        (min 1.0 (/ applied (max 1 next-threshold)))
+        0.0))))
 
 ;; ============================================================================
 ;; Similarity (Jaccard)
@@ -191,17 +255,19 @@
 (defn- merge-learning-data
   "Merge new data into existing learning record with deduplication"
   [existing new-data]
-  (-> existing
-      (update :learning/insights
-              #(vec (distinct (concat % (normalize-insights (:insights new-data))))))
-      (update :learning/tags
-              #(set/union % (set (map str/lower-case (:tags new-data)))))
-      (update :learning/examples
-              #(vec (distinct (concat % (:examples new-data)))))
-      (update :learning/transfers
-              #(vec (distinct (concat % (:transfers new-data)))))
-      (assoc :learning/updated-at (str (java.time.Instant/now)))
-      (update :learning/merged-count (fnil inc 0))))
+  (let [merged (-> existing
+                   (update :learning/insights
+                           #(vec (distinct (concat % (normalize-insights (:insights new-data))))))
+                   (update :learning/tags
+                           #(set/union % (set (map str/lower-case (:tags new-data)))))
+                   (update :learning/examples
+                           #(vec (distinct (concat % (:examples new-data)))))
+                   (update :learning/transfers
+                           #(vec (distinct (concat % (:transfers new-data)))))
+                   (assoc :learning/updated-at (str (java.time.Instant/now)))
+                   (update :learning/merged-count (fnil inc 0)))]
+    ;; Recalculate instinct level after merge
+    (assoc merged :learning/instinct-level (determine-instinct-level merged))))
 
 (defn save-insight!
   "Save a learning insight with deduplication
@@ -244,7 +310,8 @@
                   :learning/applied-count 0
                   :learning/last-applied nil
                   :learning/status :active
-                  :learning/merged-count 0}
+                  :learning/merged-count 0
+                  :learning/instinct-level :novice}
           validated (validate-record record)]
       (memory/save-value! (keyword learning-id) validated)
       (idx/add-learning-to-index! user-id learning-id)
@@ -271,11 +338,18 @@
     @results))
 
 (defn update-learning!
-  "Update a learning record"
+  "Update a learning record. Automatically recalculates instinct-level
+   when applied-count or transfers change."
   [learning-id updates]
   (let [existing (get-learning learning-id)
         user-id (:learning/user existing)
-        merged (merge existing updates)]
+        merged (merge existing updates)
+        ;; Recalculate instinct level if relevant fields changed
+        merged (if (or (:learning/applied-count updates)
+                      (:learning/transfers updates))
+                 (assoc merged :learning/instinct-level
+                        (determine-instinct-level merged))
+                 merged)]
     ;; Invalidate cache
     (idx/invalidate-cache! user-id)
 
@@ -291,14 +365,122 @@
     merged))
 
 (defn increment-application!
-  "Increment application count and update last-applied timestamp"
+  "Increment application count and update last-applied timestamp
+   Also recalculates instinct level automatically"
   [learning-id]
   (let [learning (get-learning learning-id)
-        new-count (inc (or (:learning/applied-count learning) 0))]
-    (update-learning! learning-id
-                      {:learning/applied-count new-count
-                       :learning/last-applied (str (java.time.Instant/now))})))
+        new-count (inc (or (:learning/applied-count learning) 0))
+        updated (update-learning! learning-id
+                                  {:learning/applied-count new-count
+                                   :learning/last-applied (str (java.time.Instant/now))})]
+    ;; Recalculate and update instinct level
+    (let [new-level (determine-instinct-level updated)]
+      (when (not= new-level (:learning/instinct-level updated))
+        (update-learning! learning-id {:learning/instinct-level new-level})
+        (telemetry/emit! {:event :learning/instinct-promoted
+                          :learning-id learning-id
+                          :new-level new-level
+                          :applied-count new-count})))
+    updated))
 
+(defn record-transfer!
+  "Record that a learning was transferred/taught to someone else.
+   This is the primary way to achieve :master instinct level."
+  [learning-id & {:keys [who context]
+                  :or {who "unknown" context ""}}]
+  (let [learning (get-learning learning-id)
+        new-transfers (conj (vec (or (:learning/transfers learning) []))
+                            {:to who
+                             :context context
+                             :at (str (java.time.Instant/now))})]
+    (update-learning! learning-id
+                     {:learning/transfers new-transfers})
+    ;; Check if this transfer promotes to master
+    (let [updated (get-learning learning-id)
+          new-level (determine-instinct-level updated)]
+      (when (= new-level :master)
+        (telemetry/emit! {:event :learning/instinct-master
+                          :learning-id learning-id
+                          :transfers new-transfers})))
+    (get-learning learning-id)))
+
+;; ============================================================================
+;; Proactive Capture (Telemetry Hooks)
+;; ============================================================================
+
+(defn suggest-capture
+  "Generate a learning capture suggestion based on context
+   
+   Returns nil if capture not enabled, or a map with suggestion details"
+  [user-id context-type data]
+  (let [prompts (:capture-prompts learning-config)]
+    (when (get prompts (keyword (str context-type "?")))
+      {:user-id user-id
+       :context-type context-type
+       :suggestion (case context-type
+                     :error-pattern (str "Save this error-handling pattern?")
+                     :session-end "Save learnings from this session?"
+                     :planning-phase "Save insights from this planning phase?"
+                     "Save this insight?")
+       :data data
+       :timestamp (System/currentTimeMillis)})))
+
+(defn create-from-error!
+  "Create a learning from an error/fix pattern automatically"
+  [user-id error-type fix-explanation context]
+  (save-insight! user-id
+                 {:title (str "Error: " error-type)
+                  :insights [fix-explanation]
+                  :category "error-handling"
+                  :tags #{"error" error-type "fix"}
+                  :examples [{:error error-type
+                              :fix fix-explanation
+                              :context context}]}))
+
+(defn create-from-explanation
+  "Create a learning from an explanation
+   depth can be: :shallow, :medium, :deep"
+  [user-id topic explanation depth]
+  (let [confidence (case depth
+                    :shallow 2
+                    :medium 3
+                    :deep 4
+                    3)]
+    (save-insight! user-id
+                   {:title topic
+                    :insights [explanation]
+                    :category "knowledge"
+                    :tags #{topic}
+                    :confidence confidence})))
+
+;; ============================================================================
+;; Planning Integration
+;; ============================================================================
+
+(defn capture-planning-insight!
+  "Capture insights from planning files (task_plan.md, findings.md, progress.md)"
+  [user-id phase project-id insights]
+  (save-insight! user-id
+                 {:title (str "Planning: " phase)
+                  :insights insights
+                  :category "planning"
+                  :tags #{"planning" phase (name project-id)}
+                  :examples [{:phase phase
+                              :project-id project-id}]}))
+
+(defn capture-phase-completion!
+  "Capture phase completion as a learning"
+  [user-id phase project-id result]
+  (let [learnings (cond
+                    (map? result) [(str phase " completed with: " (keys result))]
+                    (string? result) [result]
+                    :else [(str phase " completed successfully)")])
+        title (str "Phase: " phase)]
+    (save-insight! user-id
+                   {:title title
+                    :insights learnings
+                    :category "planning"
+                    :tags #{"planning" phase (name project-id) "phase-completion"}})))
 (defn delete-learning!
   "Soft delete a learning record (allows recovery)"
   [learning-id]

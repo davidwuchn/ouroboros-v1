@@ -4,7 +4,8 @@
    [clojure.string :as str]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.learning.core :as core]
-   [ouroboros.learning.index :as idx]))
+   [ouroboros.learning.index :as idx]
+   [ouroboros.learning.review :as review]))
 
 ;; ============================================================================
 ;; Configuration
@@ -81,8 +82,13 @@
                                         (map #(select-keys % [:learning/id
                                                               :learning/title
                                                               :learning/level
+                                                              :learning/instinct-level
                                                               :learning/category])))
-                  :suggested-focus focus-area}]
+                  :suggested-focus focus-area
+                  ;; Instinct level stats
+                  :by-instinct (frequencies (map :learning/instinct-level with-levels))
+                  :instinct-learner-count (count (filter #(= :instinct (:learning/instinct-level %)) with-levels))
+                  :master-count (count (filter #(= :master (:learning/instinct-level %)) with-levels))}]
       ;; Cache result
       (idx/cache-analytics! user-id result)
       result)))
@@ -111,6 +117,7 @@
           result {:total-insights (count history)
                   :by-category (frequencies (map :learning/category history))
                   :by-level (frequencies (map #(or (:learning/level %) (determine-level %)) history))
+                  :by-instinct (frequencies (map :learning/instinct-level history))
                   :most-applied (take 5 (sort-by :learning/applied-count > history))
                   :recently-created (take 5 (sort-by :learning/created > history))
                   :total-applications (reduce + (map :learning/applied-count history))
@@ -127,7 +134,10 @@
                                  frequencies
                                  (sort-by val >)
                                  (take 10)
-                                 (into {}))}]
+                                 (into {}))
+                  :total-transfers (reduce + (map #(count (or (:learning/transfers %) [])) history))
+                  :instinct-learners (count (filter #(= :instinct (:learning/instinct-level %)) history))
+                  :masters (count (filter #(= :master (:learning/instinct-level %)) history))}]
       (idx/cache-analytics! user-id result)
       result)))
 
@@ -239,4 +249,65 @@
      :learning/recommendations (:recommendations gaps)
      :learning/total-gaps (:total-gaps gaps)}))
 
-(def resolvers [learning-user-stats learning-analytics-resolver learning-flywheel-progress learning-gaps])
+;; ============================================================================
+;; Instinct Level Resolvers (NEW)
+;; ============================================================================
+
+(pco/defresolver learning-instinct-stats
+  [{:keys [user/id]}]
+  {::pco/output [:learning/by-instinct
+                 :learning/instinct-learner-count
+                 :learning/master-count
+                 :learning/total-transfers]}
+  (let [analytics (get-learning-analytics id)]
+    {:learning/by-instinct (:by-instinct analytics)
+     :learning/instinct-learner-count (:instinct-learners analytics 0)
+     :learning/master-count (:masters analytics 0)
+     :learning/total-transfers (:total-transfers analytics 0)}))
+
+;; ============================================================================
+;; Active Gap Notifications (NEW)
+;; ============================================================================
+
+(pco/defresolver learning-active-gaps
+  [{:keys [user/id]}]
+  {::pco/output [{:learning/gap-notifications
+                 [:learning/gap-type :learning/gap-message :learning/gap-priority]}]}
+  (let [gaps (get-learning-gaps id)
+        analytics (get-learning-analytics id)
+        notifications (atom [])]
+    
+    ;; Add gap notifications
+    (when-let [due (review/get-review-stats id)]
+      (when (pos? (:due-now due))
+        (swap! notifications conj
+                {:gap-type :reviews-due
+                 :gap-message (str (:due-now due) " reviews due")
+                 :gap-priority :high})))
+    
+    (when (pos? (:total-gaps gaps))
+      (swap! notifications conj
+              {:gap-type :learning-gaps
+               :gap-message (str (:total-gaps gaps) " learning gaps identified")
+               :gap-priority :medium}))
+    
+    (when (and (:instinct-learners analytics) (zero? (:instinct-learners analytics)))
+      (swap! notifications conj
+              {:gap-type :no-instinct
+               :gap-message "No learnings have reached instinct level yet"
+               :gap-priority :low}))
+    
+    (when (zero? (:total-transfers analytics))
+      (swap! notifications conj
+              {:gap-type :no-transfers
+               :gap-message "No knowledge transfers recorded - teach others to reach wisdom"
+               :gap-priority :low}))
+    
+    {:learning/gap-notifications @notifications}))
+
+(def resolvers [learning-user-stats
+                learning-analytics-resolver
+                learning-flywheel-progress
+                learning-gaps
+                learning-instinct-stats
+                learning-active-gaps])

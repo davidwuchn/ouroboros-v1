@@ -2,6 +2,50 @@
 
 > Terse summary of commits. Searchable history of system evolution.
 
+## [0.2] - 2026-02-18
+
+### Learning System Enhancements (All 7 Gaps Implemented)
+
+- **λ-Based Pattern Learning**: Added symbolic pattern detection with instinct levels
+- **Symbolic Instinct Tracking**: 5 levels (novice→learning→practicing→instinct→master)
+  - Auto-promotion when applied-count reaches threshold
+  - Master level requires transfer/teaching
+- **Proactive Learning Capture**: Telemetry hooks for error patterns, session ends
+- **Planning Integration**: Capture insights from task_plan.md, findings.md, progress.md
+- **Transfer/Teaching Mechanism**: record-transfer! for wisdom progression
+- **Active Gap Notifications**: Pathom query returns prioritized gap list
+- **Review System Integration**: get-reviews-due, get-review-stats exposed
+
+#### Files Changed:
+- `src/ouroboros/learning/core.clj` - Instinct tracking, proactive capture, planning integration
+- `src/ouroboros/learning/analytics.clj` - Instinct stats, gap notifications
+- `src/ouroboros/learning.clj` - Re-exported functions, backward compatibility
+- `src/ouroboros/interface/learning.clj` - New interface functions
+- `src/ouroboros/learning/semantic.clj` - Semantic search with git-embed
+
+#### New API:
+```clojure
+(determine-instinct learning)     ;; :novice/:learning/:practicing/:instinct/:master
+(record-transfer! "id" :who "X")  ;; Required for master level
+(suggest-capture :user :error-pattern data)
+(capture-planning :user :phase :proj [insights])
+(get-reviews-due :user)
+```
+
+### Semantic Learning with Git-Embed
+
+- Added git-embed integration for code-aware learning recall
+- Semantic search with hybrid keyword fallback
+- Auto-linking learnings to related code files
+- Code snippet extraction for learning context
+
+### Architecture Improvements
+
+- Resolver registry pattern (eliminates circular deps)
+- Component lifecycle management
+- Signal bus for event-driven architecture
+- Statechart engine for complex state management
+
 ## [Unreleased]
 
 ### Resilience & UI Polish Sweep (2026-02-10)

@@ -114,6 +114,82 @@
     (f)))
 
 ;; ============================================================================
+;; Instinct Tracking (NEW)
+;; ============================================================================
+
+(defn determine-instinct
+  "Determine instinct level for a learning
+
+   Usage: (determine-instinct learning-map)"
+  [learning]
+  (let [f (resolve-learning 'determine-instinct-level)]
+    (f learning)))
+
+(defn instinct-progress
+  "Get progress toward next instinct level (0.0-1.0)
+
+   Usage: (instinct-progress learning)"
+  [learning]
+  (let [f (resolve-learning 'instinct-level-progress)]
+    (f learning)))
+
+(defn record-transfer
+  "Record that you taught someone this learning
+
+   Usage: (record-transfer \"learning-id\" :who \"John\" :context \"in a workshop\")"
+  [learning-id & {:keys [who context]}]
+  (let [f (resolve-learning 'record-transfer!)]
+    (f learning-id :who who :context context)))
+
+;; ============================================================================
+;; Proactive Capture (NEW)
+;; ============================================================================
+
+(defn suggest-capture
+  "Get learning capture suggestion based on context
+
+   Usage: (suggest-capture :user-123 :error-pattern {:error \"NullPointer\"})"
+  [user-id context-type data]
+  (let [f (resolve-learning 'suggest-capture)]
+    (f user-id context-type data)))
+
+(defn capture-planning
+  "Capture insights from planning files
+
+   Usage: (capture-planning :user-123 :empathy :project-1 [\"insight1\" \"insight2\"])"
+  [user-id phase project-id insights]
+  (let [f (resolve-learning 'capture-planning-insight!)]
+    (f user-id phase project-id insights)))
+
+(defn capture-phase
+  "Capture phase completion as learning
+
+   Usage: (capture-phase :user-123 :empathy :project-1 \"completed successfully\")"
+  [user-id phase project-id result]
+  (let [f (resolve-learning 'capture-phase-completion!)]
+    (f user-id phase project-id result)))
+
+;; ============================================================================
+;; Review System (NEW)
+;; ============================================================================
+
+(defn get-reviews-due
+  "Get reviews due for user
+
+   Usage: (get-reviews-due :user-123)"
+  [user-id]
+  (let [f (resolve-learning 'get-due-reviews)]
+    (f user-id)))
+
+(defn get-review-stats
+  "Get review statistics
+
+   Usage: (get-review-stats :user-123)"
+  [user-id]
+  (let [f (resolve-learning 'get-review-stats)]
+    (f user-id)))
+
+;; ============================================================================
 ;; Semantic / Code-Aware Learning (NEW)
 ;; ============================================================================
 

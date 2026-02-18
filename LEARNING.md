@@ -100,6 +100,41 @@ src/ouroboros/learning/
 - Clear separation of concerns
 - Easier to test and extend
 
+### 2026-02: Learning System Enhancements (Instinct Tracking & Proactive Capture)
+
+**Problem:** Learning system lacked behavioral commitment tracking and proactive capture.
+
+**Solution:** Added instinct levels, transfer tracking, and proactive capture hooks.
+
+**Instinct Levels:**
+```clojure
+(def learning-config
+  {:instinct-thresholds
+   {:novice 0      ; just saved
+    :learning 3    ; applied 3+ times
+    :practicing 10 ; applied 10+ times
+    :instinct 25   ; applied 25+ times - automatic behavior
+    :master 50}})   ; taught others (transfers)
+```
+
+**Key Functions:**
+- `determine-instinct-level` - Auto-calculates level from applied-count + transfers
+- `record-transfer!` - Record teaching others (required for master)
+- `suggest-capture` - Telemetry hook for proactive learning capture
+- `capture-planning-insight!` - Capture insights from planning files
+- `capture-phase-completion!` - Capture phase completion as learning
+
+**Gap Notifications:**
+- Reviews due count
+- Learning gaps (low confidence, rarely applied)
+- No instinct-level learnings
+- No transfers recorded (suggests teaching others)
+
+**Results:**
+- Automatic instinct level promotion via telemetry
+- Transfer tracking enables wisdom → mastery progression
+- Active gap notifications via Pathom queries
+
 ---
 
 ## Patterns
