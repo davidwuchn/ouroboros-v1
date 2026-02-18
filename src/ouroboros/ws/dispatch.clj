@@ -93,6 +93,8 @@
    "eca/approve-tool"        {:handler chat/approve-tool!
                               :async? false}
    "eca/reject-tool"         {:handler chat/reject-tool!
+                              :async? false}
+   "eca/load-skills"         {:handler chat/handle-load-skills!
                               :async? false}})
 
 ;; ============================================================================

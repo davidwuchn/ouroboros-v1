@@ -179,7 +179,7 @@
    Usage: (find-similar-code \"src/api.clj\")"
   [file]
   (try
-    (embed/find-similar-files file)
+    (embed/similar file)
     (catch Exception e
       {:error (.getMessage e)})))
 
@@ -206,3 +206,112 @@
                     insights)]
     (save-learning (assoc data :insights updated))
     insight-id))
+
+;; ============================================================================
+;; Modular System Re-exports (for backward compatibility)
+;; ============================================================================
+
+(defn- resolve-learning-fn [ns-sym fn-sym]
+  (require ns-sym)
+  (ns-resolve ns-sym fn-sym))
+
+(defn recall-by-pattern
+  "Recall learnings by pattern (re-export from learning.search)"
+  [user-id pattern & {:keys [limit] :or {limit 20}}]
+  ((resolve-learning-fn 'ouroboros.learning.search 'recall-by-pattern)
+   user-id pattern :limit limit))
+
+(defn find-related
+  "Find learnings related to context (re-export from learning.search)"
+  [user-id context & {:keys [limit] :or {limit 5}}]
+  ((resolve-learning-fn 'ouroboros.learning.search 'find-related)
+   user-id context :limit limit))
+
+(defn recall-by-category
+  "Recall learnings by category (re-export from learning.search)"
+  [user-id category & {:keys [limit] :or {limit 50}}]
+  ((resolve-learning-fn 'ouroboros.learning.search 'recall-by-category)
+   user-id category :limit limit))
+
+(defn get-user-history
+  "Get learning history for user (re-export from learning.core)"
+  [user-id & {:keys [limit offset] :or {limit 50 offset 0}}]
+  ((resolve-learning-fn 'ouroboros.learning.core 'get-user-history)
+   user-id :limit limit :offset offset))
+
+(defn get-learning
+  "Get a specific learning record (re-export from learning.core)"
+  [learning-id]
+  ((resolve-learning-fn 'ouroboros.learning.core 'get-learning)
+   learning-id))
+
+(defn delete-learning!
+  "Delete a learning record (re-export from learning.core)"
+  [learning-id]
+  ((resolve-learning-fn 'ouroboros.learning.core 'delete-learning!)
+   learning-id))
+
+(defn increment-application!
+  "Increment application count (re-export from learning.core)"
+  [learning-id]
+  ((resolve-learning-fn 'ouroboros.learning.core 'increment-application!)
+   learning-id))
+
+(defn flywheel-progress
+  "Get flywheel progress (re-export from learning.analytics)"
+  [user-id]
+  ((resolve-learning-fn 'ouroboros.learning.analytics 'flywheel-progress)
+   user-id))
+
+(defn get-due-reviews
+  "Get due reviews (re-export from learning.review)"
+  [user-id]
+  ((resolve-learning-fn 'ouroboros.learning.review 'get-due-reviews)
+   user-id))
+
+(defn get-review-stats
+  "Get review statistics (re-export from learning.review)"
+  [user-id]
+  ((resolve-learning-fn 'ouroboros.learning.review 'get-review-stats)
+   user-id))
+
+(defn complete-review!
+  "Complete a review (re-export from learning.review)"
+  [learning-id confidence]
+  ((resolve-learning-fn 'ouroboros.learning.review 'complete-review!)
+   learning-id confidence))
+
+(defn skip-review!
+  "Skip a review (re-export from learning.review)"
+  [learning-id]
+  ((resolve-learning-fn 'ouroboros.learning.review 'skip-review!)
+   learning-id))
+
+(defn rebuild-index!
+  "Rebuild learning index (re-export from learning.index)"
+  []
+  ((resolve-learning-fn 'ouroboros.learning.index 'rebuild-learning-index!)))
+
+(defn detect-gaps
+  "Detect learning gaps (re-export from learning.analytics)"
+  [user-id]
+  ((resolve-learning-fn 'ouroboros.learning.analytics 'detect-gaps)
+   user-id))
+
+(defn get-user-stats
+  "Get user statistics (re-export from learning.analytics)"
+  [user-id]
+  ((resolve-learning-fn 'ouroboros.learning.analytics 'get-user-stats)
+   user-id))
+
+(defn get-all-users
+  "Get all users with learnings (re-export from learning.core)"
+  []
+  ((resolve-learning-fn 'ouroboros.learning.core 'get-all-users)))
+
+(defn save-insight-with-review!
+  "Save learning insight with review scheduling (re-export from learning.core)
+   Deprecated: Use save-insight! instead"
+  [user-id record]
+  ((resolve-learning-fn 'ouroboros.learning.core 'save-insight!)
+   user-id record))

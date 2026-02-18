@@ -87,29 +87,35 @@
   (telemetry/emit! {:event :chat/command :command :help :chat-id chat-id})
   (send-message! adapter chat-id
                  (str "*Ouroboros Chat Commands*\n\n"
-                      "*General*\n"
-                      "/clear - Clear conversation history\n"
-                      "/status - System status\n"
-                      "/tools - List available tools\n"
-                      "/confirm <id> - Approve dangerous operation\n"
-                      "/deny <id> <reason> - Reject operation\n\n"
+                      "*Development Workflow (Plan → Build → Review → Learn)*\n"
+                      "📋 /plan <desc> - Create plan (loads *planning* skill)\n"
+                      "⚒ /code <task> - Implement with *clojure-expert* skill\n"
+                      "👁 /review - Code review with *clojure-reviewer* skill\n"
+                      "📚 /learn <topic> <insight> - Capture with *continuous-learning*\n\n"
+                      "*Available Skills*\n"
+                      "• planning - 3-file pattern for complex tasks\n"
+                      "• clojure-expert - REPL-first development\n"
+                      "• clojure-reviewer - Multi-scale code review\n"
+                      "• continuous-learning - λ-based pattern learning (φ, e, λ, Δ)\n\n"
                       "*Builders (Product Development)*\n"
                       "/build canvas <name> - Create Lean Canvas\n"
                       "/build empathy <persona> - Empathy Map\n"
                       "/build valueprop <project> - Value Proposition Canvas\n"
-                      "/build mvp <project> - MVP Planning\n/empathy - Show your empathy maps\n\n"
-                      "*Learning*\n"
-                      "/learn <topic> <insight> - Save learning\n"
+                      "/build mvp <project> - MVP Planning\n"
+                      "/empathy - Show your empathy maps\n\n"
+                      "*Learning & Recall*\n"
                       "/recall <pattern> - Recall learnings\n"
                       "/reviews - Due reviews (spaced repetition)\n"
                       "/reviews all - All scheduled reviews\n"
                       "/wisdom - Wisdom summary\n\n"
-                      "*Workflows (Plan → Review)*\n"
-                      "/plan <desc> - Create implementation plan\n"
-                      "/review - Start code review\n"
-                      "/workflows - Show workflow help\n"
+                      "*System*\n"
+                      "/clear - Clear conversation history\n"
+                      "/status - System status\n"
+                      "/tools - List available tools\n"
+                      "/confirm <id> - Approve dangerous operation\n"
+                      "/deny <id> <reason> - Reject operation\n"
                       "/cancel - Cancel current workflow\n\n"
-                      "Just type naturally to chat with ECA!")))
+                      "Type naturally to chat, or use /plan, /code, /review, /learn for skill-enhanced workflow!")))
 
 ;; /clear
 (defmethod handle-command :clear
@@ -335,6 +341,21 @@
     (session/assoc-context! chat-id :workflow/type :review)
     (session/assoc-context! chat-id :workflow/mode true)
     (send-markdown! adapter chat-id (:message result))))
+
+;; /code
+(defmethod handle-command :code
+  [adapter chat-id _user-name _cmd args]
+  (telemetry/emit! {:event :chat/command :command :code :chat-id chat-id})
+  (if (str/blank? args)
+    (send-message! adapter chat-id "⚠️ Usage: /code <task description>\n\nExample: /code Create a function to validate user input\n\n🤖 Loads *clojure-expert* skill for REPL-first development.")
+    (do
+      (session/assoc-context! chat-id :workflow/type :code)
+      (session/assoc-context! chat-id :workflow/mode true)
+      (send-message! adapter chat-id (str "⚒ *Coding Mode Activated*\n\n"
+                                          "Skill loaded: *clojure-expert*\n"
+                                          "Task: " args "\n\n"
+                                          "I'll help you implement this with REPL-first methodology. "
+                                          "Let's start by exploring the codebase and testing in the REPL.")))))
 
 ;; /workflows
 (defmethod handle-command :workflows

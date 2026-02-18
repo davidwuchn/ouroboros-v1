@@ -88,3 +88,18 @@
   (when-let [state-atom @state/app-state-atom]
     (swap! state-atom assoc-in [:page/id :telemetry :debug/enabled?] (boolean enabled?))
     (state/schedule-render!)))
+
+(defmethod dispatch/handle-message :eca/skills-loaded
+  [{:keys [skills message]}]
+  (when-let [state-atom @state/app-state-atom]
+    ;; Add the skills-loaded message as an assistant message
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (update-in [:chat/id :global :chat/messages]
+                            (fnil conj [])
+                            {:role :assistant
+                             :content message
+                             :timestamp (js/Date.now)})
+                 (assoc-in [:chat/id :global :chat/loaded-skills] skills))))
+    (state/schedule-render!)))

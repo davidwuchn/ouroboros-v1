@@ -146,10 +146,46 @@
           (swap! state update-in [:chat/id :global :chat/open?] not)))
 
 (m/defmutation open-chat
-  "Open chat panel"
+  "Open chat panel and initialize with skill loading"
   [_]
   (action [{:keys [state]}]
-          (swap! state assoc-in [:chat/id :global :chat/open?] true)))
+          (swap! state assoc-in [:chat/id :global :chat/open?] true)
+          ;; Request ECA to load relevant skills based on context
+          (let [state-atom @ws/app-state-atom
+                route (when state-atom (get-in @state-atom [:chat/context]))
+                route-str (str/join "/" (or route []))
+                ctx (cond
+                      (str/includes? route-str "empathy") "empathy"
+                      (str/includes? route-str "valueprop") "valueprop"
+                      (str/includes? route-str "canvas") "canvas"
+                      (str/includes? route-str "mvp") "mvp"
+                      (str/includes? route-str "project") "projects"
+                      (str/includes? route-str "dashboard") "dashboard"
+                      :else nil)
+                ;; Determine which skills to load based on context
+                skills-to-load (case ctx
+                                 ("empathy" "valueprop" "canvas" "mvp")
+                                 ["planning"]
+                                 ("projects" "dashboard")
+                                 ["planning" "continuous-learning"]
+                                 ;; Default skills for general development
+                                 ["planning" "clojure-expert" "clojure-reviewer" "continuous-learning"])]
+            ;; Send skill load request to ECA
+            (ws/send! {:type "eca/load-skills"
+                       :skills skills-to-load
+                       :context ctx})
+            ;; Add system message about loaded skills
+            (let [skill-msg (str "🤖 AI Assistant ready with skills: "
+                                 (str/join ", " skills-to-load)
+                                 "\n\nHow can I help you today?")]
+              (swap! state
+                     (fn [s]
+                       (-> s
+                           (update-in [:chat/id :global :chat/messages]
+                                      (fnil conj [])
+                                      {:role :assistant
+                                       :content skill-msg
+                                       :timestamp (js/Date.now)}))))))))
 
 (m/defmutation close-chat
   "Close chat panel"

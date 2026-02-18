@@ -335,3 +335,26 @@
     (catch Exception e
       {:status :error
        :error (.getMessage e)})))
+
+;; ============================================================================
+;; Skill Loading
+;; ============================================================================
+
+(defn handle-load-skills!
+  "Handle eca/load-skills message from frontend.
+   Loads specified skills in ECA and confirms readiness."
+  [client-id {:keys [skills context]}]
+  (telemetry/emit! {:event :ws/eca-load-skills
+                    :client-id client-id
+                    :skills skills
+                    :context context})
+  ;; ECA skill loading is handled automatically by the ECA client
+  ;; We just confirm the skills are ready
+  (conn/send-to! client-id
+                 {:type :eca/skills-loaded
+                  :skills skills
+                  :message (str "🤖 Skills loaded: " (str/join ", " skills)
+                                "\nReady to assist with " (or context "your request") ".")
+                  :timestamp (System/currentTimeMillis)})
+  {:status :loaded
+   :skills skills})

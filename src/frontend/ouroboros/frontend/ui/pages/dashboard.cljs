@@ -62,15 +62,17 @@
            (dom/span :.fw-icon icon)
            (dom/span :.fw-label label)))
 
-(defn- workflow-step-clickable [{:keys [icon label on-click]}]
+(defn- workflow-step-clickable [{:keys [icon label command skill on-click]}]
   (dom/div {:className "workflow-step clickable"
             :onClick on-click
             :role "button"
             :tabIndex 0
             :onKeyDown #(handle-key-activation on-click %)
-            :aria-label (str label " - Click to open")}
+            :aria-label (str label " - Click to open AI Chat with " skill " skill")
+            :title (str "Click to start " label " (loads " skill " skill)")}
            (dom/span :.wf-icon icon)
-           (dom/span :.wf-label label)))
+           (dom/span :.wf-label label)
+           (dom/span :.wf-command command)))
 
 (defn concepts-explainer [{:keys [expanded? on-toggle]}]
   (dom/div :.concepts-card
@@ -106,27 +108,93 @@
                                (dom/div :.concept-header
                                         (dom/span :.concept-icon "⚡")
                                         (dom/h4 :.concept-title "Development Workflow"))
-                               (dom/p :.concept-desc "Plan and review code changes with AI assistance via chat.")
+                               (dom/p :.concept-desc "AI-assisted development with specialized skills. Load skills to enhance AI capabilities.")
                                (dom/div :.workflow-diagram
                                         (workflow-step-clickable
-                                         {:icon "/plan" :label "Plan"
+                                         {:icon "📋" :label "Plan" :command "/plan"
+                                          :skill "planning"
                                           :on-click #(open-ai-chat)})
                                         (dom/span :.workflow-arrow "→")
                                         (workflow-step-clickable
-                                         {:icon "💬" :label "Implement"
+                                         {:icon "⚒" :label "Build" :command "/code"
+                                          :skill "clojure-expert"
                                           :on-click #(open-ai-chat)})
                                         (dom/span :.workflow-arrow "→")
                                         (workflow-step-clickable
-                                         {:icon "/review" :label "Review"
+                                         {:icon "👁" :label "Review" :command "/review"
+                                          :skill "clojure-reviewer"
                                           :on-click #(open-ai-chat)})
                                         (dom/span :.workflow-arrow "→")
                                         (workflow-step-clickable
-                                         {:icon "/learn" :label "Learn"
+                                         {:icon "📚" :label "Learn" :command "/learn"
+                                          :skill "continuous-learning"
                                           :on-click #(dr/change-route! app ["wisdom"])}))
-                               (dom/p :.concept-hint "📍 Click any step to open AI Chat. Use /plan, /review, /learn commands."))
-                      (dom/div :.concepts-tip
-                               (dom/strong "💡 Tip: ")
-                               "Use the Product Flywheel for strategic thinking. Use the Dev Workflow for tactical implementation.")))))
+                               
+                               ;; Quick Actions
+                               (dom/div :.quick-actions
+                                        (dom/div :.quick-actions-header "Quick Start")
+                                        (dom/div :.quick-actions-grid
+                                                 (dom/button {:className "quick-action-btn"
+                                                              :onClick #(do (open-ai-chat)
+                                                                            (js/setTimeout
+                                                                             (fn [] (ws/send! {:type "eca/chat"
+                                                                                               :text "/plan Help me plan a new feature"
+                                                                                               :context "dashboard"})) 500))}
+                                                             (dom/span "📋") " New Plan")
+                                                 (dom/button {:className "quick-action-btn"
+                                                              :onClick #(do (open-ai-chat)
+                                                                            (js/setTimeout
+                                                                             (fn [] (ws/send! {:type "eca/chat"
+                                                                                               :text "/review"
+                                                                                               :context "dashboard"})) 500))}
+                                                             (dom/span "👁") " Code Review")
+                                                 (dom/button {:className "quick-action-btn"
+                                                              :onClick #(dr/change-route! app ["wisdom"])}
+                                                             (dom/span "📚") " My Learnings")))
+                               
+                               ;; Skills Reference
+                               (dom/div :.skills-section
+                                        (dom/div :.skills-header "Available Skills")
+                                        (dom/div :.skills-list
+                                                 (dom/div {:className "skill-item"
+                                                           :onClick #(open-ai-chat)
+                                                           :title "Click to open AI Chat with planning skill"}
+                                                          (dom/span :.skill-badge "📋")
+                                                          (dom/div :.skill-info
+                                                                   (dom/div :.skill-title "planning")
+                                                                   (dom/div :.skill-detail "3-file pattern: task_plan.md, findings.md, progress.md")))
+                                                 (dom/div {:className "skill-item"
+                                                           :onClick #(open-ai-chat)
+                                                           :title "Click to open AI Chat with clojure-expert skill"}
+                                                          (dom/span :.skill-badge "⚒")
+                                                          (dom/div :.skill-info
+                                                                   (dom/div :.skill-title "clojure-expert")
+                                                                   (dom/div :.skill-detail "REPL-first development, idiomatic patterns")))
+                                                 (dom/div {:className "skill-item"
+                                                           :onClick #(open-ai-chat)
+                                                           :title "Click to open AI Chat with clojure-reviewer skill"}
+                                                          (dom/span :.skill-badge "👁")
+                                                          (dom/div :.skill-info
+                                                                   (dom/div :.skill-title "clojure-reviewer")
+                                                                   (dom/div :.skill-detail "Multi-scale review: syntax, semantic, architectural")))
+                                                 (dom/div {:className "skill-item"
+                                                           :onClick #(dr/change-route! app ["wisdom"])
+                                                           :title "Go to Wisdom page"}
+                                                          (dom/span :.skill-badge "📚")
+                                                          (dom/div :.skill-info
+                                                                   (dom/div :.skill-title "continuous-learning")
+                                                                   (dom/div :.skill-detail "λ-based patterns with φ, e, λ, Δ framework")))))
+                               
+                               ;; Pro Tips
+                               (dom/div :.pro-tips
+                                        (dom/div :.pro-tips-header "💡 Pro Tips")
+                                        (dom/ul :.pro-tips-list
+                                                (dom/li "Use \"/plan <description>\" to create structured plans")
+                                                (dom/li "Use \"/code <task>\" for REPL-driven implementation")
+                                                (dom/li "Use \"/review\" before committing code")
+                                                (dom/li "Use \"/learn <topic>: <insight>\" to capture knowledge")))
+                               
+                               )))))
 
 (defn dashboard-loading []
   (dom/div {:key "dashboard-loading" :className "start-here-loading"}

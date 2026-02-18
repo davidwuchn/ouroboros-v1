@@ -161,7 +161,64 @@ The dashboard provides a web interface for system observability:
 - Shadow CLJS (hot reload, advanced compilation)
 - Ring/Jetty (backend API server)
 
+## Development Workflow
 
+Ouroboros provides specialized skills for AI-assisted development. Load skills via the skill system to enhance capabilities:
+
+### Available Skills
+
+| Skill | Purpose | Use When |
+|-------|---------|----------|
+| **planning** | File-based project planning with 3-file pattern (task_plan.md, findings.md, progress.md) | Multi-step tasks, research, >5 tool calls |
+| **clojure-expert** | REPL-first Clojure development, idiomatic patterns, anti-patterns | Writing Clojure code, debugging |
+| **clojure-reviewer** | Multi-scale code review (syntax, semantic, architectural) | Reviewing PRs, analyzing code |
+| **continuous-learning** | λ-based pattern learning with symbolic framework (φ, e, λ, Δ) | Capturing patterns, evolving knowledge |
+
+### Skill Usage
+
+```bash
+# Load a skill
+eca__skill :name "planning"
+
+# Use planning skill for complex tasks
+# → Creates task_plan.md, findings.md, progress.md automatically
+
+# Use clojure-expert for REPL-driven development
+# → Follows REPL-first methodology, validates in REPL
+
+# Use clojure-reviewer for code review
+# → Applies OODA at 3 scales: syntax, semantic, architectural
+
+# Use continuous-learning to capture patterns
+# → (λ/observe :trigger "when X" :action "do Y" :φ 0.8)
+```
+
+### Skill Details
+
+**planning**
+- 3-file pattern for context persistence
+- OODA loop integration
+- 2-Action Rule: Save findings every 2 operations
+- 3-Strike Error Protocol
+
+**clojure-expert**
+- REPL as source of truth
+- Trust REPL over files
+- Multi-step REPL validation
+- Idiomatic Clojure patterns
+
+**clojure-reviewer**
+- Syntax scale: nesting, line length, function size
+- Semantic scale: REPL verification, anti-patterns
+- Architectural scale: coupling, boundaries, consistency
+- Severity: Blocker, Critical, Suggestion, Praise
+
+**continuous-learning**
+- φ (phi): Vitality/organic strength (0.0-1.0)
+- e (euler): Actionable function identifier
+- λ (lambda): Trigger predicate
+- Δ (delta): Confidence change rate
+- Four timeframes: Immediate, Session, Project, Long-term
 
 ## Design Principles
 
