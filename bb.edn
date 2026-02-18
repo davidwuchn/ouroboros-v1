@@ -50,7 +50,8 @@
            'ouroboros.knowledge-test
            'ouroboros.streaming-test
            'ouroboros.tool-execution-test
-           'ouroboros.integration-test])}
+           'ouroboros.integration-test
+           'ouroboros.dashboard-semantic-api-test])}
 
   debug
   {:doc "Debug utilities: bb debug [system|eca|tools|menu]"

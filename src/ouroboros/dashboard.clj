@@ -15,7 +15,8 @@
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.query :as query]
    [ouroboros.metrics :as metrics]
-   [ouroboros.websocket :as ws])
+   [ouroboros.websocket :as ws]
+   [ouroboros.dashboard.semantic-api])
   (:import [java.time Instant]
            [java.io File ByteArrayInputStream]))
 
@@ -51,13 +52,13 @@
       (if (re-matches #"[a-zA-Z0-9_\-?.]+(/[a-zA-Z0-9_\-?!]+)?" clean-str)
         (keyword clean-str)
         s))
-    
+
     ;; Namespaced identifier - contains / - likely EQL keyword or mutation symbol
     (str/includes? s "/")
     (if (re-matches #"[a-zA-Z0-9_\-?.]+/[a-zA-Z0-9_\-?!]+" s)
       (keyword s)
       s)
-    
+
     ;; Simple string without : or / - keep as string (user data)
     :else s))
 
@@ -73,11 +74,11 @@
            (str/includes? k " :"))
       (let [parts (str/split k #" ")]
         (mapv keywordize-str parts))
-      
+
       ;; Regular keyword format
       (or (str/starts-with? k ":") (str/includes? k "/"))
       (keywordize-str k)
-      
+
       ;; Simple string key - convert to keyword (map keys should be keywords)
       :else
       (keyword k))
@@ -124,13 +125,13 @@
       ;; We need to wrap it in a vector to make it a valid EQL query
       {:query (if (map? query-part) [query-part] query-part)
        :params (when (map? params-part) params-part)})
-    
+
     ;; Vector containing a list where first element is also a vector (nested)
     (and (vector? data)
          (= 1 (count data))
          (vector? (first data)))
     {:query (first data) :params nil}
-    
+
     ;; Direct vector that might contain a params map at the end
     ;; e.g., [{[:page/id :project-detail] [...]} {:project-id "..."}]
     ;; This can happen if transit parses the list as a vector
@@ -145,15 +146,15 @@
           query-part (vec (butlast data))]
       {:query query-part
        :params params-part})
-    
+
     ;; Direct vector (simple query)
     (vector? data)
     {:query data :params nil}
-    
+
     ;; Map with :query key
     (and (map? data) (:query data))
     {:query (:query data) :params nil}
-    
+
     ;; Join map with ident key (e.g., {[:page/id :telemetry] [:system/healthy? ...]})
     ;; Transit decodes Fulcro load queries as a map when there's a single join.
     ;; Pathom expects this wrapped in a vector: [{[:page/id :telemetry] [...]}]
@@ -161,7 +162,7 @@
          (= 1 (count data))
          (vector? (ffirst data)))
     {:query [data] :params nil}
-    
+
     :else
     {:query data :params nil}))
 
@@ -174,7 +175,7 @@
             ;; Already a list (proper mutation syntax)
             (list? expr) expr
             ;; A join with a symbol or keyword key - likely a mutation that needs conversion
-            (and (map? expr) 
+            (and (map? expr)
                  (= 1 (count expr))
                  (let [[k v] (first expr)]
                    (and (or (symbol? k) (keyword? k)) (map? v))))
@@ -304,58 +305,58 @@
         body (when (:body request)
                (slurp (:body request)))]
     (or
-      (cond
+     (cond
         ;; CORS preflight
-        (= method :options)
-        {:status 200
-         :headers cors-headers
-         :body ""}
+       (= method :options)
+       {:status 200
+        :headers cors-headers
+        :body ""}
 
         ;; WebSocket upgrade
-        (= uri "/ws")
-        (ws/websocket-handler request)
+       (= uri "/ws")
+       (ws/websocket-handler request)
 
         ;; EQL API endpoint
-        (and (= uri "/api/eql") (= method :post))
-        (handle-eql body (get-in request [:headers "content-type"]))
+       (and (= uri "/api/eql") (= method :post))
+       (handle-eql body (get-in request [:headers "content-type"]))
 
         ;; Status endpoint
-        (and (= uri "/api/status") (= method :get))
-        {:status 200
-         :headers (merge cors-headers {"Content-Type" "application/json"})
-         :body (json/generate-string
-                {:healthy (query/q [:system/healthy?])
-                 :timestamp (str (Instant/now))})}
+       (and (= uri "/api/status") (= method :get))
+       {:status 200
+        :headers (merge cors-headers {"Content-Type" "application/json"})
+        :body (json/generate-string
+               {:healthy (query/q [:system/healthy?])
+                :timestamp (str (Instant/now))})}
 
         ;; WebSocket status endpoint
-        (and (= uri "/api/ws-status") (= method :get))
-        {:status 200
-         :headers (merge cors-headers {"Content-Type" "application/json"})
-         :body (json/generate-string (ws/status))}
+       (and (= uri "/api/ws-status") (= method :get))
+       {:status 200
+        :headers (merge cors-headers {"Content-Type" "application/json"})
+        :body (json/generate-string (ws/status))}
 
         ;; Prometheus metrics
-        (= uri "/metrics")
-        {:status 200
-         :headers {"Content-Type" "text/plain; version=0.0.4"}
-         :body (metrics/get-prometheus-text)}
+       (= uri "/metrics")
+       {:status 200
+        :headers {"Content-Type" "text/plain; version=0.0.4"}
+        :body (metrics/get-prometheus-text)}
 
         ;; Serve index.html for root
-        (= uri "/")
-        (or (serve-file "/index.html")
-            {:status 200
-             :headers {"Content-Type" "text/html"}
-             :body "<!DOCTYPE html><html><head><title>Ouroboros</title></head><body><div id='app'></div><script src='/js/main.js'></script></body></html>"})
+       (= uri "/")
+       (or (serve-file "/index.html")
+           {:status 200
+            :headers {"Content-Type" "text/html"}
+            :body "<!DOCTYPE html><html><head><title>Ouroboros</title></head><body><div id='app'></div><script src='/js/main.js'></script></body></html>"})
 
         ;; Serve static resources
-        :else
-        (or (serve-file uri)
-            {:status 404
-             :headers {"Content-Type" "text/plain"}
-             :body "Not found"}))
+       :else
+       (or (serve-file uri)
+           {:status 404
+            :headers {"Content-Type" "text/plain"}
+            :body "Not found"}))
       ;; Safety catch-all - should never reach here
-      {:status 500
-       :headers {"Content-Type" "text/plain"}
-       :body "Internal error: handler returned nil"})))
+     {:status 500
+      :headers {"Content-Type" "text/plain"}
+      :body "Internal error: handler returned nil"})))
 
 ;; ============================================================================
 ;; Server Lifecycle
@@ -433,12 +434,18 @@
   {::pco/output [:dashboard/status]}
   {:dashboard/status (status)})
 
+;; Semantic search resolvers are in ouroboros.dashboard.semantic-api
+;; which is required for side effects (auto-registration)
+
 ;; ============================================================================
 ;; Exports
 ;; ============================================================================
 
 (def resolvers
   [dashboard-status])
+
+(def mutations
+  [])
 
 (def mutations
   [])
@@ -468,4 +475,4 @@
   ;; Via Pathom
   ;; (require '[ouroboros.query :as q])
   ;; (q/q [:dashboard/status]))
-)
+  )
