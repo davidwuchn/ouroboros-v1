@@ -1,0 +1,39 @@
+# Current Status
+
+**Last Updated:** 2026-02-16
+
+**Status Key:** ✅ Done | ◐ Partial | 📋 Planned | ✗ Removed
+
+## Core Features
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Learning Memory System | ✅ Done | Store/recall insights, patterns, wisdom |
+| Educational Approval | ✅ Done | Tool approvals with risk explanations |
+| Interface Integration | ✅ Done | Lazy-loaded APIs for learning |
+| Approval Bridge Integration | ✅ Done | Educational messages for approvals |
+| Chat Commands | ✅ Done | `/learn`, `/recall`, `/wisdom`, `/build` |
+| Progressive Disclosure | ✅ Done | Builder stage suggestions, contextual help |
+| Product Development Flywheel | ✅ Done | Empathy→ValueProp→MVP→Canvas |
+| Web UX Platform | ✅ Done | 5 phases: canvas, collaboration, wisdom, analytics, embed |
+| Clojure Code Quality Automation | ◐ Partial | clj-kondo linting in CI, 52 unused binding warnings |
+| ECA IPC Byte-Level Reader | ✅ Done | Fixed UTF-8 framing bug |
+| **Streaming Responses** | ✅ Done | 5-layer pipeline: ECA -> chat + frontend |
+| **Flywheel UI** | ✅ Done | Step indicator, wisdom sidebar, phase cards |
+| **ECA-Powered Wisdom** | ✅ Done | Backend + Frontend complete |
+| **Workspace Auto-Detection** | ✅ Done | Single project per instance |
+| **Kanban Board** | ✅ Done | Auto-derived task board |
+| **Phase D: Dynamic Content** | ✅ Done | ECA-powered content |
+| λ(system) Self-Evolution | ✅ Done | Telemetry bridge, maintenance |
+
+## Recent Changes
+
+| Date | Achievement |
+|------|-------------|
+| 2026-02-16 | **Architecture improvements** — Added component, signal, statechart |
+| 2026-02-16 | **Skill cleanup** — Removed auto-rules system |
+| 2026-02-16 | **Learning system analysis** — Ready for implementation |
+| 2026-02-10 | **Resilience & UI Polish** |
+| 2026-02-09 | **Phase D: Dynamic Content** |
+| 2026-02-09 | **Kanban Board** |
+| 2026-02-08 | **Streaming Pipeline** |

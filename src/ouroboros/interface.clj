@@ -547,3 +547,127 @@
 
   ;; Shutdown
   (shutdown!))
+
+;; ============================================================================
+;; Component Lifecycle (Mount-style)
+;; ============================================================================
+
+(defn component-start
+  "Start a component by name
+   
+   Usage: (iface/component-start :config)"
+  [name]
+  (require '[ouroboros.component :as comp])
+  (comp/start name))
+
+(defn component-stop
+  "Stop a component by name
+   
+   Usage: (iface/component-stop :config)"
+  [name]
+  (require '[ouroboros.component :as comp])
+  (comp/stop name))
+
+(defn component-status
+  "Get status of all components
+   
+   Usage: (iface/component-status)"
+  []
+  (require '[ouroboros.component :as comp])
+  (comp/status))
+
+(defn component-healthy?
+  "Check if all components are running
+   
+   Usage: (iface/component-healthy?)"
+  []
+  (require '[ouroboros.component :as comp])
+  (comp/healthy?))
+
+;; ============================================================================
+;; Signal Bus (Event-driven)
+;; ============================================================================
+
+(defn signal-publish
+  "Publish an event to the signal bus
+   
+   Usage: (iface/signal-publish :tool/execute {:tool :file/read})"
+  [event-type payload]
+  (require '[ouroboros.signal :as signal])
+  (signal/publish! event-type payload))
+
+(defn signal-subscribe
+  "Subscribe to signal events
+   
+   Usage: (iface/signal-subscribe :tool/execute handler-fn)"
+  [event-type handler]
+  (require '[ouroboros.signal :as signal])
+  (signal/subscribe event-type handler))
+
+(defn signal-unsubscribe
+  "Unsubscribe from signal events
+   
+   Usage: (iface/signal-unsubscribe :tool/execute handler-fn)"
+  [event-type handler]
+  (require '[ouroboros.signal :as signal])
+  (signal/unsubscribe event-type handler))
+
+(defn signal-bus-status
+  "Get signal bus status
+   
+   Usage: (iface/signal-bus-status)"
+  []
+  (require '[ouroboros.signal :as signal])
+  (signal/bus-status))
+
+;; ============================================================================
+;; Statechart (OODA execution)
+;; ============================================================================
+
+(defn sm-create
+  "Create a statechart
+   
+   Usage: (iface/sm-create :my-sm {:initial :start :states {...}})"
+  [name config]
+  (require '[ouroboros.statechart :as sm])
+  (sm/create-statechart name config))
+
+(defn sm-start
+  "Start a statechart
+   
+   Usage: (iface/sm-start :eca-ooda)"
+  [name]
+  (require '[ouroboros.statechart :as sm])
+  (sm/start! name))
+
+(defn sm-stop
+  "Stop a statechart
+   
+   Usage: (iface/sm-stop :eca-ooda)"
+  [name]
+  (require '[ouroboros.statechart :as sm])
+  (sm/stop! name))
+
+(defn sm-transition
+  "Transition a statechart via event
+   
+   Usage: (iface/sm-transition :eca-ooda :orient)"
+  [name event]
+  (require '[ouroboros.statechart :as sm])
+  (sm/transition! name event))
+
+(defn sm-state
+  "Get current state of a statechart
+   
+   Usage: (iface/sm-state :eca-ooda)"
+  [name]
+  (require '[ouroboros.statechart :as sm])
+  (sm/current-state name))
+
+(defn sm-status
+  "Get status of all statecharts
+   
+   Usage: (iface/sm-status)"
+  []
+  (require '[ouroboros.statechart :as sm])
+  (sm/status))

@@ -137,31 +137,21 @@
       (spit f (str existing "\n" content)))))
 
 (defn evolve-issues!
-  "OODA Decision & Action: Issues → Automated Rules
+  "OODA Decision & Action: Issues → Metrics
 
-   When an issue type appears threshold+ times, create a preventive rule."
-  []
+   Note: auto-rules removed (2026-02-16). Issues are now tracked 
+   in metrics for review effectiveness measurement only.
+   
+   Previously: Created rules in skills/auto-rules.md
+   Now: Issues tracked in pattern-store for λ(self) metrics"
+  ;; DEPRECATED: Auto-rules system removed
+  ;; Issues are tracked via emit-review-event in lambda-metrics
+  ;; See: clojure-reviewer.md for manual review checklist
   (let [issues (:issues @pattern-store)
-        new-rules (reduce-kv (fn [acc issue-type files]
-                               (if (>= (reduce + (vals files)) *threshold-issue*)
-                                 (conj acc {:issue-type issue-type
-                                            :files (keys files)
-                                            :count (reduce + (vals files))})
-                                 acc))
-                             [] issues)]
-    (if (seq new-rules)
-      (do
-        (println "\n=== Auto-Evolving: Issues → Rules ===")
-        (doseq [{:keys [issue-type files count]} new-rules]
-          (let [rule-entry (format "\n## Auto-Rule: %s\n\n- Detected in %d files\n- Files: %s\n"
-                                   issue-type count (str/join ", " files))]
-            (append-to-skill! "auto-rules" rule-entry))
-          (println (format "  ✓ Created rule: auto-%s (from %d occurrences)" issue-type count))
-          (swap! pattern-store update :issues dissoc issue-type)
-          (save-state!))
-        (println (format "  Created %d automated rules" (count new-rules))))
-      (println "\n[λ] No issues need rules (threshold: *threshold-issue*)"))
-    new-rules))
+        issue-count (reduce + (map #(reduce + (val %)) issues))]
+    (println "\n[λ] Issues tracked:" issue-count "(for metrics only, no rules generated)")
+    (println "[λ] Use clojure-reviewer.md for manual code reviews")
+    issue-count))
 
 ;; ============================================================================
 ;; Evolution: Insights → Structure

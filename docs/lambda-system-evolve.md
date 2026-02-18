@@ -5,11 +5,13 @@
 Implements the 4 self-evolving loops from λ(system):
 
 ```
-error⊢proof       →  Repeated issues → Auto-create linter rules
+error⊢proof       →  Repeated issues → Track in metrics (auto-rules removed)
 reflection→structure → Insights → Auto-create templates
 observe→become   →  High usage → Auto-promote to quick access  
 relevance⊢retrieval → High search → Auto-index priority
 ```
+
+**Note:** Auto-rules system was removed (2026-02-16) as underutilized. Issues are now tracked in metrics for review effectiveness measurement.
 
 ## Usage
 
