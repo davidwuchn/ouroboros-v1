@@ -13,6 +13,10 @@
   (require 'ouroboros.learning)
   (ns-resolve 'ouroboros.learning sym))
 
+(defn- resolve-semantic [sym]
+  (require 'ouroboros.learning.semantic)
+  (ns-resolve 'ouroboros.learning.semantic sym))
+
 (defn save-insight!
   "Save a learning insight
 
@@ -107,6 +111,66 @@
    Usage: (rebuild-index!)"
   []
   (let [f (resolve-learning 'rebuild-index!)]
+    (f)))
+
+;; ============================================================================
+;; Semantic / Code-Aware Learning (NEW)
+;; ============================================================================
+
+(defn semantic-recall
+  "Recall learnings using semantic similarity to code context
+
+   Usage: (semantic-recall :user-123 \"error handling\" :limit 5)"
+  [user-id query & {:keys [limit] :or {limit 10}}]
+  (let [f (resolve-semantic 'recall-with-fallback)]
+    (f user-id query :limit limit)))
+
+(defn find-code-related
+  "Find code context for an existing learning
+
+   Usage: (find-code-related :user-123 \"learning-id\")"
+  [user-id learning-id]
+  (let [f (resolve-semantic 'find-code-context)]
+    (f user-id learning-id)))
+
+(defn auto-link-code!
+  "Auto-link learning to related code files
+
+   Usage: (auto-link-code! \"user-123/learning-id\")"
+  [learning-id]
+  (let [f (resolve-semantic 'auto-link-code!)]
+    (f learning-id)))
+
+(defn save-with-code!
+  "Save learning with automatic code context extraction
+
+   Usage: (save-with-code! :user-123 {:title \"...\" :insights [...]})"
+  [user-id record]
+  (let [f (resolve-semantic 'save-insight-with-code!)]
+    (f user-id record)))
+
+(defn semantic-available?
+  "Check if semantic search is available (git-embed healthy)
+
+   Usage: (semantic-available?)"
+  []
+  (let [f (resolve-semantic 'available?)]
+    (f)))
+
+(defn semantic-user-stats
+  "Get semantic search statistics for user
+
+   Usage: (semantic-user-stats :user-123)"
+  [user-id]
+  (let [f (resolve-semantic 'semantic-stats)]
+    (f user-id)))
+
+(defn update-code-index!
+  "Update git-embed code index
+
+   Usage: (update-code-index!)"
+  []
+  (let [f (resolve-semantic 'update-code-index!)]
     (f)))
 
 (comment

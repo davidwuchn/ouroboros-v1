@@ -6,6 +6,7 @@
    Now with git-embed integration for semantic code search!"
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [clojure.set :as set]
             [ouroboros.git-embed :as embed]))
 
 ;; ============================================================================
@@ -49,7 +50,7 @@
                        (embed/find-related-to-insight content)
                        (catch Exception _ nil))
         
-        insight {:id (str (UUID/randomUUID))
+        insight {:id (str (java.util.UUID/randomUUID))
                  :content content
                  :category category
                  :tags tags

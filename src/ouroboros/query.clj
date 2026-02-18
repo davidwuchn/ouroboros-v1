@@ -16,6 +16,7 @@
     ;; For resolver-based tool registration
    [ouroboros.history]
    [ouroboros.memory] [ouroboros.webux]
+   [ouroboros.learning.semantic]
     ;; Additional resolvers for page queries
    [ouroboros.telemetry :as telemetry])
   (:import [java.time Instant]))

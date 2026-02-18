@@ -27,6 +27,16 @@
       {:success false
        :error (.getMessage e)})))
 
+(defn- parse-results [output]
+  "Parse git-embed output into structured data"
+  (when output
+    (keep (fn [line]
+            (when (and line (str/includes? line ":"))
+              (let [[file score] (str/split line #"\s+" 2)]
+                {:file file
+                 :score (some-> score Double/parseDouble)})))
+          (str/split-lines output))))
+
 (defn update-index!
   "Update the git-embed index for this repository"
   []
@@ -63,16 +73,6 @@
        {:file file
         :results (parse-results (:output result))}
        {:error (:error result)}))))
-
-(defn- parse-results [output]
-  "Parse git-embed output into structured data"
-  (when output
-    (keep (fn [line]
-            (when (and line (str/includes? line ":"))
-              (let [[file score] (str/split line #"\s+" 2)]
-                {:file file
-                 :score (some-> score Double/parseDouble)})))
-          (str/split-lines output))))
 
 (defn find-related-to-insight
   "Find code related to an insight content"

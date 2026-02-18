@@ -442,6 +442,53 @@
   (lazy-fn 'ouroboros.interface.learning 'user-stats))
 
 ;; ============================================================================
+;; Semantic Learning with Git-Embed (NEW - Code-Aware Learning)
+;; ============================================================================
+
+(def learning-semantic-recall
+  "Recall learnings using semantic similarity to code context
+
+   Usage: (learning-semantic-recall :user-123 \"error handling\")
+          (learning-semantic-recall :user-123 \"threading macros\" :limit 5)"
+  (lazy-fn 'ouroboros.interface.learning 'semantic-recall))
+
+(def learning-find-code-related
+  "Find code context for an existing learning
+
+   Usage: (learning-find-code-related :user-123 \"learning-id\")"
+  (lazy-fn 'ouroboros.interface.learning 'find-code-related))
+
+(def learning-auto-link-code!
+  "Auto-link learning to related code files
+
+   Usage: (learning-auto-link-code! \"user-123/learning-id\")"
+  (lazy-fn 'ouroboros.interface.learning 'auto-link-code!))
+
+(def learning-save-with-code!
+  "Save learning with automatic code context extraction
+
+   Usage: (learning-save-with-code! :user-123 {:title \"...\" :insights [...]})"
+  (lazy-fn 'ouroboros.interface.learning 'save-with-code!))
+
+(def learning-semantic-available?
+  "Check if semantic search is available (git-embed healthy)
+
+   Usage: (learning-semantic-available?)"
+  (lazy-fn 'ouroboros.interface.learning 'semantic-available?))
+
+(def learning-semantic-user-stats
+  "Get semantic search statistics for user
+
+   Usage: (learning-semantic-user-stats :user-123)"
+  (lazy-fn 'ouroboros.interface.learning 'semantic-user-stats))
+
+(def learning-update-code-index!
+  "Update git-embed code index
+
+   Usage: (learning-update-code-index!)"
+  (lazy-fn 'ouroboros.interface.learning 'update-code-index!))
+
+;; ============================================================================
 ;; Educational Approval (NEW - Teaching Moments)
 ;; ============================================================================
 
