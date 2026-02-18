@@ -5,6 +5,9 @@
         com.wsscode/pathom3                           {:mvn/version "2025.01.16-alpha"}
         cheshire/cheshire                             {:mvn/version "5.13.0"}
 
+        ;; Persistence - Datalevin (fast) + File-based
+        com.github.huahaiy/datalevin                  {:mvn/version "0.6.14"}
+
         ;; HTTP
         org.babashka/http-client                      {:mvn/version "0.4.23"}
         ring/ring-core                                {:mvn/version "1.12.0"}

@@ -2,13 +2,47 @@
 
 ## New Systems (2026-02-16)
 
-Added three new systems from ASSESSMENT analysis:
+Added systems from ASSESSMENT analysis:
 
 | System | File | Purpose | Interface |
 |--------|------|---------|-----------|
 | **Component** | `src/ouroboros/component.clj` | Mount-style lifecycle | `iface/component-*` |
+| **Components** | `src/ouroboros/components.clj` | 9 system components | `iface/components-*` |
 | **Signal Bus** | `src/ouroboros/signal.clj` | Event-driven communication | `iface/signal-*` |
 | **Statechart** | `src/ouroboros/statechart.clj` | OODA execution model | `iface/sm-*` |
+| **Statecharts** | `src/ouroboros/statecharts.clj` | 5 registered statecharts | `iface/statecharts-*` |
+| **Persistence** | `src/ouroboros/persistence.clj` | Dual: Datalevin + Git | `iface/persistence-*` |
+
+## 5 Registered Statecharts
+
+```
+:eca-ooda           → observe → orient → decide → act → learn
+:approval-workflow  → pending → approved → executing → complete
+:builder-session    → empathy → value-prop → mvp → canvas
+:chat-flow          → idle → processing → responding → idle
+:signal-collector   → collecting → analyzing → emitting
+```
+
+## 9 System Components
+
+```
+:config         → System configuration
+:database       → Data persistence  
+:memory         → Session memory
+:telemetry      → Event/metrics collection
+:websocket      → WebSocket server
+:eca-client     → ECA integration
+:chat-adapters → Telegram/Discord/Slack
+:learning       → Learning system
+:wisdom         → Wisdom/insights
+```
+
+## Dual Persistence
+
+```
+Operational (Datalevin)  → Fast queries (sessions, projects, queries)
+Knowledge (Git-backed)   → Wisdom (insights, patterns, templates)
+```
 
 ## Usage Examples
 

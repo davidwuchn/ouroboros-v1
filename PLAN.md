@@ -22,7 +22,12 @@
 - ECA Integration (Protocol client, Tool approval, Streaming)
 - Web UX Platform (5 phases)
 - λ(system) Self-Evolution (Telemetry, Maintenance)
-- New Architecture: Component, Signal Bus, Statechart
+- **New Architecture:**
+  - Component Lifecycle (9 system components)
+  - Signal Bus (event-driven)
+  - Statechart (OODA execution)
+  - Statecharts Registry (5 registered)
+  - Dual Persistence (Datalevin + Git)
 
 ### 📋 This Month
 1. **Wire new architecture** into actual workflow

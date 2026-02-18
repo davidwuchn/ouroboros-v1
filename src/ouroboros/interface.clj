@@ -671,3 +671,121 @@
   []
   (require '[ouroboros.statechart :as sm])
   (sm/status))
+
+;; ============================================================================
+;; Statecharts Registry (5 registered statecharts)
+;; ============================================================================
+
+(defn statecharts-register!
+  "Register all system statecharts
+   
+   Usage: (iface/statecharts-register!)"
+  []
+  (require '[ouroboros.statecharts :as statecharts])
+  (statecharts/register-statecharts!))
+
+(defn statecharts-start-all
+  "Register and start all statecharts
+   
+   Usage: (iface/statecharts-start-all)"
+  []
+  (require '[ouroboros.statecharts :as statecharts])
+  (statecharts/start-all))
+
+(defn statecharts-stop-all
+  "Stop all statecharts
+   
+   Usage: (iface/statecharts-stop-all)"
+  []
+  (require '[ouroboros.statecharts :as statecharts])
+  (statecharts/stop-all))
+
+(defn statecharts-coordinator
+  "Route event to appropriate statechart
+   
+   Usage: (iface/statecharts-coordinator {:type :approve})"
+  [event]
+  (require '[ouroboros.statecharts :as statecharts])
+  (statecharts/coordinator event))
+
+;; ============================================================================
+;; System Components (9 mount states)
+;; ============================================================================
+
+(defn components-start-all
+  "Start all system components
+   
+   Usage: (iface/components-start-all)"
+  []
+  (require '[ouroboros.components :as components])
+  (components/start-all))
+
+(defn components-stop-all
+  "Stop all system components
+   
+   Usage: (iface/components-stop-all)"
+  []
+  (require '[ouroboros.components :as components])
+  (components/stop-all))
+
+(defn components-status
+  "Get status of all components
+   
+   Usage: (iface/components-status)"
+  []
+  (require '[ouroboros.components :as components])
+  (components/status))
+
+(defn components-healthy?
+  "Check if all components are healthy
+   
+   Usage: (iface/components-healthy?)"
+  []
+  (require '[ouroboros.components :as components])
+  (components/healthy?))
+
+(defn component-state
+  "Get state of a specific component
+   
+   Usage: (iface/component-state :config)"
+  [name]
+  (require '[ouroboros.components :as components])
+  (components/state name))
+
+;; ============================================================================
+;; Dual Persistence (Datalevin + Git)
+;; ============================================================================
+
+(defn persistence-save!
+  "Save to appropriate store (auto-detect operational vs knowledge)
+   
+   Usage: (iface/persistence-save! :sessions {:id \"s1\"})
+          (iface/persistence-save! :insights \"content\")"
+  [entity data]
+  (require '[ouroboros.persistence :as persist])
+  (persist/save! entity data))
+
+(defn persistence-get
+  "Get from appropriate store
+   
+   Usage: (iface/persistence-get :sessions)
+          (iface/persistence-get :insights)"
+  [entity]
+  (require '[ouroboros.persistence :as persist])
+  (persist/get entity))
+
+(defn persistence-status
+  "Get persistence status
+   
+   Usage: (iface/persistence-status)"
+  []
+  (require '[ouroboros.persistence :as persist])
+  (persist/status))
+
+(defn persistence-close!
+  "Close all persistence connections
+   
+   Usage: (iface/persistence-close!)"
+  []
+  (require '[ouroboros.persistence :as persist])
+  (persist/close!))
