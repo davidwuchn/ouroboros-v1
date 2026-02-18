@@ -175,9 +175,103 @@ git-embed embed update
 - `src/ouroboros/interface/learning.clj` - Interface wrapper
 - `src/ouroboros/interface.clj` - Public API
 
+## Planning Skill Integration
+
+The semantic learning system integrates with the **planning skill** for complex, multi-step tasks. Use the 3-file pattern alongside semantic learning to capture insights from research and implementation work.
+
+### The 3-File Pattern
+
+| File | Symbol | Purpose | Learnings Captured |
+|------|--------|---------|-------------------|
+| `task_plan.md` | φ | Phase tracking, goals | Intent → Structure |
+| `findings.md` | π | Research synthesis | Discovery → Knowledge |
+| `progress.md` | Δ | Session logging | Action → History |
+
+### Workflow: Planning + Semantic Learning
+
+```clojure
+;; 1. Start complex task with planning files
+;; (planning skill creates task_plan.md, findings.md, progress.md)
+
+;; 2. Research phase - save findings as you discover
+(iface/learning-save-with-code!
+  :user-123
+  {:title "Git-Embed Binary Interface"
+   :insights ["Use subprocess with 30s timeout" 
+              "Parse output with line-split regex"
+              "Cache health checks for 60s"]
+   :tags #{"git-embed" "integration" "patterns"}
+   :category "research"})
+
+;; 3. Implementation phase - semantic recall finds relevant code
+;; Query "subprocess timeout" finds your git-embed research
+(iface/learning-semantic-recall 
+  :user-123 
+  "subprocess timeout implementation" 
+  :limit 3)
+;; => [{:learning/title "Git-Embed Binary Interface" 
+;;      :semantic/score 12.5
+;;      :semantic/code-files ["src/git_embed.clj"]} ...]
+
+;; 4. Update progress.md with completion status
+;; Link to related learnings via semantic search
+```
+
+### Capturing Research Insights
+
+When doing deep research:
+
+1. **Save raw findings** with code context:
+   ```clojure
+   (iface/learning-save-with-code!
+     :user-id
+     {:title "Pathom 3 Batch Resolvers"
+      :insights ["Use pc/batch-resolver for N+1 queries"
+                 "Batch key must match input key"]
+      :examples [{:code "(pco/defresolver batch-users [...])"}]
+      :tags #{"pathom" "performance" "graphql"}})
+   ```
+
+2. **Synthesize in findings.md** - High-level patterns from multiple sources
+
+3. **Link to code** - Semantic auto-link connects insights to actual implementation
+
+### Querying Across Planning Context
+
+```clojure
+;; Find all learnings related to current task
+;; (searches both keywords and code context)
+(iface/learning-semantic-recall 
+  :user-123 
+  "error handling subprocess git-embed"
+  :limit 10)
+
+;; Get stats on code coverage
+(iface/learning-semantic-user-stats :user-123)
+;; => {:available? true 
+;;     :learnings-with-code 12  ; research linked to code
+;;     :total-code-files 45
+;;     :code-coverage 0.6}        ; 60% have code context
+```
+
+### Best Practices
+
+1. **Start with planning files** for any task >5 tool calls
+2. **Save learnings immediately** when you discover something
+3. **Use semantic recall** before implementing - find prior research
+4. **Update findings.md** with synthesized knowledge
+5. **Let auto-link run** - Code context appears async
+
+### Files
+
+- `src/ouroboros/learning/semantic.clj` - Core semantic module
+- `src/ouroboros/interface/learning.clj` - Interface wrapper
+- `src/ouroboros/interface.clj` - Public API
+
 ## See Also
 
 - `task_plan.md` - Implementation plan
 - `findings.md` - Design decisions
 - `progress.md` - Implementation log
 - `LEARNING.md` - Learning system patterns
+- `.eca/skills/planning/` - Planning skill documentation
