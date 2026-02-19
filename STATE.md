@@ -245,6 +245,7 @@ All P0 features implemented — see [CHANGELOG.md](CHANGELOG.md) for history.
 10. **Context Tab Consolidation** -- ✅ Enhanced Context tab to show both app context (current page/phase) and chat context (message count, summarization status). No `/context` command needed — single source of truth via UI.
 11. **Batch WebSocket Endpoint** -- ✅ Added `wisdom/page-data` batch endpoint. Reduces wisdom page WS requests from 3 → 2 (static batch + ECA streaming). Returns static templates, saas template data, learning categories in one response.
 12. **Metrics Export** -- Prometheus/OpenTelemetry format
+13. **Learning + Embed Gaps Integration** -- ✅ Binary health checks, ✅ Hybrid search fix; remaining: auto index updates, code re-linking, chat command integration
 
 **Architectural Insight (2026-02-09)**: ECA-powered wisdom is now **fully wired end-to-end**. Backend assembles project context, sends to ECA, streams tokens back via WebSocket. Frontend renders progressively with Fulcro render scheduling. The wisdom sidebar in all 4 builders and the wisdom page Quick Tips section now fetch from ECA with static fallback. **WebUX = state/CRUD/interaction, ECA = knowledge/wisdom/guidance.**
 

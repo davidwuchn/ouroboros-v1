@@ -33,4 +33,9 @@
 - Phase 2.1: Git hook integration for auto index updates
 - Phase 4.1: Code re-linking on changes
 
+#### Plan Update: Mark completed gaps in PLAN.md
+- **File:** PLAN.md
+- **Changes:** Added ✅ to Binary health checks and Hybrid search fix
+- **Status:** ✅ Complete
+
 <!-- Δ: State change logged -->

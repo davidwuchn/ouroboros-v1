@@ -1,108 +1,155 @@
-# Task Plan: Code Health Refactor
+# Task Plan: Learning + Embed Gaps Integration
 
-> φ: Phase tracking for P0/P1 work
-
----
-
-## Goal
-
-Reduce god objects, increase test coverage. Target: all files <400 LOC, 60%+ test coverage.
+<!--
+  φ: This is your roadmap. Working memory on disk.
+  WHY: After 50+ tool calls, goals get forgotten. This keeps them fresh.
+  WHEN: Create FIRST. Update after each phase.
+-->
 
 ---
 
-## ⚠️ Discovery: STATE.md Was Outdated
+## Goal (e — Purpose)
 
-| File | STATE.md Claim | Actual | Status |
-|------|---------------|--------|--------|
-| websocket.clj | 1420 LOC | **141 LOC** | ✅ Already split |
-| websocket.cljs | 1704 LOC | **~100 LOC** | ✅ Already split |
-| wisdom.clj | 643 LOC | **643 LOC** | ❌ Needs split |
+Address critical integration gaps between Learning and Embed systems to ensure reliable auto-indexing, health checks, hybrid search, code re-linking, and chat command integration.
+
+---
+
+## Current Phase
+
+**Phase:** Phase 1.2: Health check improvements (version, index validation)
 
 ---
 
 ## Phases
 
-### Phase 1: interface.clj Analysis 🔴 P0 (916 LOC)
-- [x] Analyze interface.clj structure
-- [x] Identify logical groupings (boot, shutdown, re-exports)
-- [x] Decision: Keep as-is — well-designed facade pattern
+<!--
+  Break task into 3-7 logical phases.
+  Each phase should be completable and testable.
+  Update status: pending → in_progress → complete
+-->
 
-**Status**: `complete` ✅ (No action needed — facade is correct pattern)
+### Phase 1: Auto index updates on git commits
 
-### Phase 2: chat_panel.cljs Split 🔴 P0 (1102 LOC)
-- [x] Analyze chat_panel.cljs structure
-- [x] Identify: 17 mutations taking ~420 lines
-- [x] Decision: Keep as-is — well-organized, mutations coupled to local helpers
+<!-- τ: Understand before building -->
 
-**Status**: `complete` ✅ (No action needed — acceptable for complex component)
+- [ ] Implement git hook integration for auto index updates
+- [ ] Ensure index updates trigger on commit/post-commit
+- [ ] Validate index consistency after updates
+- **Status:** `pending`
 
-### Phase 3: wisdom.clj Split 🟡 P1 (643 LOC)
-- [x] Analyze wisdom.clj structure
-- [x] Identify: 300+ lines of static templates
-- [x] Extract templates to `resources/canvas_templates.edn`
-- [x] Update wisdom.clj to load from EDN resource
-- [x] Verify tests pass (99 tests, 406 assertions)
+### Phase 2: Binary health checks
 
-**Status**: `complete` ✅ (643 → 369 LOC, -43%)
+<!-- Δ: Execute and track changes -->
 
-### Phase 4: process_runner.clj Analysis 🟡 P1 (662 LOC)
-- [x] Analyze process_runner.clj structure
-- [x] Identify: Focused tmux process management module
-- [x] Decision: Keep as-is — cohesive, well-documented
+- [x] Add `installed?` function to check git-embed binary existence
+- [x] Add `ensure-installed!` with helpful error messages
+- [x] Add install status caching
+- [x] Validate health check functions
+- **Status:** `complete` ✅ (2026-02-19)
 
-**Status**: `complete` ✅ (No action needed — acceptable for focused module)
+### Phase 3: Hybrid search fix
 
-### Phase 5: Test Coverage Push 🟡 P1
-- [x] Identify untested files (115 source files, 35 test files)
-- [x] Priority areas already have tests (eca_client, analytics, wisdom, query, security)
-- [x] Add process_runner_test.clj for tmux process management
-- [x] Run full test suite: **99 tests, 406 assertions, ALL PASS**
+<!-- Δ: Execute and track changes -->
 
-**Status**: `complete` ✅
+- [x] Fix keyword results being fetched but not used
+- [x] Create keyword-score-map for O(1) lookup
+- [x] Add hybrid bonus for learnings appearing in both semantic and keyword results
+- [x] Update filter to include results with either semantic OR keyword match
+- [x] Set weights: semantic 60%, keyword 30%, hybrid bonus 10%
+- **Status:** `complete` ✅ (2026-02-19)
+
+### Phase 4: Code re-linking on changes
+
+<!-- π: Synthesize findings into structure -->
+
+- [ ] Detect file changes in the codebase
+- [ ] Trigger re-linking of affected learnings
+- [ ] Update semantic index with new links
+- **Status:** `pending`
+
+### Phase 5: Chat command integration
+
+<!-- μ: Direct, no fluff -->
+
+- [ ] Integrate gap-fixing commands into chat interface
+- [ ] Add commands to trigger health checks, re-indexing, etc.
+- [ ] Ensure commands work across all chat platforms (Telegram/Discord/Slack)
+- **Status:** `pending`
+
+### Phase 6: Integration verification
+
+<!-- ∀: Defensive checking -->
+
+- [ ] Verify all gaps are addressed
+- [ ] Run end-to-end tests
+- [ ] Validate system health and performance
+- **Status:** `pending`
 
 ---
 
-## Summary
+## Key Questions
 
-### Completed Work
+<!-- π: Questions to answer during the task -->
 
-| Phase | File | Before | After | Change |
-|-------|------|--------|-------|--------|
-| 1 | interface.clj | 916 LOC | 916 LOC | Keep (facade pattern) |
-| 2 | chat_panel.cljs | 1102 LOC | 1102 LOC | Keep (complex component) |
-| 3 | wisdom.clj | 643 LOC | **369 LOC** | **-274 lines (-43%)** |
-| 4 | process_runner.clj | 662 LOC | 662 LOC | Keep (focused module) |
-| 5 | Test coverage | 35 tests | **36 tests** | +1 test file |
+1. How should git hooks be implemented to avoid performance impact?
+2. What validation is needed for index consistency?
+3. How to efficiently detect file changes for re-linking?
+4. What chat commands are most useful for users?
+5. How to ensure cross-platform compatibility for commands?
 
-### Files Created
-- `resources/canvas_templates.edn` (299 lines) - Externalized template data
-- `test/ouroboros/process_runner_test.clj` - New tests
+---
 
-### Test Results
-- **99 tests, 406 assertions**
-- **0 failures, 0 errors**
-- **ALL TESTS PASSED**
+## Decisions Made
+
+<!-- τ: Record why choices were made -->
+
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Use cached install check for binary health | Avoid repeated PATH lookups, improve performance | 2026-02-19 |
+| Hybrid search weights: 60% semantic, 30% keyword, 10% hybrid bonus | Balances relevance with keyword matching, rewards overlap | 2026-02-19 |
+
+---
+
+## Blockers & Risks
+
+<!-- ∀: What could go wrong? -->
+
+| Risk | Likelihood | Mitigation |
+|------|------------|------------|
+| Git hook may slow down commits | Medium | Use async post-commit hook, background indexing |
+| Binary health check may be platform-specific | Low | Check common install paths, provide clear error messages |
+| Chat command integration may require platform-specific adapters | High | Abstract command layer, test on each platform |
 
 ---
 
 ## Errors Encountered
 
-| Error | Attempt | Resolution |
-|-------|---------|------------|
-| _None yet_ | - | - |
+<!-- ∃: Log all errors to prevent repetition -->
+
+| Error | Attempt | Resolution | Timestamp |
+|-------|---------|------------|-----------|
+| _None yet_ | - | - | - |
 
 ---
 
-## Files Modified
+## Notes
 
-_Track all changes here_
+<!-- Free-form notes, reminders, context -->
+
+- Update phase status as you progress
+- Re-read this plan before major decisions
+- Log ALL errors — they prevent repetition
+- Never repeat a failed action — mutate approach
+- Reference progress.md for detailed session logs
 
 ---
 
-## Success Criteria
+## Completion Checklist
 
-- [ ] websocket.clj <400 LOC (or split into modules)
-- [ ] websocket.cljs <400 LOC (or split into modules)
-- [ ] wisdom.clj <200 LOC
-- [ ] Test coverage ≥60%
-- [ ] All tests pass
+<!-- ∀: Verify before finishing -->
+
+- [ ] All phases marked `complete`
+- [ ] findings.md contains research
+- [ ] progress.md contains session log
+- [ ] No orphaned temporary files
+- [ ] User delivered working solution

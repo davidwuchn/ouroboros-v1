@@ -40,8 +40,8 @@
 3. **Learning Activation** - Flywheel UI, spaced repetition
 4. **Learning + Embed Gaps** - Address critical integration issues:
    - Auto index updates on git commits
-   - Binary health checks
-   - Hybrid search fix
+   - ✅ Binary health checks
+   - ✅ Hybrid search fix
    - Code re-linking on changes
    - Chat command integration
 
