@@ -8,7 +8,7 @@
 ## Quick Links
 
 | Document | Contents |
-|----------|----------|
+| ---------- | ---------- |
 | [Current Status](docs/plan/current-status.md) | Feature table, recent changes |
 | [Priorities](docs/plan/priorities.md) | Next actions, focus areas |
 | [Architecture](docs/plan/architecture.md) | New systems, usage examples |
@@ -19,6 +19,7 @@
 ## Summary
 
 ### ✅ Complete
+
 - ECA Integration (Protocol client, Tool approval, Streaming)
 - Web UX Platform (5 phases)
 - λ(system) Self-Evolution (Telemetry, Maintenance)
@@ -35,6 +36,7 @@
   - Git Tag 0.2 Released
 
 ### 📋 This Month
+
 1. **Wire new architecture** into actual workflow
 2. **Wisdom System** - ✅ Split wisdom.clj (643→369), ✅ Batch endpoint (4→1 WS requests)
 3. **Learning Activation** - Flywheel UI, spaced repetition
@@ -46,6 +48,7 @@
    - Chat command integration
 
 ### 🔮 Future
+
 - Container Isolation
 - Per-Channel Isolation
 - Context Summarization
@@ -55,7 +58,7 @@
 ## Key Metrics
 
 | Metric | Current | Target |
-|--------|---------|--------|
+| -------- | --------- | -------- |
 | wisdom.clj LOC | 369 | <200 |
 | WS requests | 1 | 1 ✅ |
 | Static insights | 100% | <30% |
@@ -65,7 +68,7 @@
 ## Recent Changes
 
 | Date | Change |
-|------|--------|
+| ------ | -------- |
 | 2026-02-19 | **Batch WebSocket endpoint** - wisdom/page-data reduces WS requests 3→2 |
 | 2026-02-19 | **Tag 0.2** - Development Workflow with Four Skills released |
 | 2026-02-19 | Dashboard UX improvements - Interactive workflow, quick actions |

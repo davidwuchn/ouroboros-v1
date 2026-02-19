@@ -28,9 +28,13 @@
 - ✅ Engine running, tools registered
 - ✅ No errors or warnings
 
+#### Phase 2.1: Auto Index Updates Verification
+- **Finding:** git-embed already manages its own git hooks (post-commit, post-merge, post-checkout)
+- **Verification:** `git embed status` shows 514/568 blobs indexed, hooks installed
+- **Status:** ✅ Complete (functionality exists via git-embed's own hooks)
+
 ### Next Steps
 - Phase 1.2: Health check improvements (version, index validation)
-- Phase 2.1: Git hook integration for auto index updates
 - Phase 4.1: Code re-linking on changes
 
 #### Plan Update: Mark completed gaps in PLAN.md

@@ -51,6 +51,22 @@ Critical integration gaps between Learning and Embed systems have been identifie
 ;; Weights: semantic 60%, keyword 30%, hybrid bonus 10%
 ```
 
+### Discovery 3: Auto index updates already working
+
+**What:** git-embed binary has already installed git hooks (post-commit, post-merge, post-checkout) that automatically update the semantic index. Index shows 514/568 blobs indexed.
+
+**Why it matters:** The "Auto index updates on git commits" gap is already addressed - git-embed maintains its own hooks automatically.
+
+**Source:** `.git/hooks/post-commit` hook and `git embed status` command output.
+
+```
+Model:   nomic-embed-text-v1.5
+Indexed: 514 / 568 blobs
+Dims:    768
+Ref:     refs/embed/v1/index
+Hooks:   installed (post-commit, post-merge, post-checkout)
+```
+
 ---
 
 ## Research Log
@@ -60,6 +76,7 @@ Critical integration gaps between Learning and Embed systems have been identifie
 | 2026-02-19 | Code review | Binary health checks implemented | git_embed.clj |
 | 2026-02-19 | Code review | Hybrid search fix implemented | semantic.clj |
 | 2026-02-19 | Plan update | Marked completed gaps in PLAN.md | PLAN.md |
+| 2026-02-19 | Verification | Auto index updates already working via git-embed hooks | .git/hooks/post-commit, git embed status |
 
 ---
 

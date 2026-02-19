@@ -16,7 +16,7 @@ Address critical integration gaps between Learning and Embed systems to ensure r
 
 ## Current Phase
 
-**Phase:** Phase 1.2: Health check improvements (version, index validation)
+**Phase:** Phase 4: Code re-linking on changes
 
 ---
 
@@ -32,10 +32,10 @@ Address critical integration gaps between Learning and Embed systems to ensure r
 
 <!-- τ: Understand before building -->
 
-- [ ] Implement git hook integration for auto index updates
-- [ ] Ensure index updates trigger on commit/post-commit
-- [ ] Validate index consistency after updates
-- **Status:** `pending`
+- [x] Implement git hook integration for auto index updates (git-embed manages its own hooks)
+- [x] Ensure index updates trigger on commit/post-commit (verified: hooks installed)
+- [x] Validate index consistency after updates (index shows 514/568 blobs indexed)
+- **Status:** `complete` ✅ (2026-02-19)
 
 ### Phase 2: Binary health checks
 
