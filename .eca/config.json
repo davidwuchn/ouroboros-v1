@@ -1,0 +1,28 @@
+{
+  "defaultModel": "minimax/minimax-m2.5",
+  "hooks" : {
+    "brepl-validate" : {
+      "type" : "preToolCall",
+      "matcher" : "eca__(write_file|edit_file)",
+      "actions" : [ {
+        "type" : "shell",
+        "shell" : "brepl eca validate"
+      } ]
+    },
+    "brepl-eval" : {
+      "type" : "postToolCall",
+      "matcher" : "eca__(write_file|edit_file)",
+      "actions" : [ {
+        "type" : "shell",
+        "shell" : "brepl eca eval"
+      } ]
+    },
+    "brepl-session-end" : {
+      "type" : "sessionEnd",
+      "actions" : [ {
+        "type" : "shell",
+        "shell" : "brepl eca session-end"
+      } ]
+    }
+  }
+}
