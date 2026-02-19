@@ -52,11 +52,11 @@
 | Phase | Status | Notes |
 |-------|--------|-------|
 | 1.1 | `complete` | Binary validation added: installed?, ensure-installed!, reset-install-check! |
-| 1.2 | `pending` | |
-| 2.1 | `pending` | |
+| 1.2 | `complete` | Added version, index-info, comprehensive-health with recommendations |
+| 2.1 | `complete` | Git hook template created, install/uninstall/status functions added |
 | 2.2 | `pending` | Optional |
 | 3.1 | `complete` | Fixed hybrid search to properly merge keyword + semantic results |
-| 4.1 | `pending` | |
+| 4.1 | `complete` | Added detect-stale-links, batch-relink!, cleanup-stale-links!, auto-relink on update |
 
 ## Errors Encountered
 

@@ -11,6 +11,12 @@
     "shadow-cljs": "^3.3.5"
   },
   "dependencies": {
+    "markdown-it": "14.1.1",
+    "markdown-it-block-image": "0.0.3",
+    "markdown-it-footnote": "3.0.3",
+    "markdown-it-texmath": "1.0.0",
+    "markdown-it-toc-done-right": "4.2.0",
+    "punycode": "2.1.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   }

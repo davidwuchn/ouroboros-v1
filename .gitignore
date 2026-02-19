@@ -50,16 +50,3 @@ Thumbs.db
 ehthumbs.db
 *.pid
 *.socket
-
-# ECA config (local/machine-specific)
-.eca/
-
-# Local live test scripts (require ECA binary + API keys)
-test_eca_live.clj
-
-# Downloaded binaries
-scripts/eca
-*.zip
-
-# ECA-generated analysis outputs
-product-insights*.json
