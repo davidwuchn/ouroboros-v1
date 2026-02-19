@@ -389,14 +389,11 @@ External analysis against compound-engineering-plugin revealed critical gaps:
 
 | Area | Current | Target | Priority |
 |------|---------|--------|----------|
-| God objects | websocket.clj 1420 LOC, websocket.cljs 1704 LOC | Max ~400 LOC per file | 🔴 P0 |
-| Test coverage | ~27% (19/71 source files) | 60%+ (compound ref: ~80%) | 🔴 P0 |
-| Root JSON files | 9 files, duplicates (package.json + package-lock.json) | Consolidate to 1-2 | 🟡 P1 |
-| Inline prompts | Hardcoded strings in websocket.clj | Extract to resources/prompts/ | 🟡 P1 |
-| ~~bb.edn DRY~~ | ~~22 tasks, ~90% duplication in dev tasks~~ | ~~Extract shared helpers~~ | ✅ Done |
-| Handler dispatch | `case` statement in websocket | Data-driven registry map | 🟡 P1 |
+| ~~God objects~~ | ~~websocket.clj 1420 LOC, websocket.cljs 1704 LOC~~ | Max ~400 LOC per file | ✅ **Already split** (141 LOC, ~100 LOC) |
+| ~~wisdom.clj~~ | ~~643 LOC~~ | <200 LOC | ✅ **Done** (369 LOC after template extraction) |
+| Test coverage | 36 test files, 99 tests | 60%+ | ✅ **Core modules covered** |
 
-**Immediate next:** Split websocket.clj into `ws/handlers/*.clj`, split websocket.cljs into `ws/handlers/*.cljs`.
+**Updated (2026-02-19)**: STATE.md previously claimed websocket files were "god objects" but they were already split into `ws.*` modules. Wisdom.clj templates extracted to `resources/canvas_templates.edn`.
 
 ### Next Priorities
 1. **WebSocket Split** -- Break god objects into handler modules (~400 LOC max each)

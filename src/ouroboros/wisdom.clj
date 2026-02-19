@@ -17,6 +17,8 @@
    (wisdom/suggest-next-step :empathy-session-456)
    (wisdom/assemble-context :canvas-id :lean-canvas-789)"
   (:require
+   [clojure.edn :as edn]
+   [clojure.java.io :as io]
    [clojure.string :as str]
    [com.wsscode.pathom3.connect.operation :as pco]
    [ouroboros.learning :as learning]
@@ -27,308 +29,32 @@
 ;; Template Library
 ;; ============================================================================
 
+(def ^:private canvas-templates-resource "canvas_templates.edn")
+
+(def ^:private canvas-templates-cache (atom nil))
+
+(defn- load-canvas-templates!
+  "Load canvas templates from EDN resource file. Caches result."
+  []
+  (or @canvas-templates-cache
+      (reset! canvas-templates-cache
+              (if-let [resource (io/resource canvas-templates-resource)]
+                (edn/read-string (slurp resource))
+                (do
+                  (println "WARNING: canvas_templates.edn not found, using empty map")
+                  {})))))
+
 (def canvas-templates
   "Example templates for different product types.
+   Loaded from resources/canvas_templates.edn on first access.
    These serve as fallback defaults -- ECA generates personalized templates
    based on the user's actual project description via content/generate :templates."
-   {:saas {:name "SaaS Product"
-          :description "Software as a Service business model"
-          :example? true
-          :empathy-map {:persona "Small business owner, 35-50, needs to streamline operations"
-                        :think-feel "Worried about costs, wants reliable solution"
-                        :hear "Other businesses using similar tools"
-                        :see "Complex enterprise software, simple alternatives"
-                        :say-do "Says 'I need something simple', trials multiple tools"
-                        :pains-gains "Pains: Setup complexity, hidden costs. Gains: Time saved, peace of mind"}
-          :value-proposition {:customer-job "Manage daily operations, track inventory, handle invoicing, and coordinate team tasks across the business"
-                              :pains "Wastes hours on manual data entry; existing tools are too complex and expensive; data lives in spreadsheets that break"
-                              :gains "Saves 10+ hours per week; single dashboard for everything; confidence that nothing falls through the cracks"
-                              :products "Cloud-based operations platform with inventory, invoicing, and task management modules"
-                              :pain-relievers "One-click import from spreadsheets; guided setup wizard; transparent flat-rate pricing with no hidden fees"
-                              :gain-creators "Real-time dashboard with key metrics; automated reminders and alerts; mobile app for on-the-go management"}
-          :mvp-planning {:core-problem "Small business owners waste 10+ hours/week on manual operations across disconnected spreadsheets and tools"
-                         :target-user "Non-technical small business owner (10-50 employees) currently using spreadsheets for operations"
-                         :success-metric "50% reduction in time spent on admin tasks within first month of use"
-                         :must-have-features "Dashboard overview; inventory tracking; basic invoicing; CSV import from existing spreadsheets"
-                         :nice-to-have "Team collaboration; mobile app; automated reports; integrations with QuickBooks"
-                         :out-of-scope "Advanced analytics; AI predictions; multi-currency support; custom workflows"
-                         :timeline "Week 1-2: Dashboard + CSV import. Week 3-4: Inventory module. Week 5-6: Invoicing. Week 7-8: Beta testing with 10 users"
-                         :risks "Users may not migrate from spreadsheets; onboarding friction could cause drop-off; pricing sensitivity in SMB market"}
-          :lean-canvas {:problems "Manual processes, data silos, lack of insights"
-                        :solution "Cloud-based automation platform"
-                        :uvp "Setup in minutes, not months"
-                        :unfair-advantage "Proprietary AI for workflow optimization"
-                        :customer-segments "SMBs 10-100 employees"
-                        :key-metrics "MRR, Churn, NPS"
-                        :channels "Content marketing, partnerships"
-                        :cost-structure "Engineering, infrastructure, support"
-                        :revenue-streams "Monthly subscriptions, enterprise tier"}}
-   
-   :marketplace {:name "Two-Sided Marketplace"
-                 :description "Platform connecting buyers and sellers"
-                 :empathy-map {:persona "Side hustler, 25-35, looking for extra income"
-                               :think-feel "Excited but overwhelmed by competition"
-                               :hear "Success stories, platform fees complaints"
-                               :see "Established marketplaces with high fees"
-                               :say-do "Posts on social media, researches alternatives"
-                               :pains-gains "Pains: High fees, lack of support. Gains: Income, flexibility"}
-                 :value-proposition {:customer-job "Sell handmade or curated products online, reach new customers, and manage orders without technical skills"
-                                     :pains "Existing platforms take 15-30% fees; hard to stand out in crowded marketplaces; no direct customer relationships"
-                                     :gains "Keep most of earnings; build a recognizable brand; loyal repeat customers who come back directly"
-                                     :products "Low-fee marketplace with built-in seller tools, storefront customization, and direct messaging"
-                                     :pain-relievers "Only 5% transaction fee; seller analytics dashboard; direct customer messaging with no middleman"
-                                     :gain-creators "Custom storefront branding; featured seller program; community events that drive traffic to sellers"}
-                 :mvp-planning {:core-problem "Independent sellers lose 15-30% of revenue to platform fees and have no way to build direct customer relationships"
-                                :target-user "Side hustler or small creator selling handmade/curated goods, currently on Etsy or similar, earning $500-5000/month"
-                                :success-metric "100 active sellers listing products within 3 months; average seller saves 15% vs previous platform"
-                                :must-have-features "Seller onboarding and listing creation; buyer search and browse; secure checkout with Stripe; order management"
-                                :nice-to-have "Seller analytics; custom storefronts; review system; seller-to-buyer messaging"
-                                :out-of-scope "Shipping logistics; international payments; wholesale/B2B features; mobile native apps"
-                                :timeline "Week 1-3: Seller onboarding + listings. Week 4-6: Buyer browse + search. Week 7-8: Checkout + orders. Week 9-10: Beta launch with 20 sellers"
-                                :risks "Chicken-and-egg: need sellers before buyers come; trust and safety concerns; competing with established platforms on discoverability"}
-                 :lean-canvas {:problems "High platform fees, poor seller support, limited reach"
-                               :solution "Low-fee marketplace with seller tools"
-                               :uvp "Keep 95% of your earnings"
-                               :unfair-advantage "Community-driven curation"
-                               :customer-segments "Side hustlers, small creators"
-                               :key-metrics "GMV, take rate, seller retention"
-                               :channels "Social media, creator partnerships"
-                               :cost-structure "Platform development, marketing"
-                               :revenue-streams "Transaction fees, premium features"}}
-   
-   :mobile-app {:name "Consumer Mobile App"
-                :description "B2C mobile application"
-                :empathy-map {:persona "Young professional, 22-30, values convenience"
-                              :think-feel "Wants quick wins, fears missing out"
-                              :hear "Friend recommendations, app store reviews"
-                              :see "Trending apps, influencers using products"
-                              :say-do "Downloads quickly, abandons if not immediate value"
-                              :pains-gains "Pains: Slow onboarding, too many notifications. Gains: Convenience, social status"}
-                :value-proposition {:customer-job "Stay organized, track personal goals, and build healthy habits while juggling a busy professional life"
-                                    :pains "Existing apps are bloated with features; too many notifications cause app fatigue; hard to stay consistent"
-                                    :gains "Feels in control of daily routine; visible progress builds motivation; friends notice positive changes"
-                                    :products "Minimalist mobile app for daily habit tracking with social accountability and streak rewards"
-                                    :pain-relievers "Clean single-screen UI with no clutter; smart notifications only when needed; 30-second daily check-in"
-                                    :gain-creators "Visual streak calendar; shareable milestones; friend challenges that make habits fun"}
-                :mvp-planning {:core-problem "Young professionals want to build better habits but abandon apps within a week due to complexity and notification fatigue"
-                               :target-user "Urban professional aged 22-30, owns a smartphone, has tried and abandoned 2+ habit/productivity apps"
-                               :success-metric "40% D7 retention rate; average user completes daily check-in 5 out of 7 days"
-                               :must-have-features "Habit creation (up to 5 habits); daily check-in screen; streak tracking; push notification (1 per day max)"
-                               :nice-to-have "Friend challenges; shareable milestones; habit templates; dark mode; Apple Health integration"
-                               :out-of-scope "Web version; team/enterprise features; AI coaching; in-app purchases; detailed analytics"
-                               :timeline "Week 1-2: Core habit CRUD + check-in flow. Week 3-4: Streak tracking + notifications. Week 5-6: Polish + TestFlight beta. Week 7-8: Launch with 50 beta users"
-                               :risks "Retention cliff after novelty wears off; App Store approval delays; hard to differentiate in crowded habit-app space"}
-                :lean-canvas {:problems "Inconvenient existing solutions, lack of mobile-first options"
-                              :solution "Mobile-native experience"
-                              :uvp "Get started in 30 seconds"
-                              :unfair-advantage "Viral sharing mechanics"
-                              :customer-segments "Urban professionals 22-35"
-                              :key-metrics "DAU, retention D7, viral coefficient"
-                              :channels "App store, social sharing, influencers"
-                              :cost-structure "Development, user acquisition"
-                              :revenue-streams "In-app purchases, subscriptions, ads"}}
-   
-   :developer-tool {:name "Developer Tool"
-                   :description "Tool for software developers"
-                   :empathy-map {:persona "Software engineer, 25-40, values efficiency"
-                                 :think-feel "Frustrated with slow workflows, wants to optimize"
-                                 :hear "Hacker News, Twitter/X, tech podcasts"
-                                 :see "New tools daily, hype cycles"
-                                 :say-do "Tries new tools, contributes to OSS, writes blog posts"
-                                 :pains-gains "Pains: Context switching, configuration hell. Gains: Flow state, productivity"}
-                   :value-proposition {:customer-job "Write, test, and deploy code efficiently; maintain codebases; collaborate with team on pull requests and code reviews"
-                                       :pains "Constant context switching between 5+ tools; hours lost to configuration and environment setup; broken CI pipelines block deployment"
-                                       :gains "Stays in flow state for long stretches; ships features faster than peers; codebase stays clean and maintainable"
-                                       :products "Unified CLI tool that combines linting, testing, building, and deploying in one consistent interface"
-                                       :pain-relievers "Single config file replaces 5+ tool configs; auto-detects project type; works offline with instant feedback"
-                                       :gain-creators "Built-in best practices as defaults; shareable team presets; one-command deployment with rollback"}
-                   :mvp-planning {:core-problem "Developers waste 30+ minutes daily context-switching between fragmented build, test, and deploy tools"
-                                  :target-user "Full-stack developer working on 2-3 projects, comfortable with CLI, frustrated by toolchain complexity"
-                                  :success-metric "500 GitHub stars in first month; 50% of beta users use it daily after 2 weeks"
-                                  :must-have-features "Project auto-detection; unified test runner; build command; basic deploy to one cloud provider"
-                                  :nice-to-have "Plugin system; team config sharing; CI integration; VS Code extension; performance profiling"
-                                  :out-of-scope "GUI/desktop app; project management features; code editing; hosting infrastructure"
-                                  :timeline "Week 1-2: Project detection + test runner. Week 3-4: Build system + config. Week 5-6: Deploy command. Week 7-8: Open source launch + docs"
-                                  :risks "Developers are skeptical of 'yet another tool'; hard to support every language/framework; adoption requires changing existing workflows"}
-                   :lean-canvas {:problems "Slow development cycles, tool fragmentation"
-                                  :solution "Unified developer experience"
-                                  :uvp "Ship 10x faster"
-                                  :unfair-advantage "Open source community"
-                                  :customer-segments "Individual developers, engineering teams"
-                                  :key-metrics "Active users, GitHub stars, CLI installs"
-                                  :channels "GitHub, Hacker News, conferences"
-                                  :cost-structure "Engineering, cloud infrastructure"
-                                  :revenue-streams "Enterprise licenses, support, cloud hosting"}}
-
-   :ecommerce {:name "E-Commerce / D2C"
-               :description "Direct-to-consumer brand business model"
-               :example? true
-               :empathy-map {:persona "Health-conscious parent, 30-45, values quality over price for family products"
-                             :think-feel "Overwhelmed by choices, skeptical of mass-market claims, wants trusted brands"
-                             :hear "Friends recommending clean-label products, influencer reviews, parenting podcasts"
-                             :see "Supermarket aisles full of questionable ingredients, niche D2C brands on Instagram"
-                             :say-do "Reads ingredient labels obsessively, follows wellness accounts, buys samples before committing"
-                             :pains-gains "Pains: Hard to verify claims, shipping costs, subscription fatigue. Gains: Peace of mind, family health, convenience"}
-               :value-proposition {:customer-job "Find and purchase safe, high-quality everyday products for the family without spending hours researching ingredients"
-                                   :pains "Cannot trust mass-market labels; researching every product is exhausting; shipping costs eat into savings"
-                                   :gains "Confidence in every product ordered; saves hours of research per week; family notices the quality difference"
-                                   :products "Curated D2C store of vetted family-safe products with transparent sourcing and ingredient reports"
-                                   :pain-relievers "Third-party lab testing on every product; free shipping over $50; no-questions-asked returns"
-                                   :gain-creators "Ingredient transparency scores; personalized product bundles; loyalty rewards program"}
-               :mvp-planning {:core-problem "Parents waste hours researching product safety and still cannot trust what they find on mass-market shelves"
-                              :target-user "Health-conscious parent (30-45) with household income >$75K, currently shopping at Whole Foods or similar"
-                              :success-metric "500 orders in first 3 months; 30% repeat purchase rate; average order value >$60"
-                              :must-have-features "Product catalog with ingredient transparency; shopping cart and Stripe checkout; order tracking; customer accounts"
-                              :nice-to-have "Subscription auto-ship; product quizzes; referral program; mobile app"
-                              :out-of-scope "International shipping; wholesale/B2B; white-label products; marketplace for third-party sellers"
-                              :timeline "Week 1-3: Catalog + product pages. Week 4-5: Cart + checkout. Week 6-7: Accounts + order tracking. Week 8: Launch with 20 SKUs"
-                              :risks "Inventory management complexity; shipping cost margins; competing with Amazon on convenience; supplier reliability"}
-               :lean-canvas {:problems "Distrust of mass-market products, research fatigue, ingredient opacity"
-                             :solution "Curated D2C store with transparent sourcing and lab testing"
-                             :uvp "Every product vetted so you don't have to be"
-                             :unfair-advantage "Proprietary ingredient scoring system and supplier relationships"
-                             :customer-segments "Health-conscious parents, clean-label enthusiasts"
-                             :key-metrics "AOV, repeat purchase rate, CAC, LTV"
-                             :channels "Instagram, parenting blogs, influencer partnerships, SEO"
-                             :cost-structure "Inventory, fulfillment, marketing, lab testing"
-                             :revenue-streams "Product sales, subscription bundles, premium membership"}}
-
-   :subscription-box {:name "Subscription Box"
-                      :description "Curated recurring delivery business model"
-                      :example? true
-                      :empathy-map {:persona "Hobbyist crafter, 25-40, loves discovering new materials and techniques"
-                                    :think-feel "Excited by creative possibilities but overwhelmed by choices at craft stores"
-                                    :hear "Unboxing videos, craft community recommendations, Pinterest inspiration"
-                                    :see "Endless supplies at stores but no guidance; subscription boxes for food and beauty"
-                                    :say-do "Watches tutorials, buys supplies in bulk then uses 20%, shares projects on social media"
-                                    :pains-gains "Pains: Wasted supplies, decision paralysis, stale routine. Gains: Creative fulfillment, community, new skills"}
-                      :value-proposition {:customer-job "Explore new creative techniques and materials each month without the hassle of selecting and sourcing supplies"
-                                          :pains "Decision paralysis at craft stores; buys supplies that go unused; stuck in same techniques and never grows"
-                                          :gains "Monthly creative surprise; learns a new technique each box; zero waste since everything is project-sized"
-                                          :products "Monthly curated craft box with project-sized materials, step-by-step guide, and video tutorial"
-                                          :pain-relievers "Pre-portioned materials eliminate waste; curated by expert crafters; difficulty levels match skill"
-                                          :gain-creators "Exclusive materials not in stores; online community to share results; skill progression tracking"}
-                      :mvp-planning {:core-problem "Hobbyist crafters waste money on unused supplies and get stuck in creative ruts without guidance"
-                                     :target-user "Hobbyist crafter (25-40) who spends $50-150/month on supplies and follows 5+ craft accounts on social media"
-                                     :success-metric "200 subscribers within 3 months; churn rate below 10%/month; NPS above 50"
-                                     :must-have-features "Subscription signup + Stripe billing; box configuration (skill level); order management; tracking notifications"
-                                     :nice-to-have "Community gallery; video tutorials; gift subscriptions; add-on marketplace"
-                                     :out-of-scope "International shipping; custom boxes; live classes; physical retail"
-                                     :timeline "Week 1-2: Landing page + signup flow. Week 3-4: Billing + box config. Week 5-6: Fulfillment pipeline. Week 7-8: Ship first 50 boxes"
-                                     :risks "Supplier lead times; shipping damage; churn after novelty fades; inventory forecasting for variable box contents"}
-                      :lean-canvas {:problems "Supply waste, creative stagnation, decision paralysis at craft stores"
-                                    :solution "Curated monthly craft box with guided projects"
-                                    :uvp "A new creative adventure delivered to your door every month"
-                                    :unfair-advantage "Exclusive supplier partnerships and expert curation team"
-                                    :customer-segments "Hobbyist crafters, DIY enthusiasts, gift buyers"
-                                    :key-metrics "MRR, churn rate, NPS, box cost ratio"
-                                    :channels "Instagram, YouTube unboxings, craft forums, Pinterest"
-                                    :cost-structure "Materials sourcing, packaging, fulfillment, content creation"
-                                    :revenue-streams "Monthly subscriptions, gift boxes, add-on sales"}}
-
-   :edtech {:name "EdTech Platform"
-            :description "Online education and courses business model"
-            :example? true
-            :empathy-map {:persona "Career changer, 28-40, wants to break into tech without a CS degree"
-                          :think-feel "Anxious about career switch, motivated but unsure where to start, imposter syndrome"
-                          :hear "Success stories of bootcamp grads, conflicting advice on what to learn, 'tech layoffs' headlines"
-                          :see "Expensive bootcamps ($15K+), free but unstructured YouTube tutorials, LinkedIn profiles of successful switchers"
-                          :say-do "Starts multiple free courses, finishes none; bookmarks resources; asks Reddit for advice"
-                          :pains-gains "Pains: Information overload, no clear path, expensive options. Gains: Higher salary, meaningful work, career security"}
-            :value-proposition {:customer-job "Transition from current career into a tech role within 6 months with a structured, affordable learning path"
-                                :pains "Bootcamps cost $15K+ with no guarantee; free resources are scattered and overwhelming; no way to prove skills to employers"
-                                :gains "Clear week-by-week curriculum; portfolio of real projects; direct connection to hiring partners"
-                                :products "Structured online platform with cohort-based courses, project-based portfolio building, and employer network"
-                                :pain-relievers "Income-share pricing (pay after hired); structured curriculum eliminates decision fatigue; mentor office hours"
-                                :gain-creators "Portfolio projects reviewed by industry mentors; mock interviews with hiring managers; alumni Slack community"}
-            :mvp-planning {:core-problem "Career changers waste months on scattered free resources or go into debt with expensive bootcamps, with no guaranteed outcome"
-                           :target-user "Non-tech professional (28-40) with stable income, considering career switch to software/data/design role"
-                           :success-metric "100 enrolled students in first cohort; 70% completion rate; 50% job placement within 3 months of graduation"
-                           :must-have-features "Course content delivery (video + text); progress tracking; project submission and review; student dashboard"
-                           :nice-to-have "Cohort discussions; mentor matching; employer dashboard; certificate generation"
-                           :out-of-scope "Mobile app; live lectures; degree programs; corporate training; AI tutoring"
-                           :timeline "Week 1-3: Content platform + first course module. Week 4-5: Progress tracking + submissions. Week 6-7: Student dashboard. Week 8: Beta cohort launch"
-                           :risks "Content quality must compete with free alternatives; completion rates historically low for online courses; job placement depends on employer partnerships"}
-            :lean-canvas {:problems "Scattered learning resources, expensive bootcamps, no clear career path"
-                          :solution "Structured cohort-based platform with portfolio building and employer network"
-                          :uvp "Land your first tech job in 6 months or don't pay"
-                          :unfair-advantage "Employer hiring partnerships and income-share model"
-                          :customer-segments "Career changers, upskilling professionals, recent graduates"
-                          :key-metrics "Enrollment, completion rate, job placement rate, NPS"
-                          :channels "LinkedIn, career forums, SEO for 'career change' keywords, partnerships"
-                          :cost-structure "Content creation, mentors, platform hosting, employer relations"
-                          :revenue-streams "Income-share agreements, upfront tuition, corporate training licenses"}}
-
-   :agency {:name "Agency / Consulting"
-            :description "Professional services business model"
-            :example? true
-            :empathy-map {:persona "Startup founder, 30-45, needs expertise they cannot hire full-time yet"
-                          :think-feel "Stretched thin wearing too many hats, nervous about outsourcing quality, wants a trusted partner"
-                          :hear "Horror stories of failed agency projects, recommendations from founder peers, 'you get what you pay for'"
-                          :see "Agencies with flashy portfolios but unclear pricing, freelancers who ghost, big consultancies out of budget"
-                          :say-do "Asks for referrals, checks Clutch reviews, starts with a small project to test fit"
-                          :pains-gains "Pains: Unpredictable costs, communication gaps, misaligned incentives. Gains: Expert execution, speed to market, focus on core business"}
-            :value-proposition {:customer-job "Get expert design and development work done reliably so the founder can focus on product vision and fundraising"
-                                :pains "Agencies overcharge and underdeliver; freelancers are unreliable; hiring full-time is too slow and expensive at this stage"
-                                :gains "Predictable monthly cost; work ships on schedule; feels like having a senior team without the overhead"
-                                :products "Embedded product team (design + engineering) on a fixed monthly retainer with transparent weekly deliverables"
-                                :pain-relievers "Fixed monthly pricing with no surprises; weekly demo calls; shared project board with full visibility"
-                                :gain-creators "Dedicated team that learns the business deeply; strategic input beyond just execution; scales up or down flexibly"}
-            :mvp-planning {:core-problem "Early-stage founders need expert design/dev work but cannot afford or attract full-time senior talent"
-                           :target-user "Funded startup founder (seed to Series A) with $10K-30K/month budget for external product work"
-                           :success-metric "5 retainer clients within 6 months; 80% client retention at 6 months; average engagement length >4 months"
-                           :must-have-features "Service offerings page; case studies; intake form; project management dashboard; invoicing"
-                           :nice-to-have "Client portal; resource library; automated reporting; referral program"
-                           :out-of-scope "Productized SaaS; staffing/recruiting; training courses; offshore development"
-                           :timeline "Week 1-2: Website + case studies. Week 3-4: Intake + onboarding flow. Week 5-6: First 3 clients. Week 7-8: Refine delivery process"
-                           :risks "Founder availability bottleneck; scope creep on retainers; client concentration risk; talent retention for delivery team"}
-            :lean-canvas {:problems "Unreliable freelancers, overpriced agencies, slow full-time hiring"
-                          :solution "Embedded product team on fixed monthly retainer"
-                          :uvp "A senior product team without the hiring headache"
-                          :unfair-advantage "Deep startup ecosystem relationships and repeatable delivery playbook"
-                          :customer-segments "Seed to Series A startups, funded solo founders"
-                          :key-metrics "MRR, client retention, NPS, utilization rate"
-                          :channels "Founder referrals, VC partnerships, LinkedIn, startup events"
-                          :cost-structure "Talent (designers + engineers), tools, business development"
-                          :revenue-streams "Monthly retainers, project-based engagements, advisory fees"}}
-
-   :content-platform {:name "Content Platform"
-                      :description "Creator-driven media platform business model"
-                      :example? true
-                      :empathy-map {:persona "Independent creator, 22-35, building audience across multiple platforms"
-                                    :think-feel "Excited about creating but exhausted by platform algorithms, fears losing audience overnight"
-                                    :hear "Creator burnout stories, 'own your audience' advice, new platform launches weekly"
-                                    :see "YouTube/TikTok algorithm changes killing reach, Patreon/Substack taking cuts, fans asking 'where else can I follow you'"
-                                    :say-do "Posts daily across 3+ platforms, experiments with new formats, dreams of going full-time"
-                                    :pains-gains "Pains: Algorithm dependency, fragmented audience, burnout. Gains: Creative freedom, direct fan relationships, sustainable income"}
-                      :value-proposition {:customer-job "Build a sustainable creative career by owning the audience relationship and monetizing content directly"
-                                          :pains "Platform algorithms control reach unpredictably; audience is scattered across 5+ platforms; takes a 30% cut of earnings"
-                                          :gains "Direct relationship with every fan; predictable monthly income; creative control without algorithm pressure"
-                                          :products "All-in-one creator platform with content hosting, membership tiers, community, and direct payments"
-                                          :pain-relievers "One link for all content; only 5% platform fee; email list ownership; no algorithm manipulation"
-                                          :gain-creators "Built-in membership tiers; community features that increase retention; analytics showing what content drives revenue"}
-                      :mvp-planning {:core-problem "Independent creators cannot build sustainable businesses because they do not own their audience and platforms take excessive cuts"
-                                     :target-user "Creator with 1K-50K followers across platforms, earning $500-5000/month, wanting to go full-time"
-                                     :success-metric "100 active creators onboarded; 50% have at least 10 paying members; average creator earns $500+/month on platform"
-                                     :must-have-features "Creator profile pages; content posting (text, video, audio); membership tiers with Stripe; fan dashboard"
-                                     :nice-to-have "Community forums; live streaming; analytics dashboard; custom domains; mobile app"
-                                     :out-of-scope "Video production tools; ad network; merchandise fulfillment; talent management"
-                                     :timeline "Week 1-3: Creator profiles + content posting. Week 4-5: Membership tiers + payments. Week 6-7: Fan experience. Week 8: Beta launch with 20 creators"
-                                     :risks "Chicken-and-egg: creators need fans, fans need creators; competing with established platforms on features; content moderation complexity"}
-                      :lean-canvas {:problems "Algorithm dependency, audience fragmentation, excessive platform fees"
-                                    :solution "All-in-one creator platform with direct payments and audience ownership"
-                                    :uvp "Own your audience, keep 95% of your earnings"
-                                    :unfair-advantage "Creator-first community and migration tools from existing platforms"
-                                    :customer-segments "Independent creators, podcasters, writers, educators"
-                                    :key-metrics "Active creators, paying members per creator, GMV, creator retention"
-                                    :channels "Creator referrals, Twitter/YouTube, creator conferences, SEO"
-                                    :cost-structure "Platform hosting, video transcoding, payments processing, support"
-                                    :revenue-streams "5% transaction fee, premium creator tools, promoted discovery"}}})
+  (delay (load-canvas-templates!)))
 
 (defn get-template
   "Get a template by key"
   [template-key]
-  (get canvas-templates template-key))
+  (get @canvas-templates template-key))
 
 (defn list-templates
   "List all available templates with metadata"
@@ -337,7 +63,7 @@
          {:template/key k
           :template/name (:name v)
           :template/description (:description v)})
-       canvas-templates))
+       @canvas-templates))
 
 (defn apply-template
   "Apply a template to initialize a canvas session"
