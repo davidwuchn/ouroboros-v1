@@ -36,7 +36,7 @@
 
 ### 📋 This Month
 1. **Wire new architecture** into actual workflow
-2. **Wisdom System** - ✅ Split wisdom.clj (643→369), ⚒ Batch endpoint (3→2 WS requests)
+2. **Wisdom System** - ✅ Split wisdom.clj (643→369), ✅ Batch endpoint (4→1 WS requests)
 3. **Learning Activation** - Flywheel UI, spaced repetition
 4. **Learning + Embed Gaps** - Address critical integration issues:
    - Auto index updates on git commits
@@ -57,7 +57,7 @@
 | Metric | Current | Target |
 |--------|---------|--------|
 | wisdom.clj LOC | 369 | <200 |
-| WS requests | 2 | 1 |
+| WS requests | 1 | 1 ✅ |
 | Static insights | 100% | <30% |
 
 ---

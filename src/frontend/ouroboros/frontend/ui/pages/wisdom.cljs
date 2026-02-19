@@ -57,13 +57,7 @@
                               state (when state-atom @state-atom)
                               ws-project (get state :workspace/project)
                               project-id (:project/id ws-project)]
-                          ;; Request ECA-generated templates if not loaded
-                          (when (and state
-                                     (ws/connected?)
-                                     (not (get-in state [:content/generated :templates]))
-                                     (not (get-in state [:content/loading? :templates])))
-                            (ws/request-content! :templates))
-                          ;; Request all wisdom page data in batch
+                          ;; Request all wisdom page data in batch (includes templates)
                           (when (and state
                                      (ws/connected?)
                                      project-id

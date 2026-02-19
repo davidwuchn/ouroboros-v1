@@ -211,14 +211,24 @@
    Replaces separate calls for templates, template data, and categories."
   [project-id]
   (when-let [state-atom @state/app-state-atom]
-    (swap! state-atom assoc :wisdom/page-data-loading? true))
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc :wisdom/page-data-loading? true)
+                 (assoc-in [:content/loading? :templates] true)
+                 (assoc :learning/categories-loading? true)))))
   (conn/send! {:type "wisdom/page-data"
                :project-id project-id})
   (js/setTimeout
    (fn []
      (when-let [state-atom @state/app-state-atom]
        (when (get @state-atom :wisdom/page-data-loading?)
-         (swap! state-atom assoc :wisdom/page-data-loading? false)
+         (swap! state-atom
+                (fn [s]
+                  (-> s
+                      (assoc :wisdom/page-data-loading? false)
+                      (assoc-in [:content/loading? :templates] false)
+                      (assoc :learning/categories-loading? false))))
          (state/schedule-render!))))
    20000))
 

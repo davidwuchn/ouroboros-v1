@@ -2,24 +2,62 @@
   "Wisdom page batch data handler.
    Returns all data needed for the wisdom page in one response.
    
-   Replaces 3 separate WebSocket requests:
-   1. content/generate :templates (static template descriptions)
+   Replaces 4 separate WebSocket requests:
+   1. content/generate :templates (ECA-generated template descriptions)
    2. wisdom/template :saas (default template data)
    3. learning/categories (learning categories with counts)
    
-   Note: ECA-generated templates are not included in batch (they stream).
-   Frontend can request them separately if needed.
+   Now includes ECA-generated templates synchronously (no streaming).
+   Achieves WS requests: 4 → 1 (full batch).
    
    Usage:
    Frontend sends: {:type \"wisdom/page-data\", :project-id \"...\"}
    Backend responds with combined data."
   (:require
    [clojure.string :as str]
+   [ouroboros.eca-client :as eca]
    [ouroboros.learning :as learning]
    [ouroboros.telemetry :as telemetry]
    [ouroboros.wisdom :as wisdom]
    [ouroboros.ws.connections :as conn]
-   [ouroboros.ws.context :as ctx]))
+   [ouroboros.ws.context :as ctx]
+   [ouroboros.ws.prompt-loader :as pl]))
+
+;; ============================================================================
+;; Synchronous ECA Template Generation
+;; ============================================================================
+
+(defn- generate-eca-templates-sync
+  "Generate ECA templates synchronously with timeout.
+   Returns {:templates <vector> :source :eca} on success,
+   nil if ECA fails or times out."
+  [user-id project-id]
+  (when (eca/alive?)
+    (try
+      (let [context-str (ctx/assemble-project-context user-id project-id nil)
+            system-prompt (pl/get-prompt :content :templates (pl/default-content-prompt))
+            prompt (str system-prompt "\n\n---\n\n" context-str)
+            result (eca/chat-prompt prompt {:wait? true :timeout-ms 30000})]
+        
+        (if (= :success (:status result))
+          (let [content (:content result)]
+            (try
+              ;; ECA should return EDN vector of template maps
+              {:templates (read-string content) :source :eca}
+              (catch Exception e
+                ;; If not valid EDN, wrap as generated text
+                (println "WARNING: ECA templates not valid EDN:" (subs (str content) 0 100))
+                {:templates [{:template/key :generated
+                              :template/name "AI-Generated Templates"
+                              :template/description content}] 
+                 :source :eca-text})))
+          ;; ECA returned error
+          (do
+            (println "ECA template generation failed:" (:error result))
+            nil)))
+      (catch Exception e
+        (println "ECA sync template generation error:" (.getMessage e))
+        nil))))
 
 ;; ============================================================================
 ;; Combined Data Computation
@@ -51,7 +89,8 @@
      :total-insights (:total-insights patterns 0)}))
 
 (defn handle-wisdom-page-data!
-  "Handle wisdom/page-data request - returns all wisdom page data in one response."
+  "Handle wisdom/page-data request - returns all wisdom page data in one response.
+   Includes ECA-generated templates synchronously when ECA is alive."
   [client-id {:keys [project-id]}]
   (let [user-id (ctx/current-user-id)
         start-time (System/currentTimeMillis)]
@@ -62,17 +101,20 @@
                       :user-id user-id})
     
     (try
-      ;; Compute data
-      (let [categories-result (compute-learning-categories user-id)
-            ;; Static templates (same as wisdom/list-templates)
-            static-templates (vec (wisdom/list-templates))
+      ;; Compute data in parallel
+      (let [categories-future (future (compute-learning-categories user-id))
+            ;; Try ECA templates first, fallback to static
+            templates-result (or (generate-eca-templates-sync user-id project-id)
+                                 {:templates (vec (wisdom/list-templates))
+                                  :source :static})
+            categories-result @categories-future
             ;; Template data for default (saas)
             template-data (wisdom/get-template :saas)]
         
         (conn/send-to! client-id
           {:type :wisdom/page-data
-           :templates static-templates
-           :templates-source :static
+           :templates (:templates templates-result)
+           :templates-source (:source templates-result)
            :template-data template-data
            :learning-categories (:categories categories-result)
            :total-insights (:total-insights categories-result)
@@ -81,6 +123,7 @@
         (telemetry/emit! {:event :ws/wisdom-page-data-success
                           :client-id client-id
                           :duration (- (System/currentTimeMillis) start-time)
+                          :templates-source (:source templates-result)
                           :categories-count (count (:categories categories-result))}))
       
       (catch Exception e
@@ -95,6 +138,9 @@
 (comment
   ;; Test the handler
   (handle-wisdom-page-data! "test-client" {:project-id "test-project"})
+  
+  ;; Test ECA template generation
+  (generate-eca-templates-sync "test-user" "test-project")
   
   ;; Check template data
   (wisdom/get-template :saas)
