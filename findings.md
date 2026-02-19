@@ -67,6 +67,30 @@ Ref:     refs/embed/v1/index
 Hooks:   installed (post-commit, post-merge, post-checkout)
 ```
 
+### Discovery 4: Code re-linking functionality exists
+
+**What:** Semantic search module already has comprehensive re-linking functionality: `auto-link-code!`, `batch-relink!`, `detect-stale-links`, `cleanup-stale-links!`. Chat command `/relink-all` triggers batch re-linking.
+
+**Why it matters:** Core functionality for "Code re-linking on changes" gap already implemented. Missing automatic triggering (not scheduled/hooked).
+
+**Source:** `src/ouroboros/learning/semantic.clj` and `src/ouroboros/chat/commands.clj`.
+
+```
+;; Key functions already implemented:
+(auto-link-code! learning-id)          ; Link single learning to code
+(batch-relink! user-id)                ; Re-link all learnings for user  
+(detect-stale-links user-id)           ; Find learnings with broken file links
+(cleanup-stale-links! user-id)         ; Remove stale links
+```
+
+### Discovery 5: Chat command integration partially exists
+
+**What:** Chat commands already exist for semantic search: `/relink-all`, `/stale-links`, `/semantic-search`, `/semantic-stats`. Missing: health check commands, auto-relink enable/disable.
+
+**Why it matters:** "Chat command integration" gap partially addressed. Need comprehensive command coverage for all gaps.
+
+**Source:** `src/ouroboros/chat/commands.clj` command handlers.
+
 ---
 
 ## Research Log
@@ -77,6 +101,8 @@ Hooks:   installed (post-commit, post-merge, post-checkout)
 | 2026-02-19 | Code review | Hybrid search fix implemented | semantic.clj |
 | 2026-02-19 | Plan update | Marked completed gaps in PLAN.md | PLAN.md |
 | 2026-02-19 | Verification | Auto index updates already working via git-embed hooks | .git/hooks/post-commit, git embed status |
+| 2026-02-19 | Code review | Code re-linking functionality exists (batch-relink!, detect-stale-links) | semantic.clj, commands.clj |
+| 2026-02-19 | Code review | Chat commands partially implemented (/relink-all, /stale-links, /semantic-stats) | commands.clj |
 
 ---
 

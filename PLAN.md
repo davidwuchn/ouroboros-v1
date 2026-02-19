@@ -44,8 +44,8 @@
    - Auto index updates on git commits
    - ✅ Binary health checks
    - ✅ Hybrid search fix
-   - Code re-linking on changes
-   - Chat command integration
+   - 🔄 Code re-linking on changes (functions exist, needs auto-triggering)
+   - 🔄 Chat command integration (partial: /relink-all, /stale-links exist)
 
 ### 🔮 Future
 

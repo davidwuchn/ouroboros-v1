@@ -33,9 +33,21 @@
 - **Verification:** `git embed status` shows 514/568 blobs indexed, hooks installed
 - **Status:** ✅ Complete (functionality exists via git-embed's own hooks)
 
+#### Phase 4 Findings: Code re-linking functionality exists
+- **Finding:** `batch-relink!`, `detect-stale-links`, `auto-link-code!` functions already implemented
+- **Finding:** Chat command `/relink-all` exists for manual triggering
+- **Gap:** No automatic triggering (scheduled/hook-based)
+- **Status:** 🔄 In Progress
+
+#### Phase 5 Findings: Chat commands partially implemented  
+- **Finding:** Commands exist: `/relink-all`, `/stale-links`, `/semantic-stats`, `/semantic-search`
+- **Gap:** Missing health check commands, gap status command
+- **Status:** 🔄 In Progress
+
 ### Next Steps
-- Phase 1.2: Health check improvements (version, index validation)
-- Phase 4.1: Code re-linking on changes
+1. **Phase 4.1:** Implement automatic re-linking trigger (scheduled job or git hook)
+2. **Phase 5.1:** Add health check chat commands (`/git-embed-health`, `/semantic-health`)
+3. **Phase 1.2:** Health check improvements (version, index validation)
 
 #### Plan Update: Mark completed gaps in PLAN.md
 - **File:** PLAN.md

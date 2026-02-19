@@ -62,19 +62,21 @@ Address critical integration gaps between Learning and Embed systems to ensure r
 
 <!-- π: Synthesize findings into structure -->
 
-- [ ] Detect file changes in the codebase
-- [ ] Trigger re-linking of affected learnings
-- [ ] Update semantic index with new links
-- **Status:** `pending`
+- [x] Core re-linking functions exist (batch-relink!, detect-stale-links, auto-link-code!)
+- [x] Chat command `/relink-all` exists for manual triggering
+- [ ] Add automatic triggering (scheduled job or git hook integration)
+- [ ] Test automatic re-linking works end-to-end
+- **Status:** `in_progress`
 
 ### Phase 5: Chat command integration
 
 <!-- μ: Direct, no fluff -->
 
-- [ ] Integrate gap-fixing commands into chat interface
-- [ ] Add commands to trigger health checks, re-indexing, etc.
+- [x] Existing commands: `/relink-all`, `/stale-links`, `/semantic-stats`, `/semantic-search`
+- [ ] Add health check commands (`/git-embed-health`, `/semantic-health`)
+- [ ] Add command to show gap status (`/gaps` or `/embed-status`)
 - [ ] Ensure commands work across all chat platforms (Telegram/Discord/Slack)
-- **Status:** `pending`
+- **Status:** `in_progress`
 
 ### Phase 6: Integration verification
 
