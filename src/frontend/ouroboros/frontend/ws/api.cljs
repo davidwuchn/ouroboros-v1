@@ -206,6 +206,22 @@
          (state/schedule-render!))))
    20000))
 
+(defn request-wisdom-page-data!
+  "Request all wisdom page data in one batch request.
+   Replaces separate calls for templates, template data, and categories."
+  [project-id]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom assoc :wisdom/page-data-loading? true))
+  (conn/send! {:type "wisdom/page-data"
+               :project-id project-id})
+  (js/setTimeout
+   (fn []
+     (when-let [state-atom @state/app-state-atom]
+       (when (get @state-atom :wisdom/page-data-loading?)
+         (swap! state-atom assoc :wisdom/page-data-loading? false)
+         (state/schedule-render!))))
+   20000))
+
 (defn request-category-insights!
   "Request actual insight records for a specific learning category.
    If insights are already present (from cache/defaults), refreshes silently."

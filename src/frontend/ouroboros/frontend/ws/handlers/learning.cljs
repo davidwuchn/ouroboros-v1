@@ -21,6 +21,32 @@
     (cache/save-learning-categories! categories total-insights)
     (state/schedule-render!)))
 
+(defmethod dispatch/handle-message :wisdom/page-data
+  [{:keys [templates templates-source template-data learning-categories total-insights]}]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 ;; Store templates (static) in content/generated :templates
+                 (assoc-in [:content/generated :templates] templates)
+                 (assoc-in [:content/loading? :templates] false)
+                 ;; Store template data (saas)
+                 (assoc-in [:wisdom/template :saas] template-data)
+                 ;; Store learning categories
+                 (assoc :learning/categories learning-categories)
+                 (assoc :learning/total-insights total-insights)
+                 (assoc :learning/categories-loading? false)
+                 ;; Clear batch loading flag
+                 (assoc :wisdom/page-data-loading? false))))
+    (state/schedule-render!)))
+
+(defmethod dispatch/handle-message :wisdom/page-data-error
+  [{:keys [error]}]
+  (js/console.error "Wisdom page data error:" error)
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom assoc :wisdom/page-data-loading? false)
+    (state/schedule-render!)))
+
 (defmethod dispatch/handle-message :learning/category-insights
   [{:keys [category insights _count]}]
   (when-let [state-atom @state/app-state-atom]

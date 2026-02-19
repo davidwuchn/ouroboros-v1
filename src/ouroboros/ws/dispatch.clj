@@ -13,7 +13,8 @@
    [ouroboros.ws.handlers.flywheel :as flywheel]
    [ouroboros.ws.handlers.kanban :as kanban]
    [ouroboros.ws.handlers.learning :as learning]
-   [ouroboros.ws.handlers.wisdom :as wisdom]))
+   [ouroboros.ws.handlers.wisdom :as wisdom]
+   [ouroboros.ws.handlers.wisdom-page :as wisdom-page]))
 
 ;; ============================================================================
 ;; Handler Registry
@@ -74,6 +75,8 @@
                                  :async? false}
    "wisdom/template"         {:handler learning/handle-wisdom-template!
                               :async? false}
+   "wisdom/page-data"        {:handler wisdom-page/handle-wisdom-page-data!
+                              :async? true}
    "learning/flywheel"       {:handler learning/handle-learning-flywheel!
                               :async? false}
    "learning/due-reviews"    {:handler learning/handle-learning-due-reviews!

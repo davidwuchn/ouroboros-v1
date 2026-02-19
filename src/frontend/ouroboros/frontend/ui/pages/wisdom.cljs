@@ -54,18 +54,21 @@
    :will-enter    (fn [_ _] (dr/route-immediate [:page/id :wisdom]))
    :componentDidMount (fn [this]
                         (let [state-atom @ws/app-state-atom
-                              state (when state-atom @state-atom)]
-                          ;; Request templates if not loaded
+                              state (when state-atom @state-atom)
+                              ws-project (get state :workspace/project)
+                              project-id (:project/id ws-project)]
+                          ;; Request ECA-generated templates if not loaded
                           (when (and state
                                      (ws/connected?)
                                      (not (get-in state [:content/generated :templates]))
                                      (not (get-in state [:content/loading? :templates])))
                             (ws/request-content! :templates))
-                          ;; Request default template data (:saas) if not already in store
+                          ;; Request all wisdom page data in batch
                           (when (and state
                                      (ws/connected?)
-                                     (not (get-in state [:wisdom/template :saas])))
-                            (ws/request-wisdom-template! :saas))
+                                     project-id
+                                     (not (get state :wisdom/page-data-loading?)))
+                            (ws/request-wisdom-page-data! project-id))
                           ;; Pre-seed category insights with defaults
                           (when state-atom
                             (swap! state-atom
@@ -75,11 +78,7 @@
                                                     acc
                                                     (assoc-in acc [:learning/category-insights cat] insights)))
                                                 s
-                                                data/default-category-insights))))
-                          ;; Request real learning categories
-                          (when (and state
-                                     (not (get state :learning/categories-loading?)))
-                            (ws/request-learning-categories!))))}
+                                                data/default-category-insights))))))}
 
   (let [state-atom @ws/app-state-atom
         state (when state-atom @state-atom)
