@@ -147,6 +147,7 @@
   ;; DEPRECATED: Auto-rules system removed
   ;; Issues are tracked via emit-review-event in lambda-metrics
   ;; See: clojure-reviewer.md for manual review checklist
+  []
   (let [issues (:issues @pattern-store)
         issue-count (reduce + (map #(reduce + (val %)) issues))]
     (println "\n[λ] Issues tracked:" issue-count "(for metrics only, no rules generated)")

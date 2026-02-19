@@ -221,8 +221,6 @@
 (def metrics-status (lazy-fn 'ouroboros.interface.metrics 'metrics-status))
 (def metrics-snapshot (lazy-fn 'ouroboros.interface.metrics 'metrics-snapshot))
 
-
-
 ;; ============================================================================
 ;; Chat (Lazy)
 ;; ============================================================================
@@ -339,8 +337,6 @@
 (def confirm-history (lazy-fn 'ouroboros.interface.confirmation 'confirm-history))
 (def confirm-stats (lazy-fn 'ouroboros.interface.confirmation 'confirm-stats))
 (def confirm-security-report (lazy-fn 'ouroboros.interface.confirmation 'confirm-security-report))
-
-
 
 ;; ============================================================================
 ;; ECA Client (NEW - Phase 1)
@@ -526,7 +522,9 @@
    Usage: (iface/lambda-evolve)"
   []
   (try (require '[ouroboros.lambda-evolve :as evolve])
-       (evolve/auto-evolve!)
+       (if-let [f (resolve 'evolve/auto-evolve!)]
+         (f)
+         (println "λ evolution error: auto-evolve! not found"))
        (catch Exception e (println "λ evolution error:" (.getMessage e)))))
 
 (defn lambda-metrics
@@ -535,7 +533,9 @@
    Usage: (iface/lambda-metrics)"
   []
   (try (require '[ouroboros.lambda-metrics :as lambda])
-       (lambda/lambda-system-report)
+       (if-let [f (resolve 'lambda/lambda-system-report)]
+         (f)
+         (println "λ metrics error: lambda-system-report not found"))
        (catch Exception e (println "λ metrics error:" (.getMessage e)))))
 
 (defn lambda-status
@@ -544,7 +544,9 @@
    Usage: (iface/lambda-status)"
   []
   (try (require '[ouroboros.lambda-evolve :as evolve])
-       (evolve/system-status)
+       (if-let [f (resolve 'evolve/system-status)]
+         (f)
+         (println "λ status error: system-status not found"))
        (catch Exception e (println "λ status error:" (.getMessage e)))))
 
 (defn lambda-track-issue!
@@ -553,8 +555,11 @@
    Usage: (iface/lambda-track-issue! \"deep-nesting\" \"src/foo.clj\")"
   [issue-type file]
   (try (require '[ouroboros.lambda-evolve :as evolve])
-       (evolve/track-issue! issue-type file)
-       (println "Tracked issue:" issue-type "in" file)
+       (if-let [f (resolve 'evolve/track-issue!)]
+         (do
+           (f issue-type file)
+           (println "Tracked issue:" issue-type "in" file))
+         (println "λ track error: track-issue! not found"))
        (catch Exception e (println "λ track error:" (.getMessage e)))))
 
 (defn lambda-maintain
@@ -563,7 +568,9 @@
    Usage: (iface/lambda-maintain)"
   []
   (try (require '[ouroboros.lambda-maintain :as maintain])
-       (maintain/run-checklist!)
+       (if-let [f (resolve 'maintain/run-checklist!)]
+         (f)
+         (println "λ maintain error: run-checklist! not found"))
        (catch Exception e (println "λ maintain error:" (.getMessage e)))))
 
 ;; ============================================================================
@@ -576,7 +583,9 @@
    Usage: (iface/git-embed-update!)"
   []
   (require '[ouroboros.git-embed :as embed])
-  (embed/update-index!))
+  (if-let [f (resolve 'embed/update-index!)]
+    (f)
+    (println "git-embed.update-index! not available")))
 
 (defn git-embed-search
   "Semantic search for code
@@ -584,7 +593,9 @@
    Usage: (iface/git-embed-search \"threading macros\" 5)"
   [query & [limit]]
   (require '[ouroboros.git-embed :as embed])
-  (embed/search query (or limit 5)))
+  (if-let [f (resolve 'embed/search)]
+    (f query (or limit 5))
+    (println "git-embed.search not available")))
 
 (defn git-embed-similar
   "Find similar files
@@ -592,19 +603,25 @@
    Usage: (iface/git-embed-similar \"src/api.clj\")"
   [file & [limit]]
   (require '[ouroboros.git-embed :as embed])
-  (embed/similar file (or limit 5)))
+  (if-let [f (resolve 'embed/similar)]
+    (f file (or limit 5))
+    (println "git-embed.similar not available")))
 
 (defn git-embed-status
   "Check git-embed status"
   []
   (require '[ouroboros.git-embed :as embed])
-  (embed/status))
+  (if-let [f (resolve 'embed/status)]
+    (f)
+    (println "git-embed.status not available")))
 
 (defn git-embed-healthy?
   "Check if git-embed is available"
   []
   (require '[ouroboros.git-embed :as embed])
-  (embed/healthy?))
+  (if-let [f (resolve 'embed/healthy?)]
+    (f)
+    (println "git-embed.healthy? not available")))
 
 ;; ============================================================================
 ;; Learning (with Git-Embed)
@@ -616,7 +633,9 @@
    Usage: (iface/learn-save! \"Use threading macros\" :category :style)"
   [content & {:keys [category tags source]}]
   (require '[ouroboros.learning :as learning])
-  (learning/save-insight! content :category category :tags tags :source source))
+  (if-let [f (resolve 'learning/save-insight!)]
+    (f content :category category :tags tags :source source)
+    (println "learning/save-insight! not available")))
 
 (defn learn-recall
   "Recall insights by query or category"

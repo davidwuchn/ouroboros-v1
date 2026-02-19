@@ -82,10 +82,10 @@ Address critical integration gaps between Learning and Embed systems to ensure r
 
 <!-- ∀: Defensive checking -->
 
-- [ ] Verify all gaps are addressed
-- [ ] Run end-to-end tests
-- [ ] Validate system health and performance
-- **Status:** `pending`
+- [x] Verify all gaps are addressed (all 5 gaps marked ✅ in PLAN.md)
+- [ ] Run end-to-end tests (test automatic re-linking scheduler)
+- [ ] Validate system health and performance (git-embed health, scheduler status)
+- **Status:** `in_progress`
 
 ---
 
