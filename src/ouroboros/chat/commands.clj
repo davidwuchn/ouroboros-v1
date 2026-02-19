@@ -497,9 +497,105 @@
                          "/relink-all - Re-link all learnings\n"
                          "/stale-links - Check for stale links"))))
 
+;; /gaps
+(defmethod handle-command :gaps
+  [adapter chat-id _user-name _cmd _args]
+  (telemetry/emit! {:event :chat/command :command :gaps :chat-id chat-id})
+  (let [health (embed/comprehensive-health)
+        hook-status (embed/hook-status)
+        scheduler-status (semantic/auto-relink-scheduler-status)
+        installed? (:installed? (embed/installed?))]
+    (send-markdown! adapter chat-id
+                    (str "*📊 Learning + Embed Gaps Status*\n\n"
+                         "**Binary Health Checks**: " (if installed? "✅" "❌") "\n"
+                         "**Git-Embed Healthy**: " (if (:healthy? health) "✅" "❌") "\n"
+                         "**Auto Index Updates**: " (if (:installed? hook-status) "✅ (hooks installed)" "❌ (no hooks)") "\n"
+                         "**Code Re-linking**: " (if (:running scheduler-status) "✅ (scheduler running)" "🔧 (functions exist, manual trigger)") "\n"
+                         "**Chat Commands**: ✅ (partial: /relink-all, /stale-links, /semantic-stats)\n\n"
+                         "**Git-Embed Version**: " (or (:version health) "unknown") "\n"
+                         "**Index Size**: " (if (get-in health [:index :exists?])
+                                              (str (get-in health [:index :size]) " files")
+                                              "none") "\n"
+                         "**Auto Re-link Interval**: " (:interval scheduler-status) " hours\n"
+                         "**Auto Re-link Status**: " (if (:running scheduler-status) "Running" "Stopped") "\n\n"
+                         "**Commands**:\n"
+                         "/relink-all - Manual re-linking\n"
+                         "/stale-links - Check stale links\n"
+                         "/semantic-stats - Detailed statistics\n"
+                         "/auto-relink-start - Start auto scheduler\n"
+                         "/auto-relink-stop - Stop auto scheduler\n"
+                         "/auto-relink-status - Scheduler status"))))
+
+;; /auto-relink-start
+(defmethod handle-command :auto-relink-start
+  [adapter chat-id _user-name _cmd _args]
+  (telemetry/emit! {:event :chat/command :command :auto-relink-start :chat-id chat-id})
+  (if-not (semantic/available?)
+    (send-message! adapter chat-id
+                   (str "⚠️ Semantic search not available\n\n"
+                        "git-embed is not installed or not healthy.\n"
+                        "Install with: cargo install git-embed"))
+    (let [result (semantic/start-auto-relink-scheduler!)]
+      (if (:started result)
+        (send-message! adapter chat-id
+                       (str "✅ Auto re-linking scheduler started\n"
+                            "Will run every " (:interval result) " hours"))
+        (send-message! adapter chat-id "❌ Failed to start scheduler")))))
+
+;; /auto-relink-stop
+(defmethod handle-command :auto-relink-stop
+  [adapter chat-id _user-name _cmd _args]
+  (telemetry/emit! {:event :chat/command :command :auto-relink-stop :chat-id chat-id})
+  (let [result (semantic/stop-auto-relink-scheduler!)]
+    (if (:stopped result)
+      (send-message! adapter chat-id "✅ Auto re-linking scheduler stopped")
+      (send-message! adapter chat-id "⚠️ Scheduler was not running"))))
+
+;; /auto-relink-status
+(defmethod handle-command :auto-relink-status
+  [adapter chat-id _user-name _cmd _args]
+  (telemetry/emit! {:event :chat/command :command :auto-relink-status :chat-id chat-id})
+  (let [status (semantic/auto-relink-scheduler-status)]
+    (send-markdown! adapter chat-id
+                    (str "*Auto Re-linking Scheduler Status*\n\n"
+                         "**Running**: " (if (:running status) "Yes" "No") "\n"
+                         "**Interval**: " (:interval status) " hours\n"
+                         "**Next run**: " (if (:running status) 
+                                           "Scheduled"
+                                           "Not scheduled") "\n\n"
+                         (if (:running status)
+                           "Use `/auto-relink-stop` to stop the scheduler."
+                           "Use `/auto-relink-start` to start the scheduler."))))
+
+;; /semantic-health
+(defmethod handle-command :semantic-health
+  [adapter chat-id _user-name _cmd _args]
+  (telemetry/emit! {:event :chat/command :command :semantic-health :chat-id chat-id})
+  (let [health (embed/comprehensive-health)
+        semantic-available (semantic/available?)
+        scheduler-status (semantic/auto-relink-scheduler-status)]
+    (send-markdown! adapter chat-id
+                    (str "*Semantic Search Health Report*\n\n"
+                         "**Semantic Search Available**: " (if semantic-available "✅ Yes" "❌ No") "\n"
+                         "**Git-Embed Healthy**: " (if (:healthy? health) "✅ Yes" "❌ No") "\n"
+                         "**Auto Re-linking Scheduler**: " (if (:running scheduler-status) "✅ Running" "⏸️ Stopped") "\n\n"
+                         "**Details**:\n"
+                         (if (:healthy? health)
+                           (str "Version: " (or (:version health) "unknown") "\n"
+                                "Index: " (if (get-in health [:index :exists?])
+                                            (str (get-in health [:index :size]) " files, " 
+                                                 (get-in health [:index :vectors] "?") " vectors")
+                                            "not initialized") "\n")
+                           (str "Issues detected. Run `/git-embed-health` for details.\n"))
+                         "\n"
+                         "**Recommendations**:\n"
+                         (if (seq (:recommendations health))
+                           (str/join "\n" (map #(str "• " %) (:recommendations health)))
+                           "All systems operational."))))
+
 ;; ============================================================================
 ;; Confirmation Commands (delegated to confirmation system)
-;; ============================================================================
+;; ============================================================================))
 
 (defmethod handle-command :confirm
   [adapter chat-id _user-name _cmd args]
@@ -522,4 +618,4 @@
           reason (second parts)]
       (if id
         (send-message! adapter chat-id (str "Rejection " id " acknowledged. Reason: " (or reason "none")))
-        (send-message! adapter chat-id "⚠️ Invalid rejection ID")))))
+        (send-message! adapter chat-id "⚠️ Invalid rejection ID")))))))

@@ -33,21 +33,24 @@
 - **Verification:** `git embed status` shows 514/568 blobs indexed, hooks installed
 - **Status:** ✅ Complete (functionality exists via git-embed's own hooks)
 
-#### Phase 4 Findings: Code re-linking functionality exists
-- **Finding:** `batch-relink!`, `detect-stale-links`, `auto-link-code!` functions already implemented
-- **Finding:** Chat command `/relink-all` exists for manual triggering
-- **Gap:** No automatic triggering (scheduled/hook-based)
-- **Status:** 🔄 In Progress
+#### Phase 4.1: Automatic Re-linking Scheduler Implemented
+- **File:** `src/ouroboros/learning/semantic.clj`
+- **Changes:** Added scheduled job that runs `batch-relink!` daily for all users
+- **Features:** `start-auto-relink-scheduler!`, `stop-auto-relink-scheduler!`, `auto-relink-scheduler-status`, `run-auto-relink!` (private)
+- **Interval:** 24 hours (configurable)
+- **Status:** ✅ Complete
 
-#### Phase 5 Findings: Chat commands partially implemented  
-- **Finding:** Commands exist: `/relink-all`, `/stale-links`, `/semantic-stats`, `/semantic-search`
-- **Gap:** Missing health check commands, gap status command
-- **Status:** 🔄 In Progress
+#### Phase 5.1: Chat Commands for Gaps Added
+- **File:** `src/ouroboros/chat/commands.clj`
+- **Changes:** Added commands: `/gaps`, `/auto-relink-start`, `/auto-relink-stop`, `/auto-relink-status`, `/semantic-health`
+- **Gaps Command:** Shows comprehensive status of Learning+Embed integration gaps
+- **Auto-relink Commands:** Control the automatic re-linking scheduler
+- **Status:** ✅ Complete
 
 ### Next Steps
-1. **Phase 4.1:** Implement automatic re-linking trigger (scheduled job or git hook)
-2. **Phase 5.1:** Add health check chat commands (`/git-embed-health`, `/semantic-health`)
-3. **Phase 1.2:** Health check improvements (version, index validation)
+1. **Phase 1.2:** Health check improvements (version, index validation) - optional
+2. **Phase 6:** Integration verification (test automatic re-linking works end-to-end)
+3. **Documentation:** Update STATE.md and PLAN.md with final gap status
 
 #### Plan Update: Mark completed gaps in PLAN.md
 - **File:** PLAN.md

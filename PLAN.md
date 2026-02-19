@@ -41,11 +41,11 @@
 2. **Wisdom System** - ✅ Split wisdom.clj (643→369), ✅ Batch endpoint (4→1 WS requests)
 3. **Learning Activation** - Flywheel UI, spaced repetition
 4. **Learning + Embed Gaps** - Address critical integration issues:
-   - Auto index updates on git commits
+   - ✅ Auto index updates on git commits
    - ✅ Binary health checks
    - ✅ Hybrid search fix
-   - 🔄 Code re-linking on changes (functions exist, needs auto-triggering)
-   - 🔄 Chat command integration (partial: /relink-all, /stale-links exist)
+   - ✅ Code re-linking on changes (automatic scheduler implemented)
+   - ✅ Chat command integration (commands: /gaps, /auto-relink-*, /semantic-health)
 
 ### 🔮 Future
 

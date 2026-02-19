@@ -25,11 +25,13 @@
    [clojure.string :as str]
    [clojure.set :as set]
    [ouroboros.git-embed :as embed]
+   [ouroboros.learning :as learning]
    [ouroboros.learning.core :as core]
    [ouroboros.learning.search :as search]
    [ouroboros.resolver-registry :as registry]
    [ouroboros.telemetry :as telemetry]
-   [com.wsscode.pathom3.connect.operation :as pco]))
+   [com.wsscode.pathom3.connect.operation :as pco])
+  (:import [java.util.concurrent ScheduledThreadPoolExecutor TimeUnit]))
 
 ;; ============================================================================
 ;; Health & Availability
@@ -506,6 +508,63 @@
 ;; Register with Pathom
 (registry/register-resolvers! resolvers)
 (registry/register-mutations! mutations)
+
+;; ============================================================================
+;; Automatic Re-linking Scheduler
+;; ============================================================================
+
+(def ^:private relink-interval-hours
+  "How often to run automatic re-linking (default: daily)"
+  24)
+
+(defonce ^:private relink-scheduler (atom nil))
+
+(defn- run-auto-relink!
+  "Run automatic re-linking for all users"
+  []
+  (when (available?)
+    (try
+      (let [users (learning/get-all-users)]
+        (doseq [user-id users]
+          (let [result (batch-relink! user-id :force? false :batch-size 10)]
+            (telemetry/emit! {:event :semantic/auto-relink-completed
+                              :user user-id
+                              :relinked (:relinked result)
+                              :errors (:errors result)}))))
+      (catch Exception e
+        (telemetry/emit! {:event :semantic/auto-relink-error
+                          :error (.getMessage e)})))))
+
+(defn start-auto-relink-scheduler!
+  "Start the periodic automatic re-linking scheduler"
+  []
+  (when @relink-scheduler
+    (.shutdown ^ScheduledThreadPoolExecutor @relink-scheduler))
+  (let [executor (ScheduledThreadPoolExecutor. 1)]
+    (.scheduleAtFixedRate executor
+                          ^Runnable run-auto-relink!
+                          relink-interval-hours
+                          relink-interval-hours
+                          TimeUnit/HOURS)
+    (reset! relink-scheduler executor)
+    (telemetry/emit! {:event :semantic/relink-scheduler-started
+                      :interval relink-interval-hours})
+    {:started true :interval relink-interval-hours}))
+
+(defn stop-auto-relink-scheduler!
+  "Stop the automatic re-linking scheduler"
+  []
+  (when @relink-scheduler
+    (.shutdown ^ScheduledThreadPoolExecutor @relink-scheduler)
+    (reset! relink-scheduler nil)
+    (telemetry/emit! {:event :semantic/relink-scheduler-stopped})
+    {:stopped true}))
+
+(defn auto-relink-scheduler-status
+  "Get automatic re-linking scheduler status"
+  []
+  {:running (boolean @relink-scheduler)
+   :interval relink-interval-hours})
 
 ;; ============================================================================
 ;; Comments / Examples
