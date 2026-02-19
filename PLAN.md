@@ -36,7 +36,7 @@
 
 ### 📋 This Month
 1. **Wire new architecture** into actual workflow
-2. **Wisdom System** - Split wisdom.clj, batch endpoint
+2. **Wisdom System** - ✅ Split wisdom.clj (643→369), ⚒ Batch endpoint (3→2 WS requests)
 3. **Learning Activation** - Flywheel UI, spaced repetition
 4. **Learning + Embed Gaps** - Address critical integration issues:
    - Auto index updates on git commits
@@ -56,8 +56,8 @@
 
 | Metric | Current | Target |
 |--------|---------|--------|
-| wisdom.clj LOC | 643 | <200 |
-| WS requests | 4 | 1 |
+| wisdom.clj LOC | 369 | <200 |
+| WS requests | 2 | 1 |
 | Static insights | 100% | <30% |
 
 ---
@@ -66,6 +66,7 @@
 
 | Date | Change |
 |------|--------|
+| 2026-02-19 | **Batch WebSocket endpoint** - wisdom/page-data reduces WS requests 3→2 |
 | 2026-02-19 | **Tag 0.2** - Development Workflow with Four Skills released |
 | 2026-02-19 | Dashboard UX improvements - Interactive workflow, quick actions |
 | 2026-02-19 | AI Chat auto-skill loading based on context |

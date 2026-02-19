@@ -18,8 +18,8 @@ Transform Ouroboros from **utility assistant** to **wisdom partner**:
 - [x] New Architecture (component, signal, statechart)
 
 ### Phase 2: Wisdom System (This Month)
-- [ ] Split wisdom.clj (643 LOC → modules)
-- [ ] Single batch endpoint
+- [x] Split wisdom.clj (643 LOC → 369)
+- [-] Single batch endpoint (3→2 WS requests, target: 4→1)
 - [ ] Connect to learning namespace
 - [ ] Template personalization
 
@@ -50,8 +50,8 @@ Transform Ouroboros from **utility assistant** to **wisdom partner**:
 
 | Metric | Current | Target |
 |--------|---------|--------|
-| wisdom.clj LOC | 643 | <200 |
-| WS requests on load | 4 | 1 |
+| wisdom.clj LOC | 369 | <200 |
+| WS requests on load | 2 | 1 |
 | Static insights | 100% | <30% |
 | λ retrieval time | - | <1s |
 | λ hit rate | - | >80% |

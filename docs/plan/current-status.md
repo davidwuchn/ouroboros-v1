@@ -30,11 +30,13 @@
 | **Dashboard Workflow UX** | ✅ **Done** | Interactive steps, quick actions, pro tips |
 | **Auto Skill Loading** | ✅ **Done** | Context-aware skill selection in chat |
 | **Learning System Modular** | ✅ **Done** | 11 namespaces, proper re-exports |
+| **Batch WebSocket Endpoint** | ✅ **Done** | wisdom/page-data reduces WS requests 3→2 |
 
 ## Recent Changes
 
 | Date | Achievement |
 |------|-------------|
+| 2026-02-19 | **Batch WebSocket Endpoint** — wisdom/page-data reduces WS requests 3→2 |
 | 2026-02-19 | **Development Workflow v0.2** — Four skills integrated into Dashboard & Chat |
 | 2026-02-19 | **Tag 0.2 Released** — Development Workflow milestone |
 | 2026-02-18 | **Dashboard UX Enhancement** — Interactive workflow, quick actions, skills reference |

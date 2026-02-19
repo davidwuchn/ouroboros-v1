@@ -10,8 +10,8 @@
    - Statechart for ECA execution
 
 2. **Wisdom System Improvements** — Fix critical issues
-   - Template data duplication (643 LOC → <200)
-   - WS requests: 4 → 1 batch endpoint
+   - ✅ Template data duplication (643 LOC → 369)
+   - ⚒ WS requests: 4 → 2 (batch endpoint implemented, target: 4 → 1)
 
 ### Short-term (This Month)
 
@@ -49,6 +49,9 @@
 | **Learning System Fixes** | ✅ Modular re-exports |
 | - git-embed integration | ✅ Fixed function refs |
 | - Backward compatibility | ✅ All functions exposed |
+| **Wisdom System Improvements** | ✅ **Progress** |
+| - wisdom.clj split | ✅ 643 → 369 LOC (-43%) |
+| - Batch endpoint | ✅ 3 → 2 WS requests (wisdom/page-data) |
 
 ---
 
@@ -71,9 +74,9 @@
 
 ### 2. Wisdom System
 
-- Split `wisdom.clj` (643 LOC → modules)
-- Single batch endpoint for page load
-- Connect to learning namespace
+- ✅ Split `wisdom.clj` (643 LOC → 369, templates extracted)
+- ⚒ Batch endpoint implemented (3 → 2 WS requests, target: 4 → 1)
+- ◐ Connect to learning namespace
 
 ### 3. Learning Activation
 
