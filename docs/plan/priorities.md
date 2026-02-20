@@ -13,10 +13,28 @@
    - ✅ Template data duplication (643 LOC → 369)
    - ⚒ WS requests: 4 → 2 (batch endpoint implemented, target: 4 → 1)
 
+### ASSESSMENT.md Gaps (Decisions Made)
+
+Based on architectural blueprint analysis:
+
+| Priority | Gap | Effort | Impact |
+|----------|-----|--------|--------|
+| P0 | **Vector Semantic Memory** - Add embeddings + cosine similarity to memory/search | Medium | 🔴 Critical |
+| P0 | **Token Usage Tracking** - Track input/output tokens per LLM call | Low | 🔴 Critical |
+| P0 | **Rate Limiting** - Per-tool, per-user rate limits in tool_resolver | Low | 🔴 Critical |
+| P1 | **WhatsApp Adapter** - Add WhatsApp Business API support | Medium | 🟡 Medium |
+| P1 | **Task Scheduler** - Cron-style recurring agent tasks | Medium | 🟡 Medium |
+| P1 | **Agent Swarm** - Multi-agent coordination | High | 🟡 Medium |
+| P2 | **Distributed Tracing** - OpenTelemetry integration | Medium | 🟢 Low |
+| P2 | **Kubernetes Manifests** - Cloud-native deployment | Medium | 🟢 Low |
+
 ### Short-term (This Month)
 
 | Priority | Feature | Effort | Impact |
 |----------|---------|--------|--------|
+| P0 | Vector Semantic Memory | Medium | 🔴 Critical |
+| P0 | Token Usage Tracking | Low | 🔴 Critical |
+| P0 | Rate Limiting | Low | 🔴 Critical |
 | P1 | Container Isolation | High | 🔴 Critical |
 | P1 | Per-Channel Isolation | Medium | 🔴 High |
 | P1 | Context Summarization | Medium | 🔴 High |
@@ -84,3 +102,24 @@ Implement the Learning Flywheel UI:
 - Utility → Understanding → Insight → Wisdom
 - Spaced repetition system
 - Connect to ECA wisdom pipeline
+
+### 4. ASSESSMENT Gaps (P0)
+
+Start with these critical gaps:
+
+1. **Rate Limiting** — Add to `tool_registry.clj`:
+   ```clojure
+   (def rate-limits (atom {}))
+   (defn check-rate-limit [tool-id user-id] ...)
+   ```
+
+2. **Token Tracking** — Add to `metrics.clj`:
+   ```clojure
+   (def token-usage (atom []))
+   (defn record-tokens [provider model input output] ...)
+   ```
+
+3. **Vector Semantic Memory** — Extend `memory/search.clj`:
+   ```clojure
+   (defn semantic-search [query top-k] ...)
+   ```

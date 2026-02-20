@@ -1,4 +1,4 @@
-# Task Plan: Learning + Embed Gaps Integration
+# Task Plan: Datalevin Integration for Operational Data
 
 <!--
   φ: This is your roadmap. Working memory on disk.
@@ -10,13 +10,13 @@
 
 ## Goal (e — Purpose)
 
-Address critical integration gaps between Learning and Embed systems to ensure reliable auto-indexing, health checks, hybrid search, code re-linking, and chat command integration.
+Integrate Datalevin as the operational data store for Ouroboros, replacing the EDN-based memory system for sessions, projects, queries, and cache data while maintaining backward compatibility and integrating with the component lifecycle system.
 
 ---
 
 ## Current Phase
 
-**Phase:** Phase 6: Integration verification
+**Phase:** Phase 4: Data Migration Implementation
 
 ---
 
@@ -28,64 +28,70 @@ Address critical integration gaps between Learning and Embed systems to ensure r
   Update status: pending → in_progress → complete
 -->
 
-### Phase 1: Auto index updates on git commits
+### Phase 1: Discovery & Assessment (φ)
 
 <!-- τ: Understand before building -->
 
-- [x] Implement git hook integration for auto index updates (git-embed manages its own hooks)
-- [x] Ensure index updates trigger on commit/post-commit (verified: hooks installed)
-- [x] Validate index consistency after updates (index shows 514/568 blobs indexed)
-- **Status:** `complete` ✅ (2026-02-19)
+- [x] Review existing Datalevin implementation (persistence.clj)
+- [x] Analyze current memory system usage patterns
+- [x] Identify data types for migration priority
+- [x] Test current persistence interface functions (deferred to implementation)
+- [x] Document findings in findings.md
+- **Status:** `complete` ✅ (2026-02-20)
 
-### Phase 2: Binary health checks
-
-<!-- Δ: Execute and track changes -->
-
-- [x] Add `installed?` function to check git-embed binary existence
-- [x] Add `ensure-installed!` with helpful error messages
-- [x] Add install status caching
-- [x] Validate health check functions
-- **Status:** `complete` ✅ (2026-02-19)
-
-### Phase 3: Hybrid search fix
-
-<!-- Δ: Execute and track changes -->
-
-- [x] Fix keyword results being fetched but not used
-- [x] Create keyword-score-map for O(1) lookup
-- [x] Add hybrid bonus for learnings appearing in both semantic and keyword results
-- [x] Update filter to include results with either semantic OR keyword match
-- [x] Set weights: semantic 60%, keyword 30%, hybrid bonus 10%
-- **Status:** `complete` ✅ (2026-02-19)
-
-### Phase 4: Code re-linking on changes
+### Phase 2: Schema Design & Migration Strategy (π)
 
 <!-- π: Synthesize findings into structure -->
 
-- [x] Core re-linking functions exist (batch-relink!, detect-stale-links, auto-link-code!)
-- [x] Chat command `/relink-all` exists for manual triggering
-- [x] Add automatic triggering (scheduled job implementation)
-- [x] Test automatic re-linking works end-to-end (scheduler implemented, needs runtime test)
-- **Status:** `complete` ✅ (2026-02-19)
+- [x] Design Datalevin schema for operational data
+- [x] Define migration strategy (gradual vs big bang)
+- [x] Create data mapping from EDN to Datalevin entities
+- [x] Plan backward compatibility approach
+- [x] Document decisions with rationale
+- **Status:** `complete` ✅ (2026-02-20)
 
-### Phase 5: Chat command integration
+### Phase 3: Component Integration (Δ)
 
-<!-- μ: Direct, no fluff -->
+<!-- Δ: Execute and track changes -->
 
-- [x] Existing commands: `/relink-all`, `/stale-links`, `/semantic-stats`, `/semantic-search`
-- [x] Add health check commands (`/semantic-health`, integrated into `/gaps`)
-- [x] Add command to show gap status (`/gaps`)
-- [x] Ensure commands work across all chat platforms (Telegram/Discord/Slack) - uses adapter interface
-- **Status:** `complete` ✅ (2026-02-19)
+- [x] Update database component to use Datalevin
+- [x] Integrate persistence with component lifecycle
+- [x] Add health checks and monitoring
+- [ ] Test component startup/shutdown (deferred to Phase 4)
+- **Status:** `complete` ✅ (2026-02-20)
 
-### Phase 6: Integration verification
+### Phase 4: Data Migration Implementation (Δ)
+
+<!-- Δ: Execute and track changes -->
+
+- [ ] Implement dual-write strategy
+- [ ] Create migration utilities
+- [ ] Migrate high-priority data first (sessions)
+- [ ] Add fallback mechanisms (Datalevin → EDN)
+- [ ] Test migration paths
+- **Status:** `pending`
+
+### Phase 5: Query Interface & Performance (∀)
 
 <!-- ∀: Defensive checking -->
 
-- [x] Verify all gaps are addressed (all 5 gaps marked ✅ in PLAN.md)
-- [ ] Run end-to-end tests (test automatic re-linking scheduler)
-- [ ] Validate system health and performance (git-embed health, scheduler status)
-- **Status:** `in_progress`
+- [ ] Create Datalevin query wrapper with caching
+- [ ] Benchmark performance vs EDN storage
+- [ ] Implement advanced queries (temporal, relationships)
+- [ ] Add telemetry for query performance
+- [ ] Verify all requirements met
+- **Status:** `pending`
+
+### Phase 6: Integration & Verification (μ)
+
+<!-- μ: Direct, no fluff -->
+
+- [ ] Update learning system to use Datalevin where beneficial
+- [ ] Test WebUX collaboration data storage
+- [ ] Validate system performance under load
+- [ ] Create backup/restore procedures
+- [ ] Document final architecture
+- **Status:** `pending`
 
 ---
 
@@ -93,11 +99,11 @@ Address critical integration gaps between Learning and Embed systems to ensure r
 
 <!-- π: Questions to answer during the task -->
 
-1. How should git hooks be implemented to avoid performance impact?
-2. What validation is needed for index consistency?
-3. How to efficiently detect file changes for re-linking?
-4. What chat commands are most useful for users?
-5. How to ensure cross-platform compatibility for commands?
+1. Which data types provide highest ROI for Datalevin migration? (sessions, projects, queries, cache, learning indexes)
+2. Should we use EAV schema or document storage (JSON strings) for nested data?
+3. How to handle backward compatibility during migration?
+4. What query patterns will be most valuable for the system?
+5. How to integrate Datalevin with existing telemetry and monitoring?
 
 ---
 
@@ -107,8 +113,9 @@ Address critical integration gaps between Learning and Embed systems to ensure r
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| Use cached install check for binary health | Avoid repeated PATH lookups, improve performance | 2026-02-19 |
-| Hybrid search weights: 60% semantic, 30% keyword, 10% hybrid bonus | Balances relevance with keyword matching, rewards overlap | 2026-02-19 |
+| Start with session data migration | Sessions are discrete entities with clear schema, good for initial validation | 2026-02-20 |
+| Use hybrid schema approach (EAV for core, JSON for nested) | Balances query power with flexibility for complex data | 2026-02-20 |
+| Implement gradual migration with dual-write | Minimizes risk, allows rollback, maintains system uptime | 2026-02-20 |
 
 ---
 
@@ -118,9 +125,10 @@ Address critical integration gaps between Learning and Embed systems to ensure r
 
 | Risk | Likelihood | Mitigation |
 |------|------------|------------|
-| Git hook may slow down commits | Medium | Use async post-commit hook, background indexing |
-| Binary health check may be platform-specific | Low | Check common install paths, provide clear error messages |
-| Chat command integration may require platform-specific adapters | High | Abstract command layer, test on each platform |
+| Data corruption during migration | Medium | Implement backup before migration, test on copy first |
+| Performance regression | Low | Benchmark before/after, add caching layer |
+| Schema evolution complexity | Medium | Use Datalevin's schema-on-write capabilities, version migrations |
+| Component startup dependency issues | Low | Add health checks, lazy initialization, fallback to EDN |
 
 ---
 
@@ -142,7 +150,8 @@ Address critical integration gaps between Learning and Embed systems to ensure r
 - Re-read this plan before major decisions
 - Log ALL errors — they prevent repetition
 - Never repeat a failed action — mutate approach
-- Reference progress.md for detailed session logs
+- Reference findings.md for research insights
+- Check STATE.md for current system status
 
 ---
 

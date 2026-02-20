@@ -26,16 +26,25 @@
           (log/info "[Component] Saving config")))
 
 ;; ============================================================================
-;; Database Component (using existing memory system)
+;; Database Component (Datalevin operational store)
 ;; ============================================================================
 
 (comp/defcomponent database
   :start (do
-           (log/info "[Component] Starting database")
-           {:type :jsonl
-            :path "data/memory"})
+           (log/info "[Component] Starting Datalevin database")
+           (require '[ouroboros.persistence.datalevin-memory :as dm])
+           (dm/init!)
+           {:type :datalevin
+            :path "data/operational"
+            :mode (dm/get-mode)
+            :connected? true})
   :stop (fn [state]
-          (log/info "[Component] Stopping database")))
+          (log/info "[Component] Stopping Datalevin database")
+          (try
+            (require '[ouroboros.persistence.datalevin-memory :as dm])
+            (dm/disconnect-datalevin!)
+            (catch Throwable t
+              (log/error t "Error stopping Datalevin")))))
 
 ;; ============================================================================
 ;; Memory Component

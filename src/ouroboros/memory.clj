@@ -15,6 +15,55 @@
    [ouroboros.resolver-registry :as registry]))
 
 ;; ============================================================================
+;; Datalevin Migration Configuration
+;; ============================================================================
+
+(defonce ^:private migration-enabled? (atom false))
+(defonce ^:private migration-mode (atom :edn-only))
+
+(defn enable-datalevin-migration!
+  "Enable Datalevin migration with specified mode
+  
+   Modes:
+   - :edn-only       - Use EDN only (pre-migration)
+   - :dual-write     - Write to both EDN and Datalevin (migration phase)
+   - :datalevin-first - Read from Datalevin first, fall back to EDN (read cutover)
+   - :datalevin-only  - Use Datalevin only (post-migration)"
+  [mode]
+  (reset! migration-enabled? true)
+  (reset! migration-mode mode)
+  (telemetry/emit! {:event :memory/migration-enabled
+                    :mode mode}))
+
+(defn disable-datalevin-migration!
+  "Disable Datalevin migration, revert to EDN-only"
+  []
+  (reset! migration-enabled? false)
+  (reset! migration-mode :edn-only)
+  (telemetry/emit! {:event :memory/migration-disabled}))
+
+(defn migration-status
+  "Get current migration status"
+  []
+  {:enabled? @migration-enabled?
+   :mode @migration-mode})
+
+(defn- try-require-datalevin-memory []
+  (try
+    (require '[ouroboros.persistence.datalevin-memory :as dm])
+    true
+    (catch Throwable _
+      false)))
+
+(defonce ^:private datalevin-memory-available? (try-require-datalevin-memory))
+
+(defn- delegate-to-datalevin [f & args]
+  (when (and @migration-enabled? datalevin-memory-available?)
+    (let [dm-fn (requiring-resolve (symbol "ouroboros.persistence.datalevin-memory" (name f)))]
+      (when dm-fn
+        (apply dm-fn args)))))
+
+;; ============================================================================
 ;; Storage
 ;; ============================================================================
 
@@ -73,7 +122,8 @@
 (defn get-value
   "Get value from memory"
   [key]
-  (get @memory-store key))
+  (or (delegate-to-datalevin :get-value key)
+      (get @memory-store key)))
 
 (defn get-all
   "Get all memory entries"
@@ -83,29 +133,32 @@
 (defn save-value!
   "Save value to memory, persists to disk"
   [key value]
-  (swap! memory-store assoc key value)
-  (save-memory)
-  {:memory/key key
-   :memory/value value
-   :memory/saved? true})
+  (or (delegate-to-datalevin :save-value! key value)
+      (do (swap! memory-store assoc key value)
+          (save-memory)
+          {:memory/key key
+           :memory/value value
+           :memory/saved? true})))
 
 (defn delete-value!
   "Delete value from memory, persists to disk"
   [key]
-  (let [existed? (contains? @memory-store key)]
-    (swap! memory-store dissoc key)
-    (save-memory)
-    {:memory/key key
-     :memory/deleted? existed?}))
+  (or (delegate-to-datalevin :delete-value! key)
+      (let [existed? (contains? @memory-store key)]
+        (swap! memory-store dissoc key)
+        (save-memory)
+        {:memory/key key
+         :memory/deleted? existed?})))
 
 (defn clear-memory!
   "Clear all memory, persists to disk"
   []
-  (let [count (count @memory-store)]
-    (reset! memory-store {})
-    (save-memory)
-    {:memory/cleared? true
-     :memory/count count}))
+  (or (delegate-to-datalevin :clear-memory!)
+      (let [count (count @memory-store)]
+        (reset! memory-store {})
+        (save-memory)
+        {:memory/cleared? true
+         :memory/count count})))
 
 (defn update!
   "Update value at key with function f, similar to clojure.core/swap!

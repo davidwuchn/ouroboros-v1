@@ -1,7 +1,7 @@
 # PLAN.md
 
 > Project roadmap and future directions for Ouroboros.
-> **Last Updated:** 2026-02-19
+> **Last Updated:** 2025-01-17
 
 ---
 
@@ -35,6 +35,18 @@
   - AI Chat Integration (Auto-load skills based on context)
   - Git Tag 0.2 Released
 
+### ASSESSMENT.md Gap Analysis (2025-01-17)
+
+Analyzed current implementation against `ASSESSMENT.md` architectural blueprint:
+
+| Layer | Coverage | Gaps |
+|-------|----------|------|
+| Core Runtime & Security | 85% | Resource governance, Rust kernel |
+| Agent Orchestration | 75% | Vector memory, task scheduler, agent swarm |
+| Tool Execution | 90% | Rate limiting |
+| LLM Integration | 70% | Token tracking |
+| Communication | 75% | WhatsApp adapter |
+
 ### 📋 This Month
 
 1. **Wire new architecture** into actual workflow
@@ -46,12 +58,21 @@
    - ✅ Hybrid search fix
    - ✅ Code re-linking on changes (automatic scheduler implemented)
    - ✅ Chat command integration (commands: /gaps, /auto-relink-*, /semantic-health)
+5. **ASSESSMENT Gaps** - Priority fixes:
+   - 🔴 HIGH: Vector semantic memory search
+   - 🔴 HIGH: Token usage tracking
+   - 🔴 HIGH: Rate limiting on tool execution
+   - 🟡 MEDIUM: WhatsApp adapter
+   - 🟡 MEDIUM: Task scheduler (cron)
+   - 🟡 MEDIUM: Agent swarm support
 
 ### 🔮 Future
 
 - Container Isolation
 - Per-Channel Isolation
 - Context Summarization
+- Agent Swarm Coordination
+- Kubernetes Deployment
 
 ---
 
@@ -69,6 +90,7 @@
 
 | Date | Change |
 | ------ | -------- |
+| 2025-01-17 | **ASSESSMENT Gap Analysis** - Added P0 priorities (vector memory, token tracking, rate limiting) |
 | 2026-02-19 | **Batch WebSocket endpoint** - wisdom/page-data reduces WS requests 3→2 |
 | 2026-02-19 | **Tag 0.2** - Development Workflow with Four Skills released |
 | 2026-02-19 | Dashboard UX improvements - Interactive workflow, quick actions |

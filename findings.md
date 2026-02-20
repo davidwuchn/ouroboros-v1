@@ -1,4 +1,4 @@
-# Findings: Learning + Embed Gaps Integration
+# Findings: Datalevin Integration for Operational Data
 
 <!--
   π: Research synthesis — your external memory for discoveries.
@@ -10,86 +10,87 @@
 
 ## Summary
 
-Critical integration gaps between Learning and Embed systems have been identified and addressed: auto-index updates (git-embed hooks), binary health checks, hybrid search fix, code re-linking (automatic scheduler), and chat command integration. All five gaps are now complete as of 2026-02-19.
+Datalevin is implemented but underutilized in Ouroboros. The dual persistence architecture (Datalevin for operational data + Git for knowledge) exists in code but isn't integrated into the component lifecycle or actively used. Current memory system uses EDN file storage with manual search functions. Migration to Datalevin offers significant benefits: datalog queries, ACID transactions, schema validation, and better scalability.
 
 ---
 
 ## Key Discoveries
 
-### Discovery 1: Binary health checks implementation
+### Discovery 1: Existing Datalevin Implementation
 
-**What:** Added install check and caching for git-embed binary in `src/ouroboros/git_embed.clj`. Functions: `installed?`, `ensure-installed!`, `reset-install-check!`.
+**What:** `src/ouroboros/persistence.clj` implements dual persistence system:
+- Datalevin for operational data (`save-operational!`, `get-operational`)
+- Git-backed for knowledge (`save-knowledge!`, `get-knowledge`)
+- Auto-detection via `store-type` function
+- Interface functions in `ouroboros.interface`
 
-**Why it matters:** Ensures system fails fast with clear error messages when required binary is missing, improving user experience.
+**Status:** Implemented but untested and unused in production flow.
 
-**Source:** `src/ouroboros/git_embed.clj`, progress.md entry 2026-02-19.
+**Source:** `src/ouroboros/persistence.clj`, `src/ouroboros/interface.clj`
 
-```
-(def installed?
-  "Check if git-embed binary exists in PATH. Cached per session."
-  (memoize
-   (fn []
-     (some? (sh/which "git-embed")))))
+### Discovery 2: Current Memory System Architecture
 
-(defn ensure-installed!
-  "Throw if git-embed not installed."
-  []
-  (when-not (installed?)
-    (throw (ex-info "git-embed binary not found in PATH. Install via: npm install -g git-embed"
-                    {:type :missing-binary}))))
-```
+**What:** `src/ouroboros/memory.clj` uses EDN file storage with:
+- Single `memory.edn` file
+- Atom with debounced writes (~100ms)
+- Manual search functions (`search`, `get-value`, `save-value!`)
+- Telemetry integration for λ(system) tracking
 
-### Discovery 2: Hybrid search fix
+**Usage Patterns:** 
+- Learning system stores records via `memory/save-value!`
+- WebUX stores project/session data
+- Offline sync stores snapshots
+- Embed system stores tokens/webhooks
 
-**What:** Fixed keyword results not being used in hybrid search. Created keyword-score-map for O(1) lookup and added hybrid bonus for overlapping results.
+**Limitations:** 
+- No query capabilities beyond manual filtering
+- Single-file bottleneck
+- No schema validation
+- Manual indexing (e.g., `:learning/tag-index`)
 
-**Why it matters:** Improves search relevance by combining semantic and keyword matches effectively.
+### Discovery 3: Component System Gap
 
-**Source:** `src/ouroboros/learning/semantic.clj`, progress.md entry 2026-02-19.
+**What:** Database component (`components.clj`) returns `{:type :jsonl, :path "data/memory"}` but doesn't use Datalevin. Component lifecycle exists but persistence isn't wired in.
 
-```
-;; Weights: semantic 60%, keyword 30%, hybrid bonus 10%
-```
+**Opportunity:** Update database component to initialize Datalevin connection and schema.
 
-### Discovery 3: Auto index updates already working
+### Discovery 4: Data Types & Migration Priorities
 
-**What:** git-embed binary has already installed git hooks (post-commit, post-merge, post-checkout) that automatically update the semantic index. Index shows 514/568 blobs indexed.
+**Analysis of current memory usage:**
 
-**Why it matters:** The "Auto index updates on git commits" gap is already addressed - git-embed maintains its own hooks automatically.
+| Data Type | Examples | Priority | Reason |
+|-----------|----------|----------|--------|
+| **Sessions** | Chat sessions, user states | High | Discrete entities, clear schema |
+| **Projects** | Builder data (empathy, value prop, MVP, canvas) | High | Structured data, query benefits |
+| **Learning Records** | Learning IDs with metadata | Medium | Already has indexes, but could benefit |
+| **Learning Indexes** | `:learning/index`, `:learning/tag-index` | Medium | Manual indexes → Datalevin queries |
+| **Cache Data** | Query results, computed values | Low | Simple key-value, less benefit |
+| **Embed Data** | Tokens, webhooks | Low | Low volume, simple access |
 
-**Source:** `.git/hooks/post-commit` hook and `git embed status` command output.
+### Discovery 5: Datalevin Schema Approaches
 
-```
-Model:   nomic-embed-text-v1.5
-Indexed: 514 / 568 blobs
-Dims:    768
-Ref:     refs/embed/v1/index
-Hooks:   installed (post-commit, post-merge, post-checkout)
-```
+**Options:**
+1. **Pure EAV (Entity-Attribute-Value)** - Full datalog power, complex for nested data
+2. **Document Store (JSON strings)** - Simple, maintains nested structure, limited querying
+3. **Hybrid Approach** - Core attributes in EAV, nested data as JSON strings
 
-### Discovery 4: Code re-linking functionality exists
+**Recommendation:** Hybrid approach for flexibility:
+- `:session/id`, `:session/user-id`, `:session/created-at` as EAV attributes
+- `:session/data` as JSON string for nested session state
+- Enables both entity queries and full document retrieval
 
-**What:** Semantic search module already has comprehensive re-linking functionality: `auto-link-code!`, `batch-relink!`, `detect-stale-links`, `cleanup-stale-links!`. Chat command `/relink-all` triggers batch re-linking.
+### Discovery 6: Interface Compatibility
 
-**Why it matters:** Core functionality for "Code re-linking on changes" gap already implemented. Missing automatic triggering (not scheduled/hooked).
+**Current Interface:**
+- `iface/persistence-save!` and `iface/persistence-get` exist
+- Memory interface: `iface/remember`, `iface/recall`, `iface/q` for memory queries
+- Need backward compatibility during migration
 
-**Source:** `src/ouroboros/learning/semantic.clj` and `src/ouroboros/chat/commands.clj`.
-
-```
-;; Key functions already implemented:
-(auto-link-code! learning-id)          ; Link single learning to code
-(batch-relink! user-id)                ; Re-link all learnings for user  
-(detect-stale-links user-id)           ; Find learnings with broken file links
-(cleanup-stale-links! user-id)         ; Remove stale links
-```
-
-### Discovery 5: Chat command integration partially exists
-
-**What:** Chat commands already exist for semantic search: `/relink-all`, `/stale-links`, `/semantic-search`, `/semantic-stats`. Missing: health check commands, auto-relink enable/disable.
-
-**Why it matters:** "Chat command integration" gap partially addressed. Need comprehensive command coverage for all gaps.
-
-**Source:** `src/ouroboros/chat/commands.clj` command handlers.
+**Strategy:** Migration wrapper that:
+1. Checks Datalevin first
+2. Falls back to EDN if not found
+3. Writes to both during transition period
+4. Gradually migrates old data
 
 ---
 
@@ -97,47 +98,87 @@ Hooks:   installed (post-commit, post-merge, post-checkout)
 
 | Timestamp | Activity | Finding | Location |
 |-----------|----------|---------|----------|
-| 2026-02-19 | Code review | Binary health checks implemented | git_embed.clj |
-| 2026-02-19 | Code review | Hybrid search fix implemented | semantic.clj |
-| 2026-02-19 | Plan update | Marked completed gaps in PLAN.md | PLAN.md |
-| 2026-02-19 | Verification | Auto index updates already working via git-embed hooks | .git/hooks/post-commit, git embed status |
-| 2026-02-19 | Code review | Code re-linking functionality exists (batch-relink!, detect-stale-links) | semantic.clj, commands.clj |
-| 2026-02-19 | Code review | Chat commands partially implemented (/relink-all, /stale-links, /semantic-stats) | commands.clj |
+| 2026-02-20 | Code review | Datalevin persistence.clj exists but unused | persistence.clj |
+| 2026-02-20 | Code review | Memory system uses EDN with manual search | memory.clj |
+| 2026-02-20 | Analysis | Component system has database component but not using Datalevin | components.clj |
+| 2026-02-20 | Usage analysis | Identified 6 data types with migration priorities | Various source files |
+| 2026-02-20 | Architecture review | Dual persistence concept documented in architecture.md | docs/plan/architecture.md |
+| 2026-02-20 | Implementation | Created Datalevin schema with hybrid approach (EAV + JSON) | persistence/schema.clj |
+| 2026-02-20 | Implementation | Created migration strategy document with 4-phase plan | docs/migration/datalevin-migration.md |
+| 2026-02-20 | Implementation | Created datalevin-memory wrapper with 4 migration modes | persistence/datalevin_memory.clj |
+| 2026-02-20 | Implementation | Updated database component to initialize Datalevin | components.clj |
+| 2026-02-20 | Implementation | Rewrote memory.clj with migration delegation support | memory.clj (complete rewrite) |
 
----
+## Key Implementation Decisions
 
-## URLs & References
+### 1. Hybrid Schema Design
+**Decision:** Use EAV for queryable attributes, JSON strings for nested data
+**Rationale:** Balances query power with flexibility for complex nested structures
+**Implementation:** `persistence/schema.clj` defines 6 entity types with indexed fields
 
-| URL | Title | Relevance | Accessed |
-|-----|-------|-----------|----------|
-| _None yet_ | | | |
+### 2. Gradual Migration Strategy  
+**Decision:** 4-phase gradual migration over 8-13 days
+**Rationale:** Minimizes risk, allows rollback, maintains system availability
+**Phases:** Preparation → Dual-write → Read cutover → Write cutover
+
+### 3. Backward Compatibility Approach
+**Decision:** Modify memory.clj to delegate based on feature flag
+**Rationale:** 43 files import memory directly; changing all would be high-risk
+**Implementation:** New memory.clj checks `migration-enabled?` flag, delegates to datalevin-memory or uses EDN fallback
+
+### 4. Component Integration
+**Decision:** Update database component to initialize Datalevin
+**Rationale:** Component system provides natural lifecycle management
+**Implementation:** Database component calls `dm/init!` on startup, `dm/disconnect-datalevin!` on shutdown
+
+## Open Questions
+
+1. **Performance impact** - Need to benchmark Datalevin vs EDN for actual workloads
+2. **Schema evolution** - How to handle future schema changes in production?
+3. **Migration validation** - Need comprehensive test suite for migration scenarios
+4. **Rollback procedures** - Detailed steps for each rollback scenario
 
 ---
 
 ## Code Snippets
 
-### Binary health check caching
+### Existing Datalevin Implementation
 
-**Source:** `src/ouroboros/git_embed.clj`
-
-**Purpose:** Memoize install check to avoid repeated PATH lookups.
+**Source:** `src/ouroboros/persistence.clj`
 
 ```clojure
-(def installed?
-  "Check if git-embed binary exists in PATH. Cached per session."
-  (memoize
-   (fn []
-     (some? (sh/which "git-embed")))))
+(defn save-operational!
+  "Save data to operational store (Datalevin)
+   
+   Usage: (save! :sessions {:id \"s1\" :data {...}})"
+  [entity data]
+  (when-not @operational-db
+    (connect-operational!))
+  (d/transact! @operational-db
+    [[:db/add (d/tempid :db/id)
+      entity (merge {:created-at (System/currentTimeMillis)} data)]]))
 ```
 
-### Hybrid search weighting
+### Current Memory Storage Pattern
 
-**Source:** `src/ouroboros/learning/semantic.clj`
-
-**Purpose:** Combine semantic and keyword scores with hybrid bonus.
+**Source:** `src/ouroboros/learning/core.clj`
 
 ```clojure
-;; Weights: semantic 60%, keyword 30%, hybrid bonus 10%
+(memory/save-value! (keyword learning-id) validated)
+```
+
+### Component System Database Component
+
+**Source:** `src/ouroboros/components.clj`
+
+```clojure
+(comp/defcomponent database
+  :start (do
+           (log/info "[Component] Starting database")
+           {:type :jsonl
+            :path "data/memory"})
+  :stop (fn [state]
+          (log/info "[Component] Stopping database")))
 ```
 
 ---
@@ -146,8 +187,9 @@ Hooks:   installed (post-commit, post-merge, post-checkout)
 
 | Assumption | Validated? | Evidence | Date |
 |------------|------------|----------|------|
-| Binary health check needed | Yes | System fails without git-embed | 2026-02-19 |
-| Hybrid search improves relevance | Yes | Keyword results were previously ignored | 2026-02-19 |
+| Datalevin implementation exists | Yes | persistence.clj with full implementation | 2026-02-20 |
+| Memory system is EDN-based | Yes | memory.clj uses atom + EDN file | 2026-02-20 |
+| Component system has database component | Yes | components.clj defines :database | 2026-02-20 |
 
 ---
 
@@ -155,17 +197,18 @@ Hooks:   installed (post-commit, post-merge, post-checkout)
 
 | Assumption | Reality | Impact | Date |
 |------------|---------|--------|------|
-| _None yet_ | | | |
+| Datalevin is integrated with components | False | Database component doesn't use Datalevin | 2026-02-20 |
+| Persistence system is actively used | False | No calls to persistence-save! in codebase | 2026-02-20 |
 
 ---
 
 ## Open Questions
 
-1. How should git hooks be implemented to avoid performance impact?
-2. What validation is needed for index consistency?
-3. How to efficiently detect file changes for re-linking?
-4. What chat commands are most useful for users?
-5. How to ensure cross-platform compatibility for commands?
+1. **Performance impact** - How does Datalevin perform vs EDN for our data sizes?
+2. **Schema evolution** - How to handle schema changes in production?
+3. **Backup strategy** - Datalevin native backup vs custom export?
+4. **Query patterns** - Which datalog queries will be most valuable?
+5. **Migration timeline** - How long should dual-write period last?
 
 ---
 
@@ -173,21 +216,41 @@ Hooks:   installed (post-commit, post-merge, post-checkout)
 
 | File | Relevance | Notes |
 |------|-----------|-------|
-| `src/ouroboros/git_embed.clj` | Binary health checks | Implemented |
-| `src/ouroboros/learning/semantic.clj` | Hybrid search fix | Implemented |
-| `PLAN.md` | Gap tracking | Updated with checkmarks |
-| `progress.md` | Session log | Contains detailed changes |
-| `task_plan.md` | Current task plan | New plan for remaining gaps |
+| `src/ouroboros/persistence.clj` | Core Datalevin implementation | Needs integration |
+| `src/ouroboros/memory.clj` | Current storage system | Migration target |
+| `src/ouroboros/components.clj` | Component lifecycle | Integration point |
+| `src/ouroboros/interface.clj` | User interface | Backward compatibility |
+| `docs/plan/architecture.md` | Architecture documentation | Dual persistence concept |
+| `deps.edn` | Dependencies | Datalevin 0.10.5 already included |
 
 ---
 
 ## Synthesis Notes
 
-- Binary health checks and hybrid search fix were relatively straightforward implementations.
-- Remaining gaps involve more complex integration (git hooks, file change detection, chat commands).
-- Need to consider performance impact for auto-indexing and re-linking.
+### Migration Strategy Recommendations
+
+1. **Start Small**: Begin with session data migration - clear schema, high value
+2. **Dual-Write Phase**: Write to both EDN and Datalevin during transition
+3. **Read Fallback**: Check Datalevin first, fall back to EDN if missing
+4. **Background Migration**: Migrate old data in background job
+5. **Feature Flag**: Control via configuration for easy rollback
+
+### Technical Implementation Steps
+
+1. **Schema Design**: Define Datalevin schema for priority entities
+2. **Component Update**: Wire Datalevin into database component
+3. **Migration Wrapper**: Create `datalevin-memory` namespace that proxies calls
+4. **Telemetry**: Add metrics for migration progress and performance
+5. **Validation**: Create test suite comparing EDN vs Datalevin behavior
+
+### Risks & Mitigations
+
+- **Data loss**: Implement backup before migration, verify data integrity
+- **Performance regression**: Benchmark, add caching, monitor in production
+- **Complexity increase**: Keep migration simple, document thoroughly
+- **Rollback difficulty**: Maintain EDN writes during transition period
 
 ---
 
-*Last updated: 2026-02-19*  
+*Last updated: 2026-02-20*  
 *φ fractal euler | π synthesis | ∃ truth*
