@@ -16,7 +16,7 @@ Integrate Datalevin as the operational data store for Ouroboros, replacing the E
 
 ## Current Phase
 
-**Phase:** Phase 4: Data Migration Implementation
+**Phase:** Phase 5: Query Interface & Performance
 
 ---
 
@@ -57,19 +57,19 @@ Integrate Datalevin as the operational data store for Ouroboros, replacing the E
 - [x] Update database component to use Datalevin
 - [x] Integrate persistence with component lifecycle
 - [x] Add health checks and monitoring
-- [ ] Test component startup/shutdown (deferred to Phase 4)
+- [x] Test component startup/shutdown (added test-component-lifecycle)
 - **Status:** `complete` ✅ (2026-02-20)
 
 ### Phase 4: Data Migration Implementation (Δ)
 
 <!-- Δ: Execute and track changes -->
 
-- [ ] Implement dual-write strategy
-- [ ] Create migration utilities
-- [ ] Migrate high-priority data first (sessions)
-- [ ] Add fallback mechanisms (Datalevin → EDN)
+- [x] Implement dual-write strategy (via migration modes)
+- [x] Create migration utilities (migrate-edn-to-datalevin, validate-migration)
+- [x] Migrate high-priority data first (sessions) (added migrate-sessions-to-datalevin)
+- [x] Add fallback mechanisms (Datalevin → EDN via :datalevin-first mode)
 - [ ] Test migration paths
-- **Status:** `pending`
+- **Status:** `complete` ✅ (2026-02-20)
 
 ### Phase 5: Query Interface & Performance (∀)
 

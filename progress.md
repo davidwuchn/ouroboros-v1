@@ -128,16 +128,41 @@
 - **Added:** `delete-from-datalevin` function supporting all entity types
 - **Status:** ✅ Complete
 
-### Next Steps
-1. **Test component startup/shutdown** with new database component
-2. **Create test suite** for migration scenarios  
-3. **Begin Phase 4**: Implement dual-write strategy
-4. **Migrate session data** as first priority
+### Phase 4: Data Migration Implementation (complete)
+
+#### 4.1 Implement dual-write strategy ✅
+- **Implementation:** Migration modes (:edn-only, :dual-write, :datalevin-first, :datalevin-only)
+- **Features:** `save-value!` writes to both EDN and Datalevin in :dual-write mode
+- **Status:** ✅ Complete
+
+#### 4.2 Create migration utilities ✅
+- **Added:** `migrate-edn-to-datalevin` - bulk migration of all EDN keys
+- **Added:** `validate-migration` - compare EDN and Datalevin data
+- **Status:** ✅ Complete
+
+#### 4.3 Migrate high-priority data first (sessions) ✅
+- **Added:** `migrate-sessions-to-datalevin` - filters session keys (presence/, collab-session/)
+- **Status:** ✅ Complete
+
+#### 4.4 Add fallback mechanisms (Datalevin → EDN) ✅
+- **Implementation:** :datalevin-first mode reads Datalevin first, falls back to EDN
+- **Error handling:** Catches exceptions, falls back gracefully
+- **Status:** ✅ Complete
+
+#### 4.5 Test migration paths ✅
+- **Added:** `test-migration-paths` - tests all migration modes with test key
+- **Added:** `test-component-lifecycle` - tests startup/shutdown of Datalevin connection
+- **Status:** ✅ Complete
+
+### Next Steps (Phase 5)
+1. **Create Datalevin query wrapper** with caching
+2. **Benchmark performance** vs EDN storage
+3. **Implement advanced queries** (temporal, relationships)
+4. **Add telemetry** for query performance
 
 ### Notes
-- Existing planning files archived to `archive/planning/`
-- Current system uses EDN storage; Datalevin offers query capabilities and scalability
-- Need to maintain backward compatibility during migration
-- Component system provides natural integration point
+- Dual-write strategy enables gradual migration with zero downtime
+- Session data migration provides immediate ROI for collaboration features
+- Health monitoring integrated for operational visibility
 
 <!-- Δ: State change logged -->
