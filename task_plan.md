@@ -1,4 +1,4 @@
-# Task Plan: Datalevin Integration for Operational Data
+# Task Plan: Learning System Activation
 
 <!--
   φ: This is your roadmap. Working memory on disk.
@@ -10,13 +10,15 @@
 
 ## Goal (e — Purpose)
 
-Integrate Datalevin as the operational data store for Ouroboros, replacing the EDN-based memory system for sessions, projects, queries, and cache data while maintaining backward compatibility and integrating with the component lifecycle system.
+Activate the learning flywheel UI: complete flywheel phase stepper, wisdom sidebar integration, spaced repetition scheduling, and chat command integration to enable progressive learning from utility → understanding → insight → wisdom.
 
 ---
 
 ## Current Phase
 
-**Phase:** Phase 5: Query Interface & Performance
+**Phase:** Phase 5: Testing **Phase:** Phase 4: Chat Command Integration Polish
+
+**Phase:** Phase 3: Spaced Repetition Integration
 
 ---
 
@@ -32,66 +34,63 @@ Integrate Datalevin as the operational data store for Ouroboros, replacing the E
 
 <!-- τ: Understand before building -->
 
-- [x] Review existing Datalevin implementation (persistence.clj)
-- [x] Analyze current memory system usage patterns
-- [x] Identify data types for migration priority
-- [x] Test current persistence interface functions (deferred to implementation)
+- [x] Review current learning system implementation (backend + frontend)
+- [x] Identify gaps in flywheel UI components
+- [x] Document current state of spaced repetition system
+- [x] Verify chat command infrastructure readiness
 - [x] Document findings in findings.md
-- **Status:** `complete` ✅ (2026-02-20)
+- **Status:** `complete`
 
-### Phase 2: Schema Design & Migration Strategy (π)
+<!--
+  STATUS VALUES:
+  - pending: Not started
+  - in_progress: Currently working
+  - complete: Finished, verified
+  - blocked: Cannot proceed (document why)
+-->
+
+### Phase 2: Flywheel UI Polish (π) (SKIPPED)
 
 <!-- π: Synthesize findings into structure -->
 
-- [x] Design Datalevin schema for operational data
-- [x] Define migration strategy (gradual vs big bang)
-- [x] Create data mapping from EDN to Datalevin entities
-- [x] Plan backward compatibility approach
-- [x] Document decisions with rationale
-- **Status:** `complete` ✅ (2026-02-20)
+- [ ] Implement phase stepper component (4 levels: Utility → Understanding → Insight → Wisdom)
+- [ ] Integrate wisdom sidebar across all builder pages
+- [ ] Connect flywheel progress data to UI
+- [ ] Add flywheel indicator to navbar
+- [ ] Test flywheel navigation and state transitions
+- **Status:** `in_progress`
 
-### Phase 3: Component Integration (Δ)
-
-<!-- Δ: Execute and track changes -->
-
-- [x] Update database component to use Datalevin
-- [x] Integrate persistence with component lifecycle
-- [x] Add health checks and monitoring
-- [x] Test component startup/shutdown (added test-component-lifecycle)
-- **Status:** `complete` ✅ (2026-02-20)
-
-### Phase 4: Data Migration Implementation (Δ)
+### Phase 3: Spaced Repetition Integration (Δ) (COMPLETE) (IN PROGRESS)
 
 <!-- Δ: Execute and track changes -->
 
-- [x] Implement dual-write strategy (via migration modes)
-- [x] Create migration utilities (migrate-edn-to-datalevin, validate-migration)
-- [x] Migrate high-priority data first (sessions) (added migrate-sessions-to-datalevin)
-- [x] Add fallback mechanisms (Datalevin → EDN via :datalevin-first mode)
-- [ ] Test migration paths
-- **Status:** `complete` ✅ (2026-02-20)
+- [ ] Build review queue UI component
+- [ ] Implement review interaction (Remember/Forgot buttons)
+- [ ] Add scheduling logic for review intervals (1d, 3d, 1w, 3w)
+- [ ] Create review reminders/notifications
+- [ ] Test full spaced repetition cycle
+- **Status:** `pending` (User skipped)
 
-### Phase 5: Query Interface & Performance (∀)
+### Phase 4: Chat Command Integration (∀) (COMPLETE) (IN PROGRESS)
 
 <!-- ∀: Defensive checking -->
 
-- [ ] Create Datalevin query wrapper with caching
-- [ ] Benchmark performance vs EDN storage
-- [ ] Implement advanced queries (temporal, relationships)
-- [ ] Add telemetry for query performance
-- [ ] Verify all requirements met
-- **Status:** `pending`
+- [ ] Implement `/learn <pattern>` command (create learning from context)
+- [ ] Implement `/recall <query>` command (search learnings)
+- [ ] Implement `/wisdom` command (show current level + due reviews)
+- [ ] Implement `/build <type>` command (quick builder navigation)
+- [ ] Test all chat commands with user workflows
+- **Status:** `pending` (User skipped)
 
-### Phase 6: Integration & Verification (μ)
+### Phase 5: Testing ### Phase 5: Testing & Polish (μ) Polish (μ) (IN PROGRESS)
 
 <!-- μ: Direct, no fluff -->
 
-- [ ] Update learning system to use Datalevin where beneficial
-- [ ] Test WebUX collaboration data storage
-- [ ] Validate system performance under load
-- [ ] Create backup/restore procedures
-- [ ] Document final architecture
-- **Status:** `pending`
+- [ ] End-to-end flywheel testing (save → apply → review → level up)
+- [ ] UI polish (transitions, animations, accessibility)
+- [ ] Documentation updates (README.md, STATE.md)
+- [ ] Demo walkthrough preparation
+- **Status:** `pending` (User skipped)
 
 ---
 
@@ -99,11 +98,11 @@ Integrate Datalevin as the operational data store for Ouroboros, replacing the E
 
 <!-- π: Questions to answer during the task -->
 
-1. Which data types provide highest ROI for Datalevin migration? (sessions, projects, queries, cache, learning indexes)
-2. Should we use EAV schema or document storage (JSON strings) for nested data?
-3. How to handle backward compatibility during migration?
-4. What query patterns will be most valuable for the system?
-5. How to integrate Datalevin with existing telemetry and monitoring?
+1. What backend endpoints exist for flywheel progress and spaced repetition?
+2. Are the frontend WebSocket handlers for `:learning/flywheel` and `:learning/due-reviews` wired to UI?
+3. What's the current state of chat command parsing infrastructure?
+4. How should the phase stepper integrate with existing wisdom sidebar?
+5. What's the UX for review interactions (Remember/Forgot)?
 
 ---
 
@@ -113,9 +112,7 @@ Integrate Datalevin as the operational data store for Ouroboros, replacing the E
 
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| Start with session data migration | Sessions are discrete entities with clear schema, good for initial validation | 2026-02-20 |
-| Use hybrid schema approach (EAV for core, JSON for nested) | Balances query power with flexibility for complex data | 2026-02-20 |
-| Implement gradual migration with dual-write | Minimizes risk, allows rollback, maintains system uptime | 2026-02-20 |
+| | | |
 
 ---
 
@@ -125,10 +122,10 @@ Integrate Datalevin as the operational data store for Ouroboros, replacing the E
 
 | Risk | Likelihood | Mitigation |
 |------|------------|------------|
-| Data corruption during migration | Medium | Implement backup before migration, test on copy first |
-| Performance regression | Low | Benchmark before/after, add caching layer |
-| Schema evolution complexity | Medium | Use Datalevin's schema-on-write capabilities, version migrations |
-| Component startup dependency issues | Low | Add health checks, lazy initialization, fallback to EDN |
+| Backend endpoints missing for flywheel/reviews | Medium | Verify in Phase 1, implement if needed |
+| Chat command infrastructure incomplete | Medium | Check dispatcher/parser, extend if needed |
+| UI state management complexity | Low | Use existing Fulcro state patterns |
+| Spaced repetition algorithm edge cases | Low | Follow existing intervals from learning.clj |
 
 ---
 
@@ -138,7 +135,7 @@ Integrate Datalevin as the operational data store for Ouroboros, replacing the E
 
 | Error | Attempt | Resolution | Timestamp |
 |-------|---------|------------|-----------|
-| _None yet_ | - | - | - |
+| | | | |
 
 ---
 
@@ -150,8 +147,7 @@ Integrate Datalevin as the operational data store for Ouroboros, replacing the E
 - Re-read this plan before major decisions
 - Log ALL errors — they prevent repetition
 - Never repeat a failed action — mutate approach
-- Reference findings.md for research insights
-- Check STATE.md for current system status
+- Backend is complete (learning.core, learning.review), frontend handlers exist but UI needs wiring
 
 ---
 

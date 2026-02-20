@@ -97,7 +97,7 @@ Ouroboros learns from leading AI frameworks:
 | **Data** | Git history, File system, Memory, HTTP |
 | **AI** | LLM providers, Tool selection, Context |
 | **Chat** | Telegram, Discord, Slack bots, Rate limiting |
-| **Integration** | OpenAPI specs, Dashboard |
+| **Learning** | Spaced repetition, Pattern discovery, Chat commands, Review queue || **Integration** | OpenAPI specs, Dashboard |
 
 
 ## Usage
@@ -240,3 +240,50 @@ eca__skill :name "planning"
 ## License
 
 MIT — See LICENSE file
+
+## Learning System
+
+Ouroboros learns from your work and helps you apply insights across projects.
+
+### Spaced Repetition
+
+The learning system uses spaced repetition to help you retain insights:
+
+| Level | Description | Applications Needed |
+|-------|-------------|-------------------|
+| Utility | Quick tips, one-off patterns | 0+ |
+| Understanding | Deeper principles, concepts | 3+ |
+| Insight | Cross-project patterns, anti-patterns | 5+ |
+| Wisdom | Universal truths, philosophical insights | 8+ |
+
+### Chat Commands
+
+Use these commands in the chat panel to interact with the learning system:
+
+| Command | Description | Example |
+|----------|-------------|----------|
+| `/learn <title> -p <pattern> -c <category>` | Save a learning insight | `/learn Check nils -p "always check for nil" -c errors/fixes` |
+| `/recall <query>` | Search your learnings | `/recall nil safety` |
+| `/wisdom` | Show learning progress and due reviews | `/wisdom` |
+| `/build <type>` | Navigate to a builder | `/build empathy` (types: empathy, valueprop, mvp, canvas) |
+| `/help` | Show all commands | `/help` |
+
+### Review Queue
+
+When you have insights due for review:
+
+1. **Wisdom Page** — See your review queue at the bottom of the Wisdom page
+2. **Review Actions** — Rate how well you remembered each insight:
+   - **Again** (❌) — Forgot completely, review again soon
+   - **Hard** (😓) — Remembered with difficulty
+   - **Good** (😊) — Remembered well
+   - **Easy** (🎯) — Remembered perfectly, schedule far in future
+
+### Progress Tracking
+
+Track your learning journey:
+
+- **Total Insights** — All learnings saved
+- **Level Progress** — Current level and progress to next level
+- **Review Schedule** — Next review dates spaced optimally for retention
+

@@ -21,8 +21,44 @@
    [ouroboros.frontend.ws.state :as state]))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; localStorage Persistence
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (def ^:private storage-key "ouroboros.chat-conversations")
 (def ^:private active-conv-key "ouroboros.chat-active-conversation")
@@ -83,8 +119,44 @@
       (dissoc :loading?)))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Sidebar Width Persistence & Resize
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (defn- load-sidebar-width
   "Load persisted sidebar width from localStorage, or return default."
@@ -524,8 +596,44 @@
           (swap! state update-in [:chat/id :global :chat/show-conversations?] not)))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Context Detection
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (def fallback-context-suggestions
   "Fallback quick action suggestions shown while ECA generates context-aware ones.
@@ -589,8 +697,44 @@
       fallback)))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Clipboard Utility
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (defn- copy-to-clipboard!
   "Copy text to clipboard, returns a promise"
@@ -599,8 +743,44 @@
     (.writeText (.-clipboard js/navigator) text)))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Auto-resize textarea
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (defn- auto-resize-textarea!
   "Auto-resize a textarea element to fit its content"
@@ -613,8 +793,44 @@
       (set! (.-height (.-style el)) (str new-height "px")))))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Chat Message Component
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (defn chat-message
   "Render a single chat message with markdown, copy, edit/delete actions"
@@ -688,8 +904,44 @@
                                  content))))))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Quick Suggestions Component
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (defn quick-suggestions
   "Render context-aware quick action buttons"
@@ -705,8 +957,44 @@
                        suggestion)))))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Conversations List Component
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (defn conversations-list
   "Render the list of saved conversations"
@@ -749,8 +1037,44 @@
                         (dom/div :.chat-conv-empty "No conversations yet"))))))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Wisdom Tab Component (inline from components.cljs)
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (defn wisdom-tab-content
   "Wisdom content rendered inside the sidebar tab"
@@ -765,8 +1089,44 @@
              (ui/wisdom-panel-body {:phase phase :project-id project-id}))))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Context Tab Component
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (defn context-tab-content
   "Show current app context (page/phase) and chat context (conversation stats)"
@@ -819,8 +1179,44 @@
                                 (dom/li {:key s} s)))))))
 
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 ;; Chat Panel Component
 ;; ============================================================================
+
+;; ============================================================================
+;; Command Integration
+;; ============================================================================
+
+(defn- handle-command!
+  "Handle a chat command and return a message to display.
+   Returns nil if not a command."
+  [text]
+  (when-let [result (cmds/parse-and-execute text)]
+    (if (:error result)
+      {:role :assistant
+       :content (:error result)
+       :error? true
+       :timestamp (js/Date.now)}
+      {:role :assistant
+       :content (:message result)
+       :timestamp (js/Date.now)})))
 
 (defsc ChatPanel
   "Global slide-out chat sidebar with tabs: Chat / Wisdom / Context.

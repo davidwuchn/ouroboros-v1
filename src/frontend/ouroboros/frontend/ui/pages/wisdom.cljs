@@ -6,7 +6,8 @@
    - ouroboros.frontend.ui.wisdom.resize   - Drawer resize logic
    - ouroboros.frontend.ui.wisdom.bmc      - BMC canvas with clickable navigation
    - ouroboros.frontend.ui.wisdom.templates - Template section with search/filters
-   - ouroboros.frontend.ui.wisdom.learning  - Learning patterns section with apply actions"
+   - ouroboros.frontend.ui.wisdom.learning  - Learning patterns section with apply actions
+   - ouroboros.frontend.ui.wisdom.review    - Spaced repetition review queue"
   (:require
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom]
@@ -14,6 +15,7 @@
    [ouroboros.frontend.ui.wisdom.data :as data]
    [ouroboros.frontend.ui.wisdom.templates :as templates]
    [ouroboros.frontend.ui.wisdom.learning :as learning]
+   [ouroboros.frontend.ui.wisdom.review :as review]
    [ouroboros.frontend.websocket :as ws]))
 
 ;; ============================================================================
@@ -57,6 +59,9 @@
                               state (when state-atom @state-atom)
                               ws-project (get state :workspace/project)
                               project-id (:project/id ws-project)]
+                          ;; Request due reviews for spaced repetition
+                          (when (and state (ws/connected?))
+                            (ws/request-due-reviews!))
                           ;; Request all wisdom page data in batch (includes templates)
                           (when (and state
                                      (ws/connected?)
@@ -145,6 +150,15 @@
                                                                                  :description (get-in data/category-metadata [category :description])
                                                                                  :card-count insight-count}})))
                :on-close-drawer (fn []
-                                  (comp/set-state! this {:category-drawer/open? false}))}))))
+                                  (comp/set-state! this {:category-drawer/open? false}))})
+
+      ;; Review Queue Section
+             (review/review-queue
+              {:reviews (get state :learning/due-reviews)
+               :due-count (get state :learning/due-count 0)
+               :loading? (get state :learning/due-reviews-loading? false)
+               :on-complete #(review/complete-review-action! (:learning-id %1) %2)
+               :on-skip #(review/skip-review-action! (:learning-id %))
+               :on-refresh #(ws/request-due-reviews!)}))))
 
 (def ui-wisdom-page (comp/factory WisdomPage))

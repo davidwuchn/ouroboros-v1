@@ -1,4 +1,4 @@
-# Findings: Datalevin Integration for Operational Data
+# Findings: Learning System Activation
 
 <!--
   π: Research synthesis — your external memory for discoveries.
@@ -10,247 +10,344 @@
 
 ## Summary
 
-Datalevin is implemented but underutilized in Ouroboros. The dual persistence architecture (Datalevin for operational data + Git for knowledge) exists in code but isn't integrated into the component lifecycle or actively used. Current memory system uses EDN file storage with manual search functions. Migration to Datalevin offers significant benefits: datalog queries, ACID transactions, schema validation, and better scalability.
+<!-- π: High-level synthesis of what you found -->
+
+Backend learning system is fully implemented with core, index, search, analytics, review, and semantic modules. Frontend has WebSocket handlers for `:learning/flywheel`, `:learning/due-reviews`, `:learning/review-completed`, and `:learning/review-skipped` messages. Wisdom page has templates, categories, and insights UI components. Gap: Flywheel UI components (phase stepper, wisdom sidebar integration) and chat command parsing/execution not yet wired to handlers.
 
 ---
 
 ## Key Discoveries
 
-### Discovery 1: Existing Datalevin Implementation
+### Discovery 1: Backend Learning System Complete
 
-**What:** `src/ouroboros/persistence.clj` implements dual persistence system:
-- Datalevin for operational data (`save-operational!`, `get-operational`)
-- Git-backed for knowledge (`save-knowledge!`, `get-knowledge`)
-- Auto-detection via `store-type` function
-- Interface functions in `ouroboros.interface`
+**What:** Learning system backend is modularized into 11 modules: core, index, search, analytics, review, semantic, empathy_map, value_proposition, mvp_planning, lean_canvas, and cli.
 
-**Status:** Implemented but untested and unused in production flow.
+**Why it matters:** Backend foundation is solid. Focus should be on frontend UI integration and chat command wiring.
 
-**Source:** `src/ouroboros/persistence.clj`, `src/ouroboros/interface.clj`
+**Source:** `/src/ouroboros/learning/` directory analysis
 
-### Discovery 2: Current Memory System Architecture
+```
+src/ouroboros/learning/
+├── analytics.clj      # User stats, gap detection
+├── cli.clj           # CLI commands for learning
+├── core.clj          # Core CRUD operations, deduplication
+├── empathy_map.clj   # Empathy map-specific patterns
+├── index.clj         # Search indexing
+├── lean_canvas.clj   # Lean canvas-specific patterns
+├── mvp_planning.clj  # MVP-specific patterns
+├── review.clj        # Spaced repetition logic
+├── search.clj        # Search functionality
+└── semantic.clj      # Vector-based semantic search
+```
 
-**What:** `src/ouroboros/memory.clj` uses EDN file storage with:
-- Single `memory.edn` file
-- Atom with debounced writes (~100ms)
-- Manual search functions (`search`, `get-value`, `save-value!`)
-- Telemetry integration for λ(system) tracking
+**Key Backend Functions:**
+- `save-insight!` - Create learning
+- `get-user-history` - Retrieve user learnings
+- `recall-by-pattern` - Search by pattern
+- `get-user-stats` - Statistics (total, by level, review stats)
+- `due-reviews` - Get spaced repetition queue
+- `mark-review!` - Mark learning reviewed (update level/interval)
+- `find-related` - Find related learnings
 
-**Usage Patterns:** 
-- Learning system stores records via `memory/save-value!`
-- WebUX stores project/session data
-- Offline sync stores snapshots
-- Embed system stores tokens/webhooks
+---
 
-**Limitations:** 
-- No query capabilities beyond manual filtering
-- Single-file bottleneck
-- No schema validation
-- Manual indexing (e.g., `:learning/tag-index`)
+### Discovery 2: Frontend WebSocket Handlers Exist
 
-### Discovery 3: Component System Gap
+**What:** Frontend has complete WebSocket message handlers for learning flywheel and spaced repetition in `ws/handlers/learning.cljs`.
 
-**What:** Database component (`components.clj`) returns `{:type :jsonl, :path "data/memory"}` but doesn't use Datalevin. Component lifecycle exists but persistence isn't wired in.
+**Why it matters:** No backend changes needed. Focus is on UI components that consume these handlers.
 
-**Opportunity:** Update database component to initialize Datalevin connection and schema.
+**Source:** `/src/frontend/ouroboros/frontend/ws/handlers/learning.cljs`
 
-### Discovery 4: Data Types & Migration Priorities
+```
+Handlers implemented:
+- :learning/categories (stores categories in app state)
+- :wisdom/page-data (batch templates + categories)
+- :learning/category-insights (store per-category insights)
+- :project/detected (workspace detection)
+- :eca/auto-insight-* (auto-insight streaming)
+- :learning/flywheel (flywheel progress data)
+- :learning/due-reviews (spaced repetition queue)
+- :learning/review-completed (remove from queue, update counts)
+- :learning/review-skipped (remove from queue)
+- :learning/search-results (search response)
+```
 
-**Analysis of current memory usage:**
+**App State Structure:**
+```clojure
+{:learning/categories []
+ :learning/total-insights 0
+ :learning/flywheel-loading? false
+ :learning/total 42
+ :learning/by-level {:utility 15 :understanding 12 :insight 10 :wisdom 5}
+ :learning/current-level :understanding
+ :learning/progress-to-next 0.67
+ :learning/suggested-focus "mvp-strategy"
+ :learning/recent-insights [...]
+ :learning/due-reviews [...]
+ :learning/due-count 3
+ :learning/review-stats {...}}
+```
 
-| Data Type | Examples | Priority | Reason |
-|-----------|----------|----------|--------|
-| **Sessions** | Chat sessions, user states | High | Discrete entities, clear schema |
-| **Projects** | Builder data (empathy, value prop, MVP, canvas) | High | Structured data, query benefits |
-| **Learning Records** | Learning IDs with metadata | Medium | Already has indexes, but could benefit |
-| **Learning Indexes** | `:learning/index`, `:learning/tag-index` | Medium | Manual indexes → Datalevin queries |
-| **Cache Data** | Query results, computed values | Low | Simple key-value, less benefit |
-| **Embed Data** | Tokens, webhooks | Low | Low volume, simple access |
+---
 
-### Discovery 5: Datalevin Schema Approaches
+### Discovery 3: Wisdom UI Has Templates, Categories, Insights
 
-**Options:**
-1. **Pure EAV (Entity-Attribute-Value)** - Full datalog power, complex for nested data
-2. **Document Store (JSON strings)** - Simple, maintains nested structure, limited querying
-3. **Hybrid Approach** - Core attributes in EAV, nested data as JSON strings
+**What:** Wisdom page (`wisdom/data.cljs`) has comprehensive UI components for templates, learning categories, insights, and contextual wisdom cards.
 
-**Recommendation:** Hybrid approach for flexibility:
-- `:session/id`, `:session/user-id`, `:session/created-at` as EAV attributes
-- `:session/data` as JSON string for nested session state
-- Enables both entity queries and full document retrieval
+**Why it matters:** Most UI infrastructure exists. Need to add phase stepper, flywheel progress visualization, and review queue UI.
 
-### Discovery 6: Interface Compatibility
+**Source:** `/src/frontend/ouroboros/frontend/ui/wisdom/data.cljs`
 
-**Current Interface:**
-- `iface/persistence-save!` and `iface/persistence-get` exist
-- Memory interface: `iface/remember`, `iface/recall`, `iface/q` for memory queries
-- Need backward compatibility during migration
+```
+Components available:
+- fallback-templates (static template cards)
+- fallback-learning-categories-base (5 categories with icons/descriptions)
+- default-category-insights (pre-filled insights for instant loading)
+- contextual-wisdom-cards (flywheel-specific wisdom by phase)
+- bmc-block-config (Lean Canvas block mappings)
+- wisdom-state (global state atom)
+- template-filters (filter by B2B, B2C, Developer, etc.)
+```
 
-**Strategy:** Migration wrapper that:
-1. Checks Datalevin first
-2. Falls back to EDN if not found
-3. Writes to both during transition period
-4. Gradually migrates old data
+**Missing Components:**
+1. Flywheel phase stepper (Utility → Understanding → Insight → Wisdom)
+2. Flywheel progress visualization (progress bar, level indicator)
+3. Review queue UI component (cards with Remember/Forgot buttons)
+4. Chat command parser/executor
+
+---
+
+### Discovery 4: Chat Panel Has Command Infrastructure
+
+**What:** Chat panel (`ui/chat_panel.cljs`) has localStorage persistence, conversation management, and keyboard shortcuts. No chat command parsing visible.
+
+**Why it matters:** Need to implement command parser that intercepts `/learn`, `/recall`, `/wisdom`, `/build` commands and routes to backend.
+
+**Source:** `/src/frontend/ouroboros/frontend/ui/chat_panel.cljs` (first 100 lines)
+
+```
+Features implemented:
+- localStorage persistence (conversations, active ID, sidebar width)
+- Resize sidebar
+- Multiple conversations (max 20)
+- Keyboard shortcuts: Ctrl+/ toggle, Escape close, Ctrl+L clear
+- Tabbed sidebar: Chat / Wisdom / Context
+
+Missing:
+- Command parser (/learn, /recall, /wisdom, /build)
+- Command execution via WebSocket
+- Command help/integration
+```
+
+---
+
+### Discovery 5: Frontend API Functions Exist But Not Called
+
+**What:** Frontend API has complete functions for flywheel and spaced repetition, but no UI components call them.
+
+**Why it matters:** API is ready. Need to build UI components that call these functions.
+
+**Source:** `/src/frontend/ouroboros/frontend/ws/api.cljs`
+
+```
+API functions implemented (not called from UI):
+- request-learning-flywheel! - Request flywheel progress
+- request-due-reviews! - Request due reviews
+- complete-review! - Complete a review with confidence (1-4)
+- skip-review! - Skip a review (reschedules with shorter interval)
+- search-learnings! - Search learning insights by query
+```
+
+**UX Gap:** No flywheel progress UI, no review queue UI, no chat command invocation.
 
 ---
 
 ## Research Log
 
+<!-- Δ: Chronological record of research activities -->
+
 | Timestamp | Activity | Finding | Location |
 |-----------|----------|---------|----------|
-| 2026-02-20 | Code review | Datalevin persistence.clj exists but unused | persistence.clj |
-| 2026-02-20 | Code review | Memory system uses EDN with manual search | memory.clj |
-| 2026-02-20 | Analysis | Component system has database component but not using Datalevin | components.clj |
-| 2026-02-20 | Usage analysis | Identified 6 data types with migration priorities | Various source files |
-| 2026-02-20 | Architecture review | Dual persistence concept documented in architecture.md | docs/plan/architecture.md |
-| 2026-02-20 | Implementation | Created Datalevin schema with hybrid approach (EAV + JSON) | persistence/schema.clj |
-| 2026-02-20 | Implementation | Created migration strategy document with 4-phase plan | docs/migration/datalevin-migration.md |
-| 2026-02-20 | Implementation | Created datalevin-memory wrapper with 4 migration modes | persistence/datalevin_memory.clj |
-| 2026-02-20 | Implementation | Updated database component to initialize Datalevin | components.clj |
-| 2026-02-20 | Implementation | Rewrote memory.clj with migration delegation support | memory.clj (complete rewrite) |
+| 2026-02-19T10:00 | Read learning system directory | 11 modules, backend complete | `/src/ouroboros/learning/` |
+| 2026-02-19T10:05 | Read interface/learning.clj | Lazy-loaded API exposed | `/src/ouroboros/interface/learning.clj` |
+| 2026-02-19T10:10 | Read wisdom/data.cljs | UI components exist | `/src/frontend/ouroboros/frontend/ui/wisdom/data.cljs` |
+| 2026-02-19T10:15 | Read learning.cljs handlers | All handlers implemented | `/src/frontend/ouroboros/frontend/ws/handlers/learning.cljs` |
+| 2026-02-19T10:20 | Read chat_panel.cljs | Command infrastructure missing | `/src/frontend/ouroboros/frontend/ui/chat_panel.cljs` |
+| 2026-02-19T10:25 | Grep for flywheel references | Found in multiple files | Frontend codebase |
+| 2026-02-19T10:30 | Read backend ws/handlers/learning.clj | All endpoints implemented | `/src/ouroboros/ws/handlers/learning.clj` |
+| 2026-02-19T10:35 | Read ws/dispatch.clj | All handlers registered | `/src/ouroboros/ws/dispatch.clj` |
+| 2026-02-19T10:40 | Read websocket.clj | Auto-sends :connected, :project/detected | `/src/ouroboros/websocket.clj` |
+| 2026-02-19T10:45 | Read frontend ws/api.cljs | API functions exist, not called | `/src/frontend/ouroboros/frontend/ws/api.cljs` |
 
-## Key Implementation Decisions
+---
 
-### 1. Hybrid Schema Design
-**Decision:** Use EAV for queryable attributes, JSON strings for nested data
-**Rationale:** Balances query power with flexibility for complex nested structures
-**Implementation:** `persistence/schema.clj` defines 6 entity types with indexed fields
+## URLs & References
 
-### 2. Gradual Migration Strategy  
-**Decision:** 4-phase gradual migration over 8-13 days
-**Rationale:** Minimizes risk, allows rollback, maintains system availability
-**Phases:** Preparation → Dual-write → Read cutover → Write cutover
+<!-- π: External resources -->
 
-### 3. Backward Compatibility Approach
-**Decision:** Modify memory.clj to delegate based on feature flag
-**Rationale:** 43 files import memory directly; changing all would be high-risk
-**Implementation:** New memory.clj checks `migration-enabled?` flag, delegates to datalevin-memory or uses EDN fallback
-
-### 4. Component Integration
-**Decision:** Update database component to initialize Datalevin
-**Rationale:** Component system provides natural lifecycle management
-**Implementation:** Database component calls `dm/init!` on startup, `dm/disconnect-datalevin!` on shutdown
-
-## Open Questions
-
-1. **Performance impact** - Need to benchmark Datalevin vs EDN for actual workloads
-2. **Schema evolution** - How to handle future schema changes in production?
-3. **Migration validation** - Need comprehensive test suite for migration scenarios
-4. **Rollback procedures** - Detailed steps for each rollback scenario
+| URL | Title | Relevance | Accessed |
+|-----|-------|-----------|----------|
+| | | | |
 
 ---
 
 ## Code Snippets
 
-### Existing Datalevin Implementation
+<!-- Useful code discovered during research -->
 
-**Source:** `src/ouroboros/persistence.clj`
+### Snippet 1: Flywheel Handler
+
+**Source:** `/src/frontend/ouroboros/frontend/ws/handlers/learning.cljs`
+
+**Purpose:** Handler for flywheel progress data
 
 ```clojure
-(defn save-operational!
-  "Save data to operational store (Datalevin)
-   
-   Usage: (save! :sessions {:id \"s1\" :data {...}})"
-  [entity data]
-  (when-not @operational-db
-    (connect-operational!))
-  (d/transact! @operational-db
-    [[:db/add (d/tempid :db/id)
-      entity (merge {:created-at (System/currentTimeMillis)} data)]]))
+(defmethod dispatch/handle-message :learning/flywheel
+  [{:keys [total by-level current-level progress-to-next suggested-focus recent-insights]}]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc :learning/total total)
+                 (assoc :learning/by-level by-level)
+                 (assoc :learning/current-level current-level)
+                 (assoc :learning/progress-to-next progress-to-next)
+                 (assoc :learning/suggested-focus suggested-focus)
+                 (assoc :learning/recent-insights recent-insights)
+                 (assoc :learning/flywheel-loading? false))))
+    (state/schedule-render!)))
 ```
 
-### Current Memory Storage Pattern
+### Snippet 2: Due Reviews Handler
 
-**Source:** `src/ouroboros/learning/core.clj`
+**Source:** `/src/frontend/ouroboros/frontend/ws/handlers/learning.cljs`
+
+**Purpose:** Handler for spaced repetition queue
 
 ```clojure
-(memory/save-value! (keyword learning-id) validated)
+(defmethod dispatch/handle-message :learning/due-reviews
+  [{:keys [reviews due-count stats]}]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (assoc :learning/due-reviews reviews)
+                 (assoc :learning/due-count due-count)
+                 (assoc :learning/review-stats stats)
+                 (assoc :learning/due-reviews-loading? false))))
+    (state/schedule-render!)))
 ```
 
-### Component System Database Component
+### Snippet 3: Review Completion Handler
 
-**Source:** `src/ouroboros/components.clj`
+**Source:** `/src/frontend/ouroboros/frontend/ws/handlers/learning.cljs`
+
+**Purpose:** Handler for marking review as complete
 
 ```clojure
-(comp/defcomponent database
-  :start (do
-           (log/info "[Component] Starting database")
-           {:type :jsonl
-            :path "data/memory"})
-  :stop (fn [state]
-          (log/info "[Component] Stopping database")))
+(defmethod dispatch/handle-message :learning/review-completed
+  [{:keys [learning-id title level]}]
+  (when-let [state-atom @state/app-state-atom]
+    (swap! state-atom
+           (fn [s]
+             (-> s
+                 (update :learning/due-reviews
+                         (fn [reviews]
+                           (remove #(= (:learning-id %) learning-id) reviews)))
+                 (update :learning/due-count dec))))
+    (state/schedule-render!)))
 ```
 
 ---
 
 ## Assumptions Validated
 
+<!-- ∃: What we confirmed to be true -->
+
 | Assumption | Validated? | Evidence | Date |
 |------------|------------|----------|------|
-| Datalevin implementation exists | Yes | persistence.clj with full implementation | 2026-02-20 |
-| Memory system is EDN-based | Yes | memory.clj uses atom + EDN file | 2026-02-20 |
-| Component system has database component | Yes | components.clj defines :database | 2026-02-20 |
+| Backend learning system complete | ✅ Yes | 11 modules with full CRUD | 2026-02-19 |
+| Frontend handlers exist | ✅ Yes | All handlers in learning.cljs | 2026-02-19 |
+| Wisdom UI components exist | ✅ Yes | Templates, categories, insights | 2026-02-19 |
+| Chat command infrastructure exists | ❌ No | No parser found in chat_panel.cljs | 2026-02-19 |
+| Frontend API functions exist | ✅ Yes | request-learning-flywheel, request-due-reviews, etc. | 2026-02-19 |
+| API functions called from UI | ❌ No | Grep found zero usages | 2026-02-19 |
 
 ---
 
 ## Assumptions Invalidated
 
+<!-- ∃: What we learned was wrong -->
+
 | Assumption | Reality | Impact | Date |
 |------------|---------|--------|------|
-| Datalevin is integrated with components | False | Database component doesn't use Datalevin | 2026-02-20 |
-| Persistence system is actively used | False | No calls to persistence-save! in codebase | 2026-02-20 |
+| Need to implement backend endpoints | No, handlers already exist | Focus on UI only | 2026-02-19 |
 
 ---
 
 ## Open Questions
 
-1. **Performance impact** - How does Datalevin perform vs EDN for our data sizes?
-2. **Schema evolution** - How to handle schema changes in production?
-3. **Backup strategy** - Datalevin native backup vs custom export?
-4. **Query patterns** - Which datalog queries will be most valuable?
-5. **Migration timeline** - How long should dual-write period last?
+<!-- Questions still unanswered -->
+
+1. Where should the flywheel phase stepper be placed? (Wisdom page? Navbar? Both?)
+2. How should chat commands be parsed? (Regex? Custom parser?)
+3. Should review queue be a modal, sidebar, or separate page?
+4. What's the UX flow for "Remember" vs "Forgot" in reviews?
+5. Should flywheel/due-reviews be auto-requested on WS connect or on-demand?
+6. Where should chat command help be displayed? (Welcome message? /help command?)
 
 ---
 
 ## Related Files
 
+<!-- Links to relevant code, docs, artifacts -->
+
 | File | Relevance | Notes |
 |------|-----------|-------|
-| `src/ouroboros/persistence.clj` | Core Datalevin implementation | Needs integration |
-| `src/ouroboros/memory.clj` | Current storage system | Migration target |
-| `src/ouroboros/components.clj` | Component lifecycle | Integration point |
-| `src/ouroboros/interface.clj` | User interface | Backward compatibility |
-| `docs/plan/architecture.md` | Architecture documentation | Dual persistence concept |
-| `deps.edn` | Dependencies | Datalevin 0.10.5 already included |
+| `/src/ouroboros/learning/core.clj` | Backend core | CRUD, flywheel thresholds, review intervals |
+| `/src/ouroboros/learning/review.clj` | Spaced repetition | Due queue, mark-review! logic |
+| `/src/ouroboros/interface/learning.clj` | API layer | Lazy-loaded API for learning operations |
+| `/src/frontend/ouroboros/frontend/ws/handlers/learning.cljs` | Frontend handlers | All message handlers implemented |
+| `/src/frontend/ouroboros/frontend/ui/wisdom/data.cljs` | Wisdom UI | Templates, categories, insights |
+| `/src/frontend/ouroboros/frontend/ui/chat_panel.cljs` | Chat UI | Panel component, no command parser |
+| `/src/frontend/ouroboros/frontend/ws/dispatch.cljs` | Dispatcher | Message routing to handlers |
 
 ---
 
 ## Synthesis Notes
 
-### Migration Strategy Recommendations
+<!-- π: Connect the dots between findings -->
 
-1. **Start Small**: Begin with session data migration - clear schema, high value
-2. **Dual-Write Phase**: Write to both EDN and Datalevin during transition
-3. **Read Fallback**: Check Datalevin first, fall back to EDN if missing
-4. **Background Migration**: Migrate old data in background job
-5. **Feature Flag**: Control via configuration for easy rollback
+**Backend → Frontend Gap:** Backend is complete, frontend handlers are complete, API functions exist but no UI components call them.
 
-### Technical Implementation Steps
+**Phase 2 (Flywheel UI Polish) Focus:**
+- Phase stepper component (visual 4-level progress: Utility → Understanding → Insight → Wisdom)
+- Wisdom sidebar integration with flywheel data (current-level, progress-to-next, suggested-focus)
+- Flywheel indicator in navbar (or wisdom page)
+- Call `request-learning-flywheel!` on component mount
 
-1. **Schema Design**: Define Datalevin schema for priority entities
-2. **Component Update**: Wire Datalevin into database component
-3. **Migration Wrapper**: Create `datalevin-memory` namespace that proxies calls
-4. **Telemetry**: Add metrics for migration progress and performance
-5. **Validation**: Create test suite comparing EDN vs Datalevin behavior
+**Phase 3 (Spaced Repetition) Focus:**
+- Review queue UI component (due-reviews as cards)
+- Review interaction buttons (Remember [confidence 1-4], Forgot)
+- Call `request-due-reviews!` on component mount
+- Send `complete-review!` / `skip-review!` on user action
+- Review reminder notification (badge count in navbar)
 
-### Risks & Mitigations
+**Phase 4 (Chat Commands) Focus:**
+- Command parser (`/learn`, `/recall`, `/wisdom`, `/build`)
+- Command routing to WS handlers
+- Help text for commands
+- Integrate parser into chat panel message handler
 
-- **Data loss**: Implement backup before migration, verify data integrity
-- **Performance regression**: Benchmark, add caching, monitor in production
-- **Complexity increase**: Keep migration simple, document thoroughly
-- **Rollback difficulty**: Maintain EDN writes during transition period
+**Design Questions to Resolve:**
+1. Flywheel stepper placement (navbar badge vs wisdom page header vs both)
+2. Review queue presentation (modal, sidebar tab, separate page)
+3. Command format (e.g., `/learn "title" -p "pattern"` vs `/learn title=... pattern=...`)
+4. Auto-request strategy (on connect vs on page load vs on-demand)
+5. Confidence UI (1-4 scale vs emoji feedback vs swipe gesture)
 
 ---
 
-*Last updated: 2026-02-20*  
+*Last updated: 2026-02-19T10:30*
 *φ fractal euler | π synthesis | ∃ truth*

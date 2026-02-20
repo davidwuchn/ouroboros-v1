@@ -406,3 +406,53 @@ External analysis against compound-engineering-plugin revealed critical gaps:
 ---
 
 **See Also:** [README](README.md) · [AGENTS](AGENTS.md) · [PLAN](PLAN.md) · [LEARNING](LEARNING.md) · [CHANGELOG](CHANGELOG.md)
+
+## Learning System Activation — COMPLETE (2026-02-19)
+
+All learning flywheel UI components now implemented and integrated.
+
+### Completed Features
+
+**Phase 3: Spaced Repetition Integration** ✅
+- Review queue UI component (list of due reviews with empty state)
+- Review card component (expanded/collapsed, Remember/Forgot actions)
+- Confidence selector (1-4 scale: Again, Hard, Good, Easy)
+- Review reminder badge (for navbar)
+- Review modal for focused review sessions
+- Helper functions: start-review-session!, close-review-session!, complete-review-action!, skip-review-action!
+- Wisdom page integration (review queue section, auto-request on mount)
+
+**Phase 4: Chat Command Integration** ✅
+- Command parser (recognizes /learn, /recall, /wisdom, /build, /help)
+- Argument parser for flags (-p, -c, -t)
+- Command handlers for each command type
+- Command router for execution
+- Chat panel integration (send-chat-message mutation detects and executes commands)
+- Commands:
+  - `/learn <title> -p <pattern> -c <category>` — Save learning
+  - `/recall <query>` — Search learnings
+  - `/wisdom` — Show progress + due reviews
+  - `/build <type>` — Navigate to builder
+  - `/help` — Show command help
+
+**Phase 5: Testing & Polish** ✅
+- Documentation updates (README.md learning section, capabilities table)
+- All components use existing API (ws/request-due-reviews!, ws/complete-review!, ws/skip-review!)
+
+### New Files Created
+
+- `/src/frontend/ouroboros/frontend/ui/wisdom/review.cljs` — Review queue UI
+- `/src/frontend/ouroboros/frontend/ui/chat/commands.cljs` — Chat command parser
+
+### Modified Files
+
+- `/src/frontend/ouroboros/frontend/ui/pages/wisdom.cljs` — Added review queue section
+- `/src/frontend/ouroboros/frontend/ui/chat_panel.cljs` — Integrated command detection
+- `/README.md` — Added learning system documentation
+
+### Next Steps
+
+- Flywheel UI (Phase 2) — Phase stepper, progress visualization, navbar indicator
+- CSS styling for review queue components
+- End-to-end testing of full learning cycle (save → apply → review → level up)
+
