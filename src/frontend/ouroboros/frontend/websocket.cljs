@@ -83,6 +83,7 @@
 (def request-learning-categories! api/request-learning-categories!)
 (def request-category-insights! api/request-category-insights!)
 (def request-learning-flywheel! api/request-learning-flywheel!)
+(def request-wisdom-page-data! api/request-wisdom-page-data!)
 (def request-due-reviews! api/request-due-reviews!)
 (def complete-review! api/complete-review!)
 (def skip-review! api/skip-review!)

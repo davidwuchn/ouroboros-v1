@@ -183,10 +183,10 @@
                         (dom/h4 "All Caught Up!")
                         (dom/p "You've reviewed all your learnings.")
                         (dom/p {:className "review-empty-hint"}
-                               "New reviews will appear based on your spaced repetition schedule."))
+                               "New reviews will appear based on your spaced repetition schedule.")
                         (dom/button {:className "btn btn-primary"
                                      :onClick on-refresh}
-                                   "Check Later")))))
+                                    "Check Later"))))))
 
 ;; ============================================================================
 ;; Review Reminder Badge
